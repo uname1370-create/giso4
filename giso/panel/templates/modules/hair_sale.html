@@ -1,0 +1,198 @@
+{% extends 'layout.html' %}
+{% block title %}فروش مو - پنل مدیریت گیسو{% endblock %}
+{% block content %}
+<div class="pnl-page">
+    <h1 class="pnl-h1">💇 مدیریت فروش مو</h1>
+    <p class="pnl-sub">۳ وضعیت کاری: در حال بررسی / رد شد / ثبت قیمت نهایی — همه تغییرات در همین صفحه</p>
+
+    <div class="pnl-tabs-wrap">
+        <div class="pnl-tabs" data-tabs>
+            <span class="pnl-tab active" data-pane="requests">📋 درخواست‌ها <span class="pnl-tab-badge">{{ hair_orders|length }}</span></span>
+            {% if site_visible.get('reports', True) %}<span class="pnl-tab" data-pane="reports">📊 گزارش‌ها</span>{% endif %}
+            {% if is_super %}<span class="pnl-tab" data-pane="prices">💰 قیمت‌های پایه</span>{% endif %}
+        </div>
+    </div>
+
+    <!-- ═══ تب ۱: درخواست‌ها (فلو ۳حالته) ═══ -->
+    <section class="pnl-pane show" id="pane-requests">
+        <div class="pnl-btn-row pnl-filters" style="margin-bottom:14px;">
+            <a href="{{ url_for('panel.hair_sale', h_status='all') }}#pane-requests" class="pnl-btn {{ 'pnl-btn-gold' if h_status=='all' else 'pnl-btn-outline' }}">همه</a>
+            <a href="{{ url_for('panel.hair_sale', h_status='review') }}#pane-requests" class="pnl-btn {{ 'pnl-btn-gold' if h_status=='review' else 'pnl-btn-outline' }}">🔍 در حال بررسی</a>
+            <a href="{{ url_for('panel.hair_sale', h_status='priced') }}#pane-requests" class="pnl-btn {{ 'pnl-btn-gold' if h_status=='priced' else 'pnl-btn-outline' }}">💰 قیمت ثبت‌شده</a>
+            <a href="{{ url_for('panel.hair_sale', h_status='rejected') }}#pane-requests" class="pnl-btn {{ 'pnl-btn-gold' if h_status=='rejected' else 'pnl-btn-outline' }}">❌ رد شد</a>
+        </div>
+
+        {% if hair_orders %}
+        {% for h in hair_orders %}
+        <div class="pnl-hair-card">
+            <div class="pnl-hair-photo">
+                {% if h.photo_path %}
+                <a href="{{ url_for('static', filename=h.photo_path) }}" target="_blank">
+                    <img src="{{ url_for('static', filename=h.photo_path) }}" alt="عکس مو" loading="lazy">
+                </a>
+                {% else %}
+                <span class="pnl-hair-nophoto">بدون عکس</span>
+                {% endif %}
+            </div>
+            <div class="pnl-hair-info">
+                <div class="pnl-hair-head">
+                    <strong>درخواست #{{ h.id }} — {{ h.customer_name or '—' }}</strong>
+                    <span dir="ltr" class="pnl-muted">{{ h.phone }}</span>
+                </div>
+                <div class="pnl-hair-meta">
+                    <span>📏 طول: <b>{{ h.length_cm }} سانتی‌متر</b></span>
+                    <span>🎨 نوع: <b>{{ h.hair_color or h.hair_type or '—' }}</b></span>
+                    <span>🛡 سلامت: <b>{{ h.hair_health or '—' }}</b></span>
+                    <span>⚖️ حجم: <b>{{ h.hair_weight or '—' }}</b></span>
+                    <span>💰 قیمت تخمینی: <b>{{ h.estimated_price or '—' }}</b></span>
+                    {% if h.final_price %}
+                    <span>💎 قیمت نهایی: <b style="color:#8a5a1e;">{{ fmt_amount(h.final_price) }} تومان</b></span>
+                    {% endif %}
+                    <span>📅 تاریخ: {{ h.created_at }}</span>
+                </div>
+                {% if h.admin_note %}<div class="pnl-hair-note">📝 یادداشت: {{ h.admin_note }}</div>{% endif %}
+                {% set msgs = hair_messages_dict.get(h.id, []) %}
+                {% if site_visible.get('message', True) %}
+                <details class="pnl-details">
+                    <summary>💬 گفتگو ({{ msgs|length }})</summary>
+                    {% for m in msgs %}
+                    <div class="pnl-tx-row"><b>{{ 'کارشناس' if m.sender=='admin' else 'مشتری' }}:</b> {{ m.message }}</div>
+                    {% endfor %}
+                    <form method="POST" action="{{ url_for('admin_hair_order_message', order_id=h.id) }}" style="display:flex; gap:4px; margin-top:6px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="h_status" value="{{ h_status }}">
+                        <input type="text" name="message" placeholder="ارسال پیام...">
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">ارسال</button>
+                    </form>
+                </details>
+                {% endif %}
+            </div>
+            <div class="pnl-hair-side">
+                <!-- وضعیت فعلی (۲/۳ حالت) -->
+                <div style="margin-bottom:8px;">
+                    {% if h.status in ('pending', 'reviewing') %}<span class="pnl-chip pnl-chip-review">🔍 در حال بررسی</span>
+                    {% elif h.status == 'rejected' %}<span class="pnl-chip pnl-chip-rej">❌ رد شد</span>
+                    {% elif h.status in ('priced', 'approved', 'completed') %}<span class="pnl-chip pnl-chip-pub">💰 قیمت نهایی ثبت شد</span>
+                    {% else %}<span class="pnl-chip">{{ h.status }}</span>{% endif %}
+                </div>
+
+                <!-- سه اکشن اصلی -->
+                <div class="pnl-prod-acts" style="flex-direction:column;align-items:stretch;gap:6px;">
+                    {% if site_visible.get('approve', True) %}
+                    <form method="POST" action="{{ url_for('admin_hair_order_update', order_id=h.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="h_status" value="{{ h_status }}">
+                        <input type="hidden" name="status" value="reviewing">
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm" style="width:100%;"
+                                {{ 'disabled' if h.status in ('pending','reviewing') }}>🔍 در حال بررسی</button>
+                    </form>
+                    {% endif %}
+
+                    {% if site_visible.get('price', True) %}
+                    <button type="button" class="pnl-btn pnl-btn-gold pnl-btn-sm" style="width:100%;"
+                            onclick="var e=document.getElementById('hp-{{ h.id }}'); e.classList.toggle('open');">💰 ثبت قیمت نهایی</button>
+                    {% endif %}
+
+                    {% if site_visible.get('reject', True) %}
+                    <form method="POST" action="{{ url_for('admin_hair_order_update', order_id=h.id) }}"
+                          onsubmit="return confirm('درخواست #{{ h.id }} رد شود؟');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="h_status" value="{{ h_status }}">
+                        <input type="hidden" name="status" value="rejected">
+                        <button class="pnl-btn pnl-btn-danger pnl-btn-sm" style="width:100%;"
+                                {{ 'disabled' if h.status=='rejected' }}>❌ رد شد</button>
+                    </form>
+                    {% endif %}
+                </div>
+
+                <!-- فرم قیمت نهایی — بازشونده در همین کارت -->
+                {% if site_visible.get('price', True) %}
+                <div class="pnl-inline-editor" id="hp-{{ h.id }}">
+                    <form method="POST" action="{{ url_for('admin_hair_order_update', order_id=h.id) }}" class="pnl-ed-box" style="margin-top:8px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="h_status" value="{{ h_status }}">
+                        <input type="hidden" name="status" value="priced">
+                        <div class="full">
+                            <label>💰 قیمت نهایی (تومان — عدد خالص؛ مثل 2500000)</label>
+                            <input type="text" name="final_price" value="{{ h.final_price }}" placeholder="مثلاً ۲۵۰۰۰۰۰" inputmode="numeric" required>
+                        </div>
+                        {% if site_visible.get('note', True) %}
+                        <div class="full">
+                            <label>📝 یادداشت کارشناس (اختیاری)</label>
+                            <input type="text" name="admin_note" value="{{ h.admin_note }}">
+                        </div>
+                        {% endif %}
+                        <div class="pnl-ed-actions">
+                            <button type="submit" class="pnl-btn pnl-btn-gold pnl-btn-sm">✅ ثبت قیمت نهایی</button>
+                            <button type="button" class="pnl-btn pnl-btn-outline pnl-btn-sm"
+                                    onclick="document.getElementById('hp-{{ h.id }}').classList.remove('open');">انصراف</button>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        {# ═══ صفحه‌بندی (Task C) — فیلتر جاری حفظ می‌شود ═══ #}
+        {% if total_pages and total_pages > 1 %}
+        <div class="pnl-btn-row" style="margin-top:16px; align-items:center; gap:10px; flex-wrap:wrap;">
+            {% if has_prev %}
+            <a class="pnl-btn pnl-btn-outline"
+               href="{{ url_for('panel.hair_sale', h_status=h_status, page=page-1) }}#pane-requests">◀️ قبلی</a>
+            {% endif %}
+            <span class="pnl-muted">
+                صفحه {{ page }} از {{ total_pages }}
+                {% if total_orders %}— مجموع {{ total_orders }} درخواست{% endif %}
+            </span>
+            {% if has_next %}
+            <a class="pnl-btn pnl-btn-outline"
+               href="{{ url_for('panel.hair_sale', h_status=h_status, page=page+1) }}#pane-requests">بعدی ▶️</a>
+            {% endif %}
+        </div>
+        {% elif total_orders %}
+        <div class="pnl-muted" style="margin-top:12px;">مجموع {{ total_orders }} درخواست</div>
+        {% endif %}
+        {% else %}
+        <div class="pnl-empty"><p>درخواستی در این وضعیت نیست.</p></div>
+        {% endif %}
+    </section>
+
+    <!-- ═══ تب ۲: گزارش‌ها ═══ -->
+    {% if site_visible.get('reports', True) %}
+    <section class="pnl-pane" id="pane-reports">
+        <div class="pnl-card">
+            <h3>📊 گزارش‌های فروش مو</h3>
+            <div class="pnl-rep-cards">
+                <div class="pnl-rep-card"><span>🧾 کل درخواست‌ها</span><b>{{ report.total|fa_number }}</b></div>
+                <div class="pnl-rep-card"><span>🔍 در حال بررسی</span><b>{{ (report.pending + report.reviewing)|fa_number }}</b></div>
+                <div class="pnl-rep-card"><span>💰 قیمت ثبت‌شده</span><b>{{ (report.priced + report.approved + report.completed)|fa_number }}</b></div>
+                <div class="pnl-rep-card"><span>❌ ردشده</span><b>{{ report.rejected|fa_number }}</b></div>
+                <div class="pnl-rep-card"><span>📝 اعتراض‌ها</span><b>{{ report.objections|fa_number }}</b></div>
+                <div class="pnl-rep-card"><span>🏦 فروش کلی (تکمیل+تأیید)</span><b>{{ report.total_sales|fa_number }} <small>تومان</small></b></div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- ═══ تب ۳: قیمت‌های پایه ═══ -->
+    {% if is_super %}
+    <section class="pnl-pane" id="pane-prices">
+        <div class="pnl-card">
+            <h3>💰 جدول قیمت‌های خرید مو</h3>
+            <form method="POST" action="{{ url_for('admin_config_hair_prices') }}" class="pnl-grid-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% for k, default in hair_prices_defaults.items() %}
+                <div>
+                    <label class="pnl-muted">{{ k }}</label>
+                    <input type="text" name="hair_price_{{ k }}" value="{{ hair_prices_dict.get(k, default) }}">
+                </div>
+                {% endfor %}
+                <button class="pnl-btn pnl-btn-gold">ذخیره جدول قیمت‌ها</button>
+            </form>
+        </div>
+
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

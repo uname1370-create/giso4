@@ -1,0 +1,496 @@
+/* ═══ کارت مشاور کلی ═══ */
+.sadeghi-consultant {
+    background: linear-gradient(180deg, #fffdf8 0%, #fdf6e7 100%);
+    border-radius: 24px;
+    padding: 0;
+    margin: 30px 0;
+    box-shadow: 0 18px 50px rgba(92,61,46,0.12);
+    border: 1px solid rgba(212,165,116,0.28);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: min(580px, calc(100vh - 160px));
+    min-height: 420px;
+}
+
+/* ═══ هدر مشاور ═══ */
+.consultant-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(212,165,116,0.28);
+    margin-bottom: 0;
+    background: linear-gradient(135deg, #d4a574, #c08f5c);
+    color: #fff;
+    flex-shrink: 0;
+}
+.consultant-info h3 { color: #fff !important; }
+.consultant-status { color: #f6ecd4 !important; }
+.status-dot { background: #e8f5c8; }
+
+.consultant-avatar-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.consultant-avatar {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #D4A574;
+    box-shadow: 0 8px 20px rgba(212,165,116,0.4);
+}
+
+.online-indicator {
+    position: absolute;
+    bottom: 3px;
+    right: 3px;
+    width: 16px;
+    height: 16px;
+    background: #7BA05B;
+    border: 3px solid white;
+    border-radius: 50%;
+    animation: pulse-online 2s ease-in-out infinite;
+}
+
+@keyframes pulse-online {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(123,160,91,0.7); }
+    50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(123,160,91,0); }
+}
+
+.consultant-info h3 {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 5px 0;
+}
+
+.consultant-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #7BA05B;
+    font-weight: 600;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background: #7BA05B;
+    border-radius: 50%;
+    display: inline-block;
+    animation: blink 2s ease-in-out infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* ═══ بدنه چت ═══ */
+.consultant-chat-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    padding: 14px;
+    margin-bottom: 0;
+    scroll-behavior: smooth;
+}
+
+.consultant-chat-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.consultant-chat-body::-webkit-scrollbar-track {
+    background: rgba(212,165,116,0.1);
+    border-radius: 3px;
+}
+
+.consultant-chat-body::-webkit-scrollbar-thumb {
+    background: rgba(212,165,116,0.4);
+    border-radius: 3px;
+}
+
+.consultant-chat-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(212,165,116,0.6);
+}
+
+/* ═══ حباب پیام ═══ */
+.chat-message {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    animation: fadeInMessage 0.4s ease;
+}
+
+@keyframes fadeInMessage {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-message.user {
+    flex-direction: row-reverse;
+}
+
+.chat-bubble {
+    max-width: 75%;
+    padding: 12px 18px;
+    border-radius: 20px;
+    line-height: 1.8;
+    font-size: 14px;
+    word-wrap: break-word;
+    position: relative;
+}
+
+.chat-message.assistant .chat-bubble {
+    background: white;
+    color: #5C3D2E;
+    border-bottom-right-radius: 5px;
+    box-shadow: 0 3px 12px rgba(92,61,46,0.08);
+    border: 1px solid rgba(212,165,116,0.15);
+}
+
+.chat-message.user .chat-bubble {
+    background: linear-gradient(135deg, #D4A574, #B8935F);
+    color: white;
+    border-bottom-left-radius: 5px;
+    box-shadow: 0 3px 12px rgba(212,165,116,0.3);
+}
+
+.chat-timestamp {
+    font-size: 10px;
+    opacity: 0.6;
+    margin-top: 4px;
+    text-align: right;
+}
+
+.chat-message.user .chat-timestamp {
+    text-align: left;
+}
+
+/* ═══ انیمیشن typing ═══ */
+.consultant-typing {
+    display: flex;
+    gap: 5px;
+    padding: 10px 16px;
+    background: white;
+    border-radius: 20px;
+    width: fit-content;
+    margin: 0 14px 8px;
+    box-shadow: 0 3px 12px rgba(92,61,46,0.08);
+    flex-shrink: 0;
+}
+
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    background: #D4A574;
+    border-radius: 50%;
+    animation: typing-bounce 1.4s ease-in-out infinite;
+}
+
+.typing-dot:nth-child(1) { animation-delay: 0s; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-8px); opacity: 1; }
+}
+
+/* ═══ دکمه‌های پیشنهادی سریع ═══ */
+.consultant-suggestions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 0;
+    padding: 8px 14px;
+    flex-shrink: 0;
+}
+
+.chip-suggest {
+    background: white;
+    border: 1.5px solid rgba(212,165,116,0.4);
+    color: #5C3D2E;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+    font-weight: 500;
+}
+
+.chip-suggest:hover {
+    background: linear-gradient(135deg, #D4A574, #B8935F);
+    color: white;
+    border-color: #B8935F;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(212,165,116,0.3);
+}
+
+/* ═══ input ═══ */
+.consultant-input-wrapper {
+    display: flex;
+    gap: 10px;
+    background: #fff;
+    padding: 12px;
+    border-radius: 0;
+    box-shadow: none;
+    align-items: stretch;
+    border: 0;
+    border-top: 1px solid #eef2f7;
+    transition: none;
+    flex-shrink: 0;
+}
+
+.consultant-input-wrapper:focus-within {
+    border-color: #eef2f7;
+}
+
+#consultantInput {
+    flex: 1;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    resize: none;
+    font-family: inherit;
+    font-size: 13.5px;
+    color: #5C3D2E;
+    padding: 10px 12px;
+    outline: none;
+    min-height: 44px;
+    max-height: 120px;
+    line-height: 1.85;
+    border-radius: 14px;
+    direction: rtl;
+    text-align: right;
+}
+
+#consultantInput:focus {
+    border-color: #D4A574;
+    box-shadow: 0 0 0 3px rgba(212,165,116,.18);
+}
+
+#consultantInput::placeholder {
+    color: #8B6F5C;
+    opacity: 0.7;
+}
+
+.consultant-send {
+    background: linear-gradient(135deg, #D4A574, #B8935F);
+    color: white;
+    border: none;
+    width: auto;
+    min-width: 84px;
+    min-height: 44px;
+    height: auto;
+    align-self: stretch;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    transition: opacity 0.2s ease;
+    box-shadow: none;
+    flex-shrink: 0;
+    align-self: stretch;
+}
+
+.consultant-send:hover {
+    transform: none;
+    box-shadow: none;
+    opacity: .92;
+}
+
+.consultant-send:active {
+    transform: none;
+}
+
+.consultant-send:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
+/* ═══ امتیازدهی ═══ */
+.consultant-rating {
+    margin-top: 25px;
+    padding: 25px;
+    background: linear-gradient(135deg, rgba(212,165,116,0.1), rgba(212,165,116,0.05));
+    border-radius: 20px;
+    text-align: center;
+    border: 2px dashed rgba(212,165,116,0.3);
+}
+
+.consultant-rating p {
+    color: #5C3D2E;
+    font-size: 15px;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.rating-stars {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+.rating-stars .star {
+    font-size: 32px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    filter: grayscale(80%);
+    opacity: 0.5;
+}
+
+.rating-stars .star:hover,
+.rating-stars .star.selected {
+    filter: grayscale(0%);
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+.consultant-rating.rated .rating-stars .star {
+    pointer-events: none;
+}
+
+/* ═══ موبایل ═══ */
+@media (max-width: 768px) {
+    .sadeghi-consultant {
+        padding: 20px 15px;
+        margin: 20px 0;
+        border-radius: 20px;
+    }
+
+    .consultant-avatar {
+        width: 55px;
+        height: 55px;
+    }
+
+    .consultant-info h3 {
+        font-size: 15px;
+    }
+
+    .consultant-chat-body {
+        max-height: 350px;
+    }
+
+    .chat-bubble {
+        max-width: 85%;
+        font-size: 13px;
+        padding: 10px 14px;
+    }
+
+    .chip-suggest {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+
+    .rating-stars .star {
+        font-size: 28px;
+    }
+
+    #consultantInput {
+        font-size: 13px;
+    }
+}
+
+/* ═══ کارت محصول فشرده در حباب مشاور (قابلیت C) ═══ */
+.sadeghi-consultant .chat-bubble .consultant-cards {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+.sadeghi-consultant .chat-bubble .consultant-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #fff;
+    border: 1px solid #EDE1CE;
+    border-radius: 12px;
+    padding: 8px 10px;
+    box-shadow: 0 2px 8px rgba(92,61,46,.06);
+}
+.sadeghi-consultant .chat-bubble .consultant-card img {
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #F8F1E6;
+}
+.sadeghi-consultant .chat-bubble .consultant-card .con-card-body {
+    flex: 1;
+    min-width: 0;
+}
+.sadeghi-consultant .chat-bubble .consultant-card .con-card-name {
+    font-weight: 700;
+    color: #5C3D2E;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.sadeghi-consultant .chat-bubble .consultant-card .con-card-reason {
+    color: #8B6F5C;
+    font-size: 11px;
+    margin-top: 2px;
+    line-height: 1.6;
+}
+.sadeghi-consultant .chat-bubble .consultant-card .con-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 6px;
+}
+.sadeghi-consultant .chat-bubble .consultant-card .con-card-price {
+    color: #5C3D2E;
+    font-weight: 700;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.sadeghi-consultant .chat-bubble .consultant-card .con-card-btn {
+    background: #D4A574;
+    color: #fff;
+    border-radius: 8px;
+    padding: 5px 11px;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background .15s ease;
+}
+.sadeghi-consultant .chat-bubble .consultant-card .con-card-btn:hover {
+    background: #C08F5C;
+}
+.sadeghi-consultant .chat-bubble .consultant-card.is-food {
+    background: #F7FAF0;
+    border-color: #DDE8C8;
+}
+.sadeghi-consultant .chat-bubble .consultant-card.is-food .con-card-btn {
+    background: #9DB56E;
+}
+.sadeghi-consultant .chat-bubble .consultant-card.is-food .con-card-btn:hover {
+    background: #86A058;
+}
+/* placeholder عکس */
+.sadeghi-consultant .chat-bubble .consultant-card .con-card-ph {
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #F8F1E6;
+    color: #A98F73;
+    font-size: 24px;
+}

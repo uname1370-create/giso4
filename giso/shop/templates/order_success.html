@@ -1,0 +1,60 @@
+{% extends "shop_layout.html" %}
+{% block title %}سفارش با موفقیت ثبت شد | فروشگاه گیسو{% endblock %}
+{% block shop_head %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+{% block shop_hero %}{% endblock %}
+
+{% block shop_content %}
+<main class="giso-success-page">
+    <section class="giso-success-receipt" aria-labelledby="success-title">
+        <div class="giso-success-mark" aria-hidden="true"><i class="fas fa-check"></i></div>
+        <span class="giso-section-kicker">ثبت سفارش تکمیل شد</span>
+        <h1 id="success-title">سفارش شما با موفقیت ثبت شد</h1>
+        <p>از اعتماد شما سپاسگزاریم. کارشناس گیسو در زمان انتخابی برای هماهنگی ارسال با شما تماس می‌گیرد.</p>
+        <span class="giso-order-status"><i class="fas fa-clock"></i> در حال بررسی</span>
+
+        {% if orders %}
+        <div class="giso-tracking-panel">
+            <div class="giso-tracking-panel-head"><i class="fas fa-hashtag"></i><span><b>کد پیگیری سفارش</b><small>برای پیگیری، این کد را نگه دارید</small></span></div>
+            <div class="giso-tracking-codes">
+                {% set tracking = namespace(codes=[]) %}
+                {% for o in orders %}
+                    {% set code = o.tracking_code or ('#%s'|format(o.id)) %}
+                    {% if code not in tracking.codes %}<code dir="ltr">{{ code }}</code>{% set tracking.codes = tracking.codes + [code] %}{% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if orders %}
+        <div class="giso-receipt-lines">
+            <div class="giso-receipt-heading"><span>شرح سفارش</span><span>مبلغ</span></div>
+            {% for o in orders %}
+            <div class="giso-receipt-line">
+                <span><b>{{ o.pname }}</b><small>تعداد: {{ fa_number(o.quantity or 1) }}</small></span>
+                <strong>{{ toman((o.price or 0) * (o.quantity or 1)) }}</strong>
+            </div>
+            {% endfor %}
+            <div class="giso-receipt-total"><span>جمع کل کالاها</span><strong>{{ toman(total) }}</strong></div>
+        </div>
+        {% endif %}
+
+        <div class="giso-delivery-note"><i class="fas fa-truck-fast"></i><span><b>ارسال با پیک در مشهد</b><small>هزینه ارسال جداگانه محاسبه می‌شود و در مبلغ کالاها نیست.</small></span></div>
+    </section>
+
+    <section class="giso-success-steps" aria-labelledby="next-steps-title">
+        <div class="giso-section-heading"><div><span class="giso-section-kicker">بعد از ثبت سفارش</span><h2 id="next-steps-title">مراحل بعدی چیست؟</h2></div></div>
+        <ol>
+            <li><span>۱</span><div><b>بررسی سفارش</b><p>کارشناس گیسو موجودی و اطلاعات سفارش را بررسی می‌کند.</p></div></li>
+            <li><span>۲</span><div><b>هماهنگی تلفنی</b><p>در روز و ساعت انتخاب‌شده برای ارسال با شما تماس می‌گیریم.</p></div></li>
+            <li><span>۳</span><div><b>تحویل و پرداخت</b><p>سفارش با پیک تحویل و مانده مبلغ در محل پرداخت می‌شود.</p></div></li>
+            <li><span>۴</span><div><b>پیگیری وضعیت</b><p>وضعیت سفارش در پنل کاربر و اعلان‌های گیسو قابل مشاهده است.</p></div></li>
+        </ol>
+    </section>
+
+    <div class="giso-success-actions">
+        {% if orders %}<a href="{{ url_for('order_invoice', order_id=orders[0].id) }}" class="giso-btn giso-btn-primary"><i class="fas fa-file-invoice"></i> مشاهده فاکتور</a>{% endif %}
+        <a href="{{ url_for('panel_user.orders') }}" class="giso-btn giso-btn-outline"><i class="fas fa-box-open"></i> سفارش‌های من</a>
+        <a href="{{ url_for('shop') }}" class="giso-btn giso-btn-soft"><i class="fas fa-bag-shopping"></i> بازگشت به فروشگاه</a>
+    </div>
+</main>
+{% endblock %}

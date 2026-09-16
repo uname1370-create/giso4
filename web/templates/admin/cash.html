@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}درخواست‌های خرید نقدی - پنل ادمین{% endblock %}
+{% block content %}
+<section class="page-section admin-section">
+<div class="container">
+    <div class="page-header">
+        <h1><i class="fas fa-money-bill-wave"></i> درخواست‌های خرید نقدی</h1>
+        <p class="page-sub">لیست درخواست‌های در انتظار بررسی (وضعیت pending).</p>
+    </div>
+
+    <div class="note warn">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span>تأیید/رد واقعی درخواست‌ها و مشاهده فیش پرداخت در حال حاضر از پنل ربات بله انجام می‌شود (ربات اعلان را دریافت می‌کند). این لیست صرفاً برای دید کلی است.</span>
+    </div>
+
+    <div class="card-grid">
+        {% for r in requests %}
+        <div class="item-card">
+            <div class="item-head">
+                <i class="fas fa-file-invoice-dollar"></i>
+                درخواست #{{ r.id }}
+            </div>
+            <div class="item-body">
+                <p><strong>کاربر:</strong> {{ r.first_name }} ({{ r.phone or 'بدون شماره' }})</p>
+                <p><strong>نوع:</strong> {{ 'دوره' if r.target_type=='course' else 'سرفصل' }}</p>
+                <p><strong>عنوان:</strong> {{ r.course_title or '—' }}</p>
+                <p><strong>مبلغ:</strong> {{ r.amount }} تومان</p>
+                <p><strong>روش پرداخت:</strong> {{ r.payment_method or '—' }}</p>
+                <p><strong>پلتفرم:</strong> {{ r.platform or '—' }}</p>
+            </div>
+            <div class="item-foot">
+                <small>ثبت: {{ r.created_at or '—' }}</small>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state"><i class="fas fa-check-circle"></i><p>درخواست در انتظاری ندارید.</p></div>
+        {% endfor %}
+    </div>
+</div>
+</section>
+{% endblock %}

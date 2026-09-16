@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}گفتگوهای من - گیسو{% endblock %}
+
+{% block head %}
+<style>
+.dc-page { min-height:100vh; background:linear-gradient(180deg,#FFF9F0 0%,#FFF5E9 100%); padding:30px 16px 60px; }
+.dc-card { max-width:800px; margin:0 auto; background:#fff; border-radius:24px; padding:36px; box-shadow:0 15px 50px rgba(92,61,46,0.1); }
+.dc-card h1 { color:#5C3D2E; font-size:26px; margin-bottom:24px; }
+.dc-item { display:flex; align-items:center; justify-content:space-between; padding:18px 20px; border:1px solid rgba(212,165,116,0.2); border-radius:16px; margin-bottom:14px; gap:14px; }
+.dc-item-info { display:flex; align-items:center; gap:14px; }
+.dc-item-icon { width:50px; height:50px; min-width:50px; border-radius:50%; background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; display:flex; align-items:center; justify-content:center; font-size:24px; }
+.dc-item-title { color:#5C3D2E; font-weight:700; font-size:16px; }
+.dc-item-sub { color:#8B6F5C; font-size:13px; margin-top:4px; }
+.dc-badge { display:inline-block; background:#C83232; color:#fff; font-size:11px; padding:2px 8px; border-radius:50px; margin-right:6px; }
+.dc-btn { padding:10px 20px; border-radius:30px; background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; text-decoration:none; font-size:13px; font-weight:600; white-space:nowrap; }
+.dc-empty { text-align:center; color:#8B6F5C; padding:40px 0; }
+@media (max-width:600px){ .dc-item{flex-direction:column; text-align:center;} }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="dc-page">
+    <div class="dc-card">
+        <h1>💬 گفتگوهای من</h1>
+        {% if consultant_chats %}
+            {% for c in consultant_chats %}
+            <div class="dc-item">
+                <div class="dc-item-info">
+                    <div class="dc-item-icon">🎯</div>
+                    <div>
+                        <div class="dc-item-title">مشاوره تحلیل #{{ c.id }}
+                            {% if c.unread %}<span class="dc-badge">پیام جدید</span>{% endif %}
+                        </div>
+                        <div class="dc-item-sub">آخرین پیام: {{ c.last_message[:50] }} ({{ c.last_time }})</div>
+                    </div>
+                </div>
+                <a href="{{ url_for('dashboard_consultant_chat', request_id=c.id) }}" class="dc-btn">مشاهده گفتگو</a>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="dc-empty">هنوز گفتگوی مشاوره‌ای ندارید.</div>
+        {% endif %}
+        <p style="text-align:center; margin-top:20px;">
+            <a href="{{ url_for('dashboard') }}" style="color:#B8935F; font-weight:600;">← بازگشت به پنل کاربری</a>
+        </p>
+    </div>
+</section>
+{% endblock %}

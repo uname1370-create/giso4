@@ -1,0 +1,65 @@
+<!-- بخش ۵: کامپوننت مشاور صادقی (قابل include در صفحات quick_solution و plan) -->
+{% set qtype = quick_type | default(analysis.type if analysis else 'hair') %}
+<div class="sadeghi-consultant" data-analysis-id="{{ analysis.id }}">
+    <!-- هدر مشاور -->
+    <div class="consultant-header">
+        <div class="consultant-avatar-wrapper">
+            <img src="{{ url_for('static', filename='images/consultant_avatar.jpg') }}"
+                 alt="مشاور صادقی" class="consultant-avatar" width="512" height="512">
+            <span class="online-indicator"></span>
+        </div>
+        <div class="consultant-info">
+            <h3>مشاور هوشمند صادقی</h3>
+            <span class="consultant-status">
+                <span class="status-dot"></span>
+                آنلاین
+            </span>
+        </div>
+    </div>
+
+    <!-- بدنه چت -->
+    <div class="consultant-chat-body" id="consultantChatBody">
+        <!-- پیام‌ها اینجا اضافه می‌شوند -->
+    </div>
+
+    <!-- typing indicator -->
+    <div class="consultant-typing" id="consultantTyping" style="display:none;">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+    </div>
+
+    <!-- دکمه‌های پیشنهادی سریع -->
+    <div class="consultant-suggestions" id="consultantSuggestions">
+        <button class="chip-suggest" onclick="sendSuggestedMessage('چه محصولی برای {% if qtype == 'skin' %}پوستم{% else %}موهام{% endif %} خوبه؟')">
+            💧 چه محصولی خوبه؟
+        </button>
+        <button class="chip-suggest" onclick="sendSuggestedMessage('چطور باید استفاده کنم؟')">
+            📋 روش استفاده
+        </button>
+        <button class="chip-suggest" onclick="sendSuggestedMessage('بودجه محدود دارم، ارزون‌ترین گزینه چیه؟')">
+            💰 بودجه محدود
+        </button>
+    </div>
+
+    <!-- input -->
+    <div class="consultant-input-wrapper">
+        <textarea id="consultantInput"
+                  placeholder="پیامت را بنویس..."
+                  rows="1"
+                  onkeypress="handleConsultantEnter(event)"></textarea>
+        <button type="button" class="consultant-send" onclick="sendConsultantMessage()">ارسال</button>
+    </div>
+
+    <!-- امتیاز دهی (بعد از چند پیام نمایش داده می‌شود) -->
+    <div class="consultant-rating" id="consultantRating" style="display:none;">
+        <p>تجربه گفتگو با مشاور صادقی چطور بود؟</p>
+        <div class="rating-stars">
+            <span class="star" data-rating="1" onclick="rateConsultant(1)">⭐</span>
+            <span class="star" data-rating="2" onclick="rateConsultant(2)">⭐</span>
+            <span class="star" data-rating="3" onclick="rateConsultant(3)">⭐</span>
+            <span class="star" data-rating="4" onclick="rateConsultant(4)">⭐</span>
+            <span class="star" data-rating="5" onclick="rateConsultant(5)">⭐</span>
+        </div>
+    </div>
+</div>

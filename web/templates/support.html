@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}پشتیبانی - sadeghiai{% endblock %}
+{% block content %}
+<section class="simple-page">
+<div class="container page-wrap">
+    <div class="page-header"><h1><i class="fas fa-headset"></i> پشتیبانی</h1><p>ارتباط با تیم پشتیبانی sadeghiai</p></div>
+    <div class="glass support-card">
+        <p>پشتیبانی رسمی در حال حاضر از طریق ربات بله ارائه می‌شود.</p>
+        <ul class="support-list">
+            <li>برای ارسال تیکت از دکمهٔ «📞 پشتیبانی» در منوی ربات بله استفاده کنید.</li>
+            <li>تیکت‌های باز شما: <strong>{{ open_tickets }}</strong></li>
+            <li>برای سوالات فوری یا گزارش مشکل ورود، با آیدی پشتیبانی در بله در تماس باشید.</li>
+        </ul>
+        <div class="inline-actions mt-18">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary"><i class="fas fa-arrow-left"></i> بازگشت به پیشخوان</a>
+            <a href="{{ url_for('mentor_dashboard') }}" class="btn btn-outline"><i class="fas fa-robot"></i> یار همراه من</a>
+        </div>
+    </div>
+</div>
+</section>
+{% endblock %}

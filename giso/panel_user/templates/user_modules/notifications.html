@@ -1,0 +1,43 @@
+{% extends 'user_layout.html' %}
+{% block title %}اعلان‌های من - گیسو{% endblock %}
+{% block content %}
+<div class="pu-page">
+  <h1 class="pu-h1">🔔 اعلان‌های من</h1>
+  <p class="pu-sub">آخرین وضعیت سفارش‌ها، فروش مو، مشاوره و کیف پول شما</p>
+  <div class="pu-card">
+    {% if user_notifications %}
+    <div class="pu-list">
+      {% for n in user_notifications %}
+      <div class="pu-list-item {{ 'pu-notification-unread' if n.status == 'unread' else '' }}">
+        <div class="pu-list-main">
+          <strong>{{ n.title }}</strong>
+          <span>{{ n.message }}</span>
+          <small class="pu-muted">{{ n.created_at }}</small>
+        </div>
+        {% if n.status == 'unread' %}
+        <form method="POST" action="{{ url_for('panel_user.notifications') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="notification_id" value="{{ n.id }}">
+          <button class="pu-btn pu-btn-outline pu-btn-sm" type="submit">خواندم</button>
+        </form>
+        {% else %}<span class="pu-badge">خوانده‌شده</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<div class="pu-empty"><p>اعلان جدیدی ندارید.</p></div>{% endif %}
+  </div>
+  {% if user_notification_unread %}
+  <form method="POST" action="{{ url_for('panel_user.notifications') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="pu-btn pu-btn-rose" type="submit">خواندن همه اعلان‌ها</button>
+  </form>
+  {% endif %}
+  {% if user_notifications %}
+  <form method="POST" action="{{ url_for('panel_user.notifications') }}" style="margin-top:8px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="clear_read">
+    <button class="pu-btn pu-btn-outline" type="submit" onclick="return confirm('فقط اعلان‌های خوانده‌شده پاک شوند؟ ناخوانده‌ها می‌مانند.');"><i class="fas fa-broom"></i> پاک‌کردن خوانده‌شده‌ها</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

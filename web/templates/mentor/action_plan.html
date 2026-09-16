@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}مسیر یادگیری امروز - یار همراه{% endblock %}
+{% block head %}
+<style>
+.daily-page{padding:24px 0 72px;background:#f8fafc}.daily-wrap{max-width:980px;margin:0 auto}.daily-status{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:16px}.status-chip{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:13px 12px;box-shadow:0 10px 26px rgba(15,23,42,.06);min-width:0}.status-chip span{display:block;color:#64748b;font-size:12px;margin-bottom:5px}.status-chip strong{display:block;color:#0f172a;font-size:.98rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.daily-card{background:#fff;border:1px solid #e2e8f0;border-radius:24px;padding:24px;margin-bottom:16px;box-shadow:0 14px 34px rgba(15,23,42,.07)}.motivation-card{background:linear-gradient(135deg,#eef2ff,#ecfeff);border-color:#c7d2fe}.motivation-card h2,.daily-card h2{margin:0 0 12px;color:#0f172a;font-size:1.25rem}.motivation-text{color:#334155;line-height:2;font-weight:750;margin:0}.progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.progress-title{font-weight:950;color:#0f172a;font-size:1.15rem}.progress-percent{font-weight:950;color:#2563eb}.progress-bar{height:13px;background:#e2e8f0;border-radius:999px;overflow:hidden}.progress-fill{height:100%;background:linear-gradient(90deg,#10b981,#2563eb);border-radius:999px}.today-main{border:0;padding:0;background:transparent;box-shadow:none}.daily-section{background:#fff;border:1px solid #e2e8f0;border-radius:22px;padding:22px;margin-bottom:14px;box-shadow:0 12px 30px rgba(15,23,42,.06)}.daily-section h3{margin:0 0 10px;color:#0f172a;font-size:1.13rem}.daily-section p,.daily-section li{color:#475569;line-height:2}.tips-list{margin:0;padding-right:22px}.tools-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}.tool-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:18px;padding:16px}.tool-card strong{display:block;color:#1e3a8a;margin-bottom:7px}.tool-card p{margin:0 0 8px}.tool-card a{color:#2563eb;font-weight:800;text-decoration:none;overflow-wrap:anywhere}.done-panel{background:#0f172a;color:#fff;border-radius:24px;padding:22px;margin-bottom:16px;box-shadow:0 18px 42px rgba(15,23,42,.22)}.done-btn{width:100%;min-height:62px;border:0;border-radius:20px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-family:inherit;font-weight:950;font-size:1.08rem;cursor:pointer;box-shadow:0 14px 34px rgba(16,185,129,.24)}.done-btn:disabled{opacity:.65;cursor:wait}.daily-toast{display:none;margin-top:12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:14px;line-height:1.9}.daily-toast.show{display:block}.consultant-cta{background:linear-gradient(135deg,#111827,#312e81 55%,#7c2d12);color:#fff;border:0}.consultant-cta h2{color:#fff}.consultant-cta p{color:#f8fafc;line-height:2}.consultant-request-box{display:flex;gap:10px;align-items:stretch;margin-top:14px}.consultant-request-box textarea{flex:1;min-height:58px;border:1px solid rgba(255,255,255,.24);border-radius:16px;padding:12px 14px;font-family:inherit;resize:vertical}.consultant-request-box button{border:0;border-radius:16px;background:#fff;color:#312e81;font-weight:950;font-family:inherit;padding:0 18px;cursor:pointer}.back-row{display:flex;gap:12px;flex-wrap:wrap}.back-row a{flex:1 1 220px;min-height:54px;border-radius:16px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-weight:900}.back-dashboard{background:#fff;border:1px solid #e2e8f0;color:#0f172a}.empty-daily{text-align:center;padding:34px}.empty-daily h1{margin:0 0 12px;color:#0f172a}.empty-daily p{color:#64748b;line-height:2}.placeholder-note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:16px;padding:12px 14px;line-height:1.9;margin-top:10px}@media(max-width:850px){.daily-status{grid-template-columns:repeat(2,minmax(0,1fr))}.daily-status .status-chip:first-child{grid-column:1/-1}.consultant-request-box{flex-direction:column}.consultant-request-box button{min-height:50px}}@media(max-width:560px){.daily-page{padding:16px 0 52px}.daily-card,.daily-section,.done-panel{border-radius:18px;padding:18px}.daily-status{grid-template-columns:1fr}.progress-head{align-items:flex-start}.done-btn{font-size:1rem}}
+</style>
+{% endblock %}
+{% block content %}
+{% set analysis = guest_analysis or {} %}
+{% set profile = analysis.get('profile', analysis.get('user_profile', {})) %}
+{% set step = today_step or {} %}
+{% set content = step.get('content') or step.get('content_json') or {} %}
+{% set day_number = step.get('step_number') or 1 %}
+{% set total_days = path_steps_total or (active_path and active_path.get('roadmap_json', {}).get('total_days')) or 0 %}
+{% set motivation_text = motivation_message.get('message') if motivation_message else 'امروز فقط یک قدم کوچک بردار؛ همین استمرار مسیرت را می‌سازد.' %}
+{% set program_finished = path_steps_total and path_steps_done >= path_steps_total %}
+<section class="daily-page">
+<div class="container daily-wrap">
+    <div class="daily-status">
+        <div class="status-chip"><span>👤 نام کاربر</span><strong>{{ current_user.first_name or profile.get('name') or 'کاربر عزیز' }}</strong></div>
+        <div class="status-chip"><span>🏅 رتبه فعلی</span><strong>{{ user_rank or '—' }}</strong></div>
+        <div class="status-chip"><span>⭐ XP</span><strong id="dailyXp">{{ summary.get('xp', 0) }}</strong></div>
+        <div class="status-chip"><span>💳 اعتبار</span><strong id="dailyCredits">{{ summary.get('credits', 0) }}</strong></div>
+        <div class="status-chip"><span>🔥 استریک</span><strong id="dailyStreak">{{ streak_info.get('current_streak', 0) }} روز پیوسته</strong></div>
+    </div>
+
+    <div class="daily-card motivation-card">
+        <h2>💬 پیام انگیزشی امروز</h2>
+        <p class="motivation-text">{{ motivation_text }}</p>
+    </div>
+
+    <div class="daily-card">
+        <div class="progress-head">
+            <div class="progress-title">📅 روز {{ day_number }}{% if total_days %} از {{ total_days }}{% endif %}</div>
+            <div class="progress-percent">{{ percent_progress or 0 }}٪ پیشرفت</div>
+        </div>
+        <div class="progress-bar" aria-label="درصد پیشرفت"><div class="progress-fill" style="width: {{ percent_progress or 0 }}%"></div></div>
+    </div>
+
+    {% if step %}
+    <div class="today-main">
+        <div class="daily-section">
+            <h3>📌 موضوع امروز</h3>
+            <p>{{ step.get('title') or 'موضوع امروز هنوز مشخص نشده است.' }}</p>
+        </div>
+        <div class="daily-section">
+            <h3>📖 آموزش متنی کوتاه</h3>
+            <p>{{ content.get('lesson_text') or content.get('description') or content.get('objective') or 'در نسخه بعدی، آموزش کوتاه امروز با کمک AI اینجا تولید می‌شود. فعلاً همین قدم را با تمرکز روی موضوع امروز انجام بده.' }}</p>
+            {% if not content.get('lesson_text') %}<div class="placeholder-note">این متن placeholder است و تولید محتوای AI در مرحله بعد اضافه می‌شود.</div>{% endif %}
+        </div>
+        <div class="daily-section">
+            <h3>🔑 نکات و ترفندها</h3>
+            {% set tips = content.get('tips') or [] %}
+            {% if tips is string %}
+                <p>{{ tips }}</p>
+            {% elif tips %}
+                <ul class="tips-list">{% for tip in tips %}<li>{{ tip }}</li>{% endfor %}</ul>
+            {% else %}
+                <ul class="tips-list"><li>کار امروز را کوچک نگه دار تا واقعاً انجام شود.</li><li>خروجی ناقص بهتر از شروع نکردن است.</li><li>بعد از انجام، نتیجه را یادداشت کن.</li></ul>
+            {% endif %}
+        </div>
+        <div class="daily-section">
+            <h3>🤖 ابزار پیشنهادی</h3>
+            {% set tools = content.get('tools') or content.get('ai_tools') or [] %}
+            <div class="tools-grid">
+            {% if tools %}
+                {% for tool in tools %}
+                {% if tool is mapping %}
+                <div class="tool-card">
+                    <strong>{{ tool.get('name') or 'ابزار پیشنهادی' }}</strong>
+                    <p><b>چی هست؟</b> {{ tool.get('description') or 'یک ابزار ساده برای کمک به انجام قدم امروز.' }}</p>
+                    <p><b>چرا به تو کمک می‌کند؟</b> {{ tool.get('why') or tool.get('how_helps') or 'کمک می‌کند خروجی امروز را سریع‌تر و مرتب‌تر بسازی.' }}</p>
+                    <p><b>شروع سریع:</b> یک درخواست کوتاه درباره موضوع امروز داخل ابزار بنویس و خروجی را ذخیره کن.</p>
+                    {% if tool.get('link') %}<a href="{{ tool.get('link') }}" target="_blank" rel="noopener">باز کردن ابزار</a>{% endif %}
+                </div>
+                {% else %}
+                <div class="tool-card"><strong>{{ tool }}</strong><p><b>چی هست؟</b> ابزار پیشنهادی برای کار امروز.</p><p><b>چرا کمک می‌کند؟</b> کمک می‌کند اقدام امروز را سریع‌تر شروع کنی.</p><p><b>شروع سریع:</b> از آن برای ساخت یک خروجی کوچک استفاده کن.</p></div>
+                {% endif %}
+                {% endfor %}
+            {% else %}
+                <div class="tool-card"><strong>ChatGPT یا ابزار مشابه</strong><p><b>چی هست؟</b> دستیار متنی برای ایده‌پردازی و مرتب‌کردن فکرها.</p><p><b>چرا به تو کمک می‌کند؟</b> کار بزرگ امروز را به چند قدم کوچک تبدیل می‌کند.</p><p><b>شروع سریع:</b> بنویس: «برای موضوع امروز من یک برنامه ۳۰ دقیقه‌ای بده.»</p></div>
+                <div class="tool-card"><strong>Google Docs / Notion</strong><p><b>چی هست؟</b> دفترچه آنلاین برای ثبت خروجی‌ها.</p><p><b>چرا به تو کمک می‌کند؟</b> خروجی کوچک امروز تبدیل به نمونه‌کار قابل پیگیری می‌شود.</p><p><b>شروع سریع:</b> یک صفحه بساز و نتیجه امروز را همان‌جا ذخیره کن.</p></div>
+            {% endif %}
+            </div>
+        </div>
+        <div class="daily-section">
+            <h3>🎯 اقدام امروز</h3>
+            <p>{{ content.get('action_task') or content.get('challenge') or content.get('task') or 'یک خروجی کوچک از موضوع امروز بساز و آن را ذخیره کن؛ حتی اگر کامل نیست.' }}</p>
+        </div>
+    </div>
+    {% else %}
+    <div class="daily-card empty-daily">
+        <h1>برنامه امروز هنوز آماده نیست.</h1>
+        <p>اگر تازه تحلیل را انجام داده‌ای، چند لحظه بعد دوباره تلاش کن. مسیر روزانه از گام فعال مسیر شغلی ساخته می‌شود.</p>
+    </div>
+    {% endif %}
+
+    <div class="done-panel">
+        {% if program_finished %}
+            <div class="daily-toast show">🎉 تبریک! برنامه یادگیریت با موفقیت تموم شد. از این به بعد می‌تونی سراغ قدم‌های حرفه‌ای‌تر بری.</div>
+        {% else %}
+            <button id="dailyDoneBtn" class="done-btn" type="button" data-step-id="{{ step.get('id', 0) }}" {% if not step %}disabled{% endif %}>✅ امروز این قدم را انجام دادم</button>
+            <div id="dailyToast" class="daily-toast"></div>
+        {% endif %}
+    </div>
+
+    {% if not consultant_request_exists %}
+    <div class="daily-card consultant-cta">
+        <h2>🗣 نیاز به مشاور انسانی داری؟</h2>
+        <p><strong>مشاور: مهندس رضا صادقی</strong><br>مؤسس مجموعه، کارشناس ارشد کامپیوتر و وب، با ۱۵ سال تجربه در بازار آنلاین ایران.</p>
+        <p>اگر در اجرای مسیرت گیر کردی، می‌تونی مستقیم با مهندس صادقی صحبت کنی. ۵ پیام مشاوره رایگان داری. در صورت نیاز، می‌تونی اعتبار شارژ کنی.</p>
+        <div class="consultant-request-box">
+            <textarea id="consultantIntro" placeholder="خیلی کوتاه بنویس کجای مسیر گیر کردی..."></textarea>
+            <button type="button" id="consultantRequestBtn">درخواست مشاوره زنده</button>
+        </div>
+        <div id="consultantRequestMsg" class="daily-toast"></div>
+    </div>
+    {% endif %}
+
+    <div class="back-row">
+        <a class="back-dashboard" href="{{ url_for('mentor_dashboard') }}">🔙 بازگشت به داشبورد</a>
+    </div>
+</div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/celebration.js') }}"></script>
+<script>
+(function(){
+    const doneBtn = document.getElementById('dailyDoneBtn');
+    const toast = document.getElementById('dailyToast');
+    function showToast(el, text){ el.textContent = text; el.classList.add('show'); }
+    if(doneBtn){
+        doneBtn.addEventListener('click', async function(){
+            doneBtn.disabled = true;
+            showToast(toast, 'در حال ثبت انجام قدم امروز...');
+            try{
+                const res = await fetch('{{ url_for("mentor_action_done") }}', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({step_id: doneBtn.dataset.stepId || 0})});
+                const data = await res.json();
+                if(!data.ok){
+                    showToast(toast, data.error || 'ثبت انجام قدم امروز ناموفق بود.');
+                    doneBtn.disabled = false;
+                    return;
+                }
+                if(data.already_done){
+                    showToast(toast, data.message || 'این قدم رو قبلاً انجام دادی ✅');
+                    doneBtn.disabled = false;
+                    return;
+                }
+                const streak = (data.streak && data.streak.current_streak) ? data.streak.current_streak : 0;
+                const xpEarned = data.xp_earned || 10;
+                const badge = data.milestone && data.milestone.badge;
+                const msg = (data.milestone && data.milestone.message) || ('✅ ثبت شد: +' + xpEarned + ' XP و +' + (data.credits_earned || 2) + ' اعتبار. استریک: ' + streak + ' روز.');
+                showToast(toast, msg);
+                if(window.showCelebration){ showCelebration({xp: xpEarned, badge: badge, message: msg}); }
+                if(data.new_xp !== undefined) document.getElementById('dailyXp').textContent = data.new_xp;
+                if(data.new_credits !== undefined) document.getElementById('dailyCredits').textContent = data.new_credits;
+                document.getElementById('dailyStreak').textContent = streak + ' روز پیوسته';
+                if(data.program_finished){ setTimeout(function(){ window.location.href = '{{ url_for("mentor_dashboard") }}'; }, 3000); }
+                else { setTimeout(function(){ window.location.reload(); }, 2500); }
+            }catch(e){
+                showToast(toast, 'خطا در ارتباط با سرور. دوباره تلاش کن.');
+                doneBtn.disabled = false;
+            }
+        });
+    }
+    const consultantBtn = document.getElementById('consultantRequestBtn');
+    if(consultantBtn){
+        consultantBtn.addEventListener('click', async function(){
+            const msgBox = document.getElementById('consultantRequestMsg');
+            const intro = (document.getElementById('consultantIntro').value || '').trim();
+            if(!intro){ showToast(msgBox, 'لطفاً یک توضیح کوتاه بنویس.'); return; }
+            consultantBtn.disabled = true;
+            showToast(msgBox, 'در حال ثبت درخواست مشاوره...');
+            try{
+                const res = await fetch('{{ url_for("api_consultant_request") }}', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({intro_message:intro})});
+                const data = await res.json();
+                if(data.success){
+                    showToast(msgBox, '✅ درخواست ثبت شد. در حال انتقال به صفحه گفتگو...');
+                    setTimeout(function(){ window.location.href = '{{ url_for("mentor_consultant_chat") }}'; }, 800);
+                }else{
+                    showToast(msgBox, data.error || 'ثبت درخواست ناموفق بود.');
+                    consultantBtn.disabled = false;
+                }
+            }catch(e){
+                showToast(msgBox, 'خطا در ثبت درخواست. دوباره تلاش کن.');
+                consultantBtn.disabled = false;
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}

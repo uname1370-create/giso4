@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}آنالیزهای من - گیسو{% endblock %}
+
+{% block head %}
+<style>
+.da-page { min-height:100vh; background:linear-gradient(180deg,#FFF9F0 0%,#FFF5E9 100%); padding:30px 16px 60px; }
+.da-card { max-width:900px; margin:0 auto; background:#fff; border-radius:24px; padding:30px; box-shadow:0 15px 50px rgba(92,61,46,0.1); }
+.da-card h1 { color:#5C3D2E; font-size:26px; margin-bottom:20px; }
+.da-filters { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+.da-filter { padding:8px 16px; border-radius:30px; border:2px solid #E8D5B7; background:transparent; color:#5C3D2E; font-weight:600; cursor:pointer; font-family:'Vazirmatn',sans-serif; }
+.da-filter.active { background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; border-color:#B8935F; }
+.da-analysis { border:1px solid rgba(212,165,116,0.2); border-radius:16px; padding:20px; margin-bottom:16px; }
+.da-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.da-num { color:#B8935F; font-weight:800; font-size:18px; }
+.da-type { background:rgba(212,175,55,0.15); color:#8a6a1a; padding:4px 12px; border-radius:50px; font-size:13px; font-weight:600; }
+.da-meta { display:flex; gap:20px; flex-wrap:wrap; margin-bottom:14px; }
+.da-meta-item { font-size:14px; color:#5C3D2E; }
+.da-meta-item strong { color:#8B6F5C; }
+.da-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.da-btn { padding:9px 16px; border-radius:30px; text-decoration:none; font-size:13px; font-weight:600; }
+.da-btn-view { background:rgba(212,175,55,0.15); color:#8a6a1a; }
+.da-btn-plan { background:rgba(123,160,91,0.15); color:#3f6b2e; }
+.da-btn-check { background:rgba(139,111,92,0.15); color:#5C3D2E; }
+.da-btn-download { background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; }
+.da-new { text-align:center; margin-top:24px; padding:20px; background:linear-gradient(135deg,#FFF9F0,#F5E6D3); border-radius:16px; }
+.da-new h3 { color:#5C3D2E; margin-bottom:12px; }
+.da-empty { text-align:center; color:#8B6F5C; padding:40px; }
+.da-back { display:inline-block; margin-top:16px; color:#B8935F; font-weight:600; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="da-page">
+    <div class="da-card">
+        <h1>🔍 آنالیزهای من</h1>
+        <div class="da-filters">
+            <button class="da-filter active" data-filter="all" onclick="filterAnalyses('all', this)">همه</button>
+            <button class="da-filter" data-filter="hair" onclick="filterAnalyses('hair', this)">آنالیز مو</button>
+            <button class="da-filter" data-filter="skin" onclick="filterAnalyses('skin', this)">آنالیز پوست</button>
+        </div>
+        {% for a in analyses %}
+        <div class="da-analysis" data-type="{{ a.type }}">
+            <div class="da-head">
+                <span class="da-num">#{{ a.id }}</span>
+                <span class="da-type">{{ a.type_fa }}</span>
+            </div>
+            <div class="da-meta">
+                <div class="da-meta-item"><strong>📅 تاریخ:</strong> {{ a.created_at }}</div>
+                <div class="da-meta-item"><strong>⭐ امتیاز:</strong> {{ a.score }}/100</div>
+                <div class="da-meta-item"><strong>🎯 وضعیت:</strong> {{ a.status }}</div>
+            </div>
+            <div class="da-actions">
+                <a href="/analysis/{{ a.type }}/report?id={{ a.id }}" class="da-btn da-btn-view">👁 مشاهده گزارش</a>
+                <a href="/analysis/plan?id={{ a.id }}" class="da-btn da-btn-plan">📋 مشاهده برنامه</a>
+                <a href="/analysis/plan?id={{ a.id }}#checklist" class="da-btn da-btn-check">✅ چک‌لیست</a>
+
+            </div>
+        </div>
+        {% else %}
+        <div class="da-empty">هنوز آنالیز انجام نداده‌اید.</div>
+        {% endfor %}
+        <div class="da-new">
+            <h3>🔬 می‌خوای تحلیل جدید انجام بدی؟</h3>
+            <a href="{{ url_for('analysis') }}" class="da-btn da-btn-download" style="padding:12px 24px;">شروع تحلیل جدید</a>
+        </div>
+        <p style="text-align:center;"><a href="{{ url_for('dashboard') }}" class="da-back">← بازگشت به پنل کاربری</a></p>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterAnalyses(f, btn) {
+    document.querySelectorAll('.da-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.da-analysis').forEach(card => {
+        card.style.display = (f === 'all' || card.dataset.type === f) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

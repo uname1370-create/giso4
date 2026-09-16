@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}مدیریت مشاور - پنل ادمین{% endblock %}
+{% block head %}
+<style>
+.consultant-admin-wrap{max-width:1100px;margin:0 auto}.consultant-filters{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.consultant-filters a{padding:9px 14px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);color:#fff;text-decoration:none;font-weight:700}.consultant-filters a.active{background:#fbbf24;color:#431407}.consultant-request-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}.consultant-request-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:18px;color:#fff}.consultant-request-card h3{margin:0 0 10px}.consultant-request-card p{margin:6px 0;line-height:1.8;color:rgba(255,255,255,.82)}.status-pill{display:inline-flex;padding:4px 10px;border-radius:999px;background:#334155;color:#fff;font-size:12px;font-weight:800}.status-pending{background:#f59e0b}.status-active,.status-approved{background:#10b981}.status-rejected{background:#ef4444}.status-closed{background:#64748b}.consultant-detail{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:22px;color:#fff}.consultant-bio-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:16px 0}.consultant-bio-item{background:rgba(255,255,255,.08);border-radius:14px;padding:12px}.consultant-bio-item span{display:block;font-size:12px;opacity:.7;margin-bottom:4px}.consultant-chat-log{display:flex;flex-direction:column;gap:10px;margin:18px 0}.consultant-chat-msg{max-width:78%;padding:12px 14px;border-radius:16px;line-height:1.8}.consultant-chat-msg.user{align-self:flex-start;background:#dbeafe;color:#1e3a8a}.consultant-chat-msg.admin{align-self:flex-end;background:#dcfce7;color:#166534}.consultant-admin-actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.consultant-admin-actions form{display:inline-flex}.consultant-reply textarea{width:100%;min-height:110px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;padding:12px;font-family:inherit;line-height:1.8}.consultant-reply textarea::placeholder{color:rgba(255,255,255,.45)}.consultant-reply button{margin-top:10px}.empty-consultant{padding:28px;text-align:center;background:rgba(255,255,255,.05);border-radius:18px;color:rgba(255,255,255,.75)}@media(max-width:700px){.consultant-chat-msg{max-width:94%}.consultant-admin-actions,.consultant-admin-actions form{width:100%}.consultant-admin-actions .btn{width:100%}}
+</style>
+{% endblock %}
+{% block content %}
+<section class="page-section admin-section">
+<div class="container consultant-admin-wrap">
+    <div class="page-header">
+        <h1><i class="fas fa-user-headset"></i> مدیریت مشاور</h1>
+        <p class="page-sub">درخواست‌های مشاوره انسانی سایت و پیام‌های کاربران.</p>
+    </div>
+
+    {% if item %}
+    <div class="consultant-detail">
+        <a href="{{ url_for('admin_consultant') }}" class="btn btn-outline btn-sm"><i class="fas fa-arrow-right"></i> بازگشت به لیست</a>
+        <h2>پرونده مشاوره #{{ item.id }}</h2>
+        <div class="consultant-bio-grid">
+            <div class="consultant-bio-item"><span>نام</span><strong>{{ item.name or '—' }}</strong></div>
+            <div class="consultant-bio-item"><span>شماره</span><strong>{{ item.phone or '—' }}</strong></div>
+            <div class="consultant-bio-item"><span>شهر</span><strong>{{ item.city or '—' }}</strong></div>
+            <div class="consultant-bio-item"><span>وضعیت</span><strong class="status-pill status-{{ item.status }}">{{ item.status }}</strong></div>
+        </div>
+        <div class="note info"><i class="fas fa-bullseye"></i><span><strong>مشکل اصلی:</strong> {{ item.main_problem or '—' }}</span></div>
+        <div class="note info"><i class="fas fa-route"></i><span><strong>مسیر انتخابی:</strong> {{ item.selected_route_title or '—' }}</span></div>
+        <div class="note warn"><i class="fas fa-message"></i><span><strong>پیام اولیه رایگان:</strong> {{ item.intro_message or '—' }}</span></div>
+
+        <div class="consultant-admin-actions">
+            {% if item.status == 'pending' %}
+            <form method="post" action="{{ url_for('admin_consultant_approve', req_id=item.id) }}"><button class="btn btn-primary btn-sm" type="submit">✅ تأیید درخواست</button></form>
+            <form method="post" action="{{ url_for('admin_consultant_reject', req_id=item.id) }}"><button class="btn btn-outline btn-sm" type="submit">❌ رد درخواست</button></form>
+            {% endif %}
+            {% if item.status == 'active' %}
+            <form method="post" action="{{ url_for('admin_consultant_pause', req_id=item.id) }}"><button class="btn btn-outline btn-sm" type="submit">⏸ توقف موقت</button></form>
+            <form method="post" action="{{ url_for('admin_consultant_close', req_id=item.id) }}"><button class="btn btn-outline btn-sm" type="submit">🛑 بستن پرونده</button></form>
+            {% endif %}
+            {% if item.status == 'paused' %}
+            <form method="post" action="{{ url_for('admin_consultant_resume', req_id=item.id) }}"><button class="btn btn-primary btn-sm" type="submit">▶️ ادامه گفتگو</button></form>
+            <form method="post" action="{{ url_for('admin_consultant_close', req_id=item.id) }}"><button class="btn btn-outline btn-sm" type="submit">🛑 بستن پرونده</button></form>
+            {% endif %}
+        </div>
+
+        <h3>گفتگو</h3>
+        <div class="consultant-chat-log">
+            {% for m in messages %}
+            <div class="consultant-chat-msg {{ m.sender }}">
+                <strong>{{ 'کاربر' if m.sender == 'user' else 'مشاور' }}</strong><br>
+                {{ m.text }}
+                <div style="font-size:12px;opacity:.65;margin-top:4px">{{ m.created_at }}</div>
+            </div>
+            {% else %}
+            <div class="empty-consultant">هنوز پیامی بعد از تأیید ثبت نشده است.</div>
+            {% endfor %}
+        </div>
+
+        <div class="note info"><i class="fas fa-info-circle"></i><span>پاسخ مشاور از داخل ربات بله/تلگرام ارسال می‌شود؛ این صفحه فقط آینه کامل گفتگو و مدیریت وضعیت است.</span></div>
+    </div>
+    {% else %}
+    <div class="consultant-filters">
+        <a href="{{ url_for('admin_consultant') }}" class="{{ 'active' if not selected_status }}">همه</a>
+        <a href="{{ url_for('admin_consultant', status='pending') }}" class="{{ 'active' if selected_status=='pending' }}">در انتظار</a>
+        <a href="{{ url_for('admin_consultant', status='active') }}" class="{{ 'active' if selected_status=='active' }}">فعال</a>
+        <a href="{{ url_for('admin_consultant', status='paused') }}" class="{{ 'active' if selected_status=='paused' }}">متوقف</a>
+        <a href="{{ url_for('admin_consultant', status='rejected') }}" class="{{ 'active' if selected_status=='rejected' }}">رد شده</a>
+        <a href="{{ url_for('admin_consultant', status='closed') }}" class="{{ 'active' if selected_status=='closed' }}">بسته شده</a>
+    </div>
+    <div class="consultant-request-grid">
+        {% for r in requests %}
+        <a href="{{ url_for('admin_consultant_detail', req_id=r.id) }}" class="consultant-request-card">
+            <span class="status-pill status-{{ r.status }}">{{ r.status }}</span>
+            <h3>{{ r.name or 'کاربر' }}</h3>
+            <p>📱 {{ r.phone or '—' }}{% if r.city %} · 🏙 {{ r.city }}{% endif %}</p>
+            <p><strong>مشکل:</strong> {{ (r.main_problem or '—')[:160] }}</p>
+            <p><strong>مسیر:</strong> {{ r.selected_route_title or '—' }}</p>
+            <p><strong>پیام اولیه:</strong> {{ (r.intro_message or '—')[:180] }}</p>
+            <small>{{ r.created_at }}</small>
+        </a>
+        {% else %}
+        <div class="empty-consultant">درخواستی برای نمایش وجود ندارد.</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+</section>
+{% endblock %}

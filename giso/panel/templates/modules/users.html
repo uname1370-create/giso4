@@ -1,0 +1,153 @@
+{% extends 'layout.html' %}
+{% block title %}کاربران - پنل مدیریت گیسو{% endblock %}
+{% block content %}
+<div class="pnl-page">
+    <h1 class="pnl-h1">👥 مدیریت کامل کاربران</h1>
+    <p class="pnl-sub">جستجو، بن/آن‌بن، ویرایش، کیف پول و حذف دومرحله‌ای (فقط سوپرادمین)</p>
+
+    <!-- ═══ فاز 5: گزارش کلی کاربران ═══ -->
+    <div class="pnl-rep-cards">
+        <div class="pnl-rep-card"><span>🧾 کل کاربران سایت</span><b>{{ stats.total|fa_number }}</b></div>
+        <div class="pnl-rep-card"><span>📅 ثبت‌نام امروز</span><b>{{ stats.today|fa_number }}</b></div>
+        <div class="pnl-rep-card"><span>🗓 ۳۰ روز اخیر</span><b>{{ stats.this_month|fa_number }}</b></div>
+        <div class="pnl-rep-card"><span>🚫 بن‌شده</span><b>{{ stats.banned|fa_number }}</b></div>
+        <div class="pnl-rep-card"><span>👑 ادمین‌ها</span><b>{{ stats.admins|fa_number }}</b></div>
+    </div>
+
+    {% if special_security %}
+    <!-- ═══ کارت امنیت حساب اختصاصی (فقط سوپرادمین) — ۱۴۰۵-۰۶-۱۴ ═══ -->
+    <div class="pnl-card" style="border:1.5px solid #e4c889;background:linear-gradient(135deg,#fffdf6,#fdf6e3);margin-bottom:14px">
+        <h3 style="margin:0 0 4px">👑 امنیت حساب اختصاصی — {{ special_security.full_name }}</h3>
+        <p class="pnl-muted" style="margin:0 0 10px;font-size:.74rem">
+            شماره: <b dir="ltr">{{ special_security.phone }}</b>
+            · وضعیت حساب سایت: {% if special_security.account_exists %}<b style="color:#2f9e44">ساخته شده ✅</b> (آخرین ورود: {{ special_security.account_last_login }}){% else %}<b style="color:#c0392b">هنوز ساخته نشده</b>{% endif %}
+            · وضعیت پیام امنیتی: {% if special_security.enabled %}<b style="color:#2f9e44">فعال ✓ (کد به بلهٔ سوپرادمین می‌رود)</b>{% else %}<b style="color:#b8860b">غیرفعال — ورود با رمز امنیتی ثابت</b>{% endif %}
+        </p>
+        <form method="POST" action="{{ url_for('panel.users_special_security') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+                <label style="display:flex;align-items:center;gap:7px;font-size:.78rem;cursor:pointer">
+                    <input type="checkbox" name="security_enabled" value="1" {% if special_security.enabled %}checked{% endif %} style="width:17px;height:17px;accent-color:#b8941f">
+                    🔐 <b>تیک پیام امنیتی</b> — فعال: کد تأیید ورود پنل به بلهٔ شما (سوپرادمین) ارسال می‌شود (دو مرحله‌ای)
+                </label>
+                <label style="display:flex;align-items:center;gap:7px;font-size:.78rem">
+                    🔑 رمز امنیتی:
+                    <input type="text" name="fixed_code" value="{{ special_security.code }}" dir="ltr" inputmode="numeric" maxlength="12"
+                           style="width:100px;border:1px solid #e3d5c3;border-radius:9px;padding:6px 10px;text-align:center;letter-spacing:3px;font:inherit">
+                </label>
+                <label style="display:flex;align-items:center;gap:7px;font-size:.78rem;cursor:pointer">
+                    <input type="checkbox" name="apply_password" value="1" style="width:17px;height:17px;accent-color:#b8941f">
+                    🆕 ساخت حساب سایت / تنظیم رمز ورود با همین رمز (برای تست بدون بله)
+                </label>
+                <button type="submit" class="pnl-btn pnl-btn-gold" style="padding:7px 16px;font-size:.76rem">💾 ذخیره تنظیمات</button>
+            </div>
+            <small class="pnl-muted" style="display:block;margin-top:8px;font-size:.66rem">
+                راهنما: <b>تیک فعال</b> = ورود دومرحله‌ای با پیام به بله شما · <b>تیک خالی</b> = ورود فقط با رمز امنیتی (پیش‌فرض 1370)
+            </small>
+        </form>
+    </div>
+    {% endif %}
+
+    <form method="GET" action="{{ url_for('panel.users') }}" class="pnl-search">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="q" value="{{ q }}" placeholder="جستجو: شماره موبایل یا نام کاربر">
+        <button type="submit" class="pnl-btn pnl-btn-gold">🔎 جستجو</button>
+    </form>
+
+    {% if users %}
+    <div class="pnl-list">
+        {% for u in users %}
+        <div class="pnl-user-card">
+            <div class="pnl-user-head">
+                <div>
+                    <strong>{{ u.name or '—' }}</strong>
+                    <span dir="ltr" class="pnl-muted">{{ u.phone }}</span>
+                </div>
+                <div class="pnl-user-meta">
+                    {% if is_super %}<span>نقدی: <b>{{ toman(u.cash_balance) }}</b> · اعتباری: <b>{{ toman(u.spend_balance) }}</b></span>{% endif %}
+                    <span>
+                        {% if u.is_banned %}<span class="pnl-badge pnl-badge-off">🚫 بن</span>
+                        {% else %}<span class="pnl-badge pnl-badge-ok">فعال</span>{% endif %}
+                    </span>
+                </div>
+            </div>
+            {% if u.is_banned and u.ban_reason %}
+            <div class="pnl-muted">دلیل بن: {{ u.ban_reason }}</div>
+            {% endif %}
+
+            {% if is_super %}
+            <div class="pnl-hair-side">
+                <button type="button" class="pnl-btn pnl-btn-gold pnl-btn-sm" class="pnl-edit-user-toggle"
+                        onclick="var e=document.getElementById('ue-{{ u.id }}');e.classList.toggle('open');">✏️ ویرایش</button>
+                <form method="POST" action="{{ url_for('panel.user_delete', user_id=u.id) }}" style="margin-right:6px;display:inline-block;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="pnl-btn pnl-btn-danger pnl-btn-sm" onclick="return confirm('⚠️ حذف نهایی {{ u.phone }}؟ این عمل قابل بازگشت نیست.');">🗑 حذف</button>
+                </form>
+            </div>
+            <!-- ✏️ ویرایشگر درون‌خطی — همه اکشن‌ها در همین کارت -->
+            <div class="pnl-inline-editor" id="ue-{{ u.id }}">
+                <div class="pnl-user-actions" style="margin-top:10px;">
+                    <form method="POST" action="{{ url_for('panel.user_update', user_id=u.id) }}" class="pnl-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="phone" value="{{ u.phone }}">
+                        <input type="text" name="name" value="{{ u.name }}" placeholder="نام جدید">
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">✏️ ویرایش نام</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('panel.user_wallet', user_id=u.id) }}" class="pnl-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="phone" value="{{ u.phone }}">
+                        <input type="number" name="delta" placeholder="±تومان">
+                        <select name="balance_scope" aria-label="نوع موجودی"><option value="cash">نقدی</option><option value="spend">اعتبار مصرفی</option></select>
+                        <button class="pnl-btn pnl-btn-gold pnl-btn-sm">💰 اصلاح مانده</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('panel.user_reset_password', user_id=u.id) }}" class="pnl-inline-form" onsubmit="return confirm('رمز عبور این کاربر تغییر کند؟');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="text" name="new_password" class="giso-pw-new" placeholder="رمز جدید (حداقل ۶ کاراکتر، حرف و عدد)" minlength="6" required>
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🔑 تغییر رمز کاربر</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('panel.user_show_password', user_id=u.id) }}" class="pnl-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm" type="submit" title="نمایش رمز فعلی روی همین حساب (فقط سوپرادمین)">👁 نمایش رمز فعلی</button>
+                    </form>
+                    {% if u.revealed_password %}
+                    <div class="pnl-card" style="margin-top:8px;padding:10px 12px;background:#fff8e8;border:1px solid #e4c889;">
+                        <div style="font-size:.78rem;">رمز فعلی روی همین حساب:</div>
+                        <code dir="ltr" style="display:block;font-size:1rem;letter-spacing:1px;margin-top:4px;">{{ u.revealed_password }}</code>
+                        <small class="pnl-muted">فقط همین بار نمایش داده می‌شود؛ در اعلان/لاگ ذخیره نمی‌شود.</small>
+                    </div>
+                    {% endif %}
+                    {% if u.is_banned %}
+                    <form method="POST" action="{{ url_for('panel.user_unban', user_id=u.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">✅ رفع بن</button>
+                    </form>
+                    {% else %}
+                    <form method="POST" action="{{ url_for('panel.user_ban', user_id=u.id) }}" class="pnl-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="text" name="ban_reason" placeholder="دلیل بن">
+                        <button class="pnl-btn pnl-btn-danger pnl-btn-sm">🚫 بن</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if u.transactions %}
+            <details class="pnl-details">
+                <summary>تراکنش‌ها ({{ u.transactions|length }})</summary>
+                {% for tx in u.transactions %}
+                <div class="pnl-tx-row"><span>{{ tx.created_at }}</span><b style="color:{{ '#16a34a' if tx.amount>=0 else '#b91c1c' }};">{{ toman(tx.amount, show_plus=True) }}</b><span class="pnl-muted">{{ tx.description }}</span></div>
+                {% endfor %}
+            </details>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="pnl-empty"><p>{% if q %}کاربری با «{{ q }}» پیدا نشد.{% else %}کاربری برای نمایش نیست.{% endif %}</p></div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/password_meter.js') }}?v=1"></script>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}پروفایل کاربری - پنل من{% endblock %}
+{% block head %}
+<style>
+.profile-wrap{max-width:820px;margin:0 auto}
+.profile-card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:24px}
+.profile-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px dashed #eee}
+.profile-row:last-of-type{border-bottom:0}
+.profile-row span{color:#666}
+.profile-row strong{color:#111}
+.profile-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:18px}
+.pstat{background:#f3f4f6;border-radius:14px;padding:14px;text-align:center}
+.pstat .n{font-weight:800;font-size:20px;color:#111}
+.pstat .l{font-size:12px;color:#666;margin-top:4px}
+.section-title{margin:24px 0 10px;font-size:16px;color:#111}
+</style>
+{% endblock %}
+{% block content %}
+<section class="simple-page">
+<div class="container profile-wrap">
+    <div class="page-header"><h1><i class="fas fa-user-circle"></i> پروفایل کاربری</h1>
+        <p>اطلاعات حساب کاربری و پیشرفت آموزشی شما</p></div>
+    <div class="profile-card">
+        <div class="profile-row"><span>نام:</span><strong>{{ user.first_name or '—' }}</strong></div>
+        <div class="profile-row"><span>شماره موبایل:</span><strong>{{ phone_display }}</strong></div>
+        <div class="profile-row"><span>هدف شغلی (یار همراه من):</span><strong>{{ state.career_goal or '—' }}</strong></div>
+        <div class="profile-stats">
+            <div class="pstat"><div class="n">{{ summary.xp }}</div><div class="l">⭐ XP</div></div>
+            <div class="pstat"><div class="n">{{ summary.credits }}</div><div class="l">💰 اعتبار</div></div>
+            <div class="pstat"><div class="n">{{ summary.lessons_done }}</div><div class="l">📚 درس‌ها</div></div>
+            <div class="pstat"><div class="n">{{ summary.missions_done }}</div><div class="l">🎯 ماموریت‌ها</div></div>
+            <div class="pstat"><div class="n">{{ summary.paths_count }}</div><div class="l">🗺 مسیرها</div></div>
+        </div>
+        <div class="section-title">دسترسی سریع</div>
+        <div class="inline-actions">
+            <a href="{{ url_for('mentor_dashboard') }}" class="btn btn-primary"><i class="fas fa-robot"></i> یار همراه من</a>
+            <a href="{{ url_for('mentor_profile') }}" class="btn btn-outline"><i class="fas fa-user-tie"></i> پروفایل شغلی</a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-outline"><i class="fas fa-arrow-left"></i> پیشخوان</a>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost"><i class="fas fa-sign-out-alt"></i> خروج</a>
+        </div>
+    </div>
+</div>
+</section>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'user_layout.html' %}
+{% block title %}پرسش از مراکز زیبایی - گیسو{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('beauty_centers.static', filename='beauty_centers.css') }}?v=4">{% endblock %}
+{% block content %}
+<div class="pu-page bc-user-inbox">
+  <header class="bc-user-inbox-head">
+    <div>
+      <span class="bc-kicker">پرسش و هماهنگی اولیه</span>
+      <h1 class="pu-h1"><i class="fas fa-comments"></i> گفتگو با مراکز زیبایی</h1>
+      <p class="pu-sub">پرسش‌ها و پاسخ‌های مراکز را ساده و یک‌جا دنبال کنید.</p>
+    </div>
+    <a class="pu-btn pu-btn-rose" href="{{ url_for('beauty_centers.list_centers') }}"><i class="fas fa-magnifying-glass"></i> پیدا کردن مرکز</a>
+  </header>
+
+  <div class="bc-chat-safety"><i class="fas fa-shield-heart"></i><div><b>گفتگوی امن برای سؤال و هماهنگی</b><p>رزرو، پرداخت و ارائه خدمت خارج از گیسو انجام می‌شود. اطلاعات بانکی یا اطلاعات حساس را در پیام ارسال نکنید.</p></div></div>
+
+  {% if center_unread %}<div class="bc-user-unread"><i class="fas fa-envelope"></i><span><b>{{ center_unread }}</b> پاسخ خوانده‌نشده از مراکز دارید.</span></div>{% endif %}
+
+  <section class="bc-user-thread-list" aria-label="گفتگوهای مراکز">
+    {% for item in center_conversations %}
+    <article class="bc-user-thread {{ 'has-unread' if item.unread else '' }}">
+      <div class="bc-user-thread-icon"><i class="fas fa-spa"></i>{% if item.unread %}<em>{{ item.unread }}</em>{% endif %}</div>
+      <div class="bc-user-thread-copy">
+        <div class="bc-user-thread-title"><h2>{{ item.center_name }}</h2><span class="bc-status {{ 'status-published' if item.status=='active' else 'status-paused' }}">{{ 'پاسخ‌گویی فعال' if item.status=='active' else 'گفتگو بسته' }}</span></div>
+        <p class="bc-user-thread-location"><i class="fas fa-location-dot"></i>{{ item.city or 'شهر ثبت نشده' }}{% if item.region %}، {{ item.region }}{% endif %}</p>
+        <p class="bc-user-thread-preview">{% if item.last_message %}{{ 'مرکز: ' if item.last_sender_id != current_user.id else 'شما: ' }}{{ item.last_message|truncate(120, true) }}{% else %}هنوز پیامی ارسال نشده است.{% endif %}</p>
+        <time>{{ item.last_message_at or item.created_at }}</time>
+      </div>
+      <div class="bc-user-thread-actions">
+        <a class="pu-btn {{ 'pu-btn-rose' if item.unread else 'pu-btn-outline' }}" href="{{ url_for('beauty_centers.center_chat', slug=item.slug, conversation_id=item.id) }}"><i class="fas fa-message"></i>{{ 'مشاهده پاسخ' if item.unread else 'باز کردن گفتگو' }}</a>
+        {% if item.center_status=='published' %}<a class="bc-user-center-link" href="{{ url_for('beauty_centers.center_detail', slug=item.slug) }}">صفحه مرکز <i class="fas fa-arrow-left"></i></a>{% endif %}
+      </div>
+    </article>
+    {% else %}
+    <div class="bc-user-empty"><span><i class="fas fa-comments"></i></span><h2>هنوز گفتگویی ندارید</h2><p>مرکز موردنظر را پیدا کنید و سؤال خود را درباره خدمات، هزینه تقریبی یا زمان مراجعه بپرسید.</p><a class="pu-btn pu-btn-rose" href="{{ url_for('beauty_centers.list_centers') }}">مشاهده مراکز زیبایی</a></div>
+    {% endfor %}
+  </section>
+</div>
+{% endblock %}

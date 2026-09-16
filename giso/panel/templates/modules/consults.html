@@ -1,0 +1,89 @@
+{% extends 'layout.html' %}
+{% block title %}مدیریت گفتگوها - پنل مدیریت گیسو{% endblock %}
+{% block content %}
+<div class="pnl-page">
+    <h1 class="pnl-h1">💬 مدیریت گفتگوها</h1>
+    <p class="pnl-sub">گفتگوهای خرید مو، فروشگاه، بازارچه و پشتیبانی — هر گفتگو تکی با ادامه، پایان و قبلی/بعدی</p>
+
+    <!-- ورودی بخش‌های مرتبط (از منوی اصلی اینجا تجمیع شده‌اند) -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px;">
+        <a class="pnl-card" href="{{ url_for('panel.reviews') }}" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px;margin:0;">
+            <span style="font-size:1.6rem;">⭐</span><b>نظرات عمومی</b>
+            <small class="pnl-muted">بررسی، تأیید/مخفی و حذف نظرات کاربران</small>
+        </a>
+        {% if is_super %}
+        <a class="pnl-card" href="{{ url_for('panel.notifications') }}" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px;margin:0;">
+            <span style="font-size:1.6rem;">🔔</span><b>مدیریت اعلان‌ها</b>
+            <small class="pnl-muted">تنظیم مقصد اعلان‌ها و پیام‌های سایت/بله</small>
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="pnl-tabs-wrap">
+        <div class="pnl-tabs">
+            {% for k in chat_kinds %}
+            <a class="pnl-tab {{ 'active' if chat_kind==k else '' }}" href="{{ url_for('panel.consults', kind=k) }}">
+                {{ chat_kind_labels[k] }} <span class="pnl-tab-badge">{{ chat_counts.get(k, 0) }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if thread %}
+    <div class="pnl-card">
+        <div class="pnl-btn-row" style="justify-content:space-between;margin-bottom:12px;">
+            <div>
+                {% if prev_id %}<a class="pnl-btn pnl-btn-outline pnl-btn-sm" href="{{ url_for('panel.consults', kind=chat_kind, cid=prev_id) }}">◀️ قبلی</a>{% endif %}
+                {% if next_id %}<a class="pnl-btn pnl-btn-outline pnl-btn-sm" href="{{ url_for('panel.consults', kind=chat_kind, cid=next_id) }}">بعدی ▶️</a>{% endif %}
+            </div>
+            <span class="pnl-chip">{{ thread_id }} از {{ chat_ids|length }}</span>
+        </div>
+        <h3>{{ thread.title }}</h3>
+        <p class="pnl-muted" dir="ltr">{{ thread.subtitle }} · {{ cons_status_labels.get(thread.status, thread.status) }}</p>
+
+        <div style="display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow-y:auto;padding:8px;background:#faf7f4;border-radius:10px;margin:12px 0;">
+            {% for m in thread_messages %}
+            <div style="align-self:{% if m.sender in ('admin','seller') %}flex-end;background:#e8f4fd{% else %}flex-start;background:#fff{% endif %};max-width:85%;padding:8px 12px;border:1px solid #eee;border-radius:12px;">
+                <div style="font-size:.72rem;opacity:.65;">{% if m.sender in ('admin','seller') %}🧑‍💼 کارشناس{% else %}👤 کاربر{% endif %} · {{ m.created_at }}</div>
+                <div>{{ m.message }}</div>
+            </div>
+            {% else %}
+            <p class="pnl-muted">پیامی در این گفتگو نیست.</p>
+            {% endfor %}
+        </div>
+
+        {% if not thread.closed %}
+        <form method="POST" action="{{ url_for('panel.consult_thread_reply') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="kind" value="{{ chat_kind }}">
+            <input type="hidden" name="cid" value="{{ thread_id }}">
+            <textarea name="message" rows="3" class="pnl-input" placeholder="پیام شما…" style="width:100%;" required></textarea>
+            <div class="pnl-btn-row" style="margin-top:8px;">
+                <button class="pnl-btn pnl-btn-gold">📤 ارسال</button>
+            </div>
+        </form>
+        {% else %}
+        <p class="pnl-muted">این گفتگو پایان یافته است.</p>
+        {% endif %}
+        <div class="pnl-btn-row" style="margin-top:10px;">
+            <form method="POST" action="{{ url_for('panel.consult_thread_status') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="kind" value="{{ chat_kind }}">
+                <input type="hidden" name="cid" value="{{ thread_id }}">
+                <input type="hidden" name="action" value="continue">
+                <button class="pnl-btn">▶️ ادامه گفتگو</button>
+            </form>
+            <form method="POST" action="{{ url_for('panel.consult_thread_status') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="kind" value="{{ chat_kind }}">
+                <input type="hidden" name="cid" value="{{ thread_id }}">
+                <input type="hidden" name="action" value="end">
+                <button class="pnl-btn pnl-btn-outline" onclick="return confirm('گفتگو پایان یابد؟');">⏹ پایان</button>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div class="pnl-empty"><p>گفتگویی در این بخش نیست.</p></div>
+    {% endif %}
+</div>
+{% endblock %}

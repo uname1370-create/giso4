@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}حذف از لیست کاربران - پنل ادمین{% endblock %}
+{% block content %}
+<section class="page-section admin-section">
+<div class="container">
+    <div class="page-header">
+        <h1>📋 حذف از لیست کاربران</h1>
+        <p class="page-sub">کنار هر کاربر یک دکمه حذف مستقیم قرار دارد. یک کلیک = حذف فوری.</p>
+    </div>
+
+    <div class="admin-user-search-card">
+        <h3>جستجوی لیست حذف</h3>
+        <form method="get" action="{{ url_for('admin_users_delete_from_list') }}" class="admin-user-inline-form">
+            <label>
+                user_id
+                <input type="number" name="user_id" value="{{ q_user_id or '' }}" placeholder="مثلاً 12345">
+            </label>
+            <label>
+                شماره موبایل
+                <input type="text" name="phone" value="{{ q_phone or '' }}" placeholder="مثلاً 0912...">
+            </label>
+            <button type="submit" class="btn btn-primary">🔎 جستجو</button>
+            <a href="{{ url_for('admin_users_delete_from_list') }}" class="btn btn-outline">نمایش همه</a>
+            <a href="{{ url_for('admin_users_delete_menu') }}" class="btn btn-outline">🔙 بازگشت به منوی حذف</a>
+        </form>
+    </div>
+
+    <div class="admin-user-note">
+        <strong>حذف فوری:</strong>
+        هیچ عبارت تأییدی لازم نیست. حذف شامل ادمین‌ها و حساب جاری هم می‌شود و در user_deletion_logs ثبت خواهد شد.
+    </div>
+
+    <div class="table-wrap">
+    <table class="admin-table admin-users-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>نام</th>
+                <th>شماره</th>
+                <th>نقش</th>
+                <th>حذف</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for u in users %}
+            <tr class="{{ 'admin-user-row-admin' if u.is_site_admin else '' }}">
+                <td data-label="#">{{ u.id }}</td>
+                <td data-label="نام">{{ u.first_name or '—' }}</td>
+                <td data-label="شماره">{{ u.phone or '—' }}</td>
+                <td data-label="نقش">
+                    {% if u.is_site_admin %}<span class="badge badge-red">ادمین سایت ⚠️</span>
+                    {% else %}<span class="badge">کاربر</span>{% endif %}
+                </td>
+                <td data-label="حذف">
+                    <form method="post" action="{{ url_for('admin_user_delete', user_id=u.id) }}" class="admin-user-row-delete-form">
+                        <button type="submit" class="btn btn-danger-strong">🗑 حذف</button>
+                    </form>
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="5" class="table-empty-cell">کاربری برای نمایش وجود ندارد.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+</section>
+{% endblock %}

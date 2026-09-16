@@ -1,0 +1,134 @@
+{% extends 'layout.html' %}
+{% block title %}مرکز مالی - پنل مدیریت گیسو{% endblock %}
+{% block content %}
+<div class="pnl-page">
+    <h1 class="pnl-h1">💳 مرکز مالی گیسو</h1><p class="pnl-sub">نمای یکپارچه فروشگاه، بازارچه، مراکز، کیف پول و اعتبار AI؛ فقط برای سوپرادمین.</p>
+    <div class="pnl-rep-cards">
+        <div class="pnl-rep-card"><span>💵 مانده نقدی دفترکل</span><b>{{ toman(finance_summary.cash_total) }}</b></div>
+        <div class="pnl-rep-card"><span>🎁 مانده اعتباری دفترکل</span><b>{{ toman(finance_summary.spend_total) }}</b></div>
+        <div class="pnl-rep-card"><span>➕ شارژ در انتظار</span><b>{{ fa_number(finance_summary.pending_topups) }} <small>درخواست</small></b><small>{{ toman(finance_summary.pending_topup_amount) }}</small></div>
+        <div class="pnl-rep-card"><span>🏦 تسویه در انتظار</span><b>{{ fa_number(finance_summary.pending_withdrawals) }} <small>درخواست</small></b><small>{{ toman(finance_summary.pending_withdrawal_amount) }}</small></div>
+    </div>
+    <div class="pnl-tabs-wrap"><nav class="pnl-tabs" aria-label="بخش‌های مالی">
+        <a class="pnl-tab {{ 'active' if finance_tab == 'overview' else '' }}" href="{{ url_for('panel.wallet', tab='overview') }}">📊 خلاصه</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'users' else '' }}" href="{{ url_for('panel.wallet', tab='users') }}">👥 کیف پول کاربران</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'shop' else '' }}" href="{{ url_for('panel.wallet', tab='shop') }}">🛍 فروشگاه</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'marketplace' else '' }}" href="{{ url_for('panel.wallet', tab='marketplace') }}">🏪 بازارچه</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'beauty' else '' }}" href="{{ url_for('panel.wallet', tab='beauty') }}">🏥 مراکز</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'ai' else '' }}" href="{{ url_for('panel.wallet', tab='ai') }}">🤖 اعتبار AI</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'discrepancies' else '' }}" href="{{ url_for('panel.wallet', tab='discrepancies') }}">🛡 مغایرت‌ها</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'missions' else '' }}" href="{{ url_for('panel.wallet', tab='missions') }}">🎯 ماموریت‌ها</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'ranks' else '' }}" href="{{ url_for('panel.wallet', tab='ranks') }}">🏅 رتبه‌ها</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'service_credits' else '' }}" href="{{ url_for('panel.wallet', tab='service_credits') }}">🎫 اعتبار خدمات</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'topups' else '' }}" href="{{ url_for('panel.wallet', tab='topups') }}">➕ درخواست شارژ {% if finance_summary.pending_topups %}<span class="pnl-tab-badge">{{ fa_number(finance_summary.pending_topups) }}</span>{% endif %}</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'settlements' else '' }}" href="{{ url_for('panel.wallet', tab='settlements') }}">🏦 تسویه حساب {% if finance_summary.pending_withdrawals %}<span class="pnl-tab-badge">{{ fa_number(finance_summary.pending_withdrawals) }}</span>{% endif %}</a>
+        <a class="pnl-tab {{ 'active' if finance_tab == 'settings' else '' }}" href="{{ url_for('panel.wallet', tab='settings') }}">⚙️ تنظیمات مالی</a>
+    </nav></div>
+
+    {% if finance_tab in ('overview','users','shop','marketplace','beauty','ai','discrepancies') %}
+    {% include 'modules/_finance_overview_tabs.html' %}
+    {% elif finance_tab == 'missions' %}
+    <section class="pnl-card"><h2>ایجاد مأموریت</h2><p class="pnl-muted">هر رویداد واقعی فقط یک مأموریت دارد. مأموریت حذف‌شده را می‌توان از همین فرم دوباره ساخت؛ سابقه پاداش کاربران حفظ می‌شود.</p>
+      <form method="POST" action="{{ url_for('panel.wallet_mission_create') }}" class="pnl-stack-form" style="max-width:620px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>رویداد مأموریت</label><select name="code" required>
+          {% for code, meta in mission_events.items() %}<option value="{{ code }}">{{ meta[0] }}</option>{% endfor %}
+        </select>
+        <label>عنوان</label><input name="title" maxlength="160" required placeholder="عنوان خوانا برای کاربر">
+        <label>توضیح</label><input name="description" maxlength="1000" placeholder="کاربر برای دریافت پاداش چه کاری انجام دهد؟">
+        <label for="newMissionReward">پاداش اعتبار خرید (تومان)</label><input id="newMissionReward" type="number" name="reward_amount" min="0" data-money-words="newMissionRewardWords" required><small id="newMissionRewardWords" class="pnl-money-words">مبلغ به حروف: —</small>
+        <label>نوع اعتبار پاداش</label><select name="reward_scope"><option value="spend" selected>🪙 مصرفی (Spend)</option><option value="cash">💵 نقدی (Cash)</option></select>
+        <label>امتیاز رتبه</label><input type="number" name="reward_points" min="0" value="0">
+        <label>نوع مأموریت</label><select name="mission_type"><option value="once" selected>یک‌بار</option><option value="daily">روزانه</option><option value="weekly">هفتگی</option></select>
+        <label class="pnl-check"><input type="checkbox" name="is_active" value="1" checked> فعال باشد</label><button class="pnl-btn pnl-btn-gold">ایجاد مأموریت</button>
+      </form>
+    </section>
+    <section class="pnl-card"><h2>مدیریت ماموریت‌ها</h2><p class="pnl-muted">پاداش همیشه Spend و غیرقابل تسویه است. ثبت تکمیل یکتا از دوباره‌پرداخت جلوگیری می‌کند.</p><div class="pnl-market-admin-list">
+      {% for mission in wallet_missions %}<article><div class="pnl-market-admin-main"><div><strong>{{ mission.title }}</strong><span class="pnl-chip {{ 'status-approved' if mission.is_active else 'status-closed' }}">{{ 'فعال' if mission.is_active else 'غیرفعال' }}</span></div><p>رویداد: <code>{{ mission.code }}</code> · تکمیل‌ها: {{ fa_number(mission.completions_count or 0) }} · پاداش: {{ toman(mission.reward_amount) }} {{ 'نقدی' if (mission.reward_scope or 'spend')=='cash' else 'مصرفی' }}{% if mission.reward_points %} · {{ fa_number(mission.reward_points) }} امتیاز{% endif %} · {{ {'once':'یک‌بار','daily':'روزانه','weekly':'هفتگی'}.get(mission.mission_type or 'once','یک‌بار') }}</p></div>
+        <div style="min-width:min(100%,440px);"><form method="POST" action="{{ url_for('panel.wallet_mission_update', mission_id=mission.id) }}" class="pnl-stack-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>عنوان</label><input name="title" value="{{ mission.title }}" maxlength="160" required><label>توضیح</label><input name="description" value="{{ mission.description }}" maxlength="1000"><label>مبلغ پاداش (تومان)</label><input id="missionReward{{ mission.id }}" type="number" name="reward_amount" min="0" value="{{ mission.reward_amount }}" data-money-words="missionRewardWords{{ mission.id }}" required><small id="missionRewardWords{{ mission.id }}" class="pnl-money-words">مبلغ به حروف: —</small><label>نوع اعتبار پاداش</label><select name="reward_scope"><option value="spend" {{ 'selected' if (mission.reward_scope or 'spend')=='spend' }}>🪙 مصرفی (Spend)</option><option value="cash" {{ 'selected' if (mission.reward_scope or 'spend')=='cash' }}>💵 نقدی (Cash)</option></select><label>امتیاز رتبه</label><input type="number" name="reward_points" min="0" value="{{ mission.reward_points or 0 }}"><label>نوع مأموریت</label><select name="mission_type"><option value="once" {{ 'selected' if (mission.mission_type or 'once')=='once' }}>یک‌بار</option><option value="daily" {{ 'selected' if (mission.mission_type or 'once')=='daily' }}>روزانه</option><option value="weekly" {{ 'selected' if (mission.mission_type or 'once')=='weekly' }}>هفتگی</option></select><label class="pnl-check"><input type="checkbox" name="is_active" value="1" {% if mission.is_active %}checked{% endif %}> فعال باشد</label><button class="pnl-btn pnl-btn-gold pnl-btn-sm">ذخیره مأموریت</button></form>
+        <form method="POST" action="{{ url_for('panel.wallet_mission_delete', mission_id=mission.id) }}" style="margin-top:8px;" onsubmit="return confirm('مأموریت «{{ mission.title }}» حذف شود؟ سابقه پرداخت کاربران حفظ می‌شود.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pnl-btn pnl-btn-danger pnl-btn-sm">🗑 حذف مأموریت</button></form></div>
+      </article>{% else %}<div class="pnl-empty"><p>مأموریتی وجود ندارد؛ از فرم بالا ایجاد کنید.</p></div>{% endfor %}
+    </div></section>
+
+    {% elif finance_tab == 'ranks' %}
+    <section class="pnl-card"><h2>🏅 رتبه‌ها</h2>
+      <form method="POST" action="{{ url_for('panel.wallet_rank_settings') }}" class="pnl-stack-form" style="max-width:520px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="pnl-check"><input type="checkbox" name="daily_credit_enabled" value="1" {% if rank_settings.daily_credit_enabled %}checked{% endif %}> واریز روزانهٔ اعتبار رتبه فعال باشد</label>
+        <table class="pnl-table"><thead><tr><th>رتبه</th><th>آستانهٔ امتیاز</th><th>اعتبار روزانه (تومان)</th></tr></thead><tbody>
+          {% for lv in rank_settings.levels %}<tr>
+            <td>{{ lv.emoji }} {{ lv.name }}</td>
+            <td><input type="number" name="threshold_{{ lv.level }}" min="0" value="{{ lv.threshold }}"></td>
+            <td><input type="number" name="daily_credit_{{ lv.level }}" min="0" value="{{ lv.daily_credit }}"></td>
+          </tr>{% endfor %}
+        </tbody></table>
+        <small class="pnl-muted">آستانه‌ها باید از الماس به برنز اکیداً نزولی باشند.</small>
+        <button class="pnl-btn pnl-btn-gold">ذخیره تنظیمات رتبه‌ها</button>
+      </form>
+    </section>
+    <section class="pnl-card"><h2>⚡ واریز فوری + گزارش روزانه</h2>
+      <form method="POST" action="{{ url_for('panel.wallet_rank_deposit') }}" class="pnl-inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>تاریخ (خالی = امروز)</label><input type="date" name="date">
+        <button class="pnl-btn pnl-btn-gold pnl-btn-sm">واریز فوری</button>
+      </form>
+      {% if rank_daily_report %}<div class="pnl-table-wrap"><table class="pnl-table"><thead><tr><th>تاریخ</th><th>تعداد</th><th>مجموع</th></tr></thead><tbody>{% for r in rank_daily_report %}<tr><td>{{ r.day }}</td><td>{{ fa_number(r.count) }}</td><td>{{ toman(r.total) }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="pnl-empty"><p>هنوز واریز روزانه‌ای ثبت نشده است.</p></div>{% endif %}
+    </section>
+    <section class="pnl-card"><h2>🏆 برترین‌های هفته</h2>
+      {% if weekly_leaderboard %}<div class="pnl-table-wrap"><table class="pnl-table"><thead><tr><th>#</th><th>کاربر</th><th>امتیاز</th></tr></thead><tbody>{% for r in weekly_leaderboard %}<tr><td>{{ fa_number(r.rank) }}</td><td>{{ r.name or '—' }}</td><td>{{ fa_number(r.score) }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<div class="pnl-empty"><p>هنوز امتیازی ثبت نشده است.</p></div>{% endif %}
+    </section>
+
+    {% elif finance_tab == 'service_credits' %}
+    <section class="pnl-card"><h2>🎫 اعتبار خدمات</h2>
+      <p class="pnl-muted">هزینهٔ آنالیز هوشمند، گزارش سریع و مشاوره آنلاین از کیف پول کاربر کسر می‌شود. فعال‌سازی فقط وقتی اثر دارد که هزینه > ۰ باشد؛ بازارچه و فروشگاه جدا هستند.</p>
+      <form method="POST" action="{{ url_for('panel.wallet_service_credits') }}" class="pnl-stack-form" style="max-width:560px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% for it in service_credit_items %}
+        <div class="pnl-ed-box">
+          <strong>{{ it.label }}</strong>
+          <label class="pnl-check"><input type="checkbox" name="enabled_{{ it.key }}" value="1" {% if it.enabled %}checked{% endif %}> فعال باشد</label>
+          <label>هزینهٔ هر استفاده (تومان)</label><input type="number" name="fee_{{ it.key }}" min="0" value="{{ it.fee }}">
+        </div>
+        {% else %}
+        <p class="pnl-muted">تنظیم خدمتی برای نمایش موجود نیست.</p>
+        {% endfor %}
+        <button class="pnl-btn pnl-btn-gold">ذخیره تنظیمات اعتبار خدمات</button>
+      </form>
+    </section>
+    <section class="pnl-card"><h2>📊 گزارش کسر اعتبار خدمات</h2>
+      {% set _svc_rep = service_charge_report or {} %}
+      {% if _svc_rep.get('counts') %}
+      <div class="pnl-table-wrap"><table class="pnl-table"><thead><tr><th>خدمت</th><th>تعداد</th><th>مجموع</th></tr></thead><tbody>
+        {% for c in _svc_rep.counts %}<tr><td>{{ c.label or c.service }}</td><td>{{ fa_number(c.times) }}</td><td>{{ toman(c.total) }}</td></tr>{% endfor %}
+      </tbody></table></div>{% endif %}
+      {% if _svc_rep.get('items') %}<div class="pnl-table-wrap"><table class="pnl-table"><thead><tr><th>#</th><th>کاربر</th><th>مبلغ</th><th>توضیح</th><th>تاریخ</th></tr></thead><tbody>
+        {% for t in _svc_rep.get('items') %}<tr><td>{{ fa_number(t.id) }}</td><td>{{ t.name or '—' }}<br><small dir="ltr">{{ t.phone or '—' }}</small></td><td>{{ toman(t.amount) }}</td><td>{{ t.description or '—' }}</td><td>{{ t.created_at or '—' }}</td></tr>{% endfor %}
+      </tbody></table></div>{% else %}<div class="pnl-empty"><p>کسر اعتبار خدمتی ثبت نشده است.</p></div>{% endif %}
+    </section>
+
+
+    {% elif finance_tab == 'topups' %}
+    <section class="pnl-card"><h2>صف درخواست افزایش موجودی</h2><p class="pnl-muted">تصویر رسید فقط در این صفحه سوپرادمین قابل مشاهده است. کد پیگیری کاربر اختیاری است.</p>
+      {% if topup_requests %}<div class="pnl-table-wrap"><table class="pnl-table"><thead><tr><th>#</th><th>کاربر</th><th>مبلغ</th><th>رسید و پیگیری</th><th>وضعیت</th><th>عملیات سوپرادمین</th></tr></thead><tbody>{% for topup in topup_requests %}<tr>
+        <td>{{ fa_number(topup.id) }}</td><td>{{ topup.user_name or '—' }}<br><small dir="ltr">{{ topup.user_phone or '—' }}</small></td><td><b>{{ toman(topup.amount) }}</b></td>
+        <td>{% if topup.receipt_path %}<a class="pnl-btn pnl-btn-outline pnl-btn-sm" href="{{ url_for('panel.wallet_topup_receipt', request_id=topup.id) }}" target="_blank" rel="noopener">🧾 مشاهده تصویر رسید</a>{% else %}<span class="pnl-badge pnl-badge-off">رسید تاریخی موجود نیست</span>{% endif %}<br><small>کد پیگیری: {{ topup.payment_reference or 'ثبت نشده' }}</small>{% if topup.user_note %}<br><small>{{ topup.user_note }}</small>{% endif %}</td>
+        <td><span class="pnl-badge {{ 'pnl-badge-ok' if topup.status == 'approved' else ('pnl-badge-off' if topup.status == 'rejected' else 'pnl-badge-warn') }}">{{ {'pending':'در انتظار','approved':'تأییدشده','rejected':'ردشده'}.get(topup.status, topup.status) }}</span>{% if topup.admin_note %}<br><small>{{ topup.admin_note }}</small>{% endif %}</td>
+        <td>{% if topup.status == 'pending' %}<div class="pnl-btn-row"><form method="POST" action="{{ url_for('panel.wallet_topup_status', request_id=topup.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="approved"><button class="pnl-btn pnl-btn-gold pnl-btn-sm" onclick="return confirm('شارژ #{{ topup.id }} تأیید و به Cash افزوده شود؟');">تأیید شارژ</button></form><form method="POST" action="{{ url_for('panel.wallet_topup_status', request_id=topup.id) }}" class="pnl-inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="rejected"><input name="admin_note" maxlength="1000" placeholder="دلیل رد" required><button class="pnl-btn pnl-btn-danger pnl-btn-sm">رد</button></form></div>{% else %}—{% endif %}</td>
+      </tr>{% endfor %}</tbody></table></div>{% else %}<div class="pnl-empty"><p>درخواست شارژی ثبت نشده است.</p></div>{% endif %}
+    </section>
+
+    {% elif finance_tab == 'settlements' %}
+    <section class="pnl-card"><h2>صف تسویه حساب</h2><p class="pnl-muted">فقط Cash رزروشده قابل پرداخت است. رد درخواست، debit رزرو را reversed و موجودی را آزاد می‌کند.</p>
+      {% if withdrawals %}<div class="pnl-table-wrap"><table class="pnl-table"><thead><tr><th>#</th><th>کاربر</th><th>مبلغ</th><th>حساب مقصد</th><th>وضعیت</th><th>عملیات سوپرادمین</th></tr></thead><tbody>{% for item in withdrawals %}<tr><td>{{ fa_number(item.id) }}</td><td>{{ item.user_name or '—' }}<br><small dir="ltr">{{ item.user_phone or '—' }}</small></td><td><b>{{ toman(item.amount) }}</b></td><td>{{ item.card_holder_name or '—' }}<br><small dir="ltr">{{ fa_digits(item.sheba or item.card_number or '—') }}</small></td><td><span class="pnl-badge {{ 'pnl-badge-ok' if item.status == 'paid' else ('pnl-badge-off' if item.status == 'rejected' else 'pnl-badge-warn') }}">{{ {'pending':'در انتظار','paid':'پرداخت‌شده','rejected':'ردشده'}.get(item.status, item.status) }}</span>{% if item.admin_note %}<br><small>{{ item.admin_note }}</small>{% endif %}</td><td>{% if item.status == 'pending' %}<div class="pnl-btn-row"><form method="POST" action="{{ url_for('panel.wallet_settlement_status', withdrawal_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="paid"><button class="pnl-btn pnl-btn-gold pnl-btn-sm" onclick="return confirm('پرداخت تسویه #{{ item.id }} ثبت شود؟');">پرداخت شد</button></form><form method="POST" action="{{ url_for('panel.wallet_settlement_status', withdrawal_id=item.id) }}" class="pnl-inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="rejected"><input name="admin_note" maxlength="1000" placeholder="دلیل رد" required><button class="pnl-btn pnl-btn-danger pnl-btn-sm">رد و آزادسازی</button></form></div>{% else %}—{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="pnl-empty"><p>درخواست تسویه‌ای ثبت نشده است.</p></div>{% endif %}
+    </section>
+
+    {% elif finance_tab == 'settings' %}
+    <!-- مورد ۱۰ help.md (تحویل ۱۴۰۵-۰۶-۱۰): کارت «موتور کسر اعتبار خدمات» به دستور کارفرما از پنل حذف شد؛
+         توابع get_service_fees/save_service_fees/charge_service_fee برای سازگاری در giso/wallet.py باقی مانده‌اند. -->
+    <section class="pnl-card"><h2>تنظیمات مالی، کارت و فاکتور</h2><form method="POST" action="{{ url_for('panel.wallet_settings') }}" class="pnl-stack-form" style="max-width:580px;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="pnl-check"><input type="checkbox" name="topup_enabled" value="1" {% if financial_settings.topup_enabled %}checked{% endif %}> درخواست شارژ فعال باشد</label><label class="pnl-check"><input type="checkbox" name="withdrawal_enabled" value="1" {% if financial_settings.withdrawal_enabled %}checked{% endif %}> درخواست تسویه فعال باشد</label><label>حداقل درخواست شارژ (تومان)</label><input type="number" name="min_topup" min="0" value="{{ financial_settings.min_topup }}"><label>اعتبار مصرفی اولیهٔ کاربران جدید (تومان رایگان هنگام اولین ورود — ۰ یعنی غیرفعال)</label><input type="number" name="initial_spend_credit" min="0" value="{{ financial_settings.initial_spend_credit|default(0) }}"><small class="pnl-muted">این مبلغ یک‌بار، به‌صورت «اعتبار مصرفی» به کیف پول هر کاربر تعلق می‌گیرد و قابل تسویه نیست.</small><label>حداقل تسویه Cash (تومان)</label><input type="number" name="min_withdrawal" min="0" value="{{ financial_settings.min_withdrawal }}"><label>روش‌های افزایش موجودی</label><select name="topup_method"><option value="both" {% if financial_settings.topup_method == 'both' %}selected{% endif %}>هر دو روش (رسید + پرداخت آنی بله)</option><option value="receipt" {% if financial_settings.topup_method == 'receipt' %}selected{% endif %}>فقط ثبت رسید کارت‌به‌کارت</option><option value="bale" {% if financial_settings.topup_method == 'bale' %}selected{% endif %}>فقط پرداخت آنی با بله</option></select><small class="pnl-muted">پرداخت آنی بله از کیف پول بلهٔ کاربر کسر و آنی به کیف پول سایت واریز می‌شود.</small><label>نام صاحب کارت/حساب</label><input name="card_holder" maxlength="150" value="{{ financial_settings.card_holder }}"><label>شماره کارت ۱۶ رقمی</label><input name="card_number" maxlength="16" inputmode="numeric" dir="ltr" value="{{ financial_settings.card_number }}"><label>شماره شبا</label><input name="sheba" maxlength="26" dir="ltr" value="{{ financial_settings.sheba }}" placeholder="IRXXXXXXXXXXXXXXXXXXXXXXXX"><hr><h3>مشخصات فروشنده روی فاکتور رسمی</h3><label>نام فروشنده</label><input name="invoice_seller_name" maxlength="160" value="{{ financial_settings.invoice_seller_name }}" required><label>تلفن/راه ارتباطی فروشنده</label><input name="invoice_seller_phone" maxlength="30" value="{{ financial_settings.invoice_seller_phone }}"><label>نشانی فروشنده</label><textarea name="invoice_seller_address" maxlength="500" rows="2" required>{{ financial_settings.invoice_seller_address }}</textarea><small class="pnl-muted">لوگوی رسمی گیسو صادقی به‌صورت خودکار روی فاکتور درج می‌شود.</small><button class="pnl-btn pnl-btn-gold">ذخیره تنظیمات مالی</button></form></section>
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}{{ super() }}<script src="{{ url_for('static', filename='js/money_fa.js') }}?v=1"></script>{% endblock %}

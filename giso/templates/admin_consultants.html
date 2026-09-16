@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}درخواست‌های مشاوره - گیسو{% endblock %}
+
+{% block head %}
+<style>
+.ac-page { min-height:100vh; background:linear-gradient(180deg,#FFF9F0 0%,#FFF5E9 100%); padding:30px 16px 60px; }
+.ac-card { max-width:900px; margin:0 auto; background:#fff; border-radius:24px; padding:30px; box-shadow:0 15px 50px rgba(92,61,46,0.1); }
+.ac-card h1 { color:#5C3D2E; font-size:24px; margin-bottom:20px; }
+.ac-filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+.ac-filter { padding:8px 16px; border-radius:30px; border:2px solid #E8D5B7; color:#5C3D2E; text-decoration:none; font-size:13px; font-weight:600; }
+.ac-filter.active { background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; border-color:#B8935F; }
+.ac-item { border:1px solid rgba(212,165,116,0.2); border-radius:16px; padding:18px; margin-bottom:14px; }
+.ac-item-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.ac-item-name { color:#5C3D2E; font-weight:700; }
+.ac-item-sub { color:#8B6F5C; font-size:13px; margin-top:4px; }
+.ac-status { font-size:12px; padding:3px 12px; border-radius:50px; font-weight:700; }
+.st-new { background:rgba(200,50,50,0.15); color:#8a2424; }
+.st-reviewing { background:rgba(224,120,86,0.15); color:#8a3b2a; }
+.st-chatting { background:rgba(123,160,91,0.15); color:#3f6b2e; }
+.st-closed { background:rgba(139,111,92,0.15); color:#5C3D2E; }
+.ac-msg { background:#FAF5EC; border-radius:10px; padding:12px; margin-top:12px; color:#5C3D2E; font-size:14px; line-height:1.8; }
+.ac-btn { display:inline-block; margin-top:12px; padding:10px 20px; border-radius:30px; background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; text-decoration:none; font-size:13px; font-weight:600; }
+.ac-empty { text-align:center; color:#8B6F5C; padding:40px; }
+.ac-back { display:inline-block; margin-top:16px; color:#B8935F; font-weight:600; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="ac-page">
+    <div class="ac-card">
+        <h1>💬 درخواست‌های مشاوره</h1>
+        <div class="ac-filters">
+            <a href="{{ url_for('admin_consultants') }}" class="ac-filter {% if status=='all' %}active{% endif %}">همه</a>
+            <a href="{{ url_for('admin_consultants', status='new') }}" class="ac-filter {% if status=='new' %}active{% endif %}">🆕 جدید</a>
+            <a href="{{ url_for('admin_consultants', status='reviewing') }}" class="ac-filter {% if status=='reviewing' %}active{% endif %}">🔍 در حال بررسی</a>
+            <a href="{{ url_for('admin_consultants', status='chatting') }}" class="ac-filter {% if status=='chatting' %}active{% endif %}">💬 در گفتگو</a>
+            <a href="{{ url_for('admin_consultants', status='closed') }}" class="ac-filter {% if status=='closed' %}active{% endif %}">✅ پایان‌یافته</a>
+        </div>
+        {% for r in requests %}
+        <div class="ac-item">
+            <div class="ac-item-head">
+                <div>
+                    <div class="ac-item-name">🎯 مشاوره #{{ r.id }} - {{ r.customer_name or 'کاربر' }}</div>
+                    <div class="ac-item-sub">📱 {{ r.phone or '—' }} | 📍 {{ r.city or '—' }} | 📅 {{ r.created_at }}</div>
+                </div>
+                <span class="ac-status st-{{ r.status }}">{{ {'new':'🆕 جدید','reviewing':'🔍 بررسی','chatting':'💬 گفتگو','closed':'✅ پایان'}.get(r.status, r.status) }}</span>
+            </div>
+            <div class="ac-msg">💬 {{ r.initial_message }}</div>
+            <a href="{{ url_for('admin_consultant_detail', request_id=r.id) }}" class="ac-btn">مشاهده و مدیریت</a>
+        </div>
+        {% else %}
+        <div class="ac-empty">درخواست مشاوره‌ای یافت نشد.</div>
+        {% endfor %}
+        <a href="{{ url_for('admin_dashboard', tab='tab-analyses') }}" class="ac-back">← بازگشت به پنل ادمین</a>
+    </div>
+</section>
+{% endblock %}

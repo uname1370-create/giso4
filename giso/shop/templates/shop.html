@@ -1,0 +1,221 @@
+{% extends "shop_layout.html" %}
+
+{% block title %}فروشگاه هوشمند گیسو | محصولات مراقبت مو و پوست{% endblock %}
+
+{% block shop_head %}
+{% if noindex %}<meta name="robots" content="noindex, follow">{% else %}<meta name="robots" content="index, follow">{% endif %}
+<meta name="description" content="محصولات اصل مراقبت مو و پوست در فروشگاه هوشمند گیسو؛ پیشنهاد متناسب با آنالیز، پرداخت در محل و پیگیری سفارش.">
+<link rel="canonical" href="{{ request.url_root.rstrip('/') }}{{ url_for('shop') }}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="فروشگاه هوشمند گیسو">
+<meta property="og:description" content="محصول مناسب مو و پوستت را هوشمندانه‌تر انتخاب کن.">
+<meta property="og:url" content="{{ request.url_root.rstrip('/') }}{{ url_for('shop') }}">
+<meta property="og:locale" content="fa_IR">
+<meta property="og:site_name" content="گیسو">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "فروشگاه گیسو",
+  "numberOfItems": {{ total_products | default(products|length) }},
+  "itemListElement": [
+    {% for p in products %}
+    {
+      "@type": "ListItem",
+      "position": {{ loop.index }},
+      "item": {
+        "@type": "Product",
+        "name": {{ p.name | tojson }},
+        "url": "{{ request.url_root.rstrip('/') }}{{ url_for('product_detail', product_id=p.id) }}",
+        {% if p.image_path %}"image": "{{ request.url_root.rstrip('/') }}{{ url_for('static', filename=p.image_path) }}",{% endif %}
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "IRR",
+          "price": "{{ p.price }}",
+          "availability": "{{ 'https://schema.org/InStock' if p.in_stock else 'https://schema.org/OutOfStock' }}"
+        }
+      }
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endblock %}
+
+{% block shop_hero %}
+<section class="giso-smart-hero" id="gisoSmartHero"
+         data-authenticated="{{ '1' if current_user.is_authenticated else '0' }}"
+         aria-labelledby="gisoSmartHeroTitle">
+    <div class="giso-smart-hero-copy">
+        <span class="giso-shop-eyebrow giso-shop-hero-badge"><i class="fas fa-wand-magic-sparkles"></i> فروشگاه هوشمند گیسو</span>
+        <div class="giso-smart-state" id="gisoHeroGuest" {% if current_user.is_authenticated %}hidden{% endif %}>
+            <h1 id="gisoSmartHeroTitle">محصول مناسب مو و پوستت را <span>حدس نزن</span></h1>
+            <p>اول نیاز واقعی‌ات را با آنالیز هوشمند بشناس؛ بعد محصول مناسب‌تر را همراه با دلیل پیشنهاد انتخاب کن.</p>
+        </div>
+        <div class="giso-smart-state" id="gisoHeroNoAnalysis" {% if not current_user.is_authenticated %}hidden{% endif %}>
+            <h2>انتخاب دقیق‌تر با یک <span>آنالیز هوشمند</span></h2>
+            <p>هنوز پیشنهاد شخصی فعالی برای شما پیدا نشده است. آنالیز مو یا پوست را انجام بده تا انتخاب محصولات هدفمندتر شود.</p>
+        </div>
+        <div class="giso-smart-state" id="gisoHeroPersonalized" hidden>
+            <h2>پیشنهادهای تخصصی شما <span>آماده است</span></h2>
+            <p id="gisoHeroPersonalizedText">محصولات زیر براساس اطلاعات واقعی آخرین آنالیز شما مرتب شده‌اند.</p>
+            <div class="giso-need-chips" id="gisoAnalysisNeeds" aria-label="نیازهای شناسایی‌شده"></div>
+        </div>
+        <div class="giso-shop-hero-actions">
+            <a class="giso-btn giso-btn-primary" href="{{ url_for('analysis') }}"><i class="fas fa-microscope"></i> شروع آنالیز هوشمند</a>
+            <a class="giso-btn giso-btn-soft" href="#all-products"><i class="fas fa-table-cells-large"></i> مشاهده همه محصولات</a>
+        </div>
+        <ul class="giso-smart-trust" aria-label="مزیت‌های خرید از گیسو">
+            <li><i class="fas fa-check"></i> پرداخت در محل</li>
+            <li><i class="fas fa-check"></i> امکان استفاده از کیف پول</li>
+            <li><i class="fas fa-check"></i> پیگیری سفارش</li>
+        </ul>
+    </div>
+    <div class="giso-smart-hero-visual">
+        <img class="giso-smart-hero-android" src="{{ url_for('static', filename='images/shop-ai-android.webp') }}"
+             alt="دستیار هوشمند گیسو" width="420" height="420">
+        <span class="giso-float-pill giso-float-pill--one"><i class="fas fa-droplet"></i> نیاز واقعی</span>
+        <span class="giso-float-pill giso-float-pill--two"><i class="fas fa-bag-shopping"></i> محصول مناسب</span>
+    </div>
+</section>
+{% endblock %}
+
+{% block shop_content %}
+{% set cat_labels = {
+    'hair': 'مراقبت مو', 'face': 'مراقبت پوست', 'skin': 'مراقبت پوست',
+    'beauty': 'زیبایی', 'repair': 'ترمیم', 'loss': 'ضدریزش',
+    'hydrate': 'آبرسان', 'recommended': 'پیشنهاد مشاور',
+    'body': 'مراقبت بدن', 'care': 'بهداشت فردی', 'nutrition': 'تغذیه و سلامتی'
+} %}
+
+<div class="giso-shop-shell">
+    <section class="giso-shop-toolbar giso-shop-sticky" aria-label="جست‌وجو و مرتب‌سازی محصولات">
+        <form method="GET" action="{{ url_for('shop') }}" class="giso-shop-search-box">
+            <i class="fas fa-magnifying-glass"></i>
+            <input type="search" name="q" id="shopSearch" value="{{ search_query|default('') }}"
+                   placeholder="جستجو در نام محصول، دسته یا نیاز..." aria-label="جست‌وجوی محصولات">
+            {% if search_query %}<a href="{{ url_for('shop') }}" class="giso-search-clear" aria-label="پاک کردن جست‌وجو">×</a>{% endif %}
+        </form>
+        <button type="button" class="giso-filter-trigger" id="gisoFiltersBtn" aria-controls="gisoShopSidebar" aria-expanded="false">
+            <i class="fas fa-sliders"></i> فیلترها
+        </button>
+        <nav class="giso-sort-chips giso-shop-chips" aria-label="دسته‌های سریع">
+            <button type="button" class="giso-sort-chip is-active" data-sort="all">همه محصولات</button>
+            {% if discounted %}<button type="button" class="giso-sort-chip" data-sort="sale">تخفیف‌دار</button>{% endif %}
+            {% if top_sellers %}<button type="button" class="giso-sort-chip" data-sort="best">پرفروش‌ها</button>{% endif %}
+            {% if newest %}<button type="button" class="giso-sort-chip" data-sort="new">تازه‌ها</button>{% endif %}
+        </nav>
+    </section>
+
+    {% if buy_product %}
+    <section class="giso-quick-buy" aria-labelledby="quick-buy-title">
+        <div>
+            <span class="giso-section-kicker">خرید فوری</span>
+            <h2 id="quick-buy-title">{{ buy_product.name }}</h2>
+            <strong>{{ toman(buy_product.price) }}</strong>
+        </div>
+        {% if not current_user.is_authenticated %}
+        <p class="giso-inline-notice"><i class="fas fa-circle-info"></i> برای ثبت سفارش ابتدا <a href="{{ url_for('login', next=request.path) }}">وارد شوید</a> یا <a href="{{ url_for('register', next=request.path) }}">ثبت‌نام کنید</a>.</p>
+        {% endif %}
+        <form method="POST" action="{{ url_for('buy_product', product_id=buy_product.id) }}" class="giso-form giso-quick-buy-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="giso-form-grid">
+                <label><span>نام و نام خانوادگی</span><input type="text" name="customer_name" value="{{ request.form.get('customer_name') or profile_defaults.full_name }}" required placeholder="نام کامل" autocomplete="name"></label>
+                <label><span>شماره تماس</span><input type="tel" name="phone" value="{{ request.form.get('phone') or profile_defaults.phone }}" required inputmode="numeric" placeholder="0912xxxxxxx" autocomplete="tel"></label>
+                <label class="is-wide"><span>آدرس دقیق</span><textarea name="address" rows="2" required placeholder="شهر، محله، خیابان و پلاک">{{ request.form.get('address') or '' }}</textarea></label>
+                <label><span>روز هماهنگی</span><select name="contact_day"><option value="">انتخاب روز</option>{% for d in contact_days %}<option value="{{ d }}">{{ d }}</option>{% endfor %}</select></label>
+                <label><span>ساعت هماهنگی</span><select name="contact_time"><option value="">انتخاب ساعت</option>{% for t in contact_times %}<option value="{{ t }}" {{ 'selected' if (request.form.get('contact_time') or profile_defaults.contact_time)==t }}>{{ t }}</option>{% endfor %}</select></label>
+                <label class="is-wide"><span>توضیح برای پیک (اختیاری)</span><textarea name="courier_note" rows="2" placeholder="توضیحات تکمیلی"></textarea></label>
+            </div>
+            <p class="giso-delivery-note"><i class="fas fa-location-dot"></i> فروش فعلی فقط در مشهد و ارسال با پیک است؛ هزینه ارسال جداگانه محاسبه می‌شود.</p>
+            <div class="giso-form-actions"><button class="giso-btn giso-btn-primary" type="submit">ثبت سفارش</button><a class="giso-btn giso-btn-soft" href="{{ url_for('shop') }}">انصراف</a></div>
+        </form>
+    </section>
+    {% endif %}
+
+    <div class="giso-catalog-layout giso-shop-layout">
+        {% include 'partials/shop_sidebar.html' %}
+        <div class="giso-filters-overlay" id="gisoFiltersOverlay" hidden></div>
+
+        <main class="giso-catalog-main">
+            <div class="giso-search-results" id="shopSearchResults" hidden>
+                <i class="fas fa-magnifying-glass"></i> <span><b id="shopSearchCount">۰</b> محصول پیدا شد</span>
+            </div>
+
+            <section class="giso-product-section giso-slot giso-recommended-section" id="gisoRecommendedSection" data-slot="recommended" {% if not suggested %}hidden{% endif %}>
+                <div class="giso-section-heading">
+                    <div><span class="giso-section-kicker">براساس آخرین آنالیز</span><h2><i class="fas fa-wand-magic-sparkles"></i> پیشنهادهای مخصوص شما</h2><p>انتخاب‌های شخصی فقط وقتی نمایش داده می‌شوند که با دادهٔ واقعی آنالیز شما مرتبط باشند.</p></div>
+                    <a href="{{ url_for('analysis') }}">مشاهده آنالیز <i class="fas fa-arrow-left"></i></a>
+                </div>
+                <div class="giso-products-grid giso-products-grid--featured" id="gisoRecommendedGrid">
+                    {% for product in suggested %}{% include 'partials/product_card.html' %}{% endfor %}
+                </div>
+                <div class="giso-recommendation-loading" id="gisoRecommendationLoading" hidden><span></span><span></span><span></span><b>در حال بررسی پیشنهادهای شما...</b></div>
+            </section>
+
+            {% if discounted %}
+            <section class="giso-product-section giso-slot" data-slot="sale">
+                <div class="giso-section-heading"><div><span class="giso-section-kicker">فرصت خرید</span><h2><i class="fas fa-tags"></i> تخفیف‌های فعال</h2></div></div>
+                <div class="giso-products-rail">{% for product in discounted %}{% with tags='تخفیف' %}{% include 'partials/product_card.html' %}{% endwith %}{% endfor %}</div>
+            </section>
+            {% endif %}
+
+            {% if top_sellers %}
+            <section class="giso-product-section giso-slot" data-slot="best">
+                <div class="giso-section-heading"><div><span class="giso-section-kicker">انتخاب کاربران</span><h2><i class="fas fa-crown"></i> پرفروش‌ترین‌ها</h2></div></div>
+                <div class="giso-products-rail">{% for product in top_sellers %}{% with tags='پرفروش' %}{% include 'partials/product_card.html' %}{% endwith %}{% endfor %}</div>
+            </section>
+            {% endif %}
+
+            {% if newest %}
+            <section class="giso-product-section giso-slot" data-slot="new">
+                <div class="giso-section-heading"><div><span class="giso-section-kicker">تازه رسیده</span><h2><i class="fas fa-wand-sparkles"></i> جدیدترین محصولات</h2></div></div>
+                <div class="giso-products-rail">{% for product in newest %}{% with tags='تازه' %}{% include 'partials/product_card.html' %}{% endwith %}{% endfor %}</div>
+            </section>
+            {% endif %}
+
+            <section class="giso-product-section" id="all-products" data-slot="all">
+                <div class="giso-section-heading">
+                    <div><span class="giso-section-kicker">کاتالوگ گیسو</span><h2><i class="fas fa-table-cells-large"></i> همه محصولات</h2><p>{{ fa_number(total_products|default(products|length)) }} محصول برای مشاهده</p></div>
+                </div>
+                <div class="giso-products-grid" id="shopGrid">
+                    {% for product in products %}
+                        {% if product in top_sellers %}{% set grid_tags = 'پرفروش' %}
+                        {% elif product in newest %}{% set grid_tags = 'تازه' %}
+                        {% elif product in back_in_stock %}{% set grid_tags = 'موجود شد' %}
+                        {% else %}{% set grid_tags = '' %}{% endif %}
+                        {% with tags=grid_tags %}{% include 'partials/product_card.html' %}{% endwith %}
+                    {% else %}
+                    <div class="giso-empty-state"><i class="fas fa-box-open"></i><h3>هنوز محصولی ثبت نشده است</h3><p>به‌زودی محصولات جدید گیسو اینجا نمایش داده می‌شوند.</p></div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <div class="giso-empty-state" id="shopEmptyFilter" hidden><i class="fas fa-magnifying-glass"></i><h3>محصولی پیدا نشد</h3><p>فیلترها یا عبارت جست‌وجو را تغییر بده.</p><button type="button" class="giso-btn giso-btn-soft" id="shopEmptyReset">پاک‌کردن فیلترها</button></div>
+
+            {% if pages and pages > 1 %}
+            <nav class="giso-pagination" aria-label="صفحه‌بندی فروشگاه">
+                {% if page > 1 %}<a href="{{ url_for('shop', page=page-1, q=search_query) }}" rel="prev"><i class="fas fa-arrow-right"></i> قبلی</a>{% endif %}
+                <span>صفحه {{ fa_number(page) }} از {{ fa_number(pages) }}</span>
+                {% if page < pages %}<a href="{{ url_for('shop', page=page+1, q=search_query) }}" rel="next">بعدی <i class="fas fa-arrow-left"></i></a>{% endif %}
+            </nav>
+            {% endif %}
+        </main>
+    </div>
+
+    <section class="giso-shop-assurance" aria-label="اطلاعات خرید">
+        <div><i class="fas fa-location-dot"></i><span><b>ارسال در مشهد</b><small>هماهنگی ارسال با پیک</small></span></div>
+        <div><i class="fas fa-hand-holding-dollar"></i><span><b>پرداخت در محل</b><small>پرداخت هنگام تحویل</small></span></div>
+        <div><i class="fas fa-wallet"></i><span><b>کیف پول گیسو</b><small>استفاده اختیاری از اعتبار</small></span></div>
+        <div><i class="fas fa-receipt"></i><span><b>فاکتور و پیگیری</b><small>کد پیگیری هر سفارش</small></span></div>
+    </section>
+
+    <div class="giso-smart-widget" id="gisoSmartWidget" hidden
+         data-just-ordered="{{ '1' if just_ordered|default(false) else '0' }}"
+         data-orders="{{ widget_orders | default([]) | tojson | forceescape }}" aria-live="polite">
+        <button type="button" id="gisoSmartClose" aria-label="بستن">×</button>
+        <div><i class="fas fa-wand-sparkles"></i><b id="gisoSmartTitle">گیسو همراه شماست</b></div>
+        <p id="gisoSmartBody"></p><div id="gisoSmartOrders"></div>
+    </div>
+</div>
+{% endblock %}

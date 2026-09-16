@@ -1,0 +1,41 @@
+{% extends 'layout.html' %}
+{% block title %}محصولات کانال بله - پنل مدیریت گیسو{% endblock %}
+{% block content %}
+<div class="pnl-page">
+    <h1 class="pnl-h1">📦 محصولات کانال بله</h1>
+    <p class="pnl-sub">فقط تأیید یا رد پست‌هایی که قبلاً از کانال بله وارد شده‌اند؛ افزودن و ویرایش محصول در این نقش مجاز نیست.</p>
+
+    {% if products %}
+    {% for p in products %}
+    <article class="pnl-prod">
+        {% if p.image_path %}<img class="pnl-prod-img" src="{{ url_for('static', filename=p.image_path) }}" alt="تصویر {{ p.name }}">{% else %}<div class="pnl-prod-noimg">بدون عکس</div>{% endif %}
+        <div>
+            <div class="pnl-prod-name">#{{ p.id }} — {{ p.name }}</div>
+            <div class="pnl-prod-meta">
+                <span class="pnl-prod-price">{{ toman(p.price) }}</span>
+                <span class="pnl-chip pnl-chip-review">⏳ واردشده از کانال و در انتظار</span>
+                <span>{{ p.created_at or '' }}</span>
+            </div>
+            {% if p.description %}<p class="pnl-muted">{{ p.description|truncate(260, true) }}</p>{% endif %}
+        </div>
+        <div class="pnl-prod-acts">
+            {% if p.price and p.price > 0 %}
+            <form method="POST" action="{{ url_for('admin_product_publish', product_id=p.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="pnl-btn pnl-btn-gold pnl-btn-sm">✅ تأیید و انتشار</button>
+            </form>
+            {% else %}
+            <span class="pnl-badge pnl-badge-warn">قیمت نامعتبر؛ ارجاع به سوپرادمین</span>
+            {% endif %}
+            <form method="POST" action="{{ url_for('admin_product_reject', product_id=p.id) }}" onsubmit="return confirm('این پست کانال رد شود؟');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="pnl-btn pnl-btn-danger pnl-btn-sm">❌ رد</button>
+            </form>
+        </div>
+    </article>
+    {% endfor %}
+    {% else %}
+    <div class="pnl-empty"><p>✅ پست واردشده‌ای در انتظار تأیید نیست.</p></div>
+    {% endif %}
+</div>
+{% endblock %}

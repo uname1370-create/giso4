@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}ماموریت‌ها - sadeghiai{% endblock %}
+{% block content %}
+<section class="simple-page">
+<div class="container page-wrap">
+    <div class="page-header"><h1><i class="fas fa-bullseye"></i> ماموریت‌ها</h1>
+        <p>با انجام ماموریت‌های واقعی و آموزشی، XP و اعتبار کسب کنید.</p></div>
+    {% if missions %}
+    <div class="cards-grid">
+        {% for m in missions %}
+        <div class="card glass">
+            <div class="card-icon icon-purple"><i class="fas fa-star"></i></div>
+            <h3>{{ m.title or 'ماموریت' }}</h3>
+            <p class="card-desc">{{ m.desc or 'ماموریت امتیازی' }}</p>
+            <p class="card-meta">
+                {% if m.real %}💼 ماموریت واقعی | {{ m.credits }} اعتبار
+                {% else %}🎁 +{{ m.xp }} XP | 💰 +{{ m.credits }} اعتبار
+                {% endif %}
+            </p>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><i class="fas fa-bullseye empty-state-icon"></i>
+        <p>ماموریت فعالی ثبت نشده است.</p>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-outline">بازگشت به پیشخوان</a>
+    </div>
+    {% endif %}
+</div>
+</section>
+{% endblock %}

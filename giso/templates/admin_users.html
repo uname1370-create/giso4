@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}مدیریت کاربران - گیسو{% endblock %}
+
+{% block content %}
+<div class="giso-dash-container">
+    <div class="giso-dash-header">
+        <h2><i class="fas fa-users"></i> مدیریت کامل کاربران</h2>
+        <p>جستجو، ویرایش، کیف پول و حذف کاربران (فقط سوپرادمین)</p>
+        <div style="margin-top:12px;">
+            <a href="{{ url_for('admin_dashboard') }}" class="giso-btn giso-btn-outline giso-btn-sm">← بازگشت به پیشخوان</a>
+        </div>
+    </div>
+
+    <div class="giso-dash-content">
+        <form method="GET" action="{{ url_for('admin_users_manage') }}" class="giso-form" style="display:flex; gap:8px; margin-bottom:18px; max-width:520px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="q" value="{{ q }}" placeholder="جستجو: شماره موبایل یا نام" style="flex:1; padding:10px; border:1px solid #e0c8a0; border-radius:10px; font-family:inherit;">
+            <button type="submit" class="giso-btn giso-btn-gold">🔎 جستجو</button>
+        </form>
+
+        {% if users %}
+        {% for u in users %}
+        <div style="background:#fffdf8; border:1px solid #f0e6d2; border-radius:14px; padding:16px 18px; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; align-items:center;">
+                <div>
+                    <strong style="color:var(--brown-dark); font-size:1.05rem;">{{ u.name or '—' }}</strong>
+                    <div dir="ltr" style="color:#8b5a2b; font-size:.9rem;">{{ u.phone }}</div>
+                    <div style="color:#8b5a2b; font-size:.85rem;">
+                        عضویت: {{ u.created_at }} | موجودی کیف پول: <b>{{ u.balance|fa_number }}</b>
+                    </div>
+                </div>
+                <form method="POST" action="{{ url_for('admin_user_delete', user_id=u.id) }}" style="display:flex; gap:6px; align-items:center;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" name="confirm" placeholder="تایپ DELETE برای حذف" style="width:120px; padding:6px; border:1px solid #e0c8a0; border-radius:8px;">
+                    <button type="submit" class="giso-btn giso-btn-sm giso-btn-outline" style="color:#b91c1c; border-color:#fca5a5;">🗑 حذف</button>
+                </form>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; margin-top:12px;">
+                <form method="POST" action="{{ url_for('admin_user_update', user_id=u.id) }}" style="display:flex; gap:6px; align-items:center; background:#fdfaf4; padding:8px; border-radius:10px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="phone" value="{{ u.phone }}">
+                    <input type="text" name="name" value="{{ u.name }}" placeholder="نام جدید" style="flex:1; padding:6px; border:1px solid #e0c8a0; border-radius:8px;">
+                    <button type="submit" class="giso-btn giso-btn-sm giso-btn-outline">✏️ ویرایش نام</button>
+                </form>
+                <form method="POST" action="{{ url_for('admin_user_wallet', user_id=u.id) }}" style="display:flex; gap:6px; align-items:center; background:#fdfaf4; padding:8px; border-radius:10px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="phone" value="{{ u.phone }}">
+                    <input type="number" name="delta" placeholder="±تومان" style="width:90px; padding:6px; border:1px solid #e0c8a0; border-radius:8px;">
+                    <input type="text" name="reason" placeholder="دلیل" style="flex:1; padding:6px; border:1px solid #e0c8a0; border-radius:8px;">
+                    <button type="submit" class="giso-btn giso-btn-sm giso-btn-gold">💰 تغییر اعتبار</button>
+                </form>
+            </div>
+
+            {% if u.transactions %}
+            <details style="margin-top:10px;">
+                <summary style="cursor:pointer; color:#8b5a2b; font-weight:600;">تراکنش‌های کیف پول ({{ u.transactions|length }})</summary>
+                <div style="margin-top:6px; font-size:.85rem;">
+                    {% for tx in u.transactions %}
+                    <div style="padding:3px 0; border-bottom:1px dashed #f0e6d2;">
+                        {{ tx.created_at }} — {{ 'اعتبار تاریخی' if tx.kind=='commission' else ('برداشت' if tx.kind=='withdrawal' else 'تسویه دستی') }}
+                        <b style="color:{{ '#16a34a' if tx.amount >= 0 else '#b91c1c' }};">{{ '{:+,}'.format(tx.amount) }}</b>
+                        — {{ tx.description }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="giso-empty-box">
+            <p>{% if q %}کاربری با «{{ q }}» پیدا نشد.{% else %}کاربری برای نمایش نیست.{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

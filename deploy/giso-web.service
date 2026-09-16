@@ -1,0 +1,29 @@
+[Unit]
+Description=GISO Web Server (پنل و سایت گیسو — پورت 5001)
+After=network.target
+
+[Service]
+Type=simple
+# ── مقادیر مخصوص سرور خود را اینجا تنظیم کنید ──
+User=rs2013
+Group=rs2013
+WorkingDirectory=/home/rs2013/sadeghiai
+Environment=PYTHONPATH=/home/rs2013/sadeghiai
+# ── متغیرهای امنیتی از فایل امن خارج از ریپو خوانده می‌شوند (نه inline / نه placeholder) ──
+# فایل: /etc/giso/web.env  →  SECRET_KEY=رشته_تصادفی_بلند   (اختیاری: GISO_BOT_TOKEN=...)
+# چرا EnvironmentFile: رازها در git / systemctl cat / لاگ‌ها نمی‌مانند و قابل چرخش هستند.
+EnvironmentFile=-/etc/giso/web.env
+# Production mode: active cookies فقط روی HTTPS ارسال شوند (giso/config.py:47-50)
+# — باید با SECRET_KEY همراه باشد وگرنه سرویس طبق طراحی بالا نمی‌آید.
+Environment=FLASK_ENV=production
+ExecStart=/home/rs2013/sadeghiai/venv/bin/python -u /home/rs2013/sadeghiai/giso/app.py
+Restart=always
+RestartSec=5
+# سقف ری‌استارت: حداکثر ۱۰ بار در ۳۰۰ ثانیه (جلوگیری از حلقهٔ کرش)
+StartLimitIntervalSec=300
+StartLimitBurst=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

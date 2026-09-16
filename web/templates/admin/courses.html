@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}مدیریت دوره‌ها - پنل ادمین{% endblock %}
+{% block content %}
+<section class="page-section admin-section">
+<div class="container">
+    <div class="page-header">
+        <h1><i class="fas fa-book-open"></i> مدیریت دوره‌ها</h1>
+        <p class="page-sub">این صفحه نسخهٔ وب «📚 مدیریت دوره‌ها» در پنل ادمین ربات را منعکس می‌کند.</p>
+    </div>
+
+    <div class="note info">
+        <i class="fas fa-info-circle"></i>
+        <span>افزودن/ویرایش/حذف دوره در حال حاضر از ربات بله با تعامل کامل‌تر انجام می‌شود. لیست دوره‌های فعلی در زیر نمایش داده شده است.</span>
+    </div>
+
+    <div class="card-grid">
+        {% for c in courses %}
+        <div class="item-card">
+            <div class="item-head"><i class="fas fa-book"></i> {{ c.title }}</div>
+            <div class="item-body">
+                <p>{{ c.desc or '—' }}</p>
+                <small>{{ c.lessons }} سرفصل</small>
+            </div>
+            <div class="item-foot">
+                <a class="btn btn-ghost btn-sm" href="#"><i class="fas fa-external-link-alt"></i> مشاهده</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state"><i class="fas fa-book"></i><p>هنوز دوره‌ای ثبت نشده است.</p></div>
+        {% endfor %}
+    </div>
+</div>
+</section>
+{% endblock %}

@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}بازارچه موی طبیعی گیسو | خرید و فروش مو{% endblock %}
+{% block meta %}
+<meta name="description" content="بازارچه موی طبیعی گیسو؛ مشاهده آگهی‌های تأییدشده فروش مو و دریافت پیشنهاد از خریداران واقعی، بدون نمایش عمومی هویت طرفین.">
+<meta name="keywords" content="خرید موی طبیعی، فروش مو، بازارچه مو، قیمت مو، موی طبیعی مشهد، خریدار مو">
+<meta name="robots" content="{{ 'noindex, follow' if noindex else 'index, follow' }}">
+<link rel="canonical" href="{{ url_for('marketplace.listings', _external=True) }}">
+<meta property="og:type" content="website"><meta property="og:title" content="بازارچه موی طبیعی گیسو"><meta property="og:description" content="آگهی‌های تأییدشده فروش مو و پیشنهاد مستقیم خریداران واقعی در بازارچه گیسو"><meta property="og:image" content="{{ url_for('static', filename='images/giso-main-hero.png', _external=True) }}"><meta property="og:url" content="{{ url_for('marketplace.listings', _external=True) }}">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="بازارچه موی طبیعی گیسو"><meta name="twitter:description" content="خرید و فروش موی طبیعی در یک بستر واسطه‌ای و حریم‌خصوصی‌محور"><meta name="twitter:image" content="{{ url_for('static', filename='images/giso-main-hero.png', _external=True) }}">
+{% endblock %}
+{% block head %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/marketplace.css') }}?v=listing-expiry-1-notahoma">
+{% if listings %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "بازارچه موی طبیعی گیسو",
+  "numberOfItems": {{ listings|length }},
+  "itemListElement": [
+    {% for item in listings[:10] %}
+    {
+      "@type": "ListItem",
+      "position": {{ loop.index }},
+      "name": {{ (item.seller_note or ('آگهی موی ' ~ item.length_cm ~ ' سانتی‌متری'))|tojson }},
+      "url": "{{ url_for('marketplace.listing_slug', slug=item.slug, _external=True) }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endif %}
+{% endblock %}
+{% block content %}
+<main class="giso-market-page giso-market-list-page">
+
+  {# ═══ دسته‌بندی با Jinja: داغ (در حال مذاکره/دارای پیشنهاد) و تازه (منتشرشده بدون پیشنهاد) ═══ #}
+  {% set ns = namespace(hot=[], fresh=[]) %}
+  {% for listing in listings %}
+    {% if (listing.status == 'negotiating' or listing.offers_count > 0) and listing.status != 'sold' %}
+      {% set ns.hot = ns.hot + [listing] %}
+    {% elif listing.offers_count == 0 and listing.status == 'published' %}
+      {% set ns.fresh = ns.fresh + [listing] %}
+    {% endif %}
+  {% endfor %}
+
+  {# ═══ ۱) هیرو لوکس: بج طلایی + عنوان + دو CTA + نوار ۴ مرحله‌ای ═══ #}
+  <section class="mkt-hero">
+    <div class="giso-container mkt-hero-center">
+      <span class="mkt-hero-badge"><i class="fas fa-scissors"></i> بازارچه تخصصی مو</span>
+      <h1>موهایت را به بالاترین پیشنهاد بفروش، یا بهترین موها را بی‌واسطه بخر!</h1>
+      <p class="mkt-hero-sub">گیسو بستری امن است تا فروشندگان، ارزش واقعی موی خود را در رقابت خریداران پیدا کنند و خریداران به مجموعه‌ای از موهای باکیفیت دسترسی داشته باشند. هویت شما تا لحظه معامله محرمانه می‌ماند.</p>
+      <div class="mkt-hero-ctas">
+        <div class="mkt-cta">
+          <a class="mkt-cta-btn mkt-cta-btn--pink" href="{{ url_for('hair_sale') }}">➕ ثبت آگهی فروش مو</a>
+          <small class="mkt-cta-helper">(برای کسانی که می‌خواهند موی خود را به بالاترین قیمت بفروشند)</small>
+        </div>
+        <div class="mkt-cta">
+          <a class="mkt-cta-btn mkt-cta-btn--gold" href="{{ url_for('panel_user.marketplace', tab='buyer-request') }}">💼 ثبت درخواست خریدار</a>
+          <small class="mkt-cta-helper">(برای سالن‌دارها و کسانی که می‌خواهند روی آگهی‌ها قیمت بدهند)</small>
+        </div>
+      </div>
+      <div class="mkt-hero-stats" aria-label="نمای کلی بازارچه">
+        <div><strong>{{ market_stats.successful_transactions }}</strong><small>معامله موفق</small></div>
+        <div><strong>{{ market_stats.buyer_count }}</strong><small>خریدار تأییدشده</small></div>
+        <div><strong>{{ market_stats.total_views }}</strong><small>بازدید آگهی‌ها</small></div>
+        <div><strong>{{ market_stats.total_listings }}</strong><small>کل آگهی‌ها</small></div>
+      </div>
+    </div>
+    <div class="mkt-steps" aria-label="مراحل کار با بازارچه">
+      <div class="giso-container">
+        <ol class="mkt-steps-row">
+          <li><span class="mkt-step-num">۱</span><span class="mkt-step-label">ثبت آگهی</span></li>
+          <li class="mkt-step-arrow" aria-hidden="true">←</li>
+          <li><span class="mkt-step-num">۲</span><span class="mkt-step-label">دریافت پیشنهادها</span></li>
+          <li class="mkt-step-arrow" aria-hidden="true">←</li>
+          <li><span class="mkt-step-num">۳</span><span class="mkt-step-label">انتخاب بهترین قیمت</span></li>
+          <li class="mkt-step-arrow" aria-hidden="true">←</li>
+          <li><span class="mkt-step-num">۴</span><span class="mkt-step-label">معامله امن</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <div class="giso-container mkt-content">
+    <div class="mkt-disclaimer" role="note"><i class="fas fa-circle-info"></i><span>{{ settings.disclaimer }}</span></div>
+
+    {% if not settings.enabled %}
+    <div class="giso-market-empty"><span class="giso-market-empty-icon"><i class="fas fa-store-slash"></i></span><h2>بازارچه موقتاً غیرفعال است</h2><p>پس از فعال‌سازی دوباره، آگهی‌های تأییدشده در همین صفحه نمایش داده می‌شوند.</p></div>
+    {% else %}
+
+    {# ═══ ) جستجو + فیلترهای سریع در یک ردیف ═══ #}
+    <div class="mkt-search-row">
+      <form method="get" action="{{ url_for('marketplace.listings') }}" class="mkt-search" role="search">
+        <label class="sr-only" for="marketSearch">جست‌وجوی بازارچه</label>
+        <i class="fas fa-magnifying-glass"></i>
+        <input id="marketSearch" name="q" value="{{ keyword }}" maxlength="100" placeholder="جست‌وجو در شهر، منطقه، سلامت مو یا توضیحات">
+        <button type="submit">جست‌وجو</button>
+        {% if keyword %}<a href="{{ url_for('marketplace.listings') }}" aria-label="پاک کردن جست‌وجو"><i class="fas fa-xmark"></i></a>{% endif %}
+      </form>
+      <div class="mkt-filters" role="group" aria-label="فیلترهای سریع">
+        <button type="button" class="mkt-chip" data-mkt-filter="hot" aria-pressed="false">🔥 در حال مذاکره</button>
+        <button type="button" class="mkt-chip" data-mkt-filter="fresh" aria-pressed="false">🆕 آگهی‌های تازه</button>
+      </div>
+    </div>
+
+    <div class="mkt-browser" id="mktBrowser">
+      <div class="mkt-views" id="mktViews">
+
+        {% if not listings %}
+        <div class="giso-market-empty mkt-view-hot mkt-view-fresh"><span class="giso-market-empty-icon"><i class="fas fa-magnifying-glass"></i></span><h2>آگهی‌ای پیدا نشد</h2><p>عبارت دیگری بنویسید یا بعداً دوباره بررسی کنید.</p>{% if keyword %}<a class="giso-btn giso-btn-outline" href="{{ url_for('marketplace.listings') }}">نمایش همه آگهی‌ها</a>{% endif %}</div>
+        {% else %}
+        {# ═══ ۳) بخش A: آگهی‌های داغ (در حال مذاکره) — اسلایدر افقی ═══ #}
+        {% if ns.hot %}
+        <section class="mkt-section mkt-view-hot" aria-labelledby="mktHotTitle">
+          <header class="mkt-section-head">
+            <h2 id="mktHotTitle">🔥 آگهی‌های داغ <small>در حال مذاکره</small></h2>
+          </header>
+          <div class="mkt-slider" tabindex="0" aria-label="اسلایدر آگهی‌های در حال مذاکره">
+            {% for listing in ns.hot %}{% set seller = seller_stats_by_id.get(listing.seller_user_id) %}
+            <article class="mkt-card mkt-card--hot">
+              <a class="mkt-card-media giso-market-image-frame" href="{{ url_for('marketplace.listing_slug', slug=listing.slug) }}">
+                <img class="js-market-image" src="{{ url_for('marketplace.listing_photo', listing_id=listing.id) }}" alt="آگهی موی {{ listing.length_cm }} سانتی‌متری" loading="lazy" width="400" height="500" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'">
+                <span class="giso-market-image-fallback"><i class="fas fa-image"></i><small>تصویر در دسترس نیست</small></span>
+                <span class="mkt-watermark" aria-hidden="true">گیسو</span>{% if listing.promotion_type=='featured' and listing.promotion_expires_at>now_market %}<span class="mkt-promo-badge is-featured">ویژه</span>{% elif listing.promotion_type=='urgent' and listing.promotion_expires_at>now_market %}<span class="mkt-promo-badge is-urgent">فروش فوری</span>{% endif %}
+                <span class="mkt-pulse-badge"><i class="fas fa-fire"></i> در حال مذاکره</span>
+              </a>
+              <div class="mkt-card-body">
+                <div class="mkt-card-title">
+                  <div><span>{{ 'موی طبیعی' if listing.hair_type == 'raw' else ('موی رنگ‌شده' if listing.hair_type == 'colored' else 'موی روشن') }}</span><h3>{{ listing.length_cm }} سانتی‌متر</h3></div>
+                  <i class="fas fa-scissors"></i>
+                </div>
+                <div class="mkt-price-row">
+                  <div class="mkt-price"><small>قیمت مدنظر فروشنده</small><strong>{{ fmt_market_amount(listing.seller_asking_price) }}</strong><span>تومان</span></div>
+                  {% if listing.highest_offer_amount > 0 %}
+                  <div class="mkt-highest"><i class="fas fa-arrow-trend-up"></i><span>بالاترین پیشنهاد</span><b>{{ fmt_market_amount(listing.highest_offer_amount) }} تومان</b></div>
+                  {% endif %}
+                </div>
+                <div class="mkt-chips">
+                  <span class="mkt-tag"><i class="fas fa-location-dot"></i>{{ listing.city or listing.region or 'شهر ثبت نشده' }}</span>
+                  {% if listing.hair_health %}<span class="mkt-tag mkt-tag--health"><i class="fas fa-heart-pulse"></i>{{ listing.hair_health }}</span>{% endif %}
+                </div>
+                <a class="mkt-card-seller" href="{{ url_for('marketplace.public_seller_profile', seller_id=listing.seller_user_id) }}">
+                  <i class="fas fa-user-shield"></i><span>فروشنده گیسو #{{ seller.code if seller else listing.seller_user_id }}</span>
+                  {% if seller and seller.is_verified_seller %}<b class="giso-verified-seller-badge"><i class="fas fa-circle-check"></i> فروشنده تأییدشده</b>{% endif %}
+                </a>
+                <div class="mkt-card-stats" aria-label="آمار آگهی"><span><i class="fas fa-eye"></i>{{ listing.views_count or 0 }} بازدید</span><span><i class="fas fa-chart-line"></i>{{ listing.offers_count or 0 }} پیشنهاد</span></div>
+                <a class="mkt-view-btn" href="{{ url_for('marketplace.listing_slug', slug=listing.slug) }}"><i class="fas fa-eye"></i> مشاهده آگهی</a>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+        {% else %}
+        <p class="mkt-mini-empty mkt-view-hot">🔥 فعلاً معامله‌ای در حال مذاکره نیست — اولین پیشنهاد را شما ثبت کنید.</p>
+        {% endif %}
+
+        {# ═══ ۴) بخش B: فرصت‌های تازه (بدون پیشنهاد) — گرید واکنش‌گرا ═══ #}
+        {% if ns.fresh %}
+        <section class="mkt-section mkt-view-fresh" aria-labelledby="mktFreshTitle">
+          <header class="mkt-section-head">
+            <h2 id="mktFreshTitle">🆕 فرصت‌های تازه <small>هنوز بدون پیشنهاد</small></h2>
+          </header>
+          <div class="mkt-grid">
+            {% for listing in ns.fresh %}{% set seller = seller_stats_by_id.get(listing.seller_user_id) %}
+            <article class="mkt-card mkt-card--fresh">
+              <a class="mkt-card-media giso-market-image-frame" href="{{ url_for('marketplace.listing_slug', slug=listing.slug) }}">
+                <img class="js-market-image" src="{{ url_for('marketplace.listing_photo', listing_id=listing.id) }}" alt="آگهی موی {{ listing.length_cm }} سانتی‌متری" loading="lazy" width="400" height="500" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'">
+                <span class="giso-market-image-fallback"><i class="fas fa-image"></i><small>تصویر در دسترس نیست</small></span>
+                <span class="mkt-watermark" aria-hidden="true">گیسو</span>{% if listing.promotion_type=='featured' and listing.promotion_expires_at>now_market %}<span class="mkt-promo-badge is-featured">ویژه</span>{% elif listing.promotion_type=='urgent' and listing.promotion_expires_at>now_market %}<span class="mkt-promo-badge is-urgent">فروش فوری</span>{% endif %}
+                <span class="mkt-status-tag">{{ listing_status_fa.get(listing.status, listing.status) }}</span>
+              </a>
+              <div class="mkt-card-body">
+                <div class="mkt-card-title">
+                  <div><span>{{ 'موی طبیعی' if listing.hair_type == 'raw' else ('موی رنگ‌شده' if listing.hair_type == 'colored' else 'موی روشن') }}</span><h3>{{ listing.length_cm }} سانتی‌متر</h3></div>
+                  <i class="fas fa-scissors"></i>
+                </div>
+                <div class="mkt-price-row">
+                  <div class="mkt-price"><small>قیمت مدنظر فروشنده</small><strong>{{ fmt_market_amount(listing.seller_asking_price) }}</strong><span>تومان</span></div>
+                </div>
+                <div class="mkt-chips">
+                  <span class="mkt-tag"><i class="fas fa-location-dot"></i>{{ listing.city or listing.region or 'شهر ثبت نشده' }}</span>
+                  {% if listing.hair_health %}<span class="mkt-tag mkt-tag--health"><i class="fas fa-heart-pulse"></i>{{ listing.hair_health }}</span>{% endif %}
+                </div>
+                <a class="mkt-card-seller" href="{{ url_for('marketplace.public_seller_profile', seller_id=listing.seller_user_id) }}">
+                  <i class="fas fa-user-shield"></i><span>فروشنده گیسو #{{ seller.code if seller else listing.seller_user_id }}</span>
+                  {% if seller and seller.is_verified_seller %}<b class="giso-verified-seller-badge"><i class="fas fa-circle-check"></i> فروشنده تأییدشده</b>{% endif %}
+                </a>
+                <div class="mkt-card-stats" aria-label="آمار آگهی"><span><i class="fas fa-eye"></i>{{ listing.views_count or 0 }} بازدید</span><span><i class="fas fa-chart-line"></i>{{ listing.offers_count or 0 }} پیشنهاد</span></div>
+                <a class="mkt-view-btn" href="{{ url_for('marketplace.listing_slug', slug=listing.slug) }}"><i class="fas fa-eye"></i> مشاهده آگهی</a>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+        {% else %}
+        <p class="mkt-mini-empty mkt-view-fresh">🆕 فعلاً آگهی تازه‌ای در انتظار اولین پیشنهاد نیست.</p>
+        {% endif %}
+        {% endif %}
+
+      </div>
+
+      {# ═══ صفحه‌بندی (همان بلوک قبلی) ═══ #}
+      {% if total_pages > 1 %}<nav class="giso-market-pagination mkt-pagination" aria-label="صفحه‌بندی">{% if page > 1 %}<a href="{{ url_for('marketplace.listings', page=page-1, q=keyword) }}"><i class="fas fa-arrow-right"></i><span>قبل</span></a>{% endif %}<span class="is-current">{{ page }} از {{ total_pages }}</span>{% if page < total_pages %}<a href="{{ url_for('marketplace.listings', page=page+1, q=keyword) }}"><span>بعد</span><i class="fas fa-arrow-left"></i></a>{% endif %}</nav>{% endif %}
+    </div>
+
+    {# ═══ ۵) بخش C: معاملات موفق اخیر — اسلایدر پایین، بدون قیمت و هویت ═══ #}
+    {% if recent_sales %}
+    <section class="mkt-section mkt-view-sold" aria-labelledby="mktSoldTitle">
+      <header class="mkt-section-head">
+        <h2 id="mktSoldTitle">🤝 معاملات موفق اخیر</h2>
+        <span class="mkt-sold-note-line"><i class="fas fa-shield-heart"></i> هویت طرفین و مبلغ نهایی محرمانه می‌ماند.</span>
+      </header>
+      <div class="mkt-slider mkt-slider--sold" tabindex="0" aria-label="اسلایدر معاملات موفق اخیر">
+        {% for sale in recent_sales %}
+        <article class="mkt-card mkt-card--sold">
+          <div class="mkt-card-media giso-market-image-frame">
+            <img class="js-market-image" src="{{ url_for('static', filename=sale.photo_path) }}" alt="موی فروخته‌شده {{ sale.length_cm }} سانتی‌متری" loading="lazy" width="240" height="300">
+            <span class="giso-market-image-fallback"><i class="fas fa-image"></i></span>
+            <span class="mkt-sold-seal"><i class="fas fa-circle-check"></i> فروخته شد</span>
+          </div>
+          <div class="mkt-card-body">
+            <div class="mkt-card-title">
+              <div><span>{{ 'موی طبیعی' if sale.hair_type == 'raw' else ('موی رنگ‌شده' if sale.hair_type == 'colored' else 'موی روشن') }}</span><h3>{{ sale.length_cm }} سانتی‌متر</h3></div>
+            </div>
+            <div class="mkt-chips">
+              <span class="mkt-tag"><i class="fas fa-location-dot"></i>{{ sale.city or 'شهر ثبت نشده' }}</span>
+            </div>
+            <p class="mkt-sold-note"><i class="fas fa-lock"></i>مبلغ نهایی و هویت طرفین نمایش عمومی ندارد.</p>
+            <time class="js-market-time" datetime="{{ sale.sold_at }}"><i class="fas fa-calendar-check"></i>{{ sale.sold_at }}</time>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% endif %}
+  </div>
+</main>
+{% endblock %}
+{% block scripts %}{{ super() }}<script src="{{ url_for('static', filename='js/marketplace_ui.js') }}?v=20260823-marketplace-2"></script>
+<script>
+/* فیلترهای سریع: بدون ریلود، فقط نمایش/عدم‌نمایش بخش‌ها */
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    var browser = document.getElementById('mktBrowser');
+    if (!browser) return;
+    var chips = browser.querySelectorAll('.mkt-chip[data-mkt-filter]');
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var filter = chip.getAttribute('data-mkt-filter');
+        var wasOn = chip.getAttribute('aria-pressed') === 'true';
+        chips.forEach(function (c) { c.setAttribute('aria-pressed', 'false'); });
+        browser.classList.remove('mkt-only-hot', 'mkt-only-fresh');
+        if (!wasOn) {
+          chip.setAttribute('aria-pressed', 'true');
+          browser.classList.add(filter === 'hot' ? 'mkt-only-hot' : 'mkt-only-fresh');
+        }
+      });
+    });
+  });
+})();
+</script>
+{% endblock %}

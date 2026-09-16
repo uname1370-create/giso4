@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}جزئیات مشاوره - گیسو{% endblock %}
+
+{% block head %}
+<style>
+.acd-page { min-height:100vh; background:linear-gradient(180deg,#FFF9F0 0%,#FFF5E9 100%); padding:30px 16px 60px; }
+.acd-card { max-width:800px; margin:0 auto; background:#fff; border-radius:24px; padding:30px; box-shadow:0 15px 50px rgba(92,61,46,0.1); }
+.acd-head { border-bottom:1px solid rgba(212,165,116,0.2); padding-bottom:16px; margin-bottom:20px; }
+.acd-title { color:#5C3D2E; font-size:22px; font-weight:800; }
+.acd-sub { color:#8B6F5C; font-size:14px; margin-top:6px; }
+.acd-status-form { display:flex; gap:8px; align-items:center; margin:14px 0; }
+.acd-status-form select { padding:8px; border:2px solid #E8D5B7; border-radius:10px; font-family:'Vazirmatn',sans-serif; }
+.acd-status-form button { padding:8px 16px; border:none; border-radius:10px; background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; font-weight:700; cursor:pointer; font-family:'Vazirmatn',sans-serif; }
+.acd-msg { background:#FAF5EC; border-radius:12px; padding:14px; color:#5C3D2E; font-size:14.5px; line-height:1.9; margin-bottom:20px; }
+.acd-chat { max-height:50vh; overflow-y:auto; padding:10px 0; border-top:1px solid rgba(212,165,116,0.15); }
+.ch-msg { max-width:75%; padding:12px 16px; border-radius:16px; margin-bottom:10px; font-size:14.5px; line-height:1.9; }
+.ch-admin { background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; margin-left:auto; border-bottom-left-radius:4px; }
+.ch-user { background:#F5EFE3; color:#5C3D2E; margin-right:auto; border-bottom-right-radius:4px; }
+.ch-msg .tm { display:block; font-size:11px; opacity:0.75; margin-top:4px; text-align:left; }
+.acd-reply { display:flex; gap:10px; margin-top:16px; }
+.acd-reply textarea { flex:1; padding:12px; border:2px solid #E8D5B7; border-radius:12px; font-family:'Vazirmatn',sans-serif; font-size:14px; color:#5C3D2E; }
+.acd-reply button { padding:12px 20px; border:none; border-radius:12px; background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; font-weight:700; cursor:pointer; font-family:'Vazirmatn',sans-serif; }
+.acd-back { display:inline-block; margin-top:16px; color:#B8935F; font-weight:600; }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="acd-page">
+    <div class="acd-card">
+        <div class="acd-head">
+            <div class="acd-title">💬 درخواست مشاوره #{{ req.id }}</div>
+            <div class="acd-sub">👤 {{ req.customer_name or 'کاربر' }} | 📱 {{ req.phone or '—' }} | 📍 {{ req.city or '—' }} | 📅 {{ req.created_at }}</div>
+            <form method="POST" action="{{ url_for('admin_consultant_status', request_id=req.id) }}" class="acd-status-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <select name="status">
+                    <option value="new" {% if req.status=='new' %}selected{% endif %}>🆕 جدید</option>
+                    <option value="reviewing" {% if req.status=='reviewing' %}selected{% endif %}>🔍 در حال بررسی</option>
+                    <option value="chatting" {% if req.status=='chatting' %}selected{% endif %}>💬 در گفتگو</option>
+                    <option value="closed" {% if req.status=='closed' %}selected{% endif %}>✅ پایان</option>
+                </select>
+                <button type="submit">ثبت وضعیت</button>
+            </form>
+        </div>
+        <div class="acd-msg"><strong>پیام اولیه کاربر:</strong><br>{{ req.initial_message }}</div>
+        <h3 style="color:#5C3D2E; margin-bottom:8px;">گفتگو</h3>
+        <div class="acd-chat">
+            {% for m in messages %}
+            <div class="ch-msg {{ 'ch-admin' if m.sender=='admin' else 'ch-user' }}">
+                {{ m.message }}
+                <span class="tm">{{ m.created_at }}</span>
+            </div>
+            {% else %}
+            <p style="color:#8B6F5C; text-align:center;">هنوز پیامی ردوبدل نشده است.</p>
+            {% endfor %}
+        </div>
+        <form method="POST" action="{{ url_for('admin_consultant_reply', request_id=req.id) }}" class="acd-reply">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea name="message" placeholder="پاسخ به کاربر..."></textarea>
+            <button type="submit">ارسال پاسخ</button>
+        </form>
+        <a href="{{ url_for('admin_consultants') }}" class="acd-back">← بازگشت به درخواست‌ها</a>
+    </div>
+</section>
+{% endblock %}

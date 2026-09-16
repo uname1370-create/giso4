@@ -1,0 +1,66 @@
+<section class="pnl-card pnl-market-admin-card">
+  <div class="pnl-market-section-head"><div><span>پایش زنده آگهی‌ها</span><h2>وضعیت آگهی</h2></div><p>همه آگهی‌های منتشرشده، پیشنهادهای آن‌ها و فعالیت گفتگو — با امکان تغییر وضعیت و حذف از همین‌جا.</p></div>
+
+  {% if status_monitor %}
+  <div class="pnl-market-status-list">
+    {% for item in status_monitor %}{% set listing = item.listing %}
+    <article class="pnl-market-status-card">
+      <div class="pnl-market-status-head">
+        <img class="js-market-image" src="{{ url_for('static', filename=listing.photo_path) }}" alt="تصویر آگهی" loading="lazy">
+        <div>
+          <strong>آگهی #{{ listing.id }} — {{ listing.length_cm }} سانتی‌متر</strong>
+          <span class="pnl-chip status-{{ listing.status }}">{{ listing_status_fa.get(listing.status, listing.status) }}</span>
+          <p>{{ listing.city or listing.region or 'شهر ثبت نشده' }} · قیمت فروشنده: <b>{{ fmt_market_amount(listing.seller_asking_price) }}</b> تومان</p>
+          <small>کد ناشناس فروشنده: <b dir="ltr">{{ item.seller_code }}</b></small>
+        </div>
+      </div>
+
+      <div class="pnl-market-status-grid">
+        <section class="pnl-market-status-offers">
+          <h3><i class="fas fa-hand-holding-dollar"></i> پیشنهادها ({{ item.offers|length }})</h3>
+          {% if item.offers %}
+          <div class="pnl-market-status-offer-list">
+            {% for offer in item.offers %}{% set buyer = item.buyers.get(offer.buyer_user_id) %}
+            <article>
+              <div><strong>{{ buyer.name if buyer else ('کاربر #' ~ offer.buyer_user_id) }}</strong><span dir="ltr">{{ fmt_market_amount(offer.offer_amount) }} تومان</span><small>{{ offer.created_at }}</small></div>
+              <span class="pnl-chip status-{{ offer.status }}">{{ offer_status_fa.get(offer.status, offer.status) }}</span>
+            </article>
+            {% endfor %}
+          </div>
+          {% else %}<p class="pnl-muted">هنوز پیشنهادی ثبت نشده است.</p>{% endif %}
+        </section>
+
+        <section class="pnl-market-status-chat">
+          <h3><i class="fas fa-comments"></i> فعالیت گفتگو</h3>
+          {% if item.chat_count %}
+          <p><b>{{ item.chat_count }}</b> پیام در این آگهی ثبت شده است.</p>
+          {% if item.last_message %}<blockquote>آخرین پیام: {{ item.last_message.message_text|truncate(120, true) }} <small>{{ item.last_message.created_at }}</small></blockquote>{% endif %}
+          {% else %}<p class="pnl-muted">گفتگویی برای این آگهی ثبت نشده است.</p>{% endif %}
+        </section>
+      </div>
+
+      <footer class="pnl-market-status-actions">
+        <form method="post" action="{{ url_for('panel.marketplace_listing_action', listing_id=listing.id) }}" class="pnl-market-admin-actions">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="back_tab" value="status">
+          <input name="admin_note" maxlength="1000" value="{{ listing.admin_note or '' }}" placeholder="یادداشت داخلی">
+          <label class="pnl-market-status-select">وضعیت:
+            <select name="status">
+              {% for key in ('published','rejected','closed') %}<option value="{{ key }}" {{ 'selected' if listing.status == key else '' }}>{{ {'published':'منتشر شده','rejected':'رد شده','closed':'بسته شده'}[key] }}</option>{% endfor %}
+            </select>
+          </label>
+          <button class="pnl-btn pnl-btn-gold pnl-btn-sm" name="action" value="status_change">ذخیره تغییرات</button>
+        </form>
+        <form method="post" action="{{ url_for('panel.marketplace_listing_action', listing_id=listing.id) }}" onsubmit="return confirm('این آگهی برای همیشه حذف شود؟');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="back_tab" value="status">
+          <button class="pnl-btn pnl-btn-danger-soft pnl-btn-sm" name="action" value="delete_ad"><i class="fas fa-trash-can"></i> حذف آگهی</button>
+        </form>
+      </footer>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="pnl-empty"><i class="fas fa-signal"></i> آگهی منتشرشده یا فعالی برای پایش وجود ندارد.</div>
+  {% endif %}
+</section>

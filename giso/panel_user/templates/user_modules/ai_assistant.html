@@ -1,0 +1,54 @@
+{% extends 'user_layout.html' %}
+{% block title %}دستیار هوشمند گیسو | پنل کاربری{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('panel_user.static', filename='css/ai_assistant.css') }}?v=11">
+<style>
+/* بازسازی آنی فرم ارسال پیام چت کاربر — دور زدن کش مرورگر */
+.pu-assist-foot{display:flex;gap:10px;align-items:stretch}
+.pu-assist-input{flex:1;border-radius:10px;padding:10px;resize:none;min-height:46px}
+.pu-assist-send{width:85px;min-width:85px;align-self:stretch;border-radius:10px;background:linear-gradient(135deg,#d97a7a,#b35454);color:#fff;font-weight:700}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pu-assist-wrap">
+    <aside class="pu-assist-side">
+        <h3>سؤال‌های پرکاربرد</h3>
+        {% set chips = [
+            ('خلاصه وضعیت من', 'خلاصه وضعیت من در گیسو را بگو.', 'آنالیز، سفارش، فروش مو، کیف پول و تیکت‌ها'),
+            ('برنامه آنالیز مو و پوست', 'برنامه و تحلیل اخیر مو و پوستم را مرور کن.', 'راهکار و قدم بعدی'),
+            ('وضعیت سفارش‌های من', 'وضعیت سفارش‌های خریدم در فروشگاه را بگو.', 'پیگیری خرید'),
+            ('کیف پول و اعتبار', 'کیف پولم را بگو و مأموریت‌ها را توضیح بده.', 'موجودی نقدی و اعتبار مصرفی'),
+            ('فروش مو؛ مراحل', 'مراحل فروش مو به گیسو و وضعیت درخواستم را بگو.', 'ثبت درخواست و قیمت'),
+            ('بازارچه و پیشنهادها', 'وضعیت آگهی‌ها و پیشنهادهای بازارچه مو را بگو.', 'آگهی و گفتگو'),
+            ('مرکز زیبایی و تیکت‌ها', 'وضعیت مرکز زیبایی و تیکت‌های پشتیبانی را بگو.', 'خدمات و پیگیری'),
+        ] %}
+        {% for label, q, small in chips %}
+        <button type="button" class="pu-assist-chip" data-q="{{ q }}">
+            {{ label }}
+            <small>{{ small }}</small>
+        </button>
+        {% endfor %}
+    </aside>
+
+    <section class="pu-assist-card" id="puAssistCard">
+        <header class="pu-assist-head">
+            <span class="pu-assist-avatar">🤖</span>
+            <div>
+                <strong id="puAssistName">دستیار هوشمند گیسو</strong>
+                <small id="puAssistSub">گزارش‌محور و فقط‌خواندنی در پنل کاربری</small>
+            </div>
+        </header>
+        <div class="pu-assist-body" id="puAssistBody"></div>
+        <form class="pu-assist-foot" id="puAssistForm" autocomplete="off">
+            <textarea class="pu-assist-input" id="puAssistInput" rows="1"
+                placeholder="سؤال یا پیامت را این‌جا بنویس… (مثلاً: خلاصه وضعیتم را بگو)"></textarea>
+            <button type="submit" class="pu-assist-send" id="puAssistSend">ارسال</button>
+        </form>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('panel_user.static', filename='js/ai_assistant.js') }}?v=2"></script>
+{% endblock %}

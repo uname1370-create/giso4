@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}گفتگوی من با مشاور - یار همراه{% endblock %}
+{% block head %}
+<style>
+.user-consult-page{padding:30px 0 80px}.user-consult-wrap{max-width:920px;margin:0 auto}.user-consult-hero{background:linear-gradient(135deg,#1e1b4b,#2563eb 55%,#7c3aed);color:#fff;border-radius:26px;padding:30px;box-shadow:0 22px 60px rgba(37,99,235,.28);margin-bottom:18px}.user-consult-hero h1{margin:0 0 10px;font-size:clamp(1.55rem,4vw,2.2rem);font-weight:950}.user-consult-hero p{margin:0;line-height:2;color:#eef2ff}.consult-status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:18px 0}.consult-status-item{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:14px;box-shadow:0 10px 28px rgba(15,23,42,.06)}.consult-status-item span{display:block;font-size:12px;color:#64748b;margin-bottom:4px}.consult-status-item strong{color:#0f172a}.consult-chat-card{background:#fff;border:1px solid #e2e8f0;border-radius:24px;overflow:hidden;box-shadow:0 14px 36px rgba(15,23,42,.08)}.consult-chat-log{min-height:320px;max-height:520px;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px;background:#f8fafc}.consult-msg{max-width:82%;border-radius:18px;padding:12px 15px;line-height:1.85;overflow-wrap:anywhere}.consult-msg.user{align-self:flex-end;background:#dbeafe;color:#1e3a8a}.consult-msg.admin{align-self:flex-start;background:#dcfce7;color:#166534}.consult-msg small{display:block;opacity:.62;margin-top:4px}.consult-input-area{display:flex;gap:10px;padding:14px;background:#fff;border-top:1px solid #e2e8f0}.consult-input-area input{flex:1;border:1px solid #cbd5e1;border-radius:14px;padding:12px 14px;font-family:inherit;outline:none}.consult-input-area button{border:0;border-radius:14px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-family:inherit;font-weight:850;padding:0 22px;min-height:44px}.consult-disabled-note{padding:12px 16px;background:#fff7ed;color:#9a3412;border-top:1px solid #fed7aa;line-height:1.8;font-weight:800}.consult-back{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}@media(max-width:767px){.user-consult-page{padding:20px 0 56px}.user-consult-hero{padding:22px;border-radius:20px}.consult-msg{max-width:94%}.consult-input-area{flex-direction:column}}
+</style>
+{% endblock %}
+{% block content %}
+{% set status_fa = {'pending':'در انتظار تأیید','active':'فعال','paused':'متوقف موقت','closed':'بسته شده','rejected':'رد شده'} %}
+{% set turn_fa = {'user':'منتظر پاسخ مشاور','admin':'نوبت شما'} %}
+<section class="user-consult-page">
+<div class="container user-consult-wrap">
+    <div class="user-consult-hero">
+        <h1>گفتگوی من با مشاور</h1>
+        <p>مشاوره مستقیم با مهندس رضا صادقی؛ این گفتگو به تحلیل مسیر و برنامه اجرایی تو متصل است.</p>
+    </div>
+
+    <div class="consult-status-grid" id="consultStatusBox" data-request-id="{{ item.id }}" data-last-message-id="{{ messages[-1].id if messages else 0 }}">
+        <div class="consult-status-item"><span>وضعیت</span><strong id="consultStatusText">{{ status_fa.get(item.status, item.status) }}</strong></div>
+        <div class="consult-status-item"><span>نوبت</span><strong id="consultTurnText">{{ turn_fa.get(item.last_turn, '—') }}</strong></div>
+        <div class="consult-status-item"><span>پیام رایگان باقی‌مانده</span><strong id="consultRemainingText">{{ remaining }} از ۵</strong></div>
+    </div>
+
+    <div class="consult-chat-card">
+        <div class="consult-chat-log" id="consultTranscript">
+            {% if item.intro_message %}
+            <div class="consult-msg user">{{ item.intro_message }}<small>پیام اولیه</small></div>
+            {% endif %}
+            {% for m in messages %}
+            <div class="consult-msg {{ m.sender }}">{{ m.text }}<small>{{ m.created_at }}</small></div>
+            {% else %}
+            <div class="consult-msg admin">هنوز پیامی بعد از تأیید ثبت نشده است.</div>
+            {% endfor %}
+        </div>
+        <div class="consult-disabled-note" id="consultDisabledNote">
+            {% if item.status != 'active' %}
+                گفتگو در وضعیت فعلی فعال نیست.
+            {% elif item.last_turn == 'user' %}
+                پیام شما ارسال شده؛ لطفاً منتظر پاسخ مشاور بمانید.
+            {% elif remaining <= 0 %}
+                سقف پیام رایگان تمام شد. به‌زودی امکان شارژ اعتبار فعال می‌شود.
+            {% else %}
+                نوبت شماست؛ می‌توانید پیام بعدی را ارسال کنید.
+            {% endif %}
+        </div>
+        <div class="consult-input-area">
+            <input type="text" id="consultChatInput" placeholder="پیام خود را بنویسید..." {% if item.status != 'active' or item.last_turn == 'user' or remaining <= 0 %}disabled{% endif %}>
+            <button type="button" id="consultChatSend" onclick="sendConsultantChatMessage()" {% if item.status != 'active' or item.last_turn == 'user' or remaining <= 0 %}disabled{% endif %}>ارسال</button>
+        </div>
+    </div>
+
+    <div class="consult-back">
+        <a href="{{ url_for('mentor_action_plan') }}" class="btn btn-primary">بازگشت به برنامه اجرا</a>
+        <a href="{{ url_for('mentor_dashboard') }}" class="btn btn-outline">بازگشت به داشبورد</a>
+    </div>
+</div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+const consultantRequestId = {{ item.id }};
+function renderConsultantChat(req){
+    if(!req || !req.exists) return;
+    const statusMap = {pending:'در انتظار تأیید',active:'فعال',paused:'متوقف موقت',closed:'بسته شده',rejected:'رد شده'};
+    const turnMap = {user:'منتظر پاسخ مشاور',admin:'نوبت شما'};
+    document.getElementById('consultStatusText').innerText = statusMap[req.status] || req.status || '—';
+    document.getElementById('consultTurnText').innerText = turnMap[req.last_turn] || '—';
+    document.getElementById('consultRemainingText').innerText = (req.remaining_free_messages || 0) + ' از ۵';
+    const box = document.getElementById('consultTranscript');
+    box.innerHTML = '';
+    if(req.intro_message){
+        const intro = document.createElement('div');
+        intro.className = 'consult-msg user';
+        intro.innerText = req.intro_message;
+        box.appendChild(intro);
+    }
+    (req.messages || []).forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'consult-msg ' + (m.sender === 'admin' ? 'admin' : 'user');
+        div.appendChild(document.createTextNode(m.text || ''));
+        const small = document.createElement('small');
+        small.innerText = m.created_at || '';
+        div.appendChild(small);
+        box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+    const input = document.getElementById('consultChatInput');
+    const btn = document.getElementById('consultChatSend');
+    const note = document.getElementById('consultDisabledNote');
+    const canSend = req.status === 'active' && req.last_turn !== 'user' && (req.remaining_free_messages || 0) > 0;
+    input.disabled = !canSend;
+    btn.disabled = !canSend;
+    if(req.status === 'paused') note.innerText = 'گفتگو موقتاً متوقف شده است.';
+    else if(req.status === 'closed') note.innerText = 'گفتگو پایان یافته است.';
+    else if(req.status === 'rejected') note.innerText = 'درخواست مشاوره رد شده است.';
+    else if(req.status === 'pending') note.innerText = 'درخواست شما در انتظار تأیید مشاور است.';
+    else if(req.last_turn === 'user') note.innerText = 'پیام شما ارسال شده؛ لطفاً منتظر پاسخ مشاور بمانید.';
+    else if((req.remaining_free_messages || 0) <= 0) note.innerText = 'سقف پیام رایگان تمام شد. به‌زودی امکان شارژ اعتبار فعال می‌شود.';
+    else note.innerText = 'نوبت شماست؛ می‌توانید پیام بعدی را ارسال کنید.';
+    const lastId = req.last_message_id || 0;
+    if(lastId){ localStorage.setItem('consultant_seen_' + req.id, String(lastId)); }
+}
+async function pollConsultantChat(){
+    try{
+        const res = await fetch('{{ url_for("api_consultant_status") }}');
+        const data = await res.json();
+        if(data.success) renderConsultantChat(data.request);
+    }catch(e){}
+}
+async function sendConsultantChatMessage(){
+    const input = document.getElementById('consultChatInput');
+    const text = input.value.trim();
+    if(!text) return;
+    input.value = '';
+    const url = '{{ url_for("api_consultant_message", req_id=0) }}'.replace('/0/message','/' + consultantRequestId + '/message');
+    const res = await fetch(url, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    const data = await res.json();
+    if(data.success) renderConsultantChat(data.request);
+    else pollConsultantChat();
+}
+document.addEventListener('DOMContentLoaded', function(){
+    const input = document.getElementById('consultChatInput');
+    if(input){ input.addEventListener('keydown', e => { if(e.key === 'Enter') sendConsultantChatMessage(); }); }
+    pollConsultantChat();
+    setInterval(pollConsultantChat, 7000);
+});
+</script>
+{% endblock %}

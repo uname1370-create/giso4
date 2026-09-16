@@ -1,0 +1,515 @@
+{% extends 'layout.html' %}
+{% block title %}دستیار هوشمند - پنل مدیریت گیسو{% endblock %}
+{% block head %}
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   دستیار هوشمند سوپرادمین — بازطراحی داشبورد سه‌بخشی (۱۴۰۵-۰۶-۱۴)
+   ساختار: [دستورات سریع] [گفتگوی AI] [وضعیت سیستم]
+   اصول: جمع‌وجور • ارتفاع آزاد • اسکرول فقط داخل چت •
+   دستورات گروه‌بندی‌شده • رنگ‌بندی نوع پیام در حباب‌ها
+   ═══════════════════════════════════════════════════════════════════ */
+:root{
+  --sa-gold:#d4af37; --sa-gold-deep:#b8941f; --sa-gold-soft:#fdf6e7;
+  --sa-border:#eadfce; --sa-ink:#5a3e1b; --sa-text:#4a3520;
+  --sa-muted:#8a6d5c; --sa-faint:#a08a72; --sa-cream:#faf6ee;
+}
+/* ── چارچوب صفحه ── */
+.sa-page{max-width:none;width:100%;min-width:0}
+.sa-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.sa-top h1{font-size:1.08rem;margin:0;color:var(--sa-ink)}
+.sa-top p{margin:2px 0 0;font-size:.72rem;color:var(--sa-muted)}
+#sassist-clear-btn{border-radius:9px;font-size:.7rem;padding:6px 11px;flex-shrink:0}
+
+/* ── گرید ۳ ستونه منعطف (سایدبار پنل ۲۸۶px جداست) ── */
+.sa-grid{
+  display:grid;
+  grid-template-columns:minmax(180px,232px) minmax(0,1fr) minmax(180px,212px);
+  gap:12px;
+  align-items:stretch;
+  width:100%;
+  min-width:0;
+  height:calc(100vh - 100px);
+  overflow:hidden;
+}
+
+/* ── پایهٔ هر ستون: کارت + اسکرول داخلی ── */
+.sa-col{
+  min-height:0;height:100%;
+  display:flex;flex-direction:column;
+  background:#fff;border:1px solid var(--sa-border);border-radius:14px;
+  box-shadow:0 2px 14px rgba(90,62,27,.06);
+  overflow:hidden;
+}
+.sa-col-head{
+  flex-shrink:0;display:flex;align-items:center;gap:6px;
+  padding:9px 12px;font-size:.76rem;font-weight:800;color:#7a5a33;
+  background:linear-gradient(90deg,var(--sa-gold-soft),#fffdf8);
+  border-bottom:1px solid var(--sa-border);
+}
+.sa-col-head::after{content:"";flex:1;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,var(--sa-gold),transparent);opacity:.45;margin-right:6px}
+.sa-col-body{flex:1;min-height:0;overflow-y:auto;padding:9px}
+
+/* ─── ستون ۱: دستورات سریع (گروه‌بندی‌شده) ─── */
+.sa-chip-group{font-size:.62rem;font-weight:700;color:var(--sa-faint);margin:2px 4px 6px;display:flex;align-items:center;gap:6px}
+.sa-chip-group::before{content:"";width:3px;height:10px;border-radius:2px;background:var(--sa-gold);flex-shrink:0}
+.sa-chip{
+  display:flex;align-items:center;gap:7px;width:100%;text-align:right;
+  background:#fff;border:1px solid var(--sa-border);border-radius:10px;
+  padding:7px 10px;margin-bottom:6px;font:inherit;font-size:.72rem;font-weight:600;
+  color:var(--sa-ink);line-height:1.6;cursor:pointer;
+  box-shadow:0 1px 2px rgba(90,62,27,.05);transition:.15s;
+}
+.sa-chip .sa-chip-ico{font-size:.85rem;flex-shrink:0}
+.sa-chip:hover{transform:translateY(-1px);border-color:var(--sa-gold);
+  box-shadow:0 4px 10px rgba(90,62,27,.10);background:#fffdf6}
+.sa-chip:active{transform:translateY(0)}
+
+/* ─── ستون ۲: گفتگوی AI ─── */
+.sa-chat-card{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.sa-chat-head{
+  flex-shrink:0;display:flex;align-items:center;gap:9px;
+  padding:9px 14px;background:linear-gradient(90deg,var(--sa-gold-soft),#fffdf8);
+  border-bottom:1px solid var(--sa-border);
+}
+.sa-ava{width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,var(--sa-gold),var(--sa-gold-deep));
+  display:grid;place-items:center;font-size:16px;flex-shrink:0;
+  box-shadow:0 0 0 2px #fff, 0 3px 8px rgba(184,148,31,.35)}
+.sa-chat-head b{font-size:.84rem;display:block;color:var(--sa-ink)}
+.sa-chat-head small{display:block;font-size:.64rem;color:var(--sa-muted);margin-top:1px}
+.sa-online{margin-right:auto;font-size:.62rem;color:#2f9e44;font-weight:700;
+  background:#f0faf2;border:1px solid #cdeed6;border-radius:20px;padding:3px 9px;white-space:nowrap}
+.sa-online::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:#37b24d;margin-left:4px;box-shadow:0 0 5px #37b24d;vertical-align:-1px}
+
+/* بدنهٔ چت — تنها ناحیهٔ اسکرول‌خور گفتگو */
+#sassist-chat{
+  flex:1;min-height:0;overflow-y:auto;padding:12px 14px;
+  display:flex;flex-direction:column;gap:8px;
+  background:
+    radial-gradient(ellipse at 85% 0%, rgba(212,175,55,.05), transparent 55%),
+    var(--sa-cream);
+  scrollbar-width:thin;scrollbar-color:#d9b98a transparent;
+}
+#sassist-chat::-webkit-scrollbar{width:6px}
+#sassist-chat::-webkit-scrollbar-thumb{background:#d9b98a;border-radius:8px}
+
+.sassist-msg{display:flex;gap:7px;max-width:84%}
+.sassist-msg-ai{align-self:flex-start}
+.sassist-msg-user{align-self:flex-end;flex-direction:row-reverse}
+.sassist-avatar{width:26px;height:26px;border-radius:50%;background:#fff;border:1px solid var(--sa-border);
+  display:grid;place-items:center;font-size:12px;flex-shrink:0;margin-top:2px}
+.sassist-body{min-width:0}
+.sassist-name{font-size:.6rem;color:var(--sa-muted);margin:0 4px 2px}
+.sassist-msg-user .sassist-name{text-align:left}
+.sassist-bubble{
+  background:#fff;border:1px solid var(--sa-border);border-radius:12px;border-top-right-radius:3px;
+  padding:8px 11px;font-size:.76rem;line-height:1.8;color:var(--sa-text);
+  white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere;
+}
+.sassist-msg-user .sassist-bubble{
+  background:linear-gradient(135deg,#f7dcdc,#fbeeee);border-color:#eccccc;
+  border-top-right-radius:12px;border-top-left-radius:3px;
+}
+.sassist-bubble.sassist-kind-pending_preview{border-color:#e4c889;background:#fdf6e3}
+.sassist-bubble.sassist-kind-report{border-color:#bcd9c0;background:#f0f8f1}
+.sassist-bubble.sassist-kind-action_done{border-color:#9fd3a8;background:#e9f7ec}
+.sassist-bubble.sassist-kind-action_error,.sassist-bubble.sassist-kind-error{border-color:#e5b1b1;background:#fdeeee}
+.sassist-time{font-size:.58rem;color:var(--sa-faint);margin:2px 4px 0}
+.sassist-meta{font-size:.56rem;color:var(--sa-faint);margin:1px 4px 0}
+.sassist-insight-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.sassist-insight-row button{font-size:.62rem;padding:4px 8px;border-radius:8px;cursor:pointer;border:1px solid var(--sa-border);background:#fff}
+.sa-online.offline{color:#c92a2a;background:#fdeeee;border-color:#e5b1b1}
+.sa-online.offline::before{background:#e03131;box-shadow:0 0 5px #e03131}
+.sa-online.warn{color:#b36b00;background:#fff6e5;border-color:#f0d9a8}
+.sa-online.warn::before{background:#f5a623;box-shadow:0 0 5px #f5a623}
+.sassist-msg-sys{align-self:center;max-width:100%}
+.sassist-actions{display:flex;gap:7px;flex-wrap:wrap}
+.sassist-actions .pnl-btn{font-size:.68rem;padding:5px 11px;border-radius:8px}
+.sassist-otp-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:7px}
+.sassist-otp-row input{width:104px;border:1px solid #e3d5c3;border-radius:8px;padding:6px 9px;
+  font:inherit;direction:ltr;text-align:center;letter-spacing:3px}
+.sassist-code-status{font-size:.64rem;color:var(--sa-muted);width:100%}
+.sassist-typing{opacity:.6}
+
+/* ── نوار ارسال ── */
+.sassist-inputbar{
+  flex-shrink:0;display:flex;gap:9px;align-items:stretch;
+  padding:10px 12px;background:#fff;border-top:1px solid var(--sa-border);
+}
+.sassist-inputbar textarea{
+  flex:1;border:1px solid #e3d5c3;border-radius:10px;padding:9px 12px;
+  font:inherit;font-size:.76rem;line-height:1.7;resize:none;
+  min-height:42px;max-height:130px;background:#fffdf8;
+}
+.sassist-inputbar textarea:focus{outline:2px solid #d4af3744;border-color:var(--sa-gold)}
+#sassist-send{
+  width:78px;min-width:78px;align-self:stretch;border:none;border-radius:10px;
+  background:linear-gradient(135deg,var(--sa-gold),var(--sa-gold-deep));
+  color:#fff;font:inherit;font-weight:800;font-size:.74rem;cursor:pointer;
+  box-shadow:0 3px 9px rgba(184,148,31,.3);transition:.15s;
+}
+#sassist-send:hover{filter:brightness(1.05)}
+#sassist-send:disabled{opacity:.55;cursor:wait;box-shadow:none}
+
+/* ─── ستون ۳: وضعیت سیستم ─── */
+.st-card{
+  display:flex;align-items:center;gap:8px;background:#fff;
+  border:1px solid var(--sa-border);border-radius:10px;
+  padding:7px 9px;margin-bottom:6px;font-size:.67rem;
+  box-shadow:0 1px 2px rgba(90,62,27,.05);
+}
+.st-card b{font-size:.67rem;color:var(--sa-text)}
+.st-card small{display:block;color:var(--sa-muted);font-size:.6rem;margin-top:1px}
+.st-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.st-dot.green{background:#37b24d;box-shadow:0 0 6px #37b24d88}
+.st-dot.yellow{background:#f5a623;box-shadow:0 0 6px #f5a62388}
+.st-dot.red{background:#e03131;box-shadow:0 0 6px #e0313188}
+.sa-status-note{flex-shrink:0;padding:6px 10px;border-top:1px dashed var(--sa-border);
+  font-size:.58rem;color:var(--sa-faint);text-align:center}
+
+/* ── اسکرول‌بار ستون‌های کناری ── */
+.sa-col-body{scrollbar-width:thin;scrollbar-color:#d9b98a transparent}
+.sa-col-body::-webkit-scrollbar{width:5px}
+.sa-col-body::-webkit-scrollbar-thumb{background:#dcc096;border-radius:6px}
+
+/* اسکرول فقط داخل بدنهٔ چت — نه کل صفحه */
+.sa-chat{min-height:0;overflow:hidden}
+.sa-chat-card{min-height:0}
+#sassist-chat{overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+/* ─── موبایل واقعی: تک‌ستون ─── */
+@media(max-width:768px){
+  .sa-grid{grid-template-columns:1fr;height:auto;min-height:0;gap:10px}
+  .sa-chat{order:1}
+  .sa-chat .sa-chat-card{height:clamp(360px, 58dvh, 520px)}
+  .sa-side{order:2;height:auto;max-height:none}
+  .sa-side .sa-col-body{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;align-content:start}
+  .sa-side .sa-chip{margin-bottom:0}
+  .sa-side .sa-chip-group{grid-column:1/-1}
+  .sa-status{order:3;height:auto;max-height:none}
+  .sa-status .sa-col-body{display:flex;flex-wrap:wrap;gap:6px}
+  .sa-status .st-card{flex:1 1 46%;margin-bottom:0}
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="pnl-page sa-page" id="sassist-root"
+     data-csrf="{{ csrf_token() }}"
+     data-url-chat="{{ url_for('panel.super_assistant_chat') }}"
+     data-url-code="{{ url_for('panel.super_assistant_code_send') }}"
+     data-url-confirm="{{ url_for('panel.super_assistant_confirm') }}"
+     data-url-cancel="{{ url_for('panel.super_assistant_cancel') }}"
+     data-url-undo="{{ url_for('panel.super_assistant_undo') }}"
+     data-url-clear="{{ url_for('panel.super_assistant_clear') }}"
+     data-url-health="{{ url_for('panel.super_assistant_health') }}"
+     data-url-insight="{{ url_for('panel.super_assistant_insight_status') }}">
+
+    <div class="sa-top">
+        <div>
+            <h1>🤖 دستیار هوشمند</h1>
+            <p>مدیر هوشمند عملیات پلتفرم — گزارش زنده + اقدام اجرایی فقط با تأیید دومرحله‌ای (پیش‌نمایش ← کد ربات بله ← اجرا + بازگردانی)</p>
+        </div>
+        <button type="button" class="pnl-btn pnl-btn-ghost" id="sassist-clear-btn">🧹 پاک کردن گفتگو</button>
+    </div>
+
+    {% if not assistant.authorized %}
+    <div class="pnl-card">
+        <h3>🔐 دسترسی موقتاً بسته است</h3>
+        <p>برای استفاده از دستیار باید نشست ورود پنل با کد دومرحله‌ای فعال باشد. لطفاً از پنل خارج و دوباره با کد ربات وارد شو.</p>
+    </div>
+    {% else %}
+
+    <div class="sa-grid">
+
+    <!-- ═══ ستون ۱ (راست): دستورات سریع ═══ -->
+    <aside class="sa-col sa-side">
+        <div class="sa-col-head">⚡ دستورات سریع</div>
+        <div class="sa-col-body">
+            <div class="sa-chip-group">🛰 گزارش‌های هوشمند بازرس — صفر تماس AI</div>
+            {% for s in assistant.suggestions[:3] %}
+            <button type="button" class="sa-chip sassist-chip">{{ s }}</button>
+            {% endfor %}
+            <div class="sa-chip-group">📈 گزارش‌های زندهٔ سیستم</div>
+            {% for s in assistant.suggestions[3:] %}
+            <button type="button" class="sa-chip sassist-chip">{{ s }}</button>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <!-- ═══ ستون ۲ (وسط): گفتگوی AI ═══ -->
+    <section class="sa-col sa-chat">
+      <div class="sa-chat-card">
+        <div class="sa-chat-head">
+            <span class="sa-ava">🤖</span>
+            <span><b>دستیار هوشمند گیسو</b><small>همراه گزارش‌محور و اجرایی سوپرادمین</small></span>
+            <span class="sa-online" id="sassist-online">در حال بررسی…</span>
+        </div>
+        <div id="sassist-chat" dir="rtl">
+            <div class="sassist-msg sassist-msg-ai">
+                <div class="sassist-avatar">🤖</div>
+                <div class="sassist-body">
+                    <div class="sassist-name">دستیار گیسو</div>
+                    <div class="sassist-bubble">سلام {{ assistant.display_name or 'دوست عزیز' }} 👋 گزارش زنده از هر بخش (سفارش‌ها، تیکت‌ها، فروش مو، کاربران، آنالیزها، وضعیت AI) بخواه یا تغییری بگو؛ هر تغییر اول پیش‌نمایش می‌گیرد و بعد با کد ربات بله اجرا می‌شود.</div>
+                    <div class="sassist-time">همین حالا</div>
+                </div>
+            </div>
+            {% for m in assistant.history %}
+            {% if m.message_role == 'user' %}
+            <div class="sassist-msg sassist-msg-user">
+                <div class="sassist-avatar">👤</div>
+                <div class="sassist-body">
+                    <div class="sassist-name">شما</div>
+                    <div class="sassist-bubble">{{ m.content|e }}</div>
+                    <div class="sassist-time">{{ m.created_at or '' }}</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="sassist-msg sassist-msg-ai">
+                <div class="sassist-avatar">🤖</div>
+                <div class="sassist-body">
+                    <div class="sassist-name">دستیار گیسو</div>
+                    <div class="sassist-bubble sassist-kind-{{ m.kind }}">{{ m.content|e }}</div>
+                    {% if m.provider %}<div class="sassist-meta">{{ m.provider|e }}</div>{% endif %}
+                    <div class="sassist-time">{{ m.created_at or '' }}</div>
+                </div>
+            </div>
+            {% if m.kind == 'pending_preview' and m.ref_id and m.ref_id in assistant.pending_ids %}
+            <div class="sassist-msg sassist-msg-sys">
+                <div class="sassist-actions" data-pending="{{ m.ref_id }}">
+                    <button type="button" class="pnl-btn pnl-btn-primary sassist-approve">✅ تأیید و ارسال کد</button>
+                    <button type="button" class="pnl-btn pnl-btn-ghost sassist-cancel">❌ لغو اقدام</button>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+            {% endfor %}
+        </div>
+        <form class="sassist-inputbar" id="sassist-form">
+            <textarea id="sassist-input" rows="1" maxlength="1500"
+                      placeholder="مثلاً: «گزارش امروز رو بده» یا «وضعیت سفارش ۴۵ رو بگو» …"></textarea>
+            <button type="submit" id="sassist-send">ارسال</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ═══ ستون ۳ (چپ): وضعیت سیستم ═══ -->
+    <aside class="sa-col sa-status">
+        <div class="sa-col-head">📡 وضعیت سیستم</div>
+        <div class="sa-col-body" id="sassist-status-list">
+            <div class="st-card"><span class="st-dot yellow"></span><div><b>در حال بررسی…</b><small>اتصال به سرویس‌ها</small></div></div>
+        </div>
+        <div class="sa-status-note">🔄 بروزرسانی خودکار هر ۳۰ ثانیه</div>
+    </aside>
+
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function(){
+    const root = document.getElementById('sassist-root');
+    if(!root) return;
+    const chat = document.getElementById('sassist-chat');
+    const form = document.getElementById('sassist-form');
+    const input = document.getElementById('sassist-input');
+    const csrf = root.dataset.csrf;
+    const U = {chat:root.dataset.urlChat, code:root.dataset.urlCode, confirm:root.dataset.urlConfirm,
+               cancel:root.dataset.urlCancel, undo:root.dataset.urlUndo, clear:root.dataset.urlClear,
+               insight:root.dataset.urlInsight};
+
+    const FA_DIGITS = "۰۱۲۳۴۵۶۷۸۹".split("");
+    function fa(n){return String(n).replace(/\d/g, d=>FA_DIGITS[d]);}
+    function nowTime(){
+        const d=new Date();
+        return fa(d.getHours()).padStart(2,'۰')+":"+fa(d.getMinutes()).padStart(2,'۰');
+    }
+    function esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+    function scrollBottom(){if(chat) chat.scrollTop = chat.scrollHeight;}
+    function kindFor(mode){
+        if(mode==='pending') return 'pending_preview';
+        if(mode==='report') return 'report';
+        if(mode==='action_done') return 'action_done';
+        if(mode==='action_error') return 'action_error';
+        return '';
+    }
+    function addMsg(role, text, kind){
+        const isUser = role==='user';
+        const wrap=document.createElement('div');
+        wrap.className='sassist-msg sassist-msg-'+(isUser?'user':'ai');
+        wrap.innerHTML='<div class="sassist-avatar">'+(isUser?'👤':'🤖')+'</div>'
+            +'<div class="sassist-body">'
+            +'<div class="sassist-name">'+(isUser?'شما':'دستیار گیسو')+'</div>'
+            +'<div class="sassist-bubble'+(kind?(' sassist-kind-'+kind):'')+'"></div>'
+            +'<div class="sassist-meta"></div>'
+            +'<div class="sassist-time">'+nowTime()+'</div>'
+            +'</div>';
+        const b=wrap.querySelector('.sassist-bubble');
+        b.textContent=text;
+        chat.appendChild(wrap);
+        scrollBottom();
+        return wrap;
+    }
+    function addSys(html){
+        const wrap=document.createElement('div');
+        wrap.className='sassist-msg sassist-msg-sys';
+        wrap.innerHTML=html;
+        chat.appendChild(wrap);
+        scrollBottom();
+        return wrap;
+    }
+    async function post(url, payload){
+        const r = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf,'Accept':'application/json'},
+                                  credentials:'same-origin',redirect:'manual',body:JSON.stringify(payload||{})});
+        if(r.status===401 || r.status===403 || r.type==='opaqueredirect' || (r.status>=300 && r.status<400)){
+            return {ok:false, text:'نشست تأیید منقضی شده؛ صفحه را تازه کن.'};
+        }
+        let data={};
+        try{data=await r.json();}catch(e){data={ok:false,text:'پاسخ سرور نامعتبر است.'};}
+        if(r.status===403 && data.error){data.ok=false;data.text=data.error;}
+        return data;
+    }
+    function setBusy(on){
+        document.getElementById('sassist-send').disabled=on;
+        input.disabled=on;
+    }
+    // ── جریان تأیید دو مرحله‌ای برای یک pending ──
+    function mountPendingActions(container, pendingId){
+        const approve=container.querySelector('.sassist-approve');
+        const cancel=container.querySelector('.sassist-cancel');
+        if(!approve) return;
+        approve.addEventListener('click', async ()=>{
+            approve.disabled=true;
+            const otp=document.createElement('div');
+            otp.className='sassist-otp-row';
+            otp.innerHTML='<input type="text" inputmode="numeric" maxlength="6" placeholder="کد ۶ رقمی">'
+                +'<button type="button" class="pnl-btn pnl-btn-primary sassist-otp-ok">تأیید نهایی و اجرا</button>'
+                +'<div class="sassist-code-status">در حال ارسال کد به ربات بله…</div>';
+            container.appendChild(otp);
+            scrollBottom();
+            const statusEl=otp.querySelector('.sassist-code-status');
+            const sent=await post(U.code,{pending_id:pendingId});
+            statusEl.textContent=sent.text||(sent.ok?'کد ارسال شد.':'ارسال کد ناموفق بود.');
+            if(!sent.ok){approve.disabled=false;otp.remove();return;}
+            otp.querySelector('.sassist-otp-ok').addEventListener('click', async ()=>{
+                const code=otp.querySelector('input').value.trim();
+                if(!code){statusEl.textContent='کد را وارد کن.';return;}
+                statusEl.textContent='در حال اجرای اقدام…';
+                const res=await post(U.confirm,{pending_id:pendingId,code:code});
+                addMsg('ai', res.text||'—', res.ok?'action_done':'action_error');
+                if(res.ok && res.reversible && res.log_id){
+                    addSys('<div class="sassist-actions"><button type="button" class="pnl-btn pnl-btn-ghost sassist-undo" data-log="'+res.log_id+'">↩️ بازگردانی این اقدام</button></div>');
+                }
+                container.remove();
+            });
+        });
+        cancel.addEventListener('click', async ()=>{
+            const res=await post(U.cancel,{pending_id:pendingId});
+            addMsg('ai', res.text||'—', 'action_error');
+            container.remove();
+        });
+    }
+    // دکمه‌های بازگردانی (هم موجودها و هم جدیدها)
+    chat.addEventListener('click', async (e)=>{
+        const ub=e.target.closest('.sassist-undo');
+        if(ub){
+            const res=await post(U.undo,{log_id:parseInt(ub.dataset.log||'0',10)});
+            addMsg('ai', res.text||'—', res.ok?'action_done':'action_error');
+            ub.closest('.sassist-actions')?.remove();
+        }
+        const ib=e.target.closest('.sassist-insight-row button');
+        if(ib && U.insight){
+            const row=ib.closest('.sassist-insight-row');
+            const id=parseInt(row.dataset.id||'0',10);
+            const st=ib.dataset.st;
+            const res=await post(U.insight,{id:id,status:st});
+            ib.textContent=res.ok?'ثبت شد':'خطا';
+            ib.disabled=true;
+        }
+    });
+    document.querySelectorAll('.sassist-actions[data-pending]').forEach(c=>mountPendingActions(c, parseInt(c.dataset.pending,10)));
+
+    async function sendMessage(text){
+        if(!text.trim()) return;
+        addMsg('user', text);
+        const typing=addMsg('ai','… در حال بررسی…');
+        typing.querySelector('.sassist-bubble').classList.add('sassist-typing');
+        setBusy(true);
+        const res=await post(U.chat,{message:text});
+        typing.remove();
+        setBusy(false);
+        if(!res.ok){ addMsg('ai', res.text||'خطایی رخ داد.', 'error'); return; }
+        const last=addMsg('ai', res.text||'—', kindFor(res.mode));
+        const meta=[res.provider, res.model].filter(Boolean).join(' / ');
+        if(meta && last){ const m=last.querySelector('.sassist-meta'); if(m) m.textContent=meta; }
+        if(res.insights && res.insights.length){
+            const html=res.insights.map(it=>'<div class="sassist-insight-row" data-id="'+it.id+'">'
+                +'<span>'+esc(it.title||('#'+it.id))+'</span>'
+                +'<button type="button" data-st="seen">👁 دیدم</button>'
+                +'<button type="button" data-st="applied">✅ اعمال شد</button>'
+                +'<button type="button" data-st="dismissed">✕ رد</button></div>').join('');
+            addSys(html);
+        }
+        if(res.mode==='pending' && res.pending_id){
+            const sys=addSys('<div class="sassist-actions" data-pending="'+res.pending_id+'">'
+                +'<button type="button" class="pnl-btn pnl-btn-primary sassist-approve">✅ تأیید و ارسال کد</button>'
+                +'<button type="button" class="pnl-btn pnl-btn-ghost sassist-cancel">❌ لغو اقدام</button></div>');
+            mountPendingActions(sys.querySelector('.sassist-actions'), res.pending_id);
+        }
+        if(res.mode==='action_done' && res.reversible && res.log_id){
+            addSys('<div class="sassist-actions"><button type="button" class="pnl-btn pnl-btn-ghost sassist-undo" data-log="'+res.log_id+'">↩️ بازگردانی این اقدام</button></div>');
+        }
+    }
+
+    form.addEventListener('submit',(e)=>{e.preventDefault();const t=input.value.trim();if(!t)return;input.value='';input.style.height='auto';sendMessage(t);});
+    root.addEventListener('click',(e)=>{const c=e.target.closest('.sassist-chip'); if(c){ sendMessage((c.textContent||'').trim()); }});
+    input.addEventListener('keydown',(e)=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit();}});
+    input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,130)+'px';});
+    document.getElementById('sassist-clear-btn').addEventListener('click', async ()=>{
+        if(!confirm('تاریخچه این گفتگو پاک شود؟')) return;
+        await post(U.clear,{});
+        location.reload();
+    });
+    // ── ستون سوم: وضعیت سیستم — رفرش خودکار ۳۰ ثانیه، timeout سه ثانیه ──
+    let healthTimer=0;
+    function stopHealth(){ if(healthTimer){ clearInterval(healthTimer); healthTimer=0; } }
+    async function loadHealth(){
+        const list=document.getElementById('sassist-status-list');
+        if(!list) return;
+        const ctl=('AbortController' in window)?new AbortController():null;
+        const to=ctl?setTimeout(()=>ctl.abort(),3000):null;
+        try{
+            const r=await fetch(root.dataset.urlHealth,{
+                credentials:'same-origin',
+                redirect:'manual',
+                headers:{'Accept':'application/json'},
+                signal:ctl?ctl.signal:undefined
+            });
+            if(r.status===401 || r.status===403 || r.type==='opaqueredirect' || (r.status>=300 && r.status<400)){
+                stopHealth();
+                return;
+            }
+            if(!r.ok) return;
+            const d=await r.json();
+            if(d&&d.ok){
+                list.innerHTML=d.items.map(it=>
+                '<div class="st-card"><span class="st-dot '+it.state+'"></span><div><b>'+it.icon+' '+it.name+'</b><small>'+it.note+'</small></div></div>').join('');
+                const badge=document.getElementById('sassist-online');
+                if(badge){
+                    const states=(d.items||[]).map(it=>it.state);
+                    badge.classList.remove('offline','warn');
+                    if(states.includes('red')){ badge.textContent='اختلال'; badge.classList.add('offline'); }
+                    else if(states.includes('yellow')){ badge.textContent='ناپایدار'; badge.classList.add('warn'); }
+                    else { badge.textContent='آنلاین'; }
+                }
+            }
+        }catch(e){}
+        if(to)clearTimeout(to);
+    }
+    loadHealth(); healthTimer=setInterval(loadHealth,30000);
+    scrollBottom();
+})();
+</script>
+{% endblock %}

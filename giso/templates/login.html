@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}ورود - گیسو صادقی{% endblock %}
+
+{% block content %}
+<section class="giso-auth giso-auth-login">
+    {# ── نورهای تزئینی پس‌زمینه (فقط تزئینی) ── #}
+    <div class="giso-auth-orb giso-auth-orb--1" aria-hidden="true"></div>
+    <div class="giso-auth-orb giso-auth-orb--2" aria-hidden="true"></div>
+    <div class="giso-auth-orb giso-auth-orb--3" aria-hidden="true"></div>
+
+    <div class="giso-auth-wrapper">
+        {# ── ستون معرفی برند (فقط دسکتاپ) ── #}
+        <aside class="giso-auth-hero">
+            <div class="giso-auth-brand">
+                <span class="giso-auth-logo-ring" aria-hidden="true">
+                    <img src="{{ url_for('static', filename=login_logo) }}"
+                         alt="{{ site_brand.get('name', 'گیسو صادقی') }}" class="giso-auth-logo-img" width="72" height="72">
+                </span>
+                <h1>{{ site_brand.get('name', 'گیسو صادقی') }}</h1>
+                <p class="giso-auth-tagline">{{ site_brand.get('tagline', 'هوشمند ببین، دقیق انتخاب کن') }}</p>
+            </div>
+            <ul class="giso-auth-features">
+                <li class="giso-auth-feat"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> ارزیابی و خرید موی طبیعی با قیمت‌گذاری شفاف</li>
+                <li class="giso-auth-feat"><i class="fas fa-microscope" aria-hidden="true"></i> آنالیز هوشمند مو و پوست با هوش مصنوعی</li>
+                <li class="giso-auth-feat"><i class="fas fa-shield-halved" aria-hidden="true"></i> حساب امن با ورود دومرحله‌ای مخصوص مدیران</li>
+            </ul>
+        </aside>
+
+        {# ── کارت شیشه‌ای فرم ورود ── #}
+        <div class="giso-auth-card">
+            <h2 class="giso-auth-title"><i class="fas fa-right-to-bracket" aria-hidden="true"></i> ورود به حساب</h2>
+            <p class="giso-auth-sub">خوش برگشتی! برای ادامه، وارد حساب گیسو شو.</p>
+
+            <form method="POST" class="giso-form giso-auth-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="giso-form-group">
+                    <label for="loginPhone">شماره موبایل</label>
+                    <div class="giso-auth-field giso-auth-field--phone">
+                        <i class="fas fa-mobile-screen" aria-hidden="true"></i>
+                        <input type="tel" id="loginPhone" maxlength="11" name="phone"
+                               placeholder="0912 123 4567…" required inputmode="numeric"
+                               autocomplete="tel" spellcheck="false" pattern="09[0-9]{9}"
+                               aria-describedby="loginPhoneErr">
+                        <p class="giso-auth-err" id="loginPhoneErr" aria-live="polite">
+                            شماره موبایل باید ۱۱ رقم و با «09» شروع شود.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="giso-form-group">
+                    <div class="giso-auth-label-row">
+                        <label for="loginPassword">رمز عبور</label>
+                        <a class="giso-auth-forgot" href="{{ url_for('forgot_password') }}">
+                            <i class="fas fa-key" aria-hidden="true"></i> رمز را فراموش کرده‌اید؟
+                        </a>
+                    </div>
+                    <div class="giso-auth-field giso-pw-wrap">
+                        <i class="fas fa-lock" aria-hidden="true"></i>
+                        <input type="password" id="loginPassword" name="password"
+                               placeholder="رمز عبور…" required minlength="4"
+                               autocomplete="current-password">
+                        <button type="button" class="giso-pw-toggle" aria-label="نمایش یا پنهان‌کردن رمز" aria-pressed="false">
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="giso-btn giso-btn-gold giso-btn-full giso-auth-submit">
+                    <i class="fas fa-right-to-bracket" aria-hidden="true"></i>
+                    ورود به گیسو
+                </button>
+            </form>
+
+            <div class="giso-auth-foot">
+                {% if site_appearance.get('bale_url') %}
+                <a class="giso-auth-bale" href="{{ site_appearance['bale_url'] }}" target="_blank" rel="noopener noreferrer">
+                    <i class="fas fa-comment-dots" aria-hidden="true"></i> ادامه در ربات بله
+                </a>
+                {% endif %}
+                <a class="giso-auth-signup" href="{{ url_for('register', next=request.args.get('next', '')) }}">
+                    <i class="fas fa-user-plus" aria-hidden="true"></i>
+                    حساب نداری؟ <strong>ثبت‌نام کن</strong>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+/* نمایش/پنهان‌کردن رمز — فقط تغییر type ورودی؛ رمز هرگز لاگ نمی‌شود */
+(function () {
+    var btn = document.querySelector('.giso-pw-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+        var input = document.getElementById('loginPassword') || btn.parentElement.querySelector('input');
+        var icon = btn.querySelector('i');
+        var show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        icon.className = show ? 'fas fa-eye-slash' : 'fas fa-eye';
+        btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+    });
+})();
+</script>
+{% endblock %}
+

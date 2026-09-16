@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block title %}تأیید پنل مدیریت | گیسو{% endblock %}
+{% block content %}
+<section class="giso-container" style="max-width:680px;padding:32px 16px;">
+  <div style="background:#fff;border:1px solid #e9d5ff;border-radius:24px;box-shadow:0 18px 50px rgba(15,23,42,.08);padding:24px;">
+    <h1 style="margin:0 0 10px;font-size:24px;color:#4c1d95;">تأیید ورود به پنل مدیریت</h1>
+    <p style="margin:0 0 16px;line-height:2;color:#4b5563;">
+      برای ورود امن به پنل <strong>{{ target_role }}</strong>، یک کد یک‌بارمصرف به ربات متصل به این حساب ارسال می‌شود.
+    </p>
+
+    <div style="background:#faf5ff;border:1px solid #ddd6fe;border-radius:18px;padding:14px 16px;margin-bottom:18px;line-height:2;color:#5b21b6;">
+      <div><strong>شماره حساب سایت:</strong> {{ phone }}</div>
+      {% if info_message %}<div>{{ info_message }}</div>{% endif %}
+      {% if code_pending %}
+        <div>اعتبار کد: {{ expires_in }} ثانیه</div>
+        <div>تلاش باقی‌مانده: {{ attempts_left }}</div>
+      {% endif %}
+    </div>
+
+    <form method="post" style="display:grid;gap:14px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="verify">
+      <label style="display:grid;gap:8px;font-weight:700;color:#111827;">
+        کد تأیید ارسال‌شده به ربات
+        <input name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="مثلاً 123456"
+               style="border:1px solid #d1d5db;border-radius:14px;padding:12px 14px;font:inherit;" required>
+      </label>
+      <button type="submit" class="giso-btn giso-btn-gold" style="justify-content:center;">تأیید و ورود به پنل</button>
+    </form>
+
+    <form method="post" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="resend">
+      <button type="submit" class="giso-btn giso-btn-outline" {% if resend_in %}disabled{% endif %}>ارسال دوباره کد</button>
+      {% if resend_in %}<span style="color:#6b7280;font-size:13px;">تا {{ resend_in }} ثانیه دیگر امکان ارسال مجدد باز می‌شود.</span>{% endif %}
+      <a href="{{ url_for('index') }}" class="giso-btn giso-btn-ghost">بازگشت</a>
+    </form>
+  </div>
+</section>
+{% endblock %}

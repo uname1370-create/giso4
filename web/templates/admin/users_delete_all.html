@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}حذف همه کاربران - پنل ادمین{% endblock %}
+{% block content %}
+<section class="page-section admin-section">
+<div class="container">
+    <div class="page-header">
+        <h1>🗑 حذف همه کاربران</h1>
+        <p class="page-sub">بدون تایپ عبارت تأیید؛ با یک کلیک همه کاربران آموزشی از bot.db حذف می‌شوند.</p>
+    </div>
+
+    <div class="admin-user-confirm-card admin-user-confirm-danger">
+        <h2>هشدار جدی</h2>
+        <p>با کلیک روی دکمه زیر، همه کاربران شامل ادمین‌های سایت و حتی حساب جاری از دیتابیس آموزشی حذف می‌شوند.</p>
+        <ul>
+            <li>گیسو و giso.db تغییر نمی‌کنند.</li>
+            <li>حذف در user_deletion_logs ثبت می‌شود.</li>
+            <li>sync حافظه ربات به‌صورت live/best-effort اجرا می‌شود.</li>
+        </ul>
+        <form method="post" action="{{ url_for('admin_users_delete_all') }}" class="admin-user-delete-confirm-form">
+            <div class="admin-delete-actions-row">
+                <button type="submit" class="btn btn-danger-strong">🗑 حذف همه کاربران</button>
+                <a href="{{ url_for('admin_users_delete_menu') }}" class="btn btn-outline">🔙 بازگشت به منوی حذف</a>
+            </div>
+        </form>
+    </div>
+</div>
+</section>
+{% endblock %}

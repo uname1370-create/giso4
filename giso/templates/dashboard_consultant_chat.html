@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}گفتگو با مشاور - گیسو{% endblock %}
+
+{% block head %}
+<style>
+.ch-page { min-height:100vh; background:linear-gradient(180deg,#FFF9F0 0%,#FFF5E9 100%); padding:30px 16px 60px; }
+.ch-card { max-width:760px; margin:0 auto; background:#fff; border-radius:24px; padding:24px; box-shadow:0 15px 50px rgba(92,61,46,0.1); }
+.ch-head { display:flex; align-items:center; gap:14px; border-bottom:1px solid rgba(212,165,116,0.2); padding-bottom:16px; margin-bottom:20px; }
+.ch-avatar { width:55px; height:55px; min-width:55px; border-radius:50%; background:linear-gradient(135deg,#D4A574,#B8935F); display:flex; align-items:center; justify-content:center; font-size:28px; }
+.ch-title { color:#5C3D2E; font-weight:800; }
+.ch-status { font-size:13px; color:#8B6F5C; }
+.ch-body { max-height:60vh; overflow-y:auto; padding:10px 0; }
+.ch-msg { max-width:75%; padding:12px 16px; border-radius:16px; margin-bottom:10px; font-size:14.5px; line-height:1.9; }
+.ch-user { background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; margin-left:auto; border-bottom-left-radius:4px; }
+.ch-admin { background:#F5EFE3; color:#5C3D2E; margin-right:auto; border-bottom-right-radius:4px; }
+.ch-msg .tm { display:block; font-size:11px; opacity:0.75; margin-top:4px; text-align:left; }
+.ch-form { display:flex; gap:10px; margin-top:16px; align-items:flex-end; }
+.ch-form button { align-self:flex-end; min-height:40px; }
+.ch-form textarea { flex:1; padding:12px; border:2px solid #E8D5B7; border-radius:14px; font-family:'Vazirmatn',sans-serif; font-size:15px; color:#5C3D2E; min-height:60px; resize:vertical; }
+/* مورد ۶ help2: دکمهٔ ارسال جمع‌وجورتر */
+.ch-form button { padding:9px 16px; border:none; border-radius:12px; background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; font-weight:700; font-size:14px; cursor:pointer; font-family:'Vazirmatn',sans-serif; }
+.ch-back { display:inline-block; margin-top:16px; color:#B8935F; font-weight:600; }
+@media(max-width:600px){.ch-page{padding:12px 8px 30px}.ch-card{padding:14px;border-radius:17px}.ch-avatar{width:44px;height:44px;min-width:44px;font-size:22px}.ch-msg{max-width:90%;padding:10px 12px}.ch-form{position:sticky;bottom:6px;align-items:flex-end;padding-top:8px;background:#fff}.ch-form textarea{min-width:0;min-height:52px;font-size:16px}.ch-form button{padding:10px 14px}}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="ch-page">
+    <div class="ch-card">
+        <div class="ch-head">
+            <div class="ch-avatar">👩‍⚕️</div>
+            <div>
+                <div class="ch-title">مشاور زیبایی گیسو</div>
+                <div class="ch-status">گفتگوی مشاوره #{{ req.id }} | وضعیت: {{ req.status }}</div>
+            </div>
+        </div>
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin:8px 0;">
+            {% if request.args.get('history') == '1' %}
+            <a href="{{ url_for('dashboard_consultant_chat', request_id=req.id) }}" class="ch-back" style="margin:0;">← بازگشت به گفتگوی فعال</a>
+            {% else %}
+            <a href="{{ url_for('dashboard_consultant_chat', request_id=req.id, history=1) }}" class="ch-back" style="margin:0;">🗂 تاریخچه گفتگو</a>
+            <form method="POST" style="margin:0;" onsubmit="return confirm('گفتگو از نمای شما پاک شود؟ در تاریخچه حفظ می‌شود.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="clear_thread">
+                <button type="submit" style="border:none;background:none;color:#B8935F;font-weight:600;cursor:pointer;font-family:inherit;">🧹 پاک‌کردن گفتگو</button>
+            </form>
+            {% endif %}
+        </div>
+        {% if request.args.get('history') == '1' %}<p style="font-size:12px;color:#8B6F5C;margin:0 0 8px;">نمای تاریخچه (شامل گفتگوهای بایگانی‌شدهٔ شما) — فقط برای مشاهده.</p>{% endif %}
+        <div class="ch-body" id="chatBody">
+            {% for m in messages %}
+            <div class="ch-msg {{ 'ch-user' if m.sender=='user' else 'ch-admin' }}">
+                {{ m.message }}
+                <span class="tm">{{ m.created_at }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <form method="POST" class="ch-form" onsubmit="return checkMsg()">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea name="message" id="msgInput" placeholder="پیام خود را بنویسید..."></textarea>
+            <button type="submit">ارسال</button>
+        </form>
+        <a href="{{ url_for('dashboard_chats') }}" class="ch-back">← بازگشت به گفتگوها</a>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function checkMsg() {
+    if (!document.getElementById('msgInput').value.trim()) { alert('لطفاً پیام بنویسید.'); return false; }
+    return true;
+}
+// Auto-refresh هر ۱۰ ثانیه
+setTimeout(function(){ location.reload(); }, 10000);
+// اسکرول به پایین
+const b = document.getElementById('chatBody');
+if (b) b.scrollTop = b.scrollHeight;
+</script>
+{% endblock %}

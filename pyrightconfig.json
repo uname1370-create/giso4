@@ -1,0 +1,8 @@
+{
+  "extraPaths": [
+    ".",
+    "bot_edu",
+    "web",
+    "giso"
+  ]
+}

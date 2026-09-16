@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}حذف با شماره همراه - پنل ادمین{% endblock %}
+{% block content %}
+<section class="page-section admin-section">
+<div class="container">
+    <div class="page-header">
+        <h1>📱 حذف با شماره همراه</h1>
+        <p class="page-sub">شماره را وارد کنید؛ با کلیک روی حذف، کاربر فوراً حذف می‌شود.</p>
+    </div>
+
+    <div class="admin-user-search-card">
+        <h3>حذف مستقیم با شماره</h3>
+        <form method="post" action="{{ url_for('admin_user_delete_by_phone') }}" class="admin-user-inline-form">
+            <label>
+                شماره موبایل
+                <input type="text" name="phone" value="{{ phone_delete_raw or '' }}" placeholder="مثلاً 0912..." required>
+            </label>
+            <button type="submit" class="btn btn-danger-strong">🗑 حذف</button>
+            <a href="{{ url_for('admin_users_delete_menu') }}" class="btn btn-outline">🔙 بازگشت به منوی حذف</a>
+        </form>
+    </div>
+
+    {% if phone_delete_candidate %}
+    <div class="admin-user-confirm-card">
+        <h2>کاربر پیدا‌شده</h2>
+        <ul>
+            <li>شناسه: <strong>{{ phone_delete_candidate.id }}</strong></li>
+            <li>نام: <strong>{{ phone_delete_candidate.first_name or '—' }}</strong></li>
+            <li>شماره: <strong>{{ phone_delete_norm }}</strong></li>
+            <li>نقش: {% if phone_delete_candidate.is_main_admin %}<span class="badge badge-red">ادمین سایت</span>{% else %}<span class="badge">کاربر</span>{% endif %}</li>
+        </ul>
+        <form method="post" action="{{ url_for('admin_user_delete_by_phone') }}" class="admin-user-delete-confirm-form">
+            <input type="hidden" name="phone" value="{{ phone_delete_norm }}">
+            <button type="submit" class="btn btn-danger-strong">🗑 حذف همین کاربر</button>
+        </form>
+    </div>
+    {% endif %}
+
+    {% if phone_delete_norm and not phone_delete_candidate %}
+    <div class="admin-user-note admin-user-confirm-danger">
+        کاربری برای شماره نرمال‌شده <code>{{ phone_delete_norm }}</code> در سیستم آموزشی پیدا نشد.
+    </div>
+    {% endif %}
+</div>
+</section>
+{% endblock %}

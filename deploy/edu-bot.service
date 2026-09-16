@@ -1,0 +1,21 @@
+[Unit]
+Description=Education Main Bot (ربات اصلی آموزش)
+After=network.target
+
+[Service]
+Type=simple
+# ── مقادیر مخصوص سرور خود را اینجا تنظیم کنید ──
+User=rs2013
+Group=rs2013
+WorkingDirectory=/home/rs2013/sadeghiai/bot_edu
+Environment=PYTHONPATH=/home/rs2013/sadeghiai
+ExecStart=/home/rs2013/sadeghiai/venv/bin/python -u /home/rs2013/sadeghiai/bot_edu/bot.py
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

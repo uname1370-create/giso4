@@ -1,0 +1,19 @@
+[Unit]
+Description=GISO SEO one-shot (optional manual run; nightly schedule is in-process)
+After=network.target
+
+[Service]
+Type=oneshot
+User=rs2013
+Group=rs2013
+WorkingDirectory=/home/rs2013/sadeghiai
+Environment=PYTHONPATH=/home/rs2013/sadeghiai
+Environment=FLASK_ENV=production
+EnvironmentFile=-/etc/giso/web.env
+EnvironmentFile=-/etc/giso/bot.env
+Nice=10
+# زمان‌بندی خودکار داخل giso-web (create_app → start_seo_scheduler) است.
+# این unit فقط برای اجرای دستی اضطراری است؛ flock جلوی اجرای موازی را می‌گیرد.
+ExecStart=/home/rs2013/sadeghiai/venv/bin/python -u /home/rs2013/sadeghiai/giso/seo_jobs.py
+StandardOutput=journal
+StandardError=journal

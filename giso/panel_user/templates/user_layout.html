@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{% block title %}پنل کاربری گیسو{% endblock %}</title>
+    <!-- مورد ۱۹ help.md: فونت و آیکون‌ها self-host شدند (حذف درخواست render-blocking به Google/cdnjs) -->
+    <!-- پشتیبان غیرمسدودکننده: اگر فونت محلی در استقرار نبود، وزیرمتن از گوگل بارگیری می‌شود (مورد ۲۲ help2) -->
+    <link rel="preload" href="{{ url_for('static', filename='fonts/Vazirmatn-VF.woff2') }}" as="font" type="font/woff2"
+        crossorigin>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/vazirmatn.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/fontawesome.min.css') }}?v=6.6.0-local">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/solid.min.css') }}?v=6.6.0-local">
+    <link rel="stylesheet" href="{{ url_for('panel_user.static', filename='css/panel_user.css') }}?v=11">
+    <link rel="stylesheet" href="{{ url_for('panel_user.static', filename='css/panel_tour.css') }}?v=2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/giso-brand.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/giso_forms.css') }}?v=1">
+    {% block head %}{% endblock %}
+    <style>
+    /* بازسازی آنی کارت‌های کیف پول (نقدی/اعتباری) — دور زدن کش مرورگر */
+    .pu-kpis{display:flex;gap:15px;align-items:center;flex-wrap:wrap}
+    .pu-kpi{display:flex;align-items:center;gap:12px;padding:16px 20px;border-radius:16px;text-align:right}
+    .pu-kpi-ico{font-size:24px;margin:0}
+    .pu-kpis{gap:10px}
+    .pu-kpi{padding:10px 12px;border-radius:13px;gap:6px;flex-direction:column;align-items:flex-start;min-width:0}
+    .pu-kpi-ico{font-size:17px;margin:0}
+    .pu-kpi strong{font-size:.82rem;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pu-kpi span:last-child{font-size:.68rem}
+    </style>
+</head>
+<body class="pu-body role-user" data-idle-minutes="{{ idle_minutes() or 0 }}" data-pu-module="{{ current_module or 'overview' }}">
+<div class="pu-shell">
+    {% include 'partials/user_sidebar.html' %}
+    <div class="pu-main">
+        {% include 'partials/user_topbar.html' %}
+        <main class="pu-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for cat, msg in messages %}
+                <div class="pu-flash pu-flash-{{ cat }}">{{ msg }}<button onclick="this.parentElement.remove()">&times;</button></div>
+                {% endfor %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+
+    <!-- 🔔 زنگ اعلان به داخل topbar منتقل شد (کنار نام کاربر) -->
+
+    <script>
+    (function(){
+      var b=document.getElementById('puBellBtn'), d=document.getElementById('puBellDrawer');
+      if(!b||!d) return;
+      b.addEventListener('click',function(e){e.stopPropagation(); d.hidden=!d.hidden;});
+      document.addEventListener('click',function(e){if(!d.hidden && !d.contains(e.target) && e.target!==b) d.hidden=true;});
+    })();
+    (function(){
+      var b=document.getElementById('puMissionBtn'), d=document.getElementById('puMissionDrawer');
+      if(!b||!d) return;
+      b.addEventListener('click',function(e){e.stopPropagation(); d.hidden=!d.hidden;});
+      document.addEventListener('click',function(e){if(!d.hidden && !d.contains(e.target) && e.target!==b) d.hidden=true;});
+    })();
+    </script>
+    <script src="{{ url_for('panel_user.static', filename='js/panel_user.js') }}?v=2"></script>
+    <script src="{{ url_for('panel_user.static', filename='js/panel_tour.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/giso_idle.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/fa_display.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/ux_events.js') }}?v=1" defer></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

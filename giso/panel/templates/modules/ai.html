@@ -1,0 +1,362 @@
+{% extends 'layout.html' %}
+{% block title %}مدیریت هوش مصنوعی - پنل مدیریت گیسو{% endblock %}
+{% block content %}
+<div class="pnl-page">
+    <h1 class="pnl-h1">🤖 مدیریت هوش مصنوعی</h1>
+    <p class="pnl-sub">پروایدرها، failover، دسترسی نقش‌ها، رفتار و Widget — تغییرات هم‌زمان با ربات</p>
+
+    <div class="pnl-kpis">
+        <div class="pnl-kpi"><span class="pnl-kpi-ico">🧠</span><strong>{{ ai.get('runtime', {}).get('active_provider') or '—' }}</strong><span>پروایدر فعال</span></div>
+        <div class="pnl-kpi"><span class="pnl-kpi-ico">🧩</span><strong>{{ ai.get('providers', [])|length }}</strong><span>پروایدرها</span></div>
+        <div class="pnl-kpi"><span class="pnl-kpi-ico">🔁</span><strong>{{ ai.get('failover_chain', [])|length }}</strong><span>زنجیره failover</span></div>
+        <div class="pnl-kpi"><span class="pnl-kpi-ico">💬</span><strong>{{ 'فعال' if ai.get('widget', {}).get('enabled') else 'غیرفعال' }}</strong><span>ویجت سایت</span></div>
+    </div>
+
+    {% if not is_super %}
+    <div class="pnl-card"><div class="pnl-empty"><p>مدیریت هوش مصنوعی فقط برای سوپرادمین است — شما نمای فقط‌خواندنی را می‌بینید.</p></div></div>
+    {% else %}
+
+    <!-- ═══ نوار تب‌ها ═══ -->
+    <div class="pnl-tabs-wrap">
+        <div class="pnl-tabs" data-tabs>
+            <span class="pnl-tab active" data-pane="providers">🧩 پروایدرها</span>
+            <span class="pnl-tab" data-pane="status">📊 وضعیت و تست</span>
+            <span class="pnl-tab" data-pane="behavior">🎭 رفتار و هویت</span>
+            <span class="pnl-tab" data-pane="failover">🎯 زنجیره جایگزین</span>
+            <span class="pnl-tab" data-pane="roles">🔐 دسترسی نقش‌ها</span>
+            <span class="pnl-tab" data-pane="widget">🌐 Widget</span>
+            <span class="pnl-tab" data-pane="credits">✨ اعتبار کاربران</span>
+            <span class="pnl-tab" data-pane="ops">📜 عملیات</span>
+        </div>
+    </div>
+
+    <!-- ═══ تب ۱: پروایدرها ═══ -->
+    <!-- ═══ تب ۱: پروایدرها ═══ -->
+    <section class="pnl-pane show" id="pane-providers">
+        <div class="pnl-card">
+            <h3>➕ افزودن سرویس هوش مصنوعی</h3>
+            <form method="POST" action="{{ url_for('panel.ai_provider_add') }}" class="pnl-grid-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <select name="name" required>
+                    {% for opt in ai.get('registry_options', []) %}
+                    <option value="{{ opt.name }}">{{ opt.display }}</option>
+                    {% endfor %}
+                    <option value="">— نام دلخواه (در فیلد زیر) —</option>
+                </select>
+                <input type="text" name="custom_name" placeholder="نام دلخواه برای سرویس ناشناخته (اختیاری)" dir="ltr">
+                <input type="text" name="api_key" placeholder="کلید API* (الزامی)" dir="ltr" required>
+                <input type="text" name="proxy_url" placeholder="پروکسی SOCKS5 (اختیاری): socks5://... — خالی = مستقیم" dir="ltr">
+                <details style="grid-column:1/-1;">
+                    <summary style="cursor:pointer;">⚙️ تنظیمات پیشرفته (اختیاری — خالی = از رجیستری)</summary>
+                    <div class="pnl-grid-form" style="margin-top:8px;">
+                        <input type="text" name="base_url" placeholder="آدرس پایه (خالی = از رجیستری)" dir="ltr">
+                        <select name="kind">
+                            <option value="">نوع API (خودکار)</option>
+                            <option value="openai">openai</option>
+                            <option value="cloudflare">cloudflare</option>
+                        </select>
+                        <input type="number" name="timeout" placeholder="تایم‌اوت ثانیه (خالی = پیش‌فرض)" min="5" max="120">
+                        <input type="text" name="selected_model" placeholder="مدل انتخابی (خالی = بهترین خودکار)" dir="ltr">
+                        <label class="pnl-check"><input type="checkbox" name="is_iranian" value="1"> سرویس ایرانی است (خودکار بر اساس نام)</label>
+                    </div>
+                </details>
+                <button class="pnl-btn pnl-btn-gold">💾 ذخیره و شناسایی خودکار مدل‌ها</button>
+            </form>
+        </div>
+
+        <div class="pnl-card" style="margin-top:16px;">
+            <h3>📥 ورود دسته‌ای مدل‌ها (JSON)</h3>
+            <p class="pnl-muted" style="font-size:.8rem;">مدل‌های فعلی پاک نمی‌شوند؛ فقط موارد جدید با منبع «ورودی دستی» اضافه می‌شوند.</p>
+            <form method="POST" action="{{ url_for('panel.ai_bulk_import_json') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <textarea name="json_data" dir="ltr" style="width:100%;height:150px;font-family:monospace;font-size:.8rem;" placeholder='{"provider": "openrouter", "add_models": [{"id": "google/gemma-3-27b-it:free", "type": "vision", "is_free": true}]}'></textarea>
+                <button class="pnl-btn pnl-btn-outline pnl-btn-sm" style="margin-top:6px;">📥 افزودن مدل‌ها</button>
+            </form>
+        </div>
+
+        {% if ai.get('providers') %}
+        <div class="pnl-card" style="margin-top:16px;">
+            <h3>🧩 پروایدرها ({{ ai.providers|length }})</h3>
+            {% for p in ai.providers %}
+            <div class="pnl-ai-provider">
+                <div class="pnl-ai-provider-head">
+                    <div>
+                        <strong>{{ p.name }}</strong>
+                        <span class="pnl-muted">{{ p.bucket }} · <span dir="ltr">{{ p.selected_model or '—' }}</span></span>
+                        <div class="pnl-muted" style="font-size:.72rem;margin-top:4px;">
+                            API: {% if p.has_api_key %}<b style="color:#2f9e44">متصل</b>{% else %}<b style="color:#c0392b">بدون کلید</b>{% endif %}
+                            · آدرس:
+                            <span dir="ltr">{{ p.effective_base_url or p.base_url or '—' }}</span>
+                            {% if p.connects_via_worker %}<span class="pnl-badge pnl-badge-ok">ورکر Cloudflare</span>{% endif %}
+                        </div>
+                        <div class="pnl-muted" style="font-size:.72rem;margin-top:2px;">
+                            🖼️ Vision: <b>{{ p.vision_count|default(0) }}</b>
+                            · 💬 Text: <b>{{ p.text_count|default(0) }}</b>
+                            · بروزرسانی مدل‌ها: {{ p.models_last_updated_fa or '—' }}
+                            {% if p.models_source %}<span class="pnl-badge pnl-badge-info">{{ p.models_source }}</span>{% endif %}
+                            {% if p.discovery_report %}
+                            <div class="pnl-muted" style="font-size:.72rem;margin-top:2px;">🧠 {{ p.discovery_report }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        {% if p.enabled %}<span class="pnl-badge pnl-badge-ok">فعال</span>
+                        {% else %}<span class="pnl-badge pnl-badge-off">غیرفعال</span>{% endif %}
+                        {% if p.failover_index %}<span class="pnl-badge pnl-badge-info">failover #{{ p.failover_index }}</span>{% endif %}
+                        {% if p.proxy_url %}<span class="pnl-badge pnl-badge-info" title="{{ p.proxy_url }}">🔒 پروکسی اختصاصی</span>
+                        {% elif p.use_proxy %}<span class="pnl-badge pnl-badge-info">🌐 پروکسی عمومی</span>{% endif %}
+                    </div>
+                </div>
+                <div class="pnl-ai-actions">
+                    <form method="POST" action="{{ url_for('panel.ai_provider_refresh_models', name=p.name) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="pnl-btn pnl-btn-gold pnl-btn-sm" title="بروزرسانی مدل‌ها از /models (بدون پینگ تست)">🔄 بروزرسانی مدل‌ها</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('panel.ai_provider_toggle', name=p.name) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">{{ '⏸ غیرفعال' if p.enabled else '▶️ فعال' }}</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('panel.ai_provider_test', name=p.name) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🔁 تست سلامت</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('panel.ai_provider_delete', name=p.name) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="step" value="confirm">
+                        <button class="pnl-btn pnl-btn-danger pnl-btn-sm" onclick="return confirm('⚠️ حذف {{ p.name }}؟');">🗑 حذف</button>
+                    </form>
+                </div>
+                <details class="pnl-details" style="margin-top:8px;">
+                    <summary>✏️ ویرایش فیلد</summary>
+                    <form method="POST" action="{{ url_for('panel.ai_provider_update', name=p.name) }}" class="pnl-inline-form" style="margin-top:6px;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <select name="field">
+                            <option value="api_key">API Key</option>
+                            <option value="base_url">Base URL</option>
+                            <option value="selected_model">مدل انتخابی</option>
+                            <option value="timeout">Timeout</option>
+                            <option value="proxy_url">پروکسی اختصاصی (خالی = حذف)</option>
+                        </select>
+                        <input type="text" name="value" placeholder="مقدار جدید" dir="ltr" style="min-width:220px;">
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">💾 ذخیره</button>
+                    </form>
+                    <p class="pnl-muted" style="font-size:.72rem;margin-top:4px;">تغییر «API Key» یا «Base URL» → بروزرسانی خودکار مدل‌ها + فعال‌سازی خودکار اگر کلید قبلاً خالی بوده.</p>
+                </details>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- ═══ تب ۲: وضعیت و تست ═══ -->
+    <section class="pnl-pane" id="pane-status">
+        <div class="pnl-grid-2">
+            <div class="pnl-card">
+                <h3>📊 گزارش وضعیت پروایدرها</h3>
+                <div class="pnl-tx-row pnl-monospace" style="white-space:pre-wrap; font-size:.82rem;">{{ ai.get('status_report') or '—' }}</div>
+                <form method="POST" action="{{ url_for('panel.ai_test_all') }}" style="margin-top:8px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🔄 بررسی همه پروایدرها</button>
+                </form>
+                <form method="POST" action="{{ url_for('panel.ai_provider_refresh_all_models') }}" style="margin-top:8px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="pnl-btn pnl-btn-gold pnl-btn-sm" title="لیست مدل همه سرویس‌ها را از /models خودشان هوشمندانه به‌روز می‌کند (رایگان و قوی)">🧠 بروزرسانی همه هوش مصنوعی‌ها</button>
+                </form>
+            </div>
+            <div class="pnl-card">
+                <h3>💬 تست گفتگو</h3>
+                <form method="POST" action="{{ url_for('panel.ai_chat_test') }}" class="pnl-stack-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <textarea name="prompt" rows="3" placeholder="مثلاً: سلام، معرفی کوتاهی از خودت بده"></textarea>
+                    <button class="pnl-btn pnl-btn-gold pnl-btn-sm">🧪 ارسال تست</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ تب ۳: رفتار و هویت ═══ -->
+    <section class="pnl-pane" id="pane-behavior">
+        <div class="pnl-grid-2">
+            <div class="pnl-card">
+                <h3>🎭 اسم نمایشی مشاور هوشمند</h3>
+                <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="ai_action" value="set_display_name">
+                    <input type="text" name="display_name" value="{{ ai.get('runtime', {}).get('display_name') or '' }}" placeholder="مثلاً: صادقی، مشاور هوشمند گیسو" style="min-width:220px;">
+                    <button class="pnl-btn pnl-btn-gold pnl-btn-sm">💾 ذخیره</button>
+                </form>
+            </div>
+            <div class="pnl-card">
+                <h3>💬 وضعیت مشاور هوشمند</h3>
+                {% set chat_enabled = ai.get('runtime', {}).get('enabled', True) %}
+                <form method="POST" action="{{ url_for('panel.ai_config') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="ai_action" value="set_chat_enabled">
+                    <input type="hidden" name="enabled" value="{{ '0' if chat_enabled else '1' }}">
+                    <button class="pnl-btn {{ 'pnl-btn-danger' if chat_enabled else 'pnl-btn-gold' }} pnl-btn-sm">
+                        {{ '⏸ غیرفعال کردن مشاور' if chat_enabled else '▶️ فعال کردن مشاور' }}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ تب ۴: Failover ═══ -->
+    <section class="pnl-pane" id="pane-failover">
+        <div class="pnl-card">
+            <h3>🎯 هوش مصنوعی فعال گفتگو و زنجیره جایگزین</h3>
+            <p class="pnl-muted">زنجیره فعلی: <span dir="ltr">{{ ai.get('failover_chain', [])|join(' ← ') or '—' }}</span></p>
+            <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-inline-form" style="margin-top:8px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="ai_action" value="set_active_provider">
+                <select name="provider_name">
+                    {% for p in ai.providers %}<option value="{{ p.name }}">{{ p.name }}</option>{% endfor %}
+                </select>
+                <button class="pnl-btn pnl-btn-gold pnl-btn-sm">✅ فعال‌کردن هوش مصنوعی اصلی</button>
+            </form>
+            <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-inline-form" style="margin-top:8px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="ai_action" value="promote_failover">
+                <select name="provider_name">
+                    {% for p in ai.providers %}<option value="{{ p.name }}">{{ p.name }}</option>{% endfor %}
+                </select>
+                <button class="pnl-btn pnl-btn-outline pnl-btn-sm">⬆️ ارتقا به اول failover</button>
+            </form>
+            <form method="POST" action="{{ url_for('panel.ai_config') }}" style="margin-top:8px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="ai_action" value="reset_failover">
+                <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🔄 بازنشانی ترتیب failover</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- ═══ تب ۵: دسترسی نقش‌ها ═══ -->
+    <section class="pnl-pane" id="pane-roles">
+        <div class="pnl-grid-2">
+            {% for role in ['user', 'admin', 'super'] %}
+            <div class="pnl-card">
+                <h3>🔐 دسترسی نقش «{{ role }}»</h3>
+                {% set pol = ai.get('policies', {}).get(role, {}) %}
+                <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-stack-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="ai_action" value="save_role_policy">
+                    <input type="hidden" name="role_name" value="{{ role }}">
+                    <label>سطح دسترسی (۰-۳)</label>
+                    <input type="number" name="access_level" value="{{ pol.get('access_level', 0) }}" min="0" max="3">
+                    <label>سقف روزانه (۰ = نامحدود)</label>
+                    <input type="number" name="daily_limit" value="{{ pol.get('daily_limit', 0) }}" min="0">
+                    <button class="pnl-btn pnl-btn-gold pnl-btn-sm" style="margin-top:8px;">💾 ذخیره سیاست</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- ═══ تب ۶: Widget ═══ -->
+    <section class="pnl-pane" id="pane-widget">
+        <div class="pnl-card">
+            <h3>🌐 Widget سایت</h3>
+            {% set w = ai.get('widget', {}) %}
+            <div class="pnl-grid-2">
+                <div>
+                    <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="ai_action" value="set_widget_enabled">
+                        <input type="hidden" name="enabled" value="{{ '0' if w.get('enabled') else '1' }}">
+                        <button class="pnl-btn {{ 'pnl-btn-danger' if w.get('enabled') else 'pnl-btn-gold' }} pnl-btn-sm">
+                            {{ '⏸ غیرفعال' if w.get('enabled') else '▶️ فعال' }}
+                        </button>
+                    </form>
+                </div>
+                <div>
+                    <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="ai_action" value="set_widget_position">
+                        <select name="position">
+                            <option value="right-bottom" {% if w.get('position')=='right-bottom' %}selected{% endif %}>پایین راست</option>
+                            <option value="left-bottom" {% if w.get('position')=='left-bottom' %}selected{% endif %}>پایین چپ</option>
+                        </select>
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">موقعیت</button>
+                    </form>
+                </div>
+            </div>
+            <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-stack-form" style="margin-top:8px; max-width:560px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="ai_action" value="set_widget_welcome">
+                <label>متن خوش‌آمد</label>
+                <input type="text" name="welcome_message" value="{{ w.get('welcome_message') or '' }}">
+                <button class="pnl-btn pnl-btn-outline pnl-btn-sm">💾 ذخیره خوش‌آمد</button>
+            </form>
+            {% if ai.get('widget_usage') %}
+            <p class="pnl-muted" style="margin-top:8px;">
+                آمار: {{ ai.widget_usage.get('total_chats', 0) }} گفتگو · {{ ai.widget_usage.get('unique_users', 0) }} کاربر
+            </p>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- اعتبار مصرف هوش مصنوعی کاربران -->
+    <section class="pnl-pane" id="pane-credits">
+      {% set cs=ai.get('credit_settings',{}) %}
+      <div class="pnl-card"><h3>✨ سیاست اعتبار کاربران (کسر از اعتبار مصرفی)</h3>
+        <p class="pnl-muted">اعتبار عددی جداگانه حذف شد؛ هزینهٔ هر درخواست موفق از «اعتبار مصرفی» کیف پول کاربر کسر می‌شود.</p>
+        <form method="post" action="{{ url_for('panel.ai_config') }}" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:10px;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="ai_action" value="save_credit_settings"><label class="pnl-check"><input type="checkbox" name="enabled" value="1" {{ 'checked' if cs.get('enabled') }}> کسر اعتبار فعال</label><label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;">هزینه هر درخواست موفق (تومان)<input type="number" name="cost" min="1" value="{{ cs.get('cost',1) }}" style="min-width:120px;"></label><label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;">کسر شود از<select name="scope" style="min-width:140px;padding:8px 10px;border:1px solid var(--pnl-border,#eadfce);border-radius:10px;"><option value="spend" {{ 'selected' if cs.get('scope')=='spend' }}>اعتبار مصرفی</option><option value="cash" {{ 'selected' if cs.get('scope')=='cash' }}>اعتبار نقدی (کیف پول)</option></select></label><button class="pnl-btn pnl-btn-gold" style="margin-top:16px;">ذخیره سیاست</button></form></div>
+      <!-- مورد ۱۱ help2: «اصلاح اعتبار عددی» حذف شد؛ مانده=حوزهٔ فعال کیف پول، مصرف=جمع کسرها، انتخاب کسر از نقدی/مصرفی -->
+      <div class="pnl-card"><h3>اعتبار کاربران</h3>
+        <p class="pnl-muted">«مانده» موجودی حوزهٔ فعال کاربر است و «مصرف» مجموع تومان کسرشدهٔ همراه هوشمند. اعتبار عددی جداگانه حذف شده است.</p>
+        <div class="pnl-table-wrap"><table class="pnl-table"><tr><th>کاربر</th><th>تلفن</th><th>مانده (تومان)</th><th>مصرف (تومان)</th><th>کسر از</th></tr>{% for u in ai.get('credit_users',[]) %}<tr><td>{{ u.name or u.first_name or ('کاربر #' ~ u.id) }}</td><td dir="ltr">{{ u.phone }}</td><td>{{ u.balance }}</td><td>{{ u.total_used }}</td><td><form method="post" action="{{ url_for('panel.ai_credit_scope') }}" class="pnl-inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="user_id" value="{{ u.id }}"><select name="scope"><option value="spend" {{ 'selected' if u.scope=='spend' }}>اعتبار مصرفی</option><option value="cash" {{ 'selected' if u.scope=='cash' }}>اعتبار نقدی</option></select><button class="pnl-btn pnl-btn-outline pnl-btn-sm">اعمال</button></form></td></tr>{% endfor %}</table></div></div>
+    </section>
+
+    <!-- ═══ تب عملیات ═══ -->
+    <section class="pnl-pane" id="pane-ops">
+        <div class="pnl-grid-2">
+            <div class="pnl-card">
+                <h3>⏳ اقدامات در انتظار ({{ ai.get('pending', [])|length }})</h3>
+                {% if ai.get('pending') %}
+                {% for p in ai.pending %}
+                <div class="pnl-tx-row" style="justify-content:space-between;">
+                    <div style="flex:1;">
+                        <small>#{{ p.id }} · {{ p.action_name }}</small><br>
+                        <small class="pnl-muted">{{ (p.preview_text or '')[:120] }}</small>
+                    </div>
+                    <div class="pnl-btn-row">
+                        <form method="POST" action="{{ url_for('panel.ai_pending_execute', pending_id=p.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="pnl-btn pnl-btn-gold pnl-btn-sm">✅</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('panel.ai_pending_cancel', pending_id=p.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="pnl-btn pnl-btn-danger pnl-btn-sm">❌</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="pnl-empty"><p>اقدام در انتظاری نیست.</p></div>
+                {% endif %}
+            </div>
+            <div class="pnl-card">
+                <h3>📜 لاگ اکشن‌ها</h3>
+                {% if ai.get('logs') %}
+                {% for l in ai.logs %}
+                <div class="pnl-tx-row" style="justify-content:space-between;">
+                    <div>
+                        <small>#{{ l.id }} · {{ l.action_name }} → {{ l.status }}</small><br>
+                        <small class="pnl-muted">{{ l.created_at }}</small>
+                    </div>
+                    <form method="POST" action="{{ url_for('panel.ai_log_rollback', log_id=l.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">↩️</button>
+                    </form>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="pnl-empty"><p>لاگی ثبت نشده.</p></div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    {% endif %}
+</div>
+{% endblock %}

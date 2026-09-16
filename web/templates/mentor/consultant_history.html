@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}سوابق مشاوره‌های من{% endblock %}
+{% block head %}
+<style>
+.consult-history-page{padding:28px 0 76px;background:#f8fafc}.consult-history-wrap{max-width:980px;margin:0 auto}.history-hero{background:linear-gradient(135deg,#0f172a,#2563eb);color:#fff;border-radius:26px;padding:28px;margin-bottom:18px;box-shadow:0 20px 56px rgba(37,99,235,.24)}.history-hero h1{margin:0 0 8px;font-size:clamp(1.55rem,4vw,2.2rem)}.history-hero p{margin:0;color:#dbeafe;line-height:2}.history-list{display:flex;flex-direction:column;gap:14px}.history-card{background:#fff;border:1px solid #e2e8f0;border-radius:22px;padding:20px;box-shadow:0 12px 30px rgba(15,23,42,.07)}.history-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}.history-id{font-weight:950;color:#0f172a}.history-status{border-radius:999px;padding:6px 12px;background:#eef2ff;color:#3730a3;font-weight:900;font-size:13px}.history-text{color:#475569;line-height:2;margin:8px 0 14px}.history-meta{color:#64748b;font-size:13px;margin-bottom:14px}.history-actions{display:flex;gap:10px;flex-wrap:wrap}.empty-history{background:#fff;border:1px solid #e2e8f0;border-radius:22px;padding:32px;text-align:center;color:#475569}.history-back{margin-top:18px}@media(max-width:640px){.consult-history-page{padding:18px 0 54px}.history-card,.history-hero{border-radius:18px;padding:18px}.history-actions .btn{width:100%}}
+</style>
+{% endblock %}
+{% block content %}
+{% set status_fa = {'pending':'در انتظار','active':'فعال','paused':'متوقف','closed':'بسته شده','rejected':'رد شده'} %}
+<section class="consult-history-page">
+<div class="container consult-history-wrap">
+    <div class="history-hero">
+        <h1>📚 سوابق مشاوره‌های من</h1>
+        <p>همه درخواست‌ها و گفتگوهای مشاوره‌ای شما در اینجا قابل مشاهده است.</p>
+    </div>
+    <div class="history-list">
+        {% for item in items %}
+        <div class="history-card">
+            <div class="history-top">
+                <div class="history-id">پرونده مشاوره #{{ item.id }}</div>
+                <div class="history-status">{{ status_fa.get(item.status, item.status) }}</div>
+            </div>
+            <div class="history-text">{{ (item.main_problem or item.intro_message or 'بدون توضیح')[:180] }}{% if (item.main_problem or item.intro_message or '')|length > 180 %}...{% endif %}</div>
+            <div class="history-meta">تاریخ ثبت: {{ item.created_at or '—' }}</div>
+            <div class="history-actions">
+                <a class="btn btn-primary" href="{{ url_for('mentor_consultant_chat', request_id=item.id) }}">مشاهده گفتگو</a>
+                {% if item.status == 'closed' %}<a class="btn btn-outline" href="{{ url_for('mentor_consultant_summary', request_id=item.id) }}">مشاهده خلاصه</a>{% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-history">هنوز هیچ سابقه مشاوره‌ای ندارید.</div>
+        {% endfor %}
+    </div>
+    <div class="history-back"><a class="btn btn-outline" href="{{ url_for('mentor_dashboard') }}">🔙 بازگشت به داشبورد</a></div>
+</div>
+</section>
+{% endblock %}

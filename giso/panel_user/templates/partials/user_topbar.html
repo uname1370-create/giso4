@@ -1,0 +1,47 @@
+<header class="pu-topbar">
+    <button class="pu-burger" id="puBurger" aria-label="باز کردن منو"><i class="fas fa-bars"></i></button>
+    <div class="pu-topbar-title">
+        <span class="pu-topbar-crumb">پنل کاربری</span>
+        <strong>{{ current_module_icon }} {{ current_module_label }}</strong>
+    </div>
+    <div class="pu-topbar-actions">
+        <a href="{{ url_for('panel_user.wallet', tab='summary') }}" class="pu-credit-chip pu-chip-cash" title="اعتبار نقدی (قابل تسویه)">
+            <span class="pu-chip-ico">💰</span><span class="pu-chip-lbl">نقدی</span><b>{{ toman(header_wallet_cash|default(0)) }}</b>
+        </a>
+        <a href="{{ url_for('panel_user.wallet', tab='summary') }}" class="pu-credit-chip pu-chip-spend" title="اعتبار مصرفی (رایگان/هدیه — فقط مصرف داخل سایت)">
+            <span class="pu-chip-ico">🌸</span><span class="pu-chip-lbl">مصرفی</span><b>{{ toman(header_wallet_spend|default(0)) }}</b>
+        </a>
+        <span class="pu-role-chip">🌸 {{ user.name or user.first_name or 'کاربر' }}</span>
+        {% if user_missions_pending %}
+        {% set mission_links = {'registration': url_for('panel_user.profile'), 'profile_complete': url_for('panel_user.profile'), 'first_purchase': url_for('shop'), 'product_explorer': url_for('shop'), 'bale_connected': 'https://ble.ir/1191639507', 'marketplace_listing': url_for('panel_user.hair_sale'), 'review_submit': url_for('panel_user.orders'), 'beauty_center_published': url_for('beauty_centers.list_centers')} %}
+        <div class="pu-bell pu-mission" id="puMission">
+            <button type="button" class="pu-bell-btn pu-mission-btn" id="puMissionBtn" title="ماموریت‌های من — اعتبار رایگان بگیر" aria-label="ماموریت‌های من">
+                🎯
+                <span class="pu-bell-count pu-mission-count">{{ user_missions_pending|length }}</span>
+            </button>
+            <div class="pu-bell-drawer pu-mission-drawer" id="puMissionDrawer" hidden>
+                <div class="pu-bell-drawer-head"><strong>🎁 ماموریت‌های در انتظار — اعتبار رایگان بگیر!</strong><a href="{{ url_for('panel_user.wallet', tab='missions') }}">همه</a></div>
+                {% for m in user_missions_pending %}
+                <a class="pu-bell-item pu-mission-item" href="{{ mission_links.get(m.code, url_for('panel_user.wallet', tab='missions')) }}">
+                    <strong>{{ m.title }}</strong>
+                    <span>{{ (m.description or '')[:70] }} · پاداش {{ toman(m.reward_amount) }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        <div class="pu-bell" id="puBell">
+            <button type="button" class="pu-bell-btn" id="puBellBtn" title="اعلان‌های من" aria-label="اعلان‌های من">
+                <i class="fas fa-bell"></i>
+                {% if user_notification_unread|default(0) > 0 %}<span class="pu-bell-count">{{ user_notification_unread }}</span>{% endif %}
+            </button>
+            <div class="pu-bell-drawer" id="puBellDrawer" hidden>
+                <div class="pu-bell-drawer-head"><strong>آخرین اعلان‌ها</strong><a href="{{ url_for('panel_user.notifications') }}">مشاهده همه</a></div>
+                {% if user_notifications %}
+                  {% for n in user_notifications[:5] %}<a class="pu-bell-item {{ 'is-unread' if n.status == 'unread' else '' }}" href="{{ url_for('panel_user.marketplace') if n.category == 'marketplace' else url_for('panel_user.notifications') }}"><strong>{{ n.title }}</strong><span>{{ n.message }}</span></a>{% endfor %}
+                {% else %}<p class="pu-bell-empty">اعلان جدیدی ندارید.</p>{% endif %}
+            </div>
+        </div>
+        <a href="{{ url_for('index') }}" class="pu-site-link">مشاهده سایت</a>
+    </div>
+</header>

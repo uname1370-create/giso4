@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>{% block title %}پنل مدیریت گیسو{% endblock %}</title>
+    <!-- مورد ۱۹ help.md: فونت و آیکون‌ها self-host شدند (حذف درخواست render-blocking به Google/cdnjs) -->
+    <!-- پشتیبان غیرمسدودکننده: اگر فونت محلی در استقرار نبود، وزیرمتن از گوگل بارگیری می‌شود (مورد ۲۲ help2) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/vazirmatn.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/fontawesome.min.css') }}?v=6.6.0-local">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/solid.min.css') }}?v=6.6.0-local">
+    <link rel="stylesheet" href="{{ url_for('panel.static', filename='css/panel.css') }}?v=bell-left-3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/giso-brand.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/giso_forms.css') }}?v=1">
+    {% if is_special %}
+    <link rel="stylesheet" href="{{ url_for('panel.static', filename='css/panel_special_admin.css') }}?v=special-1">
+    {% endif %}
+    {% block head %}{% endblock %}
+</head>
+<body class="pnl-body role-{{ 'special' if is_special else ('super' if is_super else 'admin') }}" data-idle-minutes="{{ idle_minutes() or 0 }}">
+<div class="pnl-shell">
+    {% include 'partials/panel_sidebar.html' %}
+    <div class="pnl-main">
+        {% include 'partials/topbar.html' %}
+        <main class="pnl-content">
+            {% if is_special %}
+            <div class="sp-welcome">
+                <i class="fas fa-spa sp-welcome-ico"></i>
+                <div>
+                    <b>سلام خانم مهندس صادقی عزیز! 🌸</b>
+                    <p>به پنل اختصاصی مدیریت گیسو خوش آمدید. «آقا رضا»، دستیار هوشمند شما، در همه‌ی مراحل کنارتان است.</p>
+                    <a class="sp-guide-link" href="{{ url_for('panel.special_guide') }}" target="_blank" rel="noopener">
+                        <i class="fas fa-book-open"></i> راهنمای کامل پنل اختصاصی (آموزش بخش‌به‌بخش + مسیر درآمد)
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for cat, msg in messages %}
+                <div class="pnl-flash pnl-flash-{{ cat }}">{{ msg }}<button onclick="this.parentElement.remove()">&times;</button></div>
+                {% endfor %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% include 'partials/special_assistant.html' %}
+
+<!-- 🔔 زنگ اعلان به داخل topbar منتقل شد (کنار چیپ نقش) — فاز تب‌سازی پنل -->
+
+<script src="{{ url_for('panel.static', filename='js/panel.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/giso_idle.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/fa_display.js') }}?v=1"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

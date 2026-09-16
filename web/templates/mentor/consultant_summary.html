@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}خلاصه گفتگوی مشاور{% endblock %}
+{% block head %}
+<style>
+.consult-summary-page{padding:28px 0 76px;background:#f8fafc}.summary-wrap{max-width:900px;margin:0 auto}.summary-paper{background:#fff;border:1px solid #e2e8f0;border-radius:24px;padding:30px;box-shadow:0 18px 46px rgba(15,23,42,.08)}.summary-head{border-bottom:1px solid #e2e8f0;padding-bottom:18px;margin-bottom:20px}.summary-head h1{margin:0 0 10px;color:#0f172a;font-size:clamp(1.55rem,4vw,2.2rem)}.summary-head p{margin:0;color:#475569;line-height:2}.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:18px 0}.summary-chip{background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:13px}.summary-chip span{display:block;color:#64748b;font-size:12px;margin-bottom:4px}.summary-chip strong{color:#0f172a}.summary-section{margin-top:22px}.summary-section h2{font-size:1.2rem;margin:0 0 12px;color:#0f172a}.summary-list{margin:0;padding-right:22px}.summary-list li{line-height:2;color:#475569;margin-bottom:7px}.summary-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}@media print{.navbar,.summary-actions,.footer{display:none!important}.consult-summary-page{background:#fff;padding:0}.summary-paper{box-shadow:none;border:0}.container{max-width:100%!important}}@media(max-width:640px){.consult-summary-page{padding:18px 0 54px}.summary-paper{border-radius:18px;padding:20px}.summary-actions .btn{width:100%}}
+</style>
+{% endblock %}
+{% block content %}
+<section class="consult-summary-page">
+<div class="container summary-wrap">
+    <article class="summary-paper">
+        <div class="summary-head">
+            <h1>📄 خلاصه گفتگوی مشاور</h1>
+            <p>مشاور: <strong>مهندس رضا صادقی</strong> — وضعیت پرونده: <strong>بسته شده</strong></p>
+        </div>
+        <div class="summary-grid">
+            <div class="summary-chip"><span>شروع گفتگو</span><strong>{{ item.created_at or '—' }}</strong></div>
+            <div class="summary-chip"><span>پایان گفتگو</span><strong>{{ item.closed_at or '—' }}</strong></div>
+            <div class="summary-chip"><span>پیام‌های کاربر</span><strong>{{ user_messages|length }}</strong></div>
+            <div class="summary-chip"><span>پیام‌های مشاور</span><strong>{{ admin_messages|length }}</strong></div>
+        </div>
+        <div class="summary-section">
+            <h2>❓ خلاصه سوالات کاربر</h2>
+            <ul class="summary-list">
+                {% if item.intro_message %}<li>{{ item.intro_message[:280] }}{% if item.intro_message|length > 280 %}...{% endif %}</li>{% endif %}
+                {% for m in user_messages[:8] %}<li>{{ m.text[:280] }}{% if m.text|length > 280 %}...{% endif %}</li>{% else %}{% if not item.intro_message %}<li>پیام مشخصی از کاربر ثبت نشده است.</li>{% endif %}{% endfor %}
+            </ul>
+        </div>
+        <div class="summary-section">
+            <h2>✅ راهکارها و پاسخ‌های کلیدی</h2>
+            <ul class="summary-list">
+                {% for m in admin_messages[:10] %}<li>{{ m.text[:360] }}{% if m.text|length > 360 %}...{% endif %}</li>{% else %}<li>پاسخ مشاور در این پرونده ثبت نشده است.</li>{% endfor %}
+            </ul>
+        </div>
+        <div class="summary-actions">
+            <button class="btn btn-primary" onclick="window.print()">چاپ / ذخیره PDF</button>
+            <a class="btn btn-outline" href="{{ url_for('mentor_consultant_chat', request_id=item.id) }}">مشاهده متن کامل گفتگو</a>
+            <a class="btn btn-outline" href="{{ url_for('mentor_consultant_history') }}">بازگشت به سوابق</a>
+        </div>
+    </article>
+</div>
+</section>
+{% endblock %}

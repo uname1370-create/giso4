@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}حذف کاربران - پنل ادمین{% endblock %}
+{% block content %}
+<section class="page-section admin-section">
+<div class="container">
+    <div class="page-header">
+        <h1>🗑 حذف کاربران</h1>
+        <p class="page-sub">یکی از روش‌های حذف را انتخاب کنید. حذف‌ها بدون تایپ عبارت تأیید انجام می‌شود و در لاگ ثبت خواهد شد.</p>
+    </div>
+
+    <div class="admin-delete-menu-grid">
+        <a class="admin-delete-menu-card admin-delete-danger" href="/admin/users/delete-all">
+            <span class="admin-delete-menu-icon">🗑</span>
+            <h2>حذف همه کاربران</h2>
+            <p>حذف فوری همه کاربران آموزشی از bot.db با یک کلیک.</p>
+        </a>
+
+        <a class="admin-delete-menu-card" href="{{ url_for('admin_user_delete_by_phone') }}">
+            <span class="admin-delete-menu-icon">📱</span>
+            <h2>حذف با شماره همراه</h2>
+            <p>شماره را وارد کنید و با یک کلیک کاربر را حذف کنید.</p>
+        </a>
+
+        <a class="admin-delete-menu-card" href="{{ url_for('admin_users_delete_from_list') }}">
+            <span class="admin-delete-menu-icon">📋</span>
+            <h2>حذف از لیست</h2>
+            <p>کاربران را جستجو کنید و کنار هر کاربر فرم حذف با همان قوانین قبلی ببینید.</p>
+        </a>
+    </div>
+
+    <div class="admin-user-note">
+        <strong>نکته ایمنی:</strong>
+        این عملیات فقط سایت و ربات آموزشی در bot.db را پوشش می‌دهد و giso.db را تغییر نمی‌دهد. sync حافظه ربات به‌صورت live/best-effort اجرا می‌شود.
+    </div>
+
+    <a href="{{ url_for('admin_users') }}" class="btn btn-outline">🔙 بازگشت به مدیریت کاربران</a>
+</div>
+</section>
+{% endblock %}

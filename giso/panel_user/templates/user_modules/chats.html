@@ -1,0 +1,64 @@
+{% extends 'user_layout.html' %}
+{% block title %}پیام‌ها و پشتیبانی - گیسو{% endblock %}
+{% block content %}
+<div class="pu-page">
+    <h1 class="pu-h1">💬 پیام‌ها و پشتیبانی</h1>
+    <p class="pu-sub">گفتگوهای مشاوره، پیام‌های خرید مو و تیکت‌های پشتیبانی شما</p>
+
+    <div class="pu-card">
+        <div class="pu-list">
+            <div class="pu-list-item">
+                <div class="pu-list-main"><strong>گفتگوهای مشاوره ({{ chats_count }})</strong><span class="pu-muted">مشاوره‌های درخواستی و پاسخ مشاور</span></div>
+                <a href="{{ url_for('dashboard_chats') }}" class="pu-btn pu-btn-rose pu-btn-sm">مشاهده گفتگوها</a>
+            </div>
+            <div class="pu-list-item">
+                <div class="pu-list-main"><strong>چت فروش مو</strong><span class="pu-muted">گفتگوی مستقیم با کارشناس در صفحه هر درخواست</span></div>
+                <a href="{{ url_for('panel_user.hair_sale') }}" class="pu-btn pu-btn-outline pu-btn-sm">درخواست‌های فروش مو</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="pu-card">
+        <h3>🎫 ارسال پیام به پشتیبانی</h3>
+        <form method="POST" action="{{ url_for('panel_user.support_ticket_create') }}" class="pu-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label for="support-message">متن پیام</label>
+            <textarea id="support-message" name="message" rows="4" maxlength="2000" minlength="5" required placeholder="موضوع یا مشکل خود را کامل بنویسید…"></textarea>
+            <button class="pu-btn pu-btn-rose">ارسال تیکت پشتیبانی</button>
+        </form>
+    </div>
+
+    <div class="pu-card">
+        <h3>📬 تیکت‌های پشتیبانی من</h3>
+        {% if support_tickets %}
+        <div class="pu-list">
+            {% for ticket in support_tickets %}
+            <div class="pu-list-item">
+                <div class="pu-list-main">
+                    <strong>تیکت #{{ ticket.id }}</strong>
+                    <span>{{ ticket.message }}</span>
+                    {% if ticket.admin_reply %}<span style="margin-top:8px;"><b>پاسخ پشتیبانی:</b> {{ ticket.admin_reply }}</span>{% endif %}
+                    <span class="pu-muted">{{ ticket.created_at }}</span>
+                </div>
+                <span class="pu-badge {{ 'pu-badge-ok' if ticket.status in ('replied','closed') else 'pu-badge-warn' }}">{{ {'new':'جدید','reviewing':'در حال بررسی','replied':'پاسخ داده شد','closed':'بسته'}.get(ticket.status, ticket.status) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="pu-empty"><p>هنوز تیکت پشتیبانی ثبت نکرده‌اید.</p></div>
+        {% endif %}
+    </div>
+
+    <div class="pu-card" id="bug-report">
+        <h3>🐞 گزارش باگ</h3>
+        <p class="pu-muted">مشکل را ساده و دقیق بنویسید: در <b>کدام صفحه</b> بودید، <b>چه کاری</b> کردید و <b>چه اتفاقی</b> افتاد (و چه انتظاری داشتید). نیازی به آدرس فنی نیست؛ فقط به زبان خودتان توضیح دهید. ارسال فرم پاداش خودکار ندارد و پس از تأیید دستی، پاداش به‌صورت اعتبار مصرفی پرداخت می‌شود.</p>
+        <form method="POST" action="{{ url_for('panel_user.bug_report_create') }}" class="pu-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>عنوان کوتاه مشکل<input name="title" minlength="5" maxlength="160" required placeholder="مثلاً دکمه ثبت سفارش واکنش ندارد"></label>
+            <label>توضیح مشکل (کجا بودید، چه کردید، چه شد)<textarea name="details" minlength="20" maxlength="3000" rows="7" required placeholder="مثلاً: در صفحه بازارچه بودم، دکمه «ارسال پیشنهاد» را زدم ولی پیغام خطا آمد و پیشنهاد ثبت نشد. انتظار داشتم بدون خطا ثبت شود…"></textarea></label>
+            <button class="pu-btn pu-btn-rose">ثبت گزارش</button>
+        </form>
+        {% for bug in bug_reports %}<div class="pu-list-item"><div class="pu-list-main"><strong>#{{ bug.id }} — {{ bug.title }}</strong><span>{{ bug.page_path or 'بدون مسیر' }}</span>{% if bug.admin_note %}<small>{{ bug.admin_note }}</small>{% endif %}</div><span class="pu-badge {{ 'pu-badge-ok' if bug.status=='approved' else 'pu-badge-warn' }}">{{ {'pending':'در انتظار بررسی','approved':'تأیید و پرداخت شد','rejected':'رد شد','duplicate':'تکراری'}.get(bug.status,bug.status) }}{% if bug.reward_amount %} · {{ toman(bug.reward_amount) }} تومان اعتبار مصرفی{% endif %}</span></div>{% endfor %}
+    </div>
+</div>
+{% endblock %}

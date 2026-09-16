@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block head %}{{ super() }}<meta name="theme-color" content="#c85873"><link rel="stylesheet" href="{{ url_for('beauty_centers.static', filename='beauty_centers.css') }}?v=12">{% endblock %}
+{% block content %}
+<main class="bc-page bc-myres-page" dir="rtl">
+  <div class="bc-shell">
+    <nav class="bc-breadcrumb">
+      <a href="{{ url_for('index') }}">خانه</a><i class="fas fa-chevron-left"></i>
+      <span>رزروهای من</span>
+    </nav>
+
+    <section class="bc-myres-head">
+      <h1>رزروهای من</h1>
+      <p>نوبت‌های شما در مراکز زیبایی؛ وضعیت هر رزرو را اینجا دنبال کنید.</p>
+    </section>
+
+    {% if reservations %}
+    <div class="bc-myres-list">
+      {% for r in reservations %}
+      <article class="bc-myres-card">
+        <header class="bc-myres-card-head">
+          <div class="bc-myres-card-title">
+            <i class="fas fa-wand-sparkles" aria-hidden="true"></i>
+            <b>{{ r.service_name or 'خدمت ثبت‌نشده' }}</b>
+          </div>
+          <span class="bc-myres-badge {{ r.status_css }}">{{ r.status_label }}</span>
+        </header>
+
+        <dl class="bc-myres-meta">
+          <div><dt>مرکز</dt><dd>{% if r.center_slug %}<a href="{{ url_for('beauty_centers.center_detail', slug=r.center_slug) }}">{{ r.center_name or '—' }}</a>{% else %}{{ r.center_name or '—' }}{% endif %}</dd></div>
+          <div><dt>تاریخ</dt><dd>{% if r.weekday %}{{ r.weekday }} — {% endif %}{{ r.reservation_date }}</dd></div>
+          <div><dt>ساعت</dt><dd>{{ r.reservation_time }}</dd></div>
+          <div><dt>مدت</dt><dd>{{ r.duration_minutes }} دقیقه</dd></div>
+          <div><dt>هزینه</dt><dd>{{ toman(r.service_price_min) if r.service_price_min else '—' }}</dd></div>
+        </dl>
+
+        {% if r.user_note %}<p class="bc-myres-note">یادداشت شما: {{ r.user_note }}</p>{% endif %}
+        {% if r.center_note %}<p class="bc-myres-note">پیام مرکز: {{ r.center_note }}</p>{% endif %}
+        {% if r.status == 'cancelled_center' and r.reject_reason %}<p class="bc-myres-note is-reject">دلیل لغو توسط مرکز: {{ r.reject_reason }}</p>{% endif %}
+
+        {% if r.can_cancel %}
+        <footer class="bc-myres-foot">
+          <form method="post" action="{{ url_for('beauty_reservations.user_cancel', reservation_id=r.id) }}"
+                onsubmit="return confirm('این رزرو لغو شود؟ این کار قابل بازگشت نیست.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="bc-myres-cancel-btn">لغو رزرو</button>
+          </form>
+        </footer>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    <small class="bc-myres-legal">لغو رزرو فقط پیش از تأیید نهایی و برای وضعیت‌های «در انتظار تأیید» و «تأیید شده» امکان‌پذیر است.</small>
+    {% else %}
+    <div class="bc-myres-empty">
+      <i class="fas fa-calendar-xmark" aria-hidden="true"></i>
+      <h2>هنوز رزروی ثبت نکرده‌اید</h2>
+      <p>از فهرست مراکز زیبایی، مرکز و خدمت مورد نظرتان را انتخاب کنید و نوبت بگیرید.</p>
+      <a class="bc-btn bc-btn-primary" href="{{ url_for('beauty_centers.list_centers') }}">مشاهده مراکز زیبایی</a>
+    </div>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}

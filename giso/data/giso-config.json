@@ -1,0 +1,16 @@
+{
+  "settings": {
+    "admin_request_phrase": "درخواست ادمین گیسو",
+    "site_theme": "smart_assistant",
+    "giso_maintenance": "off"
+  },
+  "admins": [
+    {
+      "phone": "09156012931",
+      "bale_id": "1191639507",
+      "added_by": 1,
+      "added_at": "2026-08-30 15:28:27"
+    }
+  ],
+  "admin_requests": []
+}

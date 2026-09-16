@@ -1,0 +1,24 @@
+/* ============================================================
+   giso/shop/static/css/giso-brand.css — توکن‌های مشترک هویت گرم گیسو
+   (هم‌خانواده با فروش مو و آنالیز هوشمند — فقط برای صفحات فروشگاه)
+
+   این فایل فقط متغیرهای توکن است؛ هیچ route/قالب دیگر را لمس نمی‌کند.
+   ============================================================ */
+
+.giso-shop-wrap {
+    /* هویت گرم گیسو — دقیقاً همان زبان فروش مو / آنالیز */
+    --giso-cream: #F5E6D3;
+    --giso-cream-light: #FBF6EC;
+    --giso-bg: linear-gradient(180deg, #FFF9F0 0%, #FFF5E9 100%);
+    --giso-gold: #D4AF37;
+    --giso-gold-deep: #b8941f;
+    --giso-brown: #8b5a2b;
+    --giso-brown-dark: #5a3e1b;
+    --giso-pink: #F8B4B4;
+    --giso-glass: rgba(255, 249, 240, .72);
+    --giso-glass-strong: rgba(255, 252, 246, .86);
+    --giso-radius: 20px;
+    --giso-shadow: 0 10px 30px rgba(139, 90, 43, .14);
+    --giso-shadow-soft: 0 6px 18px rgba(139, 90, 43, .10);
+    --giso-border: rgba(139, 90, 43, .14);
+}

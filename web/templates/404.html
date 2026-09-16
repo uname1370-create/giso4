@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}پیدا نشد - sadeghiai{% endblock %}
+{% block content %}
+<section class="simple-page"><div class="container page-wrap text-center">
+    <div class="empty-state-icon-lg" aria-hidden="true">🔍</div>
+    <h1>صفحه پیدا نشد</h1>
+    <p>صفحه‌ای که دنبالش هستید وجود ندارد.</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary"><i class="fas fa-home"></i> بازگشت به خانه</a>
+</div></section>
+{% endblock %}

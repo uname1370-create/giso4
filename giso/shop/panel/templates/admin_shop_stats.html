@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}گزارش فروش فروشگاه | گیسو{% endblock %}
+
+{% block head %}
+<meta name="robots" content="noindex, nofollow">
+{% endblock %}
+
+{% block content %}
+<section class="giso-page">
+    <div class="giso-container">
+
+        <div class="giso-page-header">
+            <h2><i class="fas fa-chart-line"></i> گزارش فروش فروشگاه</h2>
+            <p>عملکرد سفارش‌ها و محصولات گیسو</p>
+            <a href="{{ url_for('admin_dashboard') }}" class="giso-btn giso-btn-ghost giso-btn-sm">
+                <i class="fas fa-arrow-right"></i> بازگشت به پنل
+            </a>
+        </div>
+
+        <!-- کارت‌های خلاصه -->
+        <div class="giso-stat-grid">
+            <div class="giso-stat-card">
+                <i class="fas fa-shopping-cart"></i>
+                <strong>{{ total_orders }}</strong>
+                <span>کل سفارش‌ها</span>
+            </div>
+            <div class="giso-stat-card">
+                <i class="fas fa-hourglass-half"></i>
+                <strong>{{ by_status.get('pending', 0) }}</strong>
+                <span>در انتظار پردازش</span>
+            </div>
+            <div class="giso-stat-card">
+                <i class="fas fa-circle-check"></i>
+                <strong>{{ by_status.get('completed', 0) }}</strong>
+                <span>تکمیل‌شده</span>
+            </div>
+            <div class="giso-stat-card giso-stat-gold">
+                <i class="fas fa-coins"></i>
+                <strong>{{ toman(revenue) }}</strong>
+                <span>درآمد تکمیل‌شده</span>
+            </div>
+            <div class="giso-stat-card">
+                <i class="fas fa-box-open"></i>
+                <strong>{{ products }}</strong>
+                <span>محصولات</span>
+            </div>
+            <div class="giso-stat-card">
+                <i class="fas fa-bell"></i>
+                <strong>{{ stock_notifies }}</strong>
+                <span>اعلان‌های موجودی</span>
+            </div>
+            <div class="giso-stat-card {% if pending_channel %}giso-stat-warn{% endif %}">
+                <i class="fas fa-bullhorn"></i>
+                <strong>{{ pending_channel }}</strong>
+                <span>در انتظار انتشار از کانال</span>
+            </div>
+        </div>
+
+        <div class="giso-stats-cols">
+            <!-- پرفروش‌ترین‌ها -->
+            <div class="giso-card giso-glass">
+                <h3><i class="fas fa-trophy"></i> پرفروش‌ترین محصولات</h3>
+                {% if top %}
+                <table class="giso-admin-table">
+                    <thead><tr><th>محصول</th><th>تعداد فروش</th><th>تعداد سفارش</th></tr></thead>
+                    <tbody>
+                    {% for t in top %}
+                        <tr>
+                            <td><a href="{{ url_for('product_detail', product_id=t.id) }}">{{ t.name }}</a></td>
+                            <td>{{ t.q }}</td>
+                            <td>{{ t.n }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p style="color:var(--brown); font-size:13px;">هنوز سفارشی ثبت نشده است.</p>
+                {% endif %}
+            </div>
+
+            <!-- روند سفارش‌ها -->
+            <div class="giso-card giso-glass">
+                <h3><i class="fas fa-calendar-week"></i> سفارش‌ها به تفکیک روز (آخرین ۷ روز)</h3>
+                {% if daily %}
+                <table class="giso-admin-table">
+                    <thead><tr><th>تاریخ</th><th>تعداد سفارش</th><th>نمودار</th></tr></thead>
+                    <tbody>
+                    {% for d in daily %}
+                        <tr>
+                            <td>{{ d.date }}</td>
+                            <td>{{ d.n }}</td>
+                            <td><div class="giso-bar" style="width: {{ [d.n * 30, 140] | min }}px;"></div></td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p style="color:var(--brown); font-size:13px;">داده‌ای موجود نیست.</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</section>
+{% endblock %}

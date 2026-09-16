@@ -1,0 +1,2 @@
+/* ارسال پیام با ورود؛ Shift+Enter برای خط جدید. */
+document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('.giso-market-chat-form textarea,.giso-hc-form textarea,.ch-form textarea,.bc-chat-form textarea').forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();const f=el.closest('form');if(f&&el.value.trim()){if(f.requestSubmit)f.requestSubmit();else f.submit();}}}));});

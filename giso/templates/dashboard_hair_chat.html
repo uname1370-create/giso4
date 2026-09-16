@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}گفتگوی فروش مو - گیسو{% endblock %}
+
+{% block head %}
+<style>
+.giso-hc-wrap { max-width: 760px; margin: 24px auto; padding: 0 15px; }
+.giso-hc-header { text-align: center; margin-bottom: 18px; }
+.giso-hc-header h2 { color: var(--brown-dark); margin: 0 0 6px; }
+.giso-hc-header p { color: var(--brown); margin: 0; font-size: 0.95rem; }
+.giso-hc-card { background: rgba(255,255,255,.85); backdrop-filter: blur(10px);
+    border: 1px solid rgba(212,175,55,.3); border-radius: 20px; padding: 22px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.05); }
+.giso-hc-status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;
+    padding-bottom: 14px; border-bottom: 1px dashed rgba(212,175,55,.3); }
+.giso-hc-msgs { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; margin-bottom: 16px; }
+.giso-hc-msg { max-width: 82%; padding: 10px 13px; border-radius: 16px; line-height: 1.9; font-size: 0.95rem; }
+.giso-hc-msg.user { align-self: flex-start; background: #eef7ee; border: 1px solid #cfe6cf; color: #2f5d2f; }
+.giso-hc-msg.admin { align-self: flex-end; background: #fdf6ea; border: 1px solid #ecd9b8; color: var(--brown-dark); }
+.giso-hc-msg .meta { display: block; font-size: 0.75rem; color: #999; margin-top: 4px; }
+.giso-hc-form { display: flex; gap: 8px; }
+.giso-hc-form textarea { flex: 1; resize: none; min-height: 48px; border: 1px solid #e0c8a0; border-radius: 12px;
+    padding: 10px 12px; font-family: inherit; font-size: 0.95rem; }
+.giso-hc-form textarea:focus { outline: none; border-color: var(--gold); }
+.giso-hc-back { text-align: center; margin-top: 14px; }
+@media(max-width:600px){.giso-hc-wrap{margin:12px auto;padding:0 10px}.giso-hc-card{padding:14px;border-radius:16px}.giso-hc-msg{max-width:92%;font-size:.88rem}.giso-hc-form{position:sticky;bottom:8px;align-items:stretch;padding-top:8px;background:rgba(255,255,255,.95)}.giso-hc-form textarea{min-width:0;font-size:16px}.giso-hc-form .giso-btn{flex:0 0 auto;padding-inline:14px}.giso-hc-status{align-items:flex-start;flex-direction:column}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="giso-hc-wrap">
+    <div class="giso-hc-header">
+        <h2><i class="fas fa-comments"></i> گفتگوی فروش مو</h2>
+        <p>درخواست #{{ order.id }} — طول {{ order.length_cm }} سانت</p>
+    </div>
+
+    <div class="giso-hc-card">
+        <div class="giso-hc-status">
+            <strong>وضعیت:</strong>
+            {% if order.status == 'pending' %}
+                <span class="giso-badge badge-pending">در انتظار بررسی ⏳</span>
+            {% elif order.status == 'reviewing' %}
+                <span class="giso-badge badge-reviewing">در حال بررسی 🔍</span>
+            {% elif order.status == 'priced' %}
+                <span class="giso-badge badge-priced">قیمت نهایی ثبت شد 💰</span>
+            {% elif order.status == 'approved' %}
+                <span class="giso-badge badge-approved">تایید شد ✅</span>
+            {% elif order.status == 'rejected' %}
+                <span class="giso-badge badge-rejected">رد شد ❌</span>
+            {% elif order.status == 'completed' %}
+                <span class="giso-badge badge-completed">تکمیل شد 📦</span>
+            {% else %}
+                <span class="giso-badge badge-pending">{{ order.status }}</span>
+            {% endif %}
+            {% if order.final_price %}
+                <span style="color:var(--brown); font-size:.9rem;">| 💎 قیمت نهایی: <strong>{{ order.final_price }}</strong></span>
+            {% endif %}
+        </div>
+
+        <div class="giso-hc-msgs">
+            {% if messages %}
+                {% for m in messages %}
+                <div class="giso-hc-msg {{ 'user' if m.sender == 'user' else 'admin' }}">
+                    {{ m.message }}
+                    <span class="meta">{{ '👤 شما' if m.sender == 'user' else '👨‍💼 کارشناس گیسو' }} · {{ m.created_at }}</span>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align:center; color:var(--brown); padding:24px 0;">
+                    هنوز پیامی رد و بدل نشده است. اولین پیام را بنویس 🌸
+                </div>
+            {% endif %}
+        </div>
+
+        <form method="POST" class="giso-hc-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <textarea name="message" rows="1" placeholder="پیام خود را برای کارشناس بنویس..." required></textarea>
+            <button type="submit" class="giso-btn giso-btn-gold">ارسال</button>
+        </form>
+    </div>
+
+    <div class="giso-hc-back">
+        <a href="{{ url_for('dashboard') }}" class="giso-btn giso-btn-outline giso-btn-sm">← بازگشت به پنل کاربری</a>
+    </div>
+</div>
+{% endblock %}

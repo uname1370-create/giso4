@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}روش درخواست مجاز نیست | گیسو صادقی{% endblock %}
+{% block head %}
+<style>
+  .giso-err-wrap{min-height:60vh;display:grid;place-items:center;text-align:center;padding:48px 20px}
+  .giso-err-card{max-width:520px;background:#fffdf8;border:1px solid rgba(183,138,61,.25);border-radius:24px;padding:40px 28px;box-shadow:0 14px 40px rgba(91,52,59,.08)}
+  .giso-err-code{font-size:3rem;font-weight:800;color:#b78a3d;letter-spacing:.02em}
+  .giso-err-title{font-size:1.3rem;font-weight:700;margin:10px 0 6px}
+  .giso-err-sub{color:#76696b;line-height:1.9;margin-bottom:22px}
+  .giso-err-btn{display:inline-block;background:linear-gradient(135deg,#d8ab4e,#b78a3d);color:#fff;text-decoration:none;border-radius:14px;padding:12px 26px;font-weight:700}
+</style>
+{% endblock %}
+{% block content %}
+<div class="giso-err-wrap">
+  <div class="giso-err-card">
+    <div class="giso-err-code">۴۰۵</div>
+    <div class="giso-err-title">این روش درخواست برای این صفحه مجاز نیست</div>
+    <p class="giso-err-sub">مثلاً POST به صفحه‌ای که فقط خواندنی است.<br>اگر از داخل سایت آمدید، صفحه را تازه‌سازی کنید.</p>
+    <a class="giso-err-btn" href="{{ url_for('index') }}">بازگشت به خانه</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+<aside class="giso-filters" id="gisoShopSidebar" aria-label="فیلتر محصولات" aria-hidden="false">
+    <div class="giso-filters-head">
+        <div><span class="giso-section-kicker">انتخاب دقیق‌تر</span><h2><i class="fas fa-sliders"></i> فیلتر محصولات</h2></div>
+        <button type="button" class="giso-drawer-close" id="gisoFiltersClose" aria-label="بستن فیلترها">&times;</button>
+    </div>
+
+    <fieldset class="giso-filter-group">
+        <legend>دسته‌بندی</legend>
+        <div class="giso-filter-options">
+            {% set cat_labels = {
+                'hair': 'مراقبت مو', 'face': 'مراقبت پوست', 'skin': 'مراقبت پوست',
+                'beauty': 'زیبایی', 'repair': 'ترمیم', 'loss': 'ضدریزش',
+                'hydrate': 'آبرسان', 'recommended': 'پیشنهاد مشاور', 'body': 'مراقبت بدن', 'care': 'بهداشت فردی', 'nutrition': 'تغذیه و سلامتی'
+            } %}
+            <label><input type="checkbox" class="giso-f-cat" value="all" checked><span>همه</span></label>
+            {% for c in categories %}<label><input type="checkbox" class="giso-f-cat" value="{{ c }}"><span>{{ cat_labels.get(c, c) }}</span></label>{% endfor %}
+        </div>
+    </fieldset>
+
+    <fieldset class="giso-filter-group">
+        <legend>محدوده قیمت</legend>
+        <div class="giso-filter-options">
+            <label><input type="checkbox" class="giso-f-price" value="0-500000"><span>تا ۵۰۰ هزار</span></label>
+            <label><input type="checkbox" class="giso-f-price" value="500000-1000000"><span>۵۰۰ هزار تا ۱ میلیون</span></label>
+            <label><input type="checkbox" class="giso-f-price" value="1000000-999999999"><span>بیشتر از ۱ میلیون</span></label>
+        </div>
+    </fieldset>
+
+    <fieldset class="giso-filter-group">
+        <legend>وضعیت محصول</legend>
+        <div class="giso-filter-options">
+            <label><input type="checkbox" class="giso-f-stock" value="in"><span>فقط موجود</span></label>
+            <label><input type="checkbox" class="giso-f-stock" value="out"><span>ناموجود</span></label>
+        </div>
+    </fieldset>
+
+    <fieldset class="giso-filter-group">
+        <legend>برچسب</legend>
+        <div class="giso-filter-options">
+            <label><input type="checkbox" class="giso-f-tag" value="پرفروش"><span>پرفروش</span></label>
+            <label><input type="checkbox" class="giso-f-tag" value="تازه"><span>تازه</span></label>
+            <label><input type="checkbox" class="giso-f-tag" value="موجود شد"><span>موجود شد</span></label>
+        </div>
+    </fieldset>
+
+    <button type="button" class="giso-filter-clear" id="gisoFilterClear"><i class="fas fa-rotate-left"></i> پاک‌کردن همه فیلترها</button>
+</aside>

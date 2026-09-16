@@ -1,0 +1,55 @@
+{% extends "shop_layout.html" %}
+{% block title %}فاکتور {{ invoice.invoice_number }} | گیسو صادقی{% endblock %}
+{% block shop_head %}<meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="{{ url_for('shop_mod.static', filename='css/invoice.css') }}?v=1">{% endblock %}
+{% block shop_hero %}{% endblock %}
+{% block shop_content %}
+<div class="giso-invoice-wrap" dir="rtl">
+  <section class="giso-invoice" aria-label="فاکتور رسمی سفارش">
+    <header class="giso-invoice-head">
+      <div class="giso-invoice-brand">
+        <img src="{{ url_for('static', filename=invoice_seller.logo) }}" alt="لوگوی گیسو صادقی" width="76" height="76">
+        <div><h1>فاکتور فروش</h1><strong>{{ invoice_seller.name }}</strong></div>
+      </div>
+      <dl class="giso-invoice-meta">
+        <div><dt>شماره فاکتور</dt><dd dir="ltr">{{ invoice.invoice_number }}</dd></div>
+        <div><dt>تاریخ صدور</dt><dd>{{ to_shamsi(invoice.created_at, with_time=False) }}</dd></div>
+      </dl>
+    </header>
+
+    <div class="giso-invoice-parties">
+      <section><h2>مشخصات فروشنده</h2><p><b>{{ invoice_seller.name }}</b></p><p>{{ invoice_seller.address }}</p><p>{{ fa_digits(invoice_seller.phone) }}</p></section>
+      <section><h2>مشخصات خریدار</h2><p><b>{{ invoice.customer_name }}</b></p><p dir="ltr">{{ fa_digits(display_phone(invoice.customer_phone)) }}</p><p>{{ invoice.customer_address }}</p></section>
+    </div>
+
+    <div class="giso-invoice-table-wrap">
+      <table class="giso-invoice-table">
+        <thead><tr><th>ردیف</th><th>شرح کالا</th><th>قیمت واحد</th><th>تعداد</th><th>مبلغ کل</th></tr></thead>
+        <tbody>{% for item in invoice_items %}<tr>
+          <td>{{ fa_number(loop.index) }}</td><td>{{ item.product_name }}</td>
+          <td>{{ toman(item.unit_price) }}</td><td>{{ fa_number(item.quantity) }}</td><td>{{ toman(item.line_total) }}</td>
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div>
+
+    <div class="giso-invoice-summary">
+      <div><span>جمع کل کالاها</span><strong>{{ toman(invoice.gross_amount) }}</strong></div>
+      <div><span>تخفیف</span><strong>{{ toman(invoice.discount_amount) }}</strong></div>
+      <div class="is-payable"><span>مبلغ نهایی سفارش</span><strong>{{ toman(invoice.payable_amount) }}</strong></div>
+      <div><span>پرداخت‌شده از کیف پول</span><strong>{{ toman(invoice.wallet_paid_amount) }}</strong></div>
+      <div><span>مانده قابل پرداخت به پیک</span><strong>{{ toman(invoice.cod_amount) }}</strong></div>
+    </div>
+
+    <div class="giso-invoice-status status-{{ invoice.payment_status }}">
+      {% if invoice.payment_status == 'settled' %}<b>تسویه‌شده ✅</b><span>{% if invoice.wallet_paid_amount %}تمام مبلغ نهایی از کیف پول پرداخت شده است.{% else %}مانده‌ای برای پرداخت وجود ندارد.{% endif %}</span>
+      {% elif invoice.payment_status == 'split_due' %}<b>پرداخت ترکیبی</b><span>{{ toman(invoice.wallet_paid_amount) }} از کیف پول پرداخت شده و {{ toman(invoice.cod_amount) }} به پیک پرداخت می‌شود.</span>
+      {% else %}<b>پرداخت در محل</b><span>{{ toman(invoice.cod_amount) }} هنگام تحویل به پیک پرداخت می‌شود.</span>{% endif %}
+    </div>
+
+    {% if invoice_orders %}<footer class="giso-invoice-foot"><span>کد پیگیری:</span>{% set tracking = namespace(codes=[]) %}{% for order in invoice_orders %}{% set code = order.tracking_code or ('#' ~ order.id) %}{% if code not in tracking.codes %}<code dir="ltr">{{ code }}</code>{% set tracking.codes = tracking.codes + [code] %}{% endif %}{% endfor %}</footer>{% endif %}
+  </section>
+  <div class="giso-invoice-actions">
+    <button type="button" class="giso-btn giso-btn-gold" onclick="window.print()"><i class="fas fa-print"></i> چاپ فاکتور</button>
+    <a class="giso-btn giso-btn-outline" href="{{ url_for('panel_user.orders') if not is_giso_admin_user() else url_for('panel.shop_orders') }}">بازگشت به سفارش‌ها</a>
+  </div>
+</div>
+{% endblock %}

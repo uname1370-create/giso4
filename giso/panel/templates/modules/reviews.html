@@ -1,0 +1,62 @@
+{% extends 'layout.html' %}
+{% block title %}نظرات - پنل مدیریت گیسو{% endblock %}
+{% block content %}
+<div class="pnl-page">
+    <h1 class="pnl-h1">⭐ {{ 'مدیریت نظرات' if is_super else 'نظرات عمومی' }}</h1>
+    <p class="pnl-sub">{{ 'دو حالت کاری: نمایش / مخفی — همه تغییرات در همین صفحه' if is_super else 'فقط تأیید یا رد نمایش نظرهای عمومی' }}</p>
+
+    <div class="pnl-btn-row pnl-filters" style="margin-bottom:12px;">
+        <a href="{{ url_for('panel.reviews', rv='all') }}" class="pnl-btn {{ 'pnl-btn-gold' if rv_filter=='all' else 'pnl-btn-outline' }}">همه ({{ rv_counts.visible + rv_counts.hidden }})</a>
+        <a href="{{ url_for('panel.reviews', rv='visible') }}" class="pnl-btn {{ 'pnl-btn-gold' if rv_filter=='visible' else 'pnl-btn-outline' }}">👁 نمایش‌شده ({{ rv_counts.visible }})</a>
+        <a href="{{ url_for('panel.reviews', rv='hidden') }}" class="pnl-btn {{ 'pnl-btn-gold' if rv_filter=='hidden' else 'pnl-btn-outline' }}">🙈 مخفی ({{ rv_counts.hidden }})</a>
+    </div>
+
+    {% if reviews %}
+    <div class="pnl-table-wrap">
+        <table class="pnl-table">
+            <thead><tr><th>#</th><th>بخش</th><th>سفارش</th><th>کاربر</th><th>امتیاز</th><th>متن</th><th>وضعیت</th><th>عملیات</th><th>تاریخ</th></tr></thead>
+            <tbody>
+            {% for r in reviews %}
+            <tr>
+                <td>{{ r.id }}</td>
+                <td>{{ '🛍 فروشگاه' if r.review_type == 'shop_order' else '💇 فروش مو' }}</td>
+                <td>#{{ r.order_id }}</td>
+                <td dir="ltr">{{ r.phone }}</td>
+                <td><b>{{ r.rating }} ⭐</b></td>
+                <td style="max-width:240px;">{{ r.comment }}</td>
+                <td>
+                    {% if r.status == 'visible' %}<span class="pnl-badge pnl-badge-ok">نمایش</span>
+                    {% elif r.status == 'hidden' %}<span class="pnl-badge pnl-badge-warn">مخفی</span>
+                    {% elif r.status == 'deleted' %}<span class="pnl-badge pnl-badge-off">حذف‌شده</span>
+                    {% else %}<span class="pnl-badge">{{ r.status }}</span>{% endif %}
+                </td>
+                <td>
+                    {% if r.status != 'deleted' %}
+                    <div class="pnl-btn-row">
+                        <form method="POST" action="{{ url_for('panel.review_toggle', review_id=r.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="rv" value="{{ rv_filter }}">
+                            <button class="pnl-btn pnl-btn-outline pnl-btn-sm">{% if is_super %}{{ '🙈 مخفی' if r.status=='visible' else '👁 نمایش' }}{% else %}{{ '❌ رد' if r.status=='visible' else '✅ تأیید' }}{% endif %}</button>
+                        </form>
+                        {% if is_super %}
+                        <form method="POST" action="{{ url_for('panel.review_delete', review_id=r.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="rv" value="{{ rv_filter }}">
+                            <input type="hidden" name="step" value="{{ 'confirm' if request.args.get('del') == r.id|string else '' }}">
+                            <button class="pnl-btn pnl-btn-danger pnl-btn-sm" {% if not request.args.get('del') == r.id|string %}onclick="this.form.step.value='confirm'; return confirm('⚠️ حذف نهایی نظر #{{ r.id }}؟')"{% endif %}>🗑 حذف</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% else %}<span class="pnl-muted">—</span>{% endif %}
+                </td>
+                <td>{{ r.created_at }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="pnl-empty"><p>نظری ثبت نشده است.</p></div>
+    {% endif %}
+</div>
+{% endblock %}

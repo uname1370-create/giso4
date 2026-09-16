@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}آنالیز هوشمند مو و پوست | گیسو صادقی{% endblock %}
+{% block meta %}
+<meta name="description" content="آنالیز تخصصی مو و پوست با هوش مصنوعی. وضعیت مو و پوست خود را بشناسید و برنامه مراقبتی اختصاصی دریافت کنید.">
+<meta property="og:title" content="آنالیز هوشمند مو و پوست | گیسو صادقی">
+<meta property="og:description" content="آنالیز تخصصی با هوش مصنوعی — بدون ادعای تشخیص پزشکی">
+<link rel="canonical" href="{{ url_for('analysis', _external=True) }}">
+<meta property="og:url" content="{{ url_for('analysis', _external=True) }}">
+{% endblock %}
+
+{% block head %}
+<style>
+/* ============================================================
+   صفحه انتخاب آنالیز گیسو — تحلیل مو / پوست
+   تم: طلایی + کرم + قهوه‌ای گرم (گیسو) | فونت Vazirmatn
+   ============================================================ */
+
+.ahs-page {
+    min-height: 100vh;
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(1100px 600px at 8% -5%, rgba(212,175,55,0.16), transparent 60%),
+        radial-gradient(900px 520px at 108% 15%, rgba(245,230,211,0.95), transparent 55%),
+        linear-gradient(180deg, #FFF9F0 0%, #FFF5E9 100%);
+}
+
+/* ---- ذرات طلایی شناور (particles) ---- */
+.ahs-sparkle {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212,175,55,0.95), rgba(212,175,55,0));
+    opacity: 0;
+    animation: ahsFloat linear infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+@keyframes ahsFloat {
+    0%   { transform: translateY(0) scale(0.5); opacity: 0; }
+    12%  { opacity: 0.9; }
+    50%  { transform: translateY(-34px) scale(1); opacity: 0.7; }
+    85%  { opacity: 0.45; }
+    100% { transform: translateY(-80px) scale(0.35); opacity: 0; }
+}
+
+/* ==================== بخش ۱: Hero ==================== */
+.ahs-hero {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 64px 20px 28px;
+    animation: ahsFadeDown .8s ease both;
+}
+.ahs-hero-glow {
+    width: 260px; height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212,175,55,0.4), transparent 70%);
+    position: absolute;
+    top: 8%; left: 50%;
+    transform: translateX(-50%);
+    animation: ahsPulse 5s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+@keyframes ahsPulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+.ahs-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(212,175,55,0.13);
+    border: 1px solid rgba(212,175,55,0.45);
+    color: #8b5a2b;
+    padding: 8px 20px;
+    border-radius: 50px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    margin-bottom: 22px;
+}
+.ahs-hero h1 {
+    font-size: clamp(2.1rem, 6vw, 3.7rem);
+    font-weight: 700;
+    margin: 0 0 6px;
+    background: linear-gradient(135deg, #8b5a2b 0%, #d4af37 55%, #a87f1a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.ahs-hero-sub {
+    font-size: clamp(1.15rem, 3vw, 1.55rem);
+    font-weight: 600;
+    color: #8b5a2b;
+    margin: 0 0 10px;
+}
+.ahs-hero-desc {
+    color: #8b6b45;
+    font-size: 1.05rem;
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+/* ==================== بخش ۲: دو کارت انتخاب ==================== */
+.ahs-cards {
+    position: relative;
+    z-index: 1;
+    max-width: 1180px;
+    margin: 20px auto 0;
+    padding: 20px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    overflow: visible;
+}
+/* ترتیب کارت‌ها: در دسکتاپ مو (راست) اول، پوست (چپ) دوم */
+.ahs-card { position: relative; overflow: visible; }
+.ahs-card.hair { order: 1; }
+.ahs-card.skin { order: 2; }
+
+.ahs-card-inner {
+    position: relative;
+    border-radius: 32px;
+    height: 560px;
+    display: block;
+    box-shadow: 0 14px 38px rgba(92,61,46,0.15);
+    transition: transform .4s ease, box-shadow .4s ease;
+    animation: ahsFadeUp .8s ease both;
+}
+.ahs-card.hair .ahs-card-inner { animation-delay: .15s; }
+.ahs-card.skin .ahs-card-inner { animation-delay: .3s; }
+
+/* لایه ۱: گرادیان پایه */
+.ahs-card.hair .ahs-card-inner { background: linear-gradient(180deg, #D4A574 0%, #F5E6D3 100%); }
+.ahs-card.skin .ahs-card-inner { background: linear-gradient(180deg, #E5B8A0 0%, #FFE8DC 100%); }
+
+/* لایه ۲: تصویر پس‌زمینه (پر کارت) — گردی گوشه و برش فقط اینجا */
+.ahs-card-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.65;
+    border-radius: 32px;
+    overflow: hidden;
+    transition: opacity .4s ease, transform .6s ease;
+    z-index: 1;
+}
+
+/* لایه ۳: overlay تیره فقط برای پایین کارت (بالا و وسط شفاف) */
+.ahs-card-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    transition: opacity .4s ease;
+    border-radius: 32px;
+    background: linear-gradient(180deg,
+        rgba(92,61,46,0) 0%,
+        rgba(92,61,46,0) 50%,
+        rgba(92,61,46,0.5) 75%,
+        rgba(92,61,46,0.9) 100%);
+}
+
+/* ===== لیبل‌های ۴ گانه (پایین کارت، بالای دکمه) ===== */
+.ahs-labels {
+    position: absolute;
+    bottom: 110px;
+    right: 20px;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: auto;
+    align-items: flex-end;
+}
+.ahs-label {
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(15px);
+    border: 1.5px solid rgba(255,255,255,0.3);
+    color: #FFFFFF;
+    padding: 10px 14px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    min-height: 40px;
+    text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    text-align: right;
+    /* عرض یکسان برای همه: حداقل 180، حداکثر 200 */
+    width: 100%;
+    min-width: 180px;
+    max-width: 200px;
+    transform-origin: right center;
+    transition: transform .25s ease, background .25s ease, box-shadow .25s ease;
+    opacity: 0;
+    transform: translateX(20px);
+    animation: ahsLabelIn .5s ease forwards;
+}
+.ahs-label:hover {
+    transform: scale(1.08);
+    background: rgba(255,255,255,0.35);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+.ahs-label .lbl-ico { font-size: 16px; margin-left: 10px; }
+.ahs-card.hair .ahs-label:nth-child(1) { animation-delay: .3s; }
+.ahs-card.hair .ahs-label:nth-child(2) { animation-delay: .6s; }
+.ahs-card.hair .ahs-label:nth-child(3) { animation-delay: .9s; }
+.ahs-card.hair .ahs-label:nth-child(4) { animation-delay: 1.2s; }
+.ahs-card.skin .ahs-label:nth-child(1) { animation-delay: .3s; }
+.ahs-card.skin .ahs-label:nth-child(2) { animation-delay: .6s; }
+.ahs-card.skin .ahs-label:nth-child(3) { animation-delay: .9s; }
+.ahs-card.skin .ahs-label:nth-child(4) { animation-delay: 1.2s; }
+@keyframes ahsLabelIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== دکمه شروع آنالیز (پایین کارت، روی تصویر) ===== */
+.ahs-card-btn {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 72%;
+    z-index: 4;
+    background: rgba(255,255,255,0.95);
+    color: #5C3D2E;
+    padding: 16px 30px;
+    border-radius: 50px;
+    font-size: 17px;
+    font-weight: 600;
+    text-align: center;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    transition: background .3s ease, transform .3s ease, box-shadow .3s ease;
+}
+.ahs-card-btn i { margin-right: 6px; }
+.ahs-card:hover .ahs-card-btn {
+    background: #FFFFFF;
+    transform: translateX(-50%) translateY(-2px);
+    box-shadow: 0 12px 35px rgba(0,0,0,0.4);
+}
+
+/* ===== توضیح زیر کارت (خارج از کارت) ===== */
+.ahs-card-caption {
+    text-align: center;
+    margin-top: 20px;
+    padding: 0 10px;
+    font-size: 15px;
+    color: #5C3D2E;
+    font-weight: 500;
+    line-height: 1.7;
+    animation: ahsFadeUp .8s ease .5s both;
+}
+
+/* ==================== بخش ۳: چرا آنالیز گیسو ==================== */
+.ahs-why {
+    position: relative;
+    z-index: 1;
+    max-width: 1240px;
+    margin: 70px auto 90px;
+    padding: 0 20px;
+    text-align: center;
+    animation: ahsFadeUp .8s ease .4s both;
+}
+.ahs-why h2 {
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    font-weight: 700;
+    color: #4a2e18;
+    margin-bottom: 40px;
+}
+.ahs-why-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+.ahs-why-card {
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(212,175,55,0.3);
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(139,90,43,0.08);
+    transition: transform .3s ease, box-shadow .3s ease;
+}
+.ahs-why-card:hover { transform: translateY(-6px); box-shadow: 0 18px 40px rgba(139,90,43,0.15); }
+.ahs-why-icon { font-size: 40px; margin-bottom: 14px; }
+.ahs-why-card h4 { font-size: 20px; font-weight: 600; color: #4a2e18; margin-bottom: 8px; }
+.ahs-why-card p { font-size: 14px; color: #8b6b45; }
+
+/* ---- انیمیشن ورود صفحه ---- */
+@keyframes ahsFadeDown {
+    from { opacity: 0; transform: translateY(-30px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ahsFadeUp {
+    from { opacity: 0; transform: translateY(40px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ==================== ریسپانسیو ==================== */
+@media (max-width: 1024px) {
+    .ahs-cards { gap: 24px; padding: 8px 16px; }
+    .ahs-card-inner { height: 560px; }
+}
+@media (max-width: 768px) {
+    .ahs-cards { grid-template-columns: 1fr; gap: 26px; }
+    .ahs-card-inner { height: 520px; }
+    .ahs-labels { width: auto; bottom: 105px; right: 16px; }
+    .ahs-label { padding: 10px 14px; font-size: 14px; min-height: 40px; }
+    .ahs-why-grid { grid-template-columns: 1fr; }
+    .ahs-why { margin: 50px auto 60px; }
+    .ahs-hero { padding: 48px 16px 20px; }
+    .ahs-card-btn { font-size: 15px; padding: 14px 22px; width: 80%; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="ahs-page">
+    <!-- ذرات طلایی شناور -->
+    <div class="ahs-sparkle" style="top:12%; left:6%;  width:11px;height:11px; animation-duration:7s;"></div>
+    <div class="ahs-sparkle" style="top:20%; left:24%; width:6px;height:6px;  animation-duration:9s; animation-delay:1s;"></div>
+    <div class="ahs-sparkle" style="top:9%;  left:68%; width:9px;height:9px;  animation-duration:8s; animation-delay:.5s;"></div>
+    <div class="ahs-sparkle" style="top:32%; left:88%; width:7px;height:7px;  animation-duration:10s; animation-delay:2s;"></div>
+    <div class="ahs-sparkle" style="top:6%;  left:45%; width:8px;height:8px;  animation-duration:11s; animation-delay:1.5s;"></div>
+    <div class="ahs-sparkle" style="top:45%; left:14%; width:6px;height:6px;  animation-duration:8s; animation-delay:.8s;"></div>
+    <div class="ahs-sparkle" style="top:55%; left:80%; width:8px;height:8px;  animation-duration:9s; animation-delay:1.7s;"></div>
+
+    <!-- ==================== بخش ۱: هیرو ==================== -->
+    <div class="ahs-hero">
+        <div class="ahs-hero-glow"></div>
+        <span class="ahs-hero-badge">🤖 مبتنی بر پیشرفته‌ترین تکنولوژی هوش مصنوعی</span>
+        <h1>هوش مصنوعی گیسو</h1>
+        <p class="ahs-hero-sub">متخصص شخصی زیبایی تو</p>
+        <p class="ahs-hero-desc">با یک عکس ساده، تحلیل تخصصی مو یا پوستت رو دریافت کن</p>
+    </div>
+
+    <!-- ==================== بخش ۲: دو کارت انتخاب ==================== -->
+    <div class="ahs-cards">
+
+        <!-- ======= کارت آنالیز مو ======= -->
+        <div class="ahs-card hair">
+            <div class="ahs-card-inner">
+                <img class="ahs-card-bg" loading="lazy"
+                     src="{{ url_for('static', filename='images/analysis_hair.webp') }}" width="768" height="1376"
+                     alt="آنالیز مو">
+                <div class="ahs-card-overlay"></div>
+
+                <!-- لیبل‌های ۴ گانه -->
+                <div class="ahs-labels">
+                    <span class="ahs-label"><span>تشخیص نوع مو</span><span class="lbl-ico">🔬</span></span>
+                    <span class="ahs-label"><span>شناسایی مشکلات</span><span class="lbl-ico">💇</span></span>
+                    <span class="ahs-label"><span>روتین اختصاصی</span><span class="lbl-ico">💧</span></span>
+                    <span class="ahs-label"><span>محصولات پیشنهادی</span><span class="lbl-ico">🌿</span></span>
+                </div>
+
+                <!-- دکمه شروع -->
+                <a href="/analysis/hair" class="ahs-card-btn">شروع آنالیز مو 🔬</a>
+            </div>
+            <!-- توضیح زیر کارت -->
+            <p class="ahs-card-caption">بذار هوش مصنوعی گیسو موهات رو تحلیل کنه</p>
+        </div>
+
+        <!-- ======= کارت آنالیز پوست ======= -->
+        <div class="ahs-card skin">
+            <div class="ahs-card-inner">
+                <img class="ahs-card-bg" loading="lazy"
+                     src="{{ url_for('static', filename='images/analysis_skin.webp') }}" width="768" height="1376"
+                     alt="آنالیز پوست">
+                <div class="ahs-card-overlay"></div>
+
+                <!-- لیبل‌های ۴ گانه -->
+                <div class="ahs-labels">
+                    <span class="ahs-label"><span>تشخیص نوع پوست</span><span class="lbl-ico">✨</span></span>
+                    <span class="ahs-label"><span>شناسایی لک و جوش</span><span class="lbl-ico">🌸</span></span>
+                    <span class="ahs-label"><span>روتین صبح و شب</span><span class="lbl-ico">🎯</span></span>
+                    <span class="ahs-label"><span>توصیه‌های تخصصی</span><span class="lbl-ico">🍃</span></span>
+                </div>
+
+                <!-- دکمه شروع -->
+                <a href="/analysis/skin" class="ahs-card-btn">شروع آنالیز پوست ✨</a>
+            </div>
+            <!-- توضیح زیر کارت -->
+            <p class="ahs-card-caption">با تحلیل هوشمند پوست، بهترین روتین رو پیدا کن</p>
+        </div>
+
+    </div>
+
+    <!-- ==================== بخش ۳: چرا آنالیز گیسو ==================== -->
+    <div class="ahs-why">
+        <h2>چرا آنالیز هوشمند گیسو؟</h2>
+        <div class="ahs-why-grid">
+            <div class="ahs-why-card">
+                <div class="ahs-why-icon">🧠</div>
+                <h4>هوش مصنوعی پیشرفته</h4>
+                <p>استفاده از بهترین مدل‌های تحلیل تصویر روز دنیا</p>
+            </div>
+            <div class="ahs-why-card">
+                <div class="ahs-why-icon">🎯</div>
+                <h4>تخصصی و شخصی</h4>
+                <p>تحلیل بر اساس شرایط خودت، نه پاسخ عمومی</p>
+            </div>
+            <div class="ahs-why-card">
+                <div class="ahs-why-icon">🔒</div>
+                <h4>امنیت کامل</h4>
+                <p>عکس‌ها و اطلاعات شما کاملاً محفوظ و رمزنگاری‌شده</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}گنجینه - sadeghiai{% endblock %}
+{% block content %}
+<section class="simple-page">
+<div class="container page-wrap">
+    <div class="page-header"><h1><i class="fas fa-gem"></i> گنجینه</h1><p>آیتم‌های قابل خرید با اعتبار</p></div>
+    {% if items %}
+    <div class="cards-grid">
+        {% for it in items %}
+        <div class="card glass"><div class="card-icon icon-mix"><i class="fas fa-shopping-bag"></i></div>
+            <h3>{{ it.title }}</h3><p class="card-desc">{{ it.desc or '' }}</p>
+            <p class="card-meta">💰 {{ it.price }} اعتبار</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><i class="fas fa-gem empty-state-icon"></i><p>در حال حاضر آیتمی در گنجینه نیست.</p><a href="{{ url_for('dashboard') }}" class="btn btn-outline">بازگشت</a></div>
+    {% endif %}
+</div>
+</section>
+{% endblock %}

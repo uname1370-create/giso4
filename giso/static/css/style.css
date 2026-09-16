@@ -1,0 +1,1732 @@
+/*
+ * استایل گیسو
+ * تم رنگی: صورتی چرک (#F8B4B4) + کرم (#F5E6D3) + طلایی (#D4AF37)
+ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --pink: #F8B4B4;
+    --pink-deep: #e89090;
+    --cream: #F5E6D3;
+    --cream-light: #FBF6EC;
+    --gold: #D4AF37;
+    --gold-deep: #b8941f;
+    --brown: #8b5a2b;
+    --brown-dark: #5a3e1b;
+    --white: #ffffff;
+    --shadow: 0 10px 30px rgba(139, 90, 43, 0.15);
+}
+
+html, body {
+    font-family: 'Vazirmatn', 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, var(--cream) 0%, var(--cream-light) 100%);
+    color: var(--brown-dark);
+    min-height: 100vh;
+    line-height: 1.8;
+}
+
+a { color: inherit; text-decoration: none; transition: .2s; }
+button, input, textarea, select { font-family: inherit; font-size: inherit; }
+
+.giso-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* ===================== ناوبری ===================== */
+.giso-navbar {
+    background: rgba(253, 246, 236, 0.95);
+    backdrop-filter: blur(15px);
+    border-bottom: 2px solid var(--pink);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.giso-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.giso-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--brown-dark);
+}
+
+.giso-logo-img { height: 40px; }
+.giso-logo-text { color: var(--gold-deep); }
+
+.giso-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.giso-nav-links a {
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--brown);
+    white-space: nowrap;
+}
+
+.giso-nav-links a:hover {
+    background: var(--pink);
+    color: white;
+}
+
+.giso-user {
+    font-size: 13px;
+    color: var(--brown);
+    padding: 0 10px;
+}
+
+.giso-menu-btn {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: var(--brown);
+    cursor: pointer;
+}
+
+/* ===================== دکمه‌ها ===================== */
+.giso-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    transition: all .25s ease;
+}
+
+.giso-btn-gold {
+    background: linear-gradient(135deg, var(--gold), var(--gold-deep));
+    color: white;
+    box-shadow: 0 4px 12px rgba(212,175,55,.4);
+}
+.giso-btn-gold:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(212,175,55,.5); }
+
+.giso-btn-outline {
+    background: transparent;
+    border: 2px solid var(--gold);
+    color: var(--gold-deep);
+}
+.giso-btn-outline:hover { background: var(--gold); color: white; }
+
+.giso-btn-ghost {
+    background: rgba(139,90,43,.08);
+    color: var(--brown);
+}
+.giso-btn-ghost:hover { background: rgba(139,90,43,.15); }
+
+.giso-btn-full { width: 100%; justify-content: center; }
+.giso-btn-lg { padding: 14px 28px; font-size: 16px; }
+.giso-btn-sm { padding: 8px 12px; font-size: 13px; }
+
+/* ===================== گلاس‌مورفیسم (کرم طلایی) ===================== */
+.giso-glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(212,175,55,.25);
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+}
+
+/* ===================== فلش پیام‌ها ===================== */
+.giso-flash-wrap {
+    max-width: 900px;
+    margin: 12px auto;
+    padding: 0 20px;
+}
+
+.giso-flash {
+    padding: 12px 18px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: slideIn .3s;
+}
+@keyframes slideIn { from {opacity:0;transform:translateY(-6px);} to {opacity:1;transform:translateY(0);} }
+.gf-success { background: #d1fae5; color: #065f46; border: 1px solid #86efac; }
+.gf-danger  { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.gf-warning { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.gf-info    { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+
+.giso-flash button {
+    background: none; border: none; font-size: 22px; cursor: pointer; color: inherit;
+}
+
+/* ===================== Hero ===================== */
+.giso-hero {
+    padding: 60px 0 40px;
+}
+
+.giso-hero-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 40px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.giso-hero-title {
+    font-size: 52px;
+    font-weight: 800;
+    color: var(--gold-deep);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
+}
+
+.giso-tagline {
+    font-size: 22px;
+    color: var(--pink-deep);
+    font-weight: 600;
+    margin-bottom: 14px;
+}
+
+.giso-desc {
+    font-size: 16px;
+    color: var(--brown);
+    margin-bottom: 24px;
+}
+
+.giso-hero-btns {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* انیمیشن لوگو: Fade in → 3s → Fade out */
+.giso-hero-logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.giso-logo-fade {
+    width: 300px;
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(248,180,180,.3), transparent);
+    animation: logoFade 7s ease-in-out infinite;
+}
+.giso-logo-fade img { max-width: 240px; border-radius: 50%; }
+
+.logo-fallback {
+    font-size: 120px;
+    animation: logoFade 7s ease-in-out infinite;
+}
+
+/* انیمیشن: Fade In (1s) → مکث 3s → Fade Out (1s) → مکث 2s → تکرار */
+@keyframes logoFade {
+    0%   { opacity: 0; transform: scale(0.8); }
+    14%  { opacity: 1; transform: scale(1); }     /* پایان Fade In در ثانیه 1 */
+    57%  { opacity: 1; transform: scale(1); }     /* شروع Fade Out در ثانیه 4 (مکث 3 ثانیه) */
+    71%  { opacity: 0; transform: scale(0.9); }   /* پایان Fade Out در ثانیه 5 */
+    100% { opacity: 0; transform: scale(0.8); }
+}
+
+/* ===================== بخش‌های اصلی ===================== */
+.giso-features {
+    padding: 40px 0 80px;
+}
+
+.giso-features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.giso-feat-card {
+    padding: 30px 24px;
+    text-align: center;
+    transition: transform .25s, box-shadow .25s;
+}
+
+.giso-feat-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 40px rgba(139,90,43,.2);
+}
+
+.giso-feat-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 16px;
+    color: white;
+}
+
+.gico-pink  { background: linear-gradient(135deg, var(--pink), var(--pink-deep)); }
+.gico-cream { background: linear-gradient(135deg, var(--cream), var(--gold)); color: var(--brown-dark); }
+.gico-gold  { background: linear-gradient(135deg, var(--gold), var(--gold-deep)); }
+
+.giso-feat-card h3 {
+    font-size: 19px;
+    margin-bottom: 8px;
+    color: var(--brown-dark);
+}
+
+.giso-feat-card p {
+    font-size: 14px;
+    color: var(--brown);
+}
+
+/* ===================== صفحات عمومی ===================== */
+.giso-main { min-height: calc(100vh - 200px); }
+
+.giso-page { padding: 40px 0; }
+
+.giso-narrow { max-width: 700px !important; }
+
+.giso-page-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.giso-page-header h2 {
+    font-size: 30px;
+    color: var(--gold-deep);
+    margin-bottom: 6px;
+}
+
+.giso-page-header p { color: var(--brown); }
+
+.giso-card {
+    padding: 28px;
+    margin-bottom: 20px;
+}
+
+/* ===================== فرم‌ها ===================== */
+.giso-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.giso-form label {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--brown-dark);
+}
+
+.giso-form input, .giso-form textarea {
+    padding: 12px 16px;
+    border: 1.5px solid rgba(212,175,55,.3);
+    background: white;
+    border-radius: 12px;
+    outline: none;
+    color: var(--brown-dark);
+    transition: border .2s;
+}
+
+.giso-form input:focus, .giso-form textarea:focus {
+    border-color: var(--gold);
+}
+
+.giso-form textarea { resize: vertical; font-family: inherit; }
+
+/* ===================== احراز هویت ===================== */
+.giso-auth {
+    min-height: calc(100vh - 200px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+}
+
+.giso-auth-card {
+    padding: 36px;
+    width: 100%;
+    max-width: 420px;
+}
+
+.giso-auth-card h2 {
+    text-align: center;
+    color: var(--gold-deep);
+    margin-bottom: 20px;
+    font-size: 24px;
+}
+
+.giso-auth-foot {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 14px;
+    color: var(--brown);
+}
+
+.giso-auth-foot a { color: var(--gold-deep); font-weight: 600; }
+
+/* ===================== فروش مو ===================== */
+.giso-upload-area {
+    border: 2px dashed var(--gold);
+    border-radius: 14px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    background: rgba(212,175,55,.05);
+    transition: all .2s;
+}
+
+.giso-upload-area:hover {
+    background: rgba(212,175,55,.12);
+}
+
+.giso-upload-area i {
+    font-size: 42px;
+    color: var(--gold);
+    margin-bottom: 8px;
+}
+
+.giso-upload-area p { color: var(--brown); font-weight: 600; }
+.giso-upload-area small { color: var(--brown); opacity: .7; }
+
+.price-live {
+    background: linear-gradient(135deg, var(--gold), var(--gold-deep));
+    color: white;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.price-reveal {
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(248,180,180,.2), rgba(212,175,55,.2));
+    border-radius: 14px;
+    margin-bottom: 10px;
+}
+
+.price-tag {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--gold-deep);
+    margin: 12px 0;
+}
+
+.price-note { color: var(--brown); font-size: 14px; }
+.price-note.small { font-size: 12px; opacity: .8; margin-top: 6px; }
+
+.giso-success {
+    text-align: center;
+    padding: 50px 30px;
+}
+
+.giso-success-icon {
+    font-size: 70px;
+    color: #16a34a;
+    margin-bottom: 16px;
+}
+
+.giso-success h2 {
+    color: var(--gold-deep);
+    margin-bottom: 10px;
+}
+
+.giso-success p {
+    color: var(--brown);
+    margin-bottom: 20px;
+}
+
+.giso-warn {
+    padding: 18px;
+    text-align: center;
+    background: #fef3c7;
+    color: #92400e;
+    margin-bottom: 20px;
+}
+
+.giso-warn i { color: var(--gold-deep); font-size: 22px; margin-left: 8px; }
+
+/* ===================== آنالیز ===================== */
+.giso-analyze-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.giso-card-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    color: white;
+    margin-bottom: 14px;
+}
+
+.giso-card h3 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: var(--brown-dark);
+}
+
+.giso-card p {
+    color: var(--brown);
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.giso-result { padding: 30px; margin-bottom: 24px; }
+.giso-result h3 {
+    color: var(--gold-deep);
+    font-size: 22px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.giso-result-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: center;
+}
+
+.giso-result-photo img {
+    width: 100%;
+    border-radius: 16px;
+    border: 3px solid var(--gold);
+}
+
+.giso-score-wrap { text-align: center; }
+
+.giso-score-circle {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--pink));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    color: white;
+}
+
+.giso-score-num { font-size: 42px; font-weight: 800; line-height: 1; }
+.giso-score-label { font-size: 13px; opacity: .9; margin-top: 2px; }
+
+.giso-result-sections {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.giso-result-block {
+    background: rgba(255,255,255,.6);
+    border-radius: 14px;
+    padding: 18px;
+}
+
+.giso-result-block h4 {
+    margin-bottom: 10px;
+    font-size: 15px;
+    color: var(--brown-dark);
+}
+
+.giso-result-block ul { list-style: none; }
+.giso-result-block ul li {
+    padding: 6px 0;
+    font-size: 13px;
+    color: var(--brown);
+    border-bottom: 1px dashed rgba(139,90,43,.15);
+}
+
+.giso-recommended {
+    margin-top: 24px;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(248,180,180,.15), rgba(212,175,55,.15));
+    border-radius: 14px;
+}
+
+.giso-recommended h4 { color: var(--gold-deep); margin-bottom: 14px; }
+
+.giso-rec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.giso-rec-item {
+    background: white;
+    padding: 14px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.giso-rec-icon {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    background: var(--pink);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 8px;
+    color: white; font-size: 18px;
+}
+
+.giso-rec-name { font-weight: 700; font-size: 14px; color: var(--brown-dark); }
+.giso-rec-desc { font-size: 12px; color: var(--brown); margin-top: 4px; }
+
+.giso-history { padding: 20px 24px; }
+.giso-history h3 { color: var(--gold-deep); margin-bottom: 12px; font-size: 18px; }
+.giso-hist-list { list-style: none; }
+.giso-hist-list li {
+    padding: 8px 0;
+    border-bottom: 1px dashed rgba(139,90,43,.15);
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--brown);
+}
+
+.gico-tag {
+    background: var(--pink);
+    color: white;
+    padding: 2px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ===================== فروشگاه ===================== */
+.giso-products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+}
+
+.giso-product {
+    overflow: hidden;
+    transition: transform .2s;
+}
+
+.giso-product:hover { transform: translateY(-4px); }
+
+.giso-product.out-of-stock { opacity: .7; }
+
+.giso-prod-img {
+    height: 180px;
+    background: linear-gradient(135deg, var(--cream), var(--pink));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 52px;
+    color: white;
+    position: relative;
+}
+
+.giso-stock-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #dc2626;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.giso-prod-info { padding: 16px; }
+
+.giso-prod-info h4 {
+    font-size: 15px;
+    color: var(--brown-dark);
+    margin-bottom: 6px;
+    min-height: 44px;
+}
+
+.giso-prod-desc {
+    font-size: 12px;
+    color: var(--brown);
+    min-height: 50px;
+    margin-bottom: 10px;
+}
+
+.giso-prod-price {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--gold-deep);
+    margin-bottom: 12px;
+}
+
+.giso-prod-price span {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--brown);
+}
+
+.giso-notify-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.giso-notify-form input {
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(212,175,55,.3);
+    outline: none;
+    font-size: 12px;
+}
+
+.giso-buy-form { max-width: 600px; margin: 0 auto 30px; }
+.giso-buy-form h3 { color: var(--gold-deep); margin-bottom: 6px; }
+
+.giso-form-btns { display: flex; gap: 10px; margin-top: 8px; }
+
+.giso-empty {
+    text-align: center;
+    color: var(--brown);
+    padding: 40px;
+    grid-column: 1 / -1;
+}
+
+/* ===================== فوتر سه‌ستونه ===================== */
+.giso-footer {
+    margin-top: 56px;
+    color: #f4ead8;
+    background:
+        radial-gradient(circle at 12% 0, rgba(212,175,55,.18), transparent 32%),
+        linear-gradient(180deg, #2a221c 0%, #1b1613 100%);
+    border-top: 3px solid #c9a24a;
+    font-size: 14px;
+}
+.giso-footer-inner {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px 22px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 34px 18px 20px;
+}
+.giso-footer-col { min-width: 0; }
+.giso-footer-col h2 {
+    margin: 0 0 12px;
+    color: #f0d48a;
+    font-size: 1.14rem;
+    font-weight: 800;
+    letter-spacing: .01em;
+    text-align: center;
+}
+.giso-footer-col h2:after {
+    content: "";
+    display: block;
+    width: 42px;
+    height: 3px;
+    margin: 8px auto 0;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #d4af37, transparent);
+}
+.giso-footer-links {
+    display: grid;
+    gap: 8px;
+}
+.giso-footer-links a,
+.giso-footer-contact {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #eee2cc !important;
+    text-decoration: none;
+    min-height: 34px;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+.giso-footer-links a:hover,
+.giso-footer-contact:hover { color: #f6d889 !important; }
+.giso-footer-bale {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(212,175,55,.32);
+    border-radius: 16px;
+    background: rgba(255,248,230,.08);
+}
+.giso-footer-bale span {
+    color: #d8c39a;
+    font-size: .78rem;
+    font-weight: 700;
+}
+.giso-footer-bale strong {
+    color: #fff8e4;
+    font-size: 1.15rem;
+    letter-spacing: .04em;
+    overflow-wrap: anywhere;
+}
+.giso-footer-bale-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 16px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #c9a24a, #8d6a1f);
+    color: #fff !important;
+    font-weight: 800;
+    text-decoration: none;
+    box-shadow: 0 8px 18px rgba(0,0,0,.18);
+}
+.giso-footer-bale-btn:hover { transform: translateY(-2px); }
+.giso-footer-brand-note {
+    color: #d8c39a;
+    line-height: 1.9;
+    margin: 0 0 14px;
+}
+.giso-footer-social {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.giso-footer-social a {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(212,175,55,.4);
+    color: #f0d48a !important;
+    background: rgba(255,248,230,.08);
+    text-decoration: none;
+}
+.giso-footer-social a:hover {
+    background: #d4af37;
+    color: #1b1613 !important;
+}
+.giso-footer-bar {
+    border-top: 1px solid rgba(240,212,138,.16);
+    text-align: center;
+    padding: 16px 20px 22px;
+    color: #cbbca3;
+    font-size: 13px;
+}
+.giso-footer-bar p { margin: 0; }
+.giso-footer-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 12px 16px;
+    text-align: center;
+    border-radius: 22px;
+    border: 1px solid rgba(240, 212, 138, .24);
+    background:
+        radial-gradient(circle at 88% 0, rgba(232, 144, 144, .18), transparent 46%),
+        linear-gradient(180deg, rgba(255, 248, 230, .12), rgba(255, 248, 230, .03));
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .18);
+}
+.giso-footer-ico {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #d4af37, #e89090);
+    color: #1b1613;
+    font-size: 1.15rem;
+    box-shadow: 0 8px 16px rgba(212, 175, 55, .28);
+}
+.giso-footer-ico--bale {
+    background: #fff8e4;
+    overflow: hidden;
+    border-radius: 50%;
+}
+.giso-footer-ico--bale img {
+    width: 44px;
+    height: auto;
+    display: block;
+}
+.giso-footer-action p {
+    color: #d8c39a;
+    line-height: 1.85;
+    margin: 0;
+    font-size: .98rem;
+}
+.giso-footer-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 52px;
+    width: 100%;
+    margin-top: auto;
+    padding: 0 18px;
+    font-size: 1.05rem;
+    border: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #c9a24a, #8d6a1f);
+    color: #fff !important;
+    font: inherit;
+    font-weight: 800;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .18);
+}
+.giso-footer-cta:hover { transform: translateY(-2px); }
+.giso-footer-cta i { font-size: 1.15rem; }
+.giso-footer-id {
+    color: #f0d48a;
+    font-size: .82rem;
+    letter-spacing: .04em;
+    margin: 0;
+}
+.giso-pwa-hint {
+    color: #f6d889;
+    font-size: .78rem;
+    line-height: 1.7;
+}
+/* آیکون بله داخل دکمهٔ CTA فوتر */
+.giso-cta-bale {
+    width: 20px;
+    height: auto;
+    border-radius: 4px;
+    flex: 0 0 auto;
+    background: #fff;
+}
+/* نوار آیکون شبکه‌های اجتماعی زیر کارت‌های فوتر (فقط وقتی مقدار ذخیره شده باشد رندر می‌شود) */
+.giso-footer-social-wrap {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 18px 18px;
+}
+.giso-footer-social-wrap a {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(240, 212, 138, .4);
+    background: rgba(255, 248, 230, .08);
+    transition: transform .18s, background .18s;
+}
+.giso-footer-social-wrap a:hover {
+    transform: translateY(-3px);
+    background: rgba(212, 175, 55, .28);
+}
+.giso-footer-social-wrap img { display: block; }
+/* اعتبار طراح در نوار فوتر */
+.giso-designer-credit a {
+    color: #f6d889;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.giso-designer-credit a:hover { color: #ffe9ad; }
+@media (max-width: 800px) {
+    .giso-footer-inner { grid-template-columns: 1fr; padding: 32px 20px 18px; gap: 26px; }
+}
+
+/* ===================== ریسپانسیو ===================== */
+@media (max-width: 900px) {
+    .giso-hero-grid { grid-template-columns: 1fr; text-align: center; }
+    .giso-hero-logo { order: -1; }
+    .giso-logo-fade { width: 220px; height: 220px; }
+    .giso-logo-fade img { max-width: 180px; }
+    .giso-features-grid { grid-template-columns: 1fr; }
+    .giso-analyze-grid { grid-template-columns: 1fr; }
+    .giso-result-grid { grid-template-columns: 1fr; }
+    .giso-result-sections { grid-template-columns: 1fr; }
+
+    .giso-menu-btn { display: block; }
+    .giso-nav-links {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        gap: 4px;
+        padding-top: 10px;
+    }
+    .giso-nav-links.active { display: flex; }
+    .giso-nav-links a { width: 100%; text-align: center; padding: 12px; }
+    .giso-user { padding: 10px; text-align: center; }
+}
+
+@media (max-width: 500px) {
+    .giso-hero-title { font-size: 38px; }
+    .giso-tagline { font-size: 18px; }
+    .giso-card { padding: 20px; }
+}
+
+/* ===================== فروشگاه نسخه جدید (گرید ۳ ستونه + اعتمادسازی) ===================== */
+.giso-shop-hero {
+    background: linear-gradient(135deg, var(--cream-light), var(--cream));
+    border: 1px solid rgba(212,175,55,.25);
+    border-radius: 18px;
+    padding: 24px 28px;
+    margin-bottom: 22px;
+    box-shadow: var(--shadow);
+}
+.giso-shop-hero-text h2 { color: var(--gold-deep); font-size: 24px; margin-bottom: 6px; }
+.giso-shop-hero-text p { color: var(--brown); font-size: 14px; margin-bottom: 18px; }
+
+.giso-trust-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+.giso-trust-item {
+    background: var(--white);
+    border: 1px solid rgba(139,90,43,.12);
+    border-radius: 14px;
+    padding: 12px 14px;
+    text-align: center;
+    transition: transform .2s, box-shadow .2s;
+}
+.giso-trust-item:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(139,90,43,.18); }
+.giso-trust-item i { font-size: 22px; color: var(--gold-deep); display: block; margin-bottom: 6px; }
+.giso-trust-item strong { display: block; font-size: 13px; color: var(--brown-dark); margin-bottom: 2px; }
+.giso-trust-item span { display: block; font-size: 11px; color: var(--brown); line-height: 1.6; }
+
+/* باکس پیشنهادی برای شما */
+.giso-suggested-box {
+    border: 2px solid var(--gold);
+    background: linear-gradient(135deg, rgba(212,175,55,.08), rgba(248,180,180,.08));
+    border-radius: 18px;
+    padding: 20px 22px;
+    margin-bottom: 22px;
+}
+.giso-suggested-box h3 { color: var(--gold-deep); font-size: 18px; margin-bottom: 4px; }
+.giso-suggested-sub { font-size: 12px; color: var(--brown); margin-bottom: 14px; }
+
+/* نوار فیلتر و جستجو */
+.giso-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    background: var(--white);
+    border: 1px solid rgba(139,90,43,.12);
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    position: sticky;
+    top: 10px;
+    z-index: 20;
+    box-shadow: 0 4px 14px rgba(139,90,43,.08);
+}
+.giso-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.giso-chip {
+    border: 1.5px solid rgba(139,90,43,.25);
+    background: transparent;
+    color: var(--brown);
+    border-radius: 999px;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+}
+.giso-chip:hover { border-color: var(--gold); color: var(--gold-deep); }
+.giso-chip.active { background: linear-gradient(135deg, var(--gold), var(--gold-deep)); color: #fff; border-color: var(--gold); }
+
+.giso-shop-search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--cream-light);
+    border: 1.5px solid rgba(139,90,43,.2);
+    border-radius: 999px;
+    padding: 6px 16px;
+    min-width: 260px;
+    flex-shrink: 0;
+}
+.giso-shop-search-box i { color: var(--gold-deep); font-size: 14px; }
+.giso-shop-search {
+    border: none;
+    outline: none;
+    background: transparent;
+    flex: 1;
+    font-size: 13px;
+    color: var(--brown-dark);
+    padding: 4px 0;
+}
+.giso-shop-search::placeholder { color: rgba(139,90,43,.5); }
+
+/* گرید محصولات: ۳ ستونه دقیق */
+.giso-products-grid { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 1024px) { .giso-products-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) {
+    .giso-products-grid { grid-template-columns: 1fr; }
+    .giso-trust-row { grid-template-columns: repeat(2, 1fr); }
+    .giso-filter-bar { position: static; }
+    .giso-shop-search-box { min-width: 0; flex: 1; }
+}
+
+/* کارت محصول با عکس واقعی */
+.giso-product {
+    border-radius: 18px;
+    border: 1px solid rgba(139,90,43,.12);
+    box-shadow: 0 6px 18px rgba(139,90,43,.10);
+}
+.giso-product:hover { box-shadow: 0 14px 34px rgba(139,90,43,.22); transform: translateY(-5px); }
+.giso-product.is-hidden { display: none; }
+
+.giso-prod-img {
+    aspect-ratio: 4 / 3;
+    height: auto;
+    overflow: hidden;
+    border-radius: 18px 18px 0 0;
+}
+.giso-prod-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform .35s ease;
+}
+.giso-product:hover .giso-prod-img img { transform: scale(1.06); }
+.giso-prod-fallback-icon { font-size: 52px; color: rgba(255,255,255,.85); }
+
+.giso-cat-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-deep));
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+.giso-product.out-of-stock .giso-prod-img img { filter: grayscale(.4); }
+
+.giso-prod-info h4 { min-height: 42px; }
+.giso-prod-desc { min-height: 44px; }
+
+.giso-empty-filter {
+    text-align: center;
+    color: var(--brown);
+    padding: 30px 0;
+    font-size: 15px;
+}
+.giso-empty-filter i { color: var(--gold-deep); margin-left: 6px; }
+
+/* ===================== صفحه جزئیات محصول + صفحه‌بندی (سئو) ===================== */
+.giso-prod-title { color: inherit; text-decoration: none; }
+.giso-prod-title:hover { color: var(--gold-deep); }
+
+.giso-breadcrumb {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    font-size: 13px; color: var(--brown); margin-bottom: 16px;
+}
+.giso-breadcrumb a { color: var(--gold-deep); text-decoration: none; }
+.giso-breadcrumb a:hover { text-decoration: underline; }
+.giso-breadcrumb b { color: var(--brown-dark); }
+
+.giso-pd {
+    display: grid; grid-template-columns: 420px 1fr; gap: 28px;
+    padding: 24px; border-radius: 18px; margin-bottom: 28px;
+}
+@media (max-width: 900px) { .giso-pd { grid-template-columns: 1fr; } }
+.giso-pd-img {
+    position: relative; border-radius: 14px; overflow: hidden;
+    aspect-ratio: 1 / 1;
+    background: linear-gradient(135deg, var(--cream), var(--pink));
+    display: flex; align-items: center; justify-content: center;
+}
+.giso-pd-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.giso-cat-badge-inline { position: static; display: inline-block; margin-bottom: 8px; }
+.giso-pd-title { font-size: 22px; color: var(--brown-dark); margin-bottom: 10px; }
+.giso-pd-desc { font-size: 14px; color: var(--brown); line-height: 1.9; margin-bottom: 14px; }
+.giso-pd-price { font-size: 24px; margin-bottom: 6px; }
+.giso-pd-form { margin-top: 10px; }
+
+.giso-pd-related-title { font-size: 18px; color: var(--gold-deep); margin-bottom: 14px; }
+
+.giso-pagination {
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    margin: 24px 0 8px;
+}
+.giso-page-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(135deg, var(--gold), var(--gold-deep));
+    color: #fff; border-radius: 999px; padding: 8px 20px;
+    font-size: 13px; font-weight: 700; text-decoration: none;
+    transition: transform .2s, box-shadow .2s;
+}
+.giso-page-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(184,148,31,.4); color: #fff; }
+.giso-page-num { font-size: 13px; color: var(--brown); font-weight: 600; }
+
+/* ===================== سبد خرید + گزارش فروش + بج‌های پنل ===================== */
+.giso-prod-actions { display: flex; gap: 8px; }
+.giso-prod-actions .giso-btn { flex: 1; text-align: center; }
+
+.giso-cart-float {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--white); color: var(--gold-deep);
+    border: 2px solid var(--gold); border-radius: 999px;
+    padding: 8px 20px; font-size: 14px; font-weight: 700;
+    text-decoration: none; margin-bottom: 16px;
+    transition: transform .2s, box-shadow .2s;
+}
+.giso-cart-float:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(184,148,31,.35); }
+
+.giso-cart { padding: 10px 16px; }
+.giso-cart-row {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 14px 0; border-bottom: 1px dashed rgba(139,90,43,.18);
+}
+.giso-cart-thumb {
+    width: 72px; height: 72px; border-radius: 12px; overflow: hidden; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--cream), var(--pink));
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 26px;
+}
+.giso-cart-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.giso-cart-info { flex: 1; min-width: 160px; }
+.giso-cart-info strong { display: block; color: var(--brown-dark); font-size: 14px; margin-bottom: 4px; }
+.giso-cart-price-one { font-size: 12px; color: var(--brown); }
+.giso-cart-qty { display: flex; align-items: center; gap: 6px; }
+.giso-cart-qty input {
+    width: 60px; text-align: center; padding: 6px 4px;
+    border: 1.5px solid rgba(139,90,43,.25); border-radius: 8px;
+}
+.giso-cart-line { font-weight: 800; color: var(--gold-deep); font-size: 16px; min-width: 110px; }
+.giso-cart-line small { font-weight: 500; font-size: 11px; color: var(--brown); }
+.giso-cart-del {
+    background: none; border: none; cursor: pointer;
+    color: #dc2626; font-size: 16px; padding: 6px;
+}
+.giso-cart-total {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 4px 6px; font-size: 17px;
+}
+.giso-cart-total strong { color: var(--gold-deep); }
+
+/* کارت‌های آمار گزارش فروش */
+.giso-stat-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 12px; margin-bottom: 22px;
+}
+.giso-stat-card {
+    background: var(--white); border: 1px solid rgba(139,90,43,.14);
+    border-radius: 14px; padding: 16px 14px; text-align: center;
+}
+.giso-stat-card i { font-size: 22px; color: var(--gold-deep); display: block; margin-bottom: 8px; }
+.giso-stat-card strong { display: block; font-size: 20px; color: var(--brown-dark); }
+.giso-stat-card span { display: block; font-size: 11.5px; color: var(--brown); margin-top: 3px; }
+.giso-stat-gold { background: linear-gradient(135deg, rgba(212,175,55,.15), rgba(248,180,180,.12)); border-color: var(--gold); }
+.giso-stat-warn { border-color: #f59e0b; background: #fffbeb; }
+
+.giso-stats-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 900px) { .giso-stats-cols { grid-template-columns: 1fr; } }
+.giso-bar {
+    height: 10px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--gold), var(--pink-deep));
+    max-width: 140px;
+}
+
+/* بج‌های پنل ادمین */
+.giso-admin-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 700; margin-right: 6px; vertical-align: middle;
+}
+.giso-badge-channel { background: #e0f2fe; color: #0369a1; }
+.giso-badge-pending { background: #fef3c7; color: #b45309; }
+
+/* ═══════════════════════════════════════════════════════════
+   افزودنی بازبینی فروش مو / آنالیز:
+   بنرهای پیشنهادی متقابل + چیدمان دکمه‌های دانلود (فقط افزوده شده)
+   ═══════════════════════════════════════════════════════════ */
+.giso-suggestion-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    border-radius: 14px;
+    border: 1px solid rgba(212, 175, 55, 0.35);
+    background: linear-gradient(135deg, rgba(255, 251, 240, 0.92), rgba(255, 245, 220, 0.88));
+}
+.giso-suggestion-banner p {
+    margin: 0;
+    color: #5a3e1b;
+    font-weight: 600;
+    flex: 1;
+}
+.giso-cross-promo h3 {
+    margin: 0 0 6px;
+    color: #4a2e18;
+}
+.giso-cross-promo p {
+    margin: 0 0 12px;
+    color: #8b5a2b;
+}
+.giso-report-downloads {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 24px 0 8px;
+}
+/* در موبایل دکمه‌های دانلود زیر هم (Stack) */
+@media (max-width: 640px) {
+    .giso-report-downloads {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+    .giso-report-downloads .giso-btn {
+        width: 100%;
+    }
+    .giso-suggestion-banner {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+}
+
+/* ═══ بازطراحی صفحهٔ ورود گیسو — «شب طلایی» (glassmorphism، موبایل‌فرست، RTL) ═══ */
+.giso-auth-login {
+    --au-gold: #d4af37;
+    --au-gold-2: #f0d98c;
+    --au-gold-deep: #a5822f;
+    --au-ink: #2e1d0e;
+    position: relative;
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px calc(40px + env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+    background:
+        radial-gradient(900px 480px at 85% 0%, #ffe9ec 0%, transparent 60%),
+        radial-gradient(700px 420px at 10% 100%, #fff3d6 0%, transparent 55%),
+        linear-gradient(180deg, #fffdf9 0%, #fdf3f1 55%, #fbf0e4 100%);
+    color: #4a3a32;
+}
+
+/* بافت ظریف نویز — CSS خالص، بدون تصویر خارجی */
+.giso-auth-login::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: .03;
+    background-image: repeating-conic-gradient(rgba(200, 88, 115, .10) 0 .0002turn, transparent 0 .0004turn);
+}
+
+.giso-auth-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+}
+.giso-auth-orb--1 { width: 340px; height: 340px; background: rgba(249, 205, 214, .55); top: -90px; inset-inline-start: -70px; animation: auFloat 14s ease-in-out infinite; }
+.giso-auth-orb--2 { width: 260px; height: 260px; background: rgba(246, 227, 184, .60); bottom: -60px; inset-inline-end: 6%; animation: auFloat 18s ease-in-out infinite reverse; }
+.giso-auth-orb--3 { width: 180px; height: 180px; background: rgba(255, 255, 255, .70); top: 38%; inset-inline-end: -50px; animation: auFloat 22s ease-in-out infinite; }
+@keyframes auFloat {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(0, -26px, 0); }
+}
+
+/* ── کارت شیشه‌ای اصلی (موبایل: تک‌ستونه) ── */
+.giso-auth-login .giso-auth-wrapper {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+    max-width: 440px;
+    border-radius: 26px;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #f3dcdc;
+    box-shadow: 0 24px 60px rgba(143, 56, 80, .12);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+/* ── ستون معرفی برند (دسکتاپ: دوستونه) ── */
+.giso-auth-login .giso-auth-hero { display: none; }
+@media (min-width: 860px) {
+    .giso-auth-login .giso-auth-wrapper { grid-template-columns: 1fr 1fr; max-width: 980px; }
+    .giso-auth-login .giso-auth-hero {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 28px;
+        padding: 52px 40px;
+        background:
+            radial-gradient(420px 260px at 20% 0%, rgba(200, 88, 115, .14), transparent 65%),
+            linear-gradient(180deg, #fff5f6 0%, #fdf0e3 100%);
+        border-inline-end: 1px solid #f3dcdc;
+    }
+}
+
+.giso-auth-login .giso-auth-brand { text-align: center; }
+.giso-auth-logo-ring {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    border-radius: 26px;
+    background: linear-gradient(140deg, rgba(240, 217, 140, .55), rgba(212, 175, 55, .12) 55%, rgba(240, 217, 140, .40));
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+    margin-bottom: 16px;
+}
+.giso-auth-login .giso-auth-logo-img { width: 72px; height: 72px; object-fit: contain; border-radius: 18px; background: rgba(255, 255, 255, .92); padding: 5px; }
+.giso-auth-login .giso-auth-brand h1 {
+    font-size: 30px;
+    font-weight: 900;
+    margin: 0 0 8px;
+    letter-spacing: .3px;
+    background: none;
+    color: #8f3850;
+    text-wrap: balance;
+}
+.giso-auth-login .giso-auth-tagline { margin: 0; font-size: 14px; font-weight: 500; color: #9a8a86; }
+
+/* ── هماهنگی صفحهٔ ثبت‌نام با تم روشن: کارت قوانین/کد ربات به‌جای بنفش، رز-کرمی ── */
+.giso-auth-login .giso-auth-alert {
+    background: #fffaf3;
+    border: 1px solid #f0dcc4;
+    color: #7a5546;
+}
+.giso-auth-login .giso-auth-alert strong { color: #8f3850; }
+.giso-auth-login .giso-auth-alert a { color: #a5822f; }
+
+.giso-auth-features {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.giso-auth-login .giso-auth-feat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    font-size: 13.5px;
+    font-weight: 600;
+    line-height: 1.9;
+    color: #5b4a44;
+    background: #fff;
+    border: 1px solid #f3dcdc;
+    border-radius: 16px;
+}
+.giso-auth-login .giso-auth-feat i {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    font-size: 14px;
+    color: var(--au-ink);
+    background: linear-gradient(135deg, var(--au-gold-2), var(--au-gold));
+    box-shadow: 0 6px 14px rgba(212, 175, 55, .30);
+}
+
+
+/* ─── بازگردانی: skip link (دسترس‌پذیری — فاز 6) ─── */
+.giso-skip-link {
+    position: absolute; top: -60px; right: 12px; z-index: 9999;
+    background: #8B5A2B; color: #fff; padding: 8px 16px; border-radius: 10px;
+    font-family: Vazirmatn, sans-serif; font-size: .85rem; text-decoration: none;
+    transition: top .2s;
+}
+.giso-skip-link:focus { top: 10px; }
+
+/* ─── قوانین مشترک صفحه‌های auth (register.html و سایر پوسته‌ها) ─── */
+.giso-auth-card { padding: 40px 32px; background: var(--cream-light); display: flex; flex-direction: column; justify-content: center; }
+.giso-auth-card h2 { font-size: 22px; color: var(--brown-dark); margin-bottom: 24px; text-align: center; }
+.giso-form-group { display: flex; flex-direction: column; gap: 6px; }
+.giso-form-group label { font-size: 13px; font-weight: 600; color: var(--brown); }
+.giso-form-group label i { margin-left: 4px; opacity: 0.7; font-size: 12px; }
+.giso-form-group input, .giso-form-group select { padding: 12px 14px; border: 2px solid #e8ddd0; border-radius: 12px; font-size: 15px; background: white; transition: border-color .2s; font-family: inherit; }
+.giso-form-group input:focus, .giso-form-group select:focus { border-color: var(--gold); outline: none; box-shadow: 0 0 0 3px rgba(212,175,55,0.15); }
+.giso-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* فیکس سرریز: ستون‌های grid اجازه کوچک‌شدن نمی‌دهند و کادرها بیرون می‌زدند */
+.giso-form-row .giso-form-group { min-width: 0; }
+.giso-form-row .giso-form-group input { width: 100%; max-width: 100%; }
+.giso-auth-alert { background: #faf5ff; border: 1px solid #ddd6fe; border-radius: 16px; padding: 14px 16px; line-height: 1.9; color: #5b21b6; font-size: 13px; }
+.giso-auth-alert strong { display: block; margin-bottom: 4px; }
+.giso-auth-foot { margin-top: 20px; text-align: center; font-size: 13px; color: var(--brown); }
+.giso-auth-foot a { color: var(--gold-deep); font-weight: 600; text-decoration: none; }
+.giso-auth-foot a:hover { text-decoration: underline; }
+.giso-auth-back { display: inline-block; margin-top: 8px; opacity: 0.7; font-size: 12px; }
+@media (max-width: 768px) {
+    .giso-auth-wrapper { grid-template-columns: 1fr; }
+    .giso-auth-card { padding: 28px 20px; }
+    .giso-form-row { grid-template-columns: 1fr; }
+}
+
+/* ── لوگو و ابزار نمایش رمز (مشترک) ── */
+.giso-auth-logo-img { width: 72px; height: 72px; object-fit: contain; border-radius: 18px; margin-bottom: 14px; background: rgba(255,255,255,.08); padding: 6px; }
+.giso-auth-card .giso-form { display: flex; flex-direction: column; gap: 16px; }
+.giso-pw-wrap { position: relative; display: flex; align-items: center; }
+.giso-pw-wrap input { width: 100%; padding-left: 46px !important; }
+.giso-pw-toggle { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); border: none; background: transparent; color: var(--brown, #6b5232); cursor: pointer; font-size: 14px; padding: 6px; line-height: 1; opacity: .75; touch-action: manipulation; }
+.giso-pw-toggle:hover { opacity: 1; color: var(--gold-deep, #a5822f); }
+.giso-pw-toggle:focus-visible { outline: 2px solid var(--gold, #d4af37); outline-offset: 2px; border-radius: 8px; }
+.giso-auth-bale { display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; padding: 10px 18px; border-radius: 12px; border: 1.5px solid var(--gold, #d4af37); color: var(--gold-deep, #a5822f); font-weight: 700; font-size: 13px; text-decoration: none; transition: background .2s, color .2s; touch-action: manipulation; }
+.giso-auth-bale:hover { background: var(--gold, #d4af37); color: #fff; }
+.giso-auth-bale:focus-visible { outline: 2px solid var(--gold-deep, #a5822f); outline-offset: 3px; }
+@media (max-width: 768px) {
+    .giso-auth-logo-img { width: 56px; height: 56px; margin-bottom: 8px; }
+}
+
+
+/* ═══ صفحهٔ ورود «شب طلایی» — کارت و فیلدها ═══ */
+.giso-auth-login .giso-auth-card {
+    padding: 38px 30px;
+    background: linear-gradient(180deg, rgba(255, 253, 247, .97) 0%, rgba(252, 245, 232, .93) 100%);
+    color: #2e1d0e;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-inline-start: 1px solid rgba(212, 175, 55, .18);
+}
+.giso-auth-login .giso-auth-card::before {
+    content: "";
+    display: block;
+    width: 64px;
+    height: 4px;
+    margin: 0 auto 20px;
+    border-radius: 99px;
+    background: linear-gradient(90deg, transparent, #d4af37, transparent);
+}
+.giso-auth-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 0 0 6px;
+    font-size: 23px;
+    font-weight: 900;
+    color: #2e1d0e;
+}
+.giso-auth-title i { color: #a5822f; font-size: 19px; }
+.giso-auth-sub {
+    margin: 0 0 22px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(46, 29, 14, .62);
+}
+
+.giso-auth-login .giso-form-group { gap: 8px; }
+.giso-auth-login .giso-form-group label { font-size: 13px; font-weight: 800; color: rgba(46, 29, 14, .85); }
+.giso-auth-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.giso-auth-forgot {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #a5822f;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    touch-action: manipulation;
+}
+.giso-auth-forgot i { font-size: 10px; }
+.giso-auth-forgot:hover { color: #d4af37; text-decoration: underline; }
+.giso-auth-forgot:focus-visible { outline: 2px solid #d4af37; outline-offset: 3px; border-radius: 6px; }
+
+.giso-auth-field { position: relative; display: flex; flex-direction: column; }
+.giso-auth-field > i {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    inset-inline-start: 15px;
+    font-size: 14px;
+    color: #a5822f;
+    pointer-events: none;
+    transition: color .2s ease;
+    z-index: 1;
+}
+.giso-auth-field:focus-within > i { color: #2e1d0e; }
+.giso-auth-field input {
+    min-height: 52px;
+    padding: 12px 44px;
+    border: 1.5px solid rgba(139, 90, 43, .20);
+    border-radius: 15px;
+    font-size: 16px; /* جلوگیری از زوم خودکار iOS */
+    background: #fff;
+    color: #2e1d0e;
+    font-family: inherit;
+    transition: border-color .2s ease, box-shadow .2s ease;
+    touch-action: manipulation;
+}
+.giso-auth-field input::placeholder { color: rgba(46, 29, 14, .35); }
+.giso-auth-field input:hover { border-color: rgba(165, 130, 47, .45); }
+.giso-auth-field input:focus {
+    border-color: #d4af37;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(212, 175, 55, .16);
+}
+.giso-auth-field input:focus-visible { outline: none; }
+/* خطای اعتبارسنجی مرورگر — بعد از تعامل کاربر نمایش داده می‌شود */
+.giso-auth-field input:user-invalid {
+    border-color: #d9534f;
+    box-shadow: 0 0 0 4px rgba(217, 83, 79, .12);
+}
+.giso-auth-field input:user-invalid + .giso-auth-err { display: block; }
+.giso-auth-err {
+    display: none;
+    margin: 6px 2px 0;
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.8;
+    color: #8f2f22;
+}
+/* فیلد موبایل: اعداد چپ‌چین با فاصله ارقام ثابت — آیکون سمت چپ (inline-end در RTL) */
+.giso-auth-field--phone input {
+    direction: ltr;
+    text-align: left;
+    padding-left: 44px;
+    padding-right: 14px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .5px;
+}
+.giso-auth-field--phone > i { inset-inline-start: auto; inset-inline-end: 15px; }
+/* ═══ دکمه ورود — گرادیان طلایی + انیمیشن shine ═══ */
+.giso-auth .giso-auth-submit {
+    position: relative;
+    overflow: hidden;
+    min-height: 54px;
+    margin-top: 6px;
+    border-radius: 16px;
+    font-size: 17px;
+    font-weight: 900;
+    letter-spacing: .2px;
+    color: #fff !important;
+    background: linear-gradient(135deg, #e598a8 0%, #c85873 55%, #a8425c 100%) !important;
+    box-shadow: 0 12px 28px rgba(212, 175, 55, .35);
+    transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+    touch-action: manipulation;
+}
+/* موج نور روی hover */
+.giso-auth .giso-auth-submit::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 44%;
+    inset-inline-start: -60%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent);
+    transform: skewX(-18deg);
+    transition: inset-inline-start .6s ease;
+    pointer-events: none;
+}
+.giso-auth .giso-auth-submit:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 38px rgba(212, 175, 55, .45);
+    filter: saturate(1.06);
+}
+.giso-auth .giso-auth-submit:hover::after { inset-inline-start: 116%; }
+.giso-auth .giso-auth-submit:active { transform: translateY(0) scale(.985); box-shadow: 0 8px 20px rgba(212, 175, 55, .40); }
+.giso-auth .giso-auth-submit:focus-visible { outline: 3px solid rgba(212, 175, 55, .60); outline-offset: 3px; }
+
+/* ═══ پایین کارت: بله + ثبت‌نام ═══ */
+.giso-auth-login .giso-auth-foot {
+    margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+}
+.giso-auth-login .giso-auth-bale { margin-top: 0; }
+.giso-auth-signup {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 16px;
+    border-radius: 14px;
+    border: 1.5px dashed rgba(165, 130, 47, .45);
+    color: #a5822f;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background .2s ease, border-color .2s ease;
+    touch-action: manipulation;
+}
+.giso-auth-signup strong { font-weight: 900; }
+.giso-auth-signup:hover { background: rgba(212, 175, 55, .08); border-color: #d4af37; }
+.giso-auth-signup:focus-visible { outline: 2px solid #d4af37; outline-offset: 3px; }
+
+/* ═══ پیام خطا/موفقیت فارسی روی صفحهٔ ورود (flash) ═══ */
+body:has(.giso-auth-login) .giso-flash-wrap { max-width: 440px; }
+body:has(.giso-auth-login) .giso-flash {
+    border-radius: 14px;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.9;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .12);
+}
+body:has(.giso-auth-login) .giso-flash.gf-danger { background: #fff4f2; border-color: #f3c2ba; color: #8f2f22; }
+body:has(.giso-auth-login) .giso-flash.gf-success { background: #f3faf0; border-color: #bcdcb2; color: #2f6b21; }
+body:has(.giso-auth-login) .giso-flash.gf-warning { background: #fdf8ec; border-color: #ecd9a4; color: #7a5a12; }
+body:has(.giso-auth-login) .giso-flash.gf-info { background: #eff6fb; border-color: #b5d3e6; color: #22556e; }
+
+/* ═══ کاهش حرکت برای کاربران حساس به انیمیشن ═══ */
+@media (prefers-reduced-motion: reduce) {
+    .giso-auth-orb { animation: none; }
+    .giso-auth .giso-auth-submit,
+    .giso-auth .giso-auth-submit::after { transition: none; }
+    .giso-auth .giso-auth-submit:hover { transform: none; }
+    .giso-auth .giso-auth-submit:hover::after { inset-inline-start: -60%; }
+}
+
+/* مورد ۱ help2: دکمهٔ «ورود» هدر — بدون کادر/کادر سفید، متن خوانا (میراث تم‌ها خنثی شد) */
+a.giso-header-login {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: currentColor !important;
+  padding: 8px 14px !important;
+  font-weight: 600 !important;
+}
+a.giso-header-login:hover { background: rgba(127,127,127,.15) !important; transform: none !important; }

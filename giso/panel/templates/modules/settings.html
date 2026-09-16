@@ -1,0 +1,393 @@
+{% extends 'layout.html' %}
+{% block title %}تنظیمات سایت و ربات - گیسو{% endblock %}
+{% block content %}
+<div class="pnl-page">
+    <h1 class="pnl-h1">⚙️ تنظیمات سایت و ربات</h1>
+    <p class="pnl-sub">سه بخش مستقل: تایمر پنل، ریستارت ربات، بکاپ و بازگردانی — فقط سوپرادمین</p>
+
+    {% if not is_super %}
+    <div class="pnl-empty"><p>فقط سوپرادمین می‌تواند تنظیمات سایت و ربات را مدیریت کند.</p></div>
+    {% else %}
+
+    <div class="pnl-tabs-wrap">
+        <div class="pnl-tabs" data-tabs>
+            <span class="pnl-tab active" data-pane="timer">⏱ تایمر پنل</span>
+            <span class="pnl-tab" data-pane="bot">🔄 ریستارت ربات</span>
+            <span class="pnl-tab" data-pane="backup">💾 بکاپ</span>
+            <span class="pnl-tab" data-pane="maint">🚧 به‌روزرسانی و ورود</span>
+            <span class="pnl-tab" data-pane="misc">🗂 سایر تنظیمات</span>
+        </div>
+    </div>
+
+    <!-- ═══ تب ۱: تایمر پنل ═══ -->
+    <section class="pnl-pane show" id="pane-timer">
+    <div class="pnl-card">
+        <h3>⏱ تایمر پنل</h3>
+        <p class="pnl-muted">خروج خودکار از پنل بعد از چند دقیقه بی‌فعالیتی — برای ادمین و کاربر جداگانه</p>
+        <form method="POST" action="{{ url_for('panel.settings') }}" class="pnl-stack-form" style="max-width:520px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="pnl-check">
+                <input type="checkbox" name="idle_enabled" value="1" {% if idle_enabled %}checked{% endif %}>
+                تایمر خروج فعال باشد
+            </label>
+            <label>⏱ تایمر ادمین (دقیقه)</label>
+            <input type="number" name="idle_minutes_admin" value="{{ idle_minutes_admin }}" min="0" max="1440">
+            <label>⏱ تایمر کاربر (دقیقه)</label>
+            <input type="number" name="idle_minutes_user" value="{{ idle_minutes_user }}" min="0" max="1440">
+            <small class="pnl-muted">۶۰ ثانیه آخر هشدار نمایش داده می‌شود.</small>
+            <!-- فیلدهای قبلی برای سازگاری (نام و منطق ذخیره بدون تغییر) -->
+            <input type="hidden" name="idle_minutes" value="{{ idle_minutes }}">
+            <button type="submit" class="pnl-btn pnl-btn-gold" style="margin-top:12px;">💾 ذخیره تایمر</button>
+        </form>
+    </div>
+    </section>
+
+    <!-- ═══ تب ۲: ریستارت ربات ═══ -->
+    <section class="pnl-pane" id="pane-bot">
+    <div class="pnl-card">
+        <h3>🔄 ریستارت ربات گیسو
+            {% if backup.bot_running %}<span class="pnl-badge pnl-badge-ok">در حال اجرا</span>
+            {% else %}<span class="pnl-badge pnl-badge-off">در حال اجرا نیست</span>{% endif %}
+            {% if backup.pending_restart %}<span class="pnl-badge pnl-badge-warn">⏳ ریستارت در انتظار</span>{% endif %}
+        </h3>
+        <p class="pnl-muted">ریستارت فقط با دکمه همین بخش فعال می‌شود؛ سایت flag ریستارت را می‌سازد و main watcher (هر ۱۰ ثانیه) ربات را دوباره اجرا می‌کند.</p>
+
+        {% if backup.pending_restart %}
+        <div class="pnl-flash pnl-flash-warning" style="max-width:520px;">
+            ⏳ ریستارت تا <b>{{ backup.pending_restart.remaining }}</b> ثانیه دیگر انجام می‌شود — برای انصراف دکمه «لغو» را بزنید.
+        </div>
+        <div class="pnl-btn-row" style="margin-top:10px;">
+            <form method="POST" action="{{ url_for('panel.restart_bot_cancel') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="pnl-btn pnl-btn-outline">❌ لغو ریستارت</button>
+            </form>
+        </div>
+        {% else %}
+        <form method="POST" action="{{ url_for('panel.restart_bot') }}" class="pnl-inline-form" id="restartForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>زمان تا ریستارت:</label>
+            <select name="seconds">
+                {% for sec in backup.restart_options %}
+                <option value="{{ sec }}">{{ sec }} ثانیه</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="pnl-btn pnl-btn-danger"
+                    onclick="return confirm('⚠️ ربات گیسو ریستارت می‌شود. مطمئنی؟');">
+                ⏻ ریستارت ربات
+            </button>
+        </form>
+        {% endif %}
+    </div>
+    </section>
+
+    <!-- ═══ تب ۳: بکاپ و بازگردانی ═══ -->
+    <section class="pnl-pane" id="pane-backup">
+    <div class="pnl-card">
+        <h3>💾 بکاپ و بازگردانی <span class="pnl-muted">(giso/data/backup — همان مسیر ربات)</span></h3>
+
+        <div class="pnl-btn-row" style="margin-bottom:12px;">
+            <form method="POST" action="{{ url_for('panel.backup_now') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="pnl-btn pnl-btn-gold">📸 گرفتن بکاپ الان</button>
+            </form>
+            <form method="POST" action="{{ url_for('panel.backup_interval') }}" class="pnl-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label class="pnl-muted">backup خودکار هر</label>
+                <input type="number" name="hours" value="{{ backup.interval_hours }}" min="0" max="168" style="width:80px;">
+                <span class="pnl-muted">ساعت (0 = غیرفعال)</span>
+                <button type="submit" class="pnl-btn pnl-btn-outline pnl-btn-sm">⏱ ذخیره بازه</button>
+            </form>
+            <form method="POST" action="{{ url_for('panel.backup_upload') }}" enctype="multipart/form-data" class="pnl-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="file" name="backup_file" accept=".db" required>
+                <button type="submit" class="pnl-btn pnl-btn-outline pnl-btn-sm">📥 آپلود نسخه دستی</button>
+            </form>
+        </div>
+
+        <div class="pnl-card" style="margin:18px 0;border:1px solid #c8a96b;">
+            <h4>🛟 Recovery مستقل گیسو</h4>
+            <p class="pnl-muted">شامل دیتابیس کامل گیسو، رسیدهای کیف پول و آپلودهای دائمی است؛ bot.db و فایل‌های موقت وارد بسته نمی‌شوند.</p>
+            <div class="pnl-btn-row">
+                <form method="POST" action="{{ url_for('panel.recovery_create') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="pnl-btn pnl-btn-gold">ساخت بسته Recovery</button>
+                </form>
+                <a class="pnl-btn pnl-btn-outline pnl-btn-sm" href="{{ url_for('panel.recovery_download_latest') }}">⬇️ دانلود آخرین بسته <small class="pnl-muted">(اگر نباشد همین‌الان می‌سازد)</small></a>
+                <form method="POST" action="{{ url_for('panel.recovery_upload') }}" enctype="multipart/form-data" class="pnl-inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="file" name="recovery_file" accept=".zip" required>
+                    <button type="submit" class="pnl-btn pnl-btn-outline pnl-btn-sm">آپلود و اعتبارسنجی</button>
+                </form>
+            </div>
+            <div class="pnl-btn-row" style="margin-top:8px;">
+                <form method="POST" action="{{ url_for('panel.recovery_auto_toggle') }}" class="pnl-inline-form"
+                      onsubmit="return confirm('بکاپ خودکار کامل (دیتابیس + عکس‌ها + رسیدها) هر {{ backup.recovery_auto_interval_hours }} ساعت روی همین سرور ساخته می‌شود. برای امنیت واقعی، فایل را دانلود و خارج از سرور نگه دارید.');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="recovery_auto" value="{{ '0' if backup.recovery_auto_enabled else '1' }}">
+                    <button type="submit" class="pnl-btn {{ 'pnl-btn-danger' if backup.recovery_auto_enabled else 'pnl-btn-gold' }} pnl-btn-sm">
+                        {{ '⏸ خاموش‌کردن بکاپ خودکار' if backup.recovery_auto_enabled else '▶️ روشن‌کردن بکاپ خودکار هر ' ~ backup.recovery_auto_interval_hours ~ ' ساعت' }}
+                    </button>
+                </form>
+                <span class="pnl-muted">وضعیت: <b>{{ 'روشن (هر ' ~ backup.recovery_auto_interval_hours ~ ' ساعت یک بسته ZIP ساخته می‌شود)' if backup.recovery_auto_enabled else 'خاموش' }}</b></span>
+            </div>
+            <p class="pnl-muted">وضعیت حالت به‌روزرسانی گیسو: <b>{{ 'فعال' if backup.recovery_maintenance else 'غیرفعال' }}</b>. Restore فقط در حالت فعال اجرا می‌شود.</p>
+            {% for f in backup.recovery_files %}
+            <div class="pnl-inline-form" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0;">
+                <span dir="ltr">{{ f.name }}</span> <span class="pnl-muted">({{ (f.size // 1024) }} KB · {{ f.mtime_fa }})</span>
+                <a class="pnl-btn pnl-btn-outline pnl-btn-sm" href="{{ url_for('panel.recovery_download', file=f.name) }}">⬇️ دانلود</a>
+                <form method="POST" action="{{ url_for('panel.recovery_restore') }}" class="pnl-inline-form" onsubmit="return confirm('Recovery کامل گیسو اجرا شود؟');" style="display:inline-flex;align-items:center;gap:6px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="file" value="{{ f.name }}">
+                    <input type="text" name="confirmation" placeholder="RECOVER" required style="width:110px;">
+                    <button type="submit" class="pnl-btn pnl-btn-danger pnl-btn-sm">Restore کامل</button>
+                </form>
+            </div>
+            {% else %}<p class="pnl-muted">هنوز بسته Recovery ساخته نشده است. «دانلود آخرین بسته» یا «ساخت بسته Recovery» اولین نسخه را می‌سازد.</p>{% endfor %}
+        </div>
+
+        {% if backup.files %}
+        <div class="pnl-table-wrap">
+            <table class="pnl-table">
+                <thead><tr><th>نام فایل</th><th>حجم</th><th>تاریخ</th><th>دانلود</th><th>بازگردانی</th><th>حذف</th></tr></thead>
+                <tbody>
+                {% for f in backup.files %}
+                <tr>
+                    <td dir="ltr">{{ f.name }}</td>
+                    <td>{{ (f.size // 1024) }} KB</td>
+                    <td>{{ f.mtime_fa }}</td>
+                    <td><a class="pnl-btn pnl-btn-outline pnl-btn-sm" href="{{ url_for('panel.backup_download', file=f.name) }}">⬇️ دانلود</a></td>
+                    <td>
+                        <form method="POST" action="{{ url_for('panel.backup_restore') }}" class="pnl-inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="file" value="{{ f.name }}">
+                            <input type="hidden" name="step" value="{{ 'confirm' if pending_restore == f.name else '' }}">
+                            <button type="submit" class="pnl-btn {{ 'pnl-btn-danger' if pending_restore == f.name else 'pnl-btn-outline' }} pnl-btn-sm">
+                                {{ '⚠️ تأیید بازگردانی' if pending_restore == f.name else '↩️ بازگردانی' }}
+                            </button>
+                        </form>
+                    </td>
+                    <td>
+                        <form method="POST" action="{{ url_for('panel.backup_delete') }}" class="pnl-inline-form"
+                              onsubmit="return confirm('فایل {{ f.name }} حذف شود؟');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="file" value="{{ f.name }}">
+                            <button type="submit" class="pnl-btn pnl-btn-danger pnl-btn-sm">🗑 حذف</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <small class="pnl-muted">بازگردانی دومرحله‌ای است: بار اول درخواست ثبت می‌شود و بار دوم با دکمه قرمز انجام می‌شود.</small>
+        {% else %}
+        <div class="pnl-empty"><p>هنوز نسخه پشتیبانی گرفته نشده است.</p></div>
+        {% endif %}
+    </div>
+    </section>
+
+    <!-- ═══ تب به‌روزرسانی و ورود ═══ -->
+    <section class="pnl-pane" id="pane-maint">
+    <div class="pnl-grid-2">
+
+    <div class="pnl-card">
+        <h3>🚧 صفحهٔ به‌روزرسانی (Maintenance)</h3>
+        <p class="pnl-muted">وضعیت فعلی: <b>{{ '🔴 فعال (سایت برای کاربران بسته است)' if maintenance_on else '🟢 غیرفعال' }}</b> — فعال/غیرفعال‌سازی اصلی از ربات انجام می‌شود؛ این بخش تایمر و تصویر صفحه را تنظیم می‌کند.</p>
+        <form method="POST" action="{{ url_for('panel.settings') }}" enctype="multipart/form-data" class="pnl-stack-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="save_maintenance" value="1">
+            <label>⏱ مدت به‌روزرسانی (تایمر بزرگ صفحه):</label>
+            <select name="maintenance_duration" class="pnl-input">
+                <option value="0" {% if maintenance_duration == 0 %}selected{% endif %}>بدون تایمر</option>
+                <option value="5" {% if maintenance_duration == 5 %}selected{% endif %}>۵ دقیقه</option>
+                <option value="15" {% if maintenance_duration == 15 %}selected{% endif %}>۱۵ دقیقه</option>
+                <option value="30" {% if maintenance_duration == 30 %}selected{% endif %}>۳۰ دقیقه</option>
+                <option value="60" {% if maintenance_duration == 60 %}selected{% endif %}>۱ ساعت</option>
+                <option value="120" {% if maintenance_duration == 120 %}selected{% endif %}>۲ ساعت</option>
+                <option value="240" {% if maintenance_duration == 240 %}selected{% endif %}>۴ ساعت</option>
+            </select>
+            <label>🖼 تصویر سفارشی صفحه (jpg/png/webp — حداکثر ۵ مگابایت؛ خالی یعنی بدون تغییر):</label>
+            {% if maintenance_image_exists %}
+            <div style="display:flex;align-items:center;gap:12px;margin:6px 0;">
+                <img src="{{ url_for('static', filename='images/maintenance_custom.webp') }}" alt="تصویر فعلی به‌روزرسانی" style="max-height:64px;border-radius:10px;border:1px solid #e8ddd0;">
+                <label class="pnl-check" style="font-size:.85rem;"><input type="checkbox" name="remove_maintenance_image" value="1"> حذف تصویر (بازگشت به تصویر پیش‌فرض)</label>
+            </div>
+            {% else %}
+            <p style="font-size:.8rem;opacity:.7;margin:4px 0;">فعلاً تصویر پیش‌فرض گیسو نمایش داده می‌شود.</p>
+            {% endif %}
+            <input type="file" name="maintenance_image" accept=".jpg,.jpeg,.png,.webp" class="pnl-input">
+            <button type="submit" class="pnl-btn pnl-btn-gold" style="margin-top:12px;">💾 ذخیره تنظیمات به‌روزرسانی</button>
+        </form>
+    </div>
+
+    <div class="pnl-card">
+        <h3>🖼 لوگوی صفحهٔ ورود</h3>
+        <p class="pnl-muted">لوگوی اختصاصی ستون معرفی صفحهٔ /login — فقط PNG یا WebP، حداکثر ۲ مگابایت. اگر تنظیم نشود، لوگوی برند سایت نمایش داده می‌شود.</p>
+        <form method="POST" action="{{ url_for('panel.settings') }}" enctype="multipart/form-data" class="pnl-stack-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="save_login_logo" value="1">
+            {% if login_logo_path %}
+            <div style="display:flex;align-items:center;gap:12px;margin:6px 0;">
+                <img src="{{ url_for('static', filename=login_logo_path) }}" alt="لوگوی فعلی صفحه ورود" style="max-height:56px;border-radius:10px;border:1px solid #e8ddd0;">
+                <button type="submit" class="pnl-btn pnl-btn-outline pnl-btn-sm" name="remove_login_logo" value="1">🗑 حذف لوگو (بازگشت به پیش‌فرض)</button>
+            </div>
+            {% else %}
+            <p style="font-size:.8rem;opacity:.7;margin:4px 0;">فعلاً لوگوی برند سایت نمایش داده می‌شود.</p>
+            {% endif %}
+            <label>آپلود لوگوی جدید:</label>
+            <input type="file" name="login_logo" accept=".png,.webp" class="pnl-input">
+            <button type="submit" class="pnl-btn pnl-btn-gold" style="margin-top:12px;">💾 ذخیره لوگوی ورود</button>
+        </form>
+    </div>
+
+    </div>
+    </section>
+
+    <!-- ═══ تب ۴: سایر تنظیمات ═══ -->
+    <section class="pnl-pane" id="pane-misc">
+    <div class="pnl-grid-2">
+
+    <div class="pnl-card">
+        <h3>📝 ثبت‌نام و نمایش</h3>
+        <form method="POST" action="{{ url_for('panel.settings') }}" class="pnl-stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="pnl-check">
+                <input type="checkbox" name="registration_enabled" value="1" {% if registration_enabled %}checked{% endif %}>
+                ثبت‌نام در سایت فعال باشد
+            </label>
+            <small class="pnl-muted">ثبت‌نام به‌صورت پیش‌فرض فعال است مگر سوپرادمین آن را خاموش کند.</small>
+            <button type="submit" class="pnl-btn pnl-btn-gold" style="margin-top:12px;" name="save_registration" value="1">💾 ذخیره</button>
+        </form>
+    </div>
+
+    <div class="pnl-card">
+        <h3>🏷️ لوگو و هدر سایت</h3>
+        <form method="POST" action="{{ url_for('panel.settings') }}" enctype="multipart/form-data" class="pnl-stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="save_brand" value="1">
+            <label>نام برند (عنوان هدر):</label>
+            <input type="text" name="brand_name" value="{{ brand_name }}" placeholder="گیسو صادقی" class="pnl-input" maxlength="80">
+            <label>شعار زیر عنوان:</label>
+            <input type="text" name="brand_tagline" value="{{ brand_tagline }}" placeholder="هوشمند ببین، دقیق انتخاب کن" class="pnl-input" maxlength="120">
+            <label>① لوگوی هدر سایت (jpg/png/webp — خالی بگذارید تا تغییر نکند):</label>
+            {% if logo_path %}
+            <div style="display:flex;align-items:center;gap:12px;margin:6px 0;">
+                <img src="{{ url_for('static', filename=logo_path) }}" alt="لوگوی فعلی هدر" style="max-height:48px;border-radius:8px;border:1px solid #e8ddd0;">
+                <label class="pnl-check" style="font-size:.85rem;"><input type="checkbox" name="remove_logo" value="1"> حذف لوگو (بازگشت به آیکون پیش‌فرض)</label>
+            </div>
+            {% else %}
+            <p style="font-size:.8rem;opacity:.7;margin:4px 0;">فعلاً آیکون پیش‌فرض ✂️ نمایش داده می‌شود.</p>
+            {% endif %}
+            <input type="file" name="brand_logo" accept=".jpg,.jpeg,.png,.webp" class="pnl-input">
+
+            <label style="margin-top:14px;">② تصویر بزرگ صفحه اول — هیرو (jpg/png/webp — خالی بگذارید تا تغییر نکند):</label>
+            {% if hero_image_path %}
+            <div style="display:flex;align-items:center;gap:12px;margin:6px 0;">
+                <img src="{{ url_for('static', filename=hero_image_path) }}" alt="تصویر فعلی صفحه اول" style="max-height:72px;border-radius:8px;border:1px solid #e8ddd0;">
+                <label class="pnl-check" style="font-size:.85rem;"><input type="checkbox" name="remove_hero_image" value="1"> حذف تصویر (بازگشت به تصویر پیش‌فرض)</label>
+            </div>
+            {% else %}
+            <p style="font-size:.8rem;opacity:.7;margin:4px 0;">فعلاً تصویر پیش‌فرض گیسو نمایش داده می‌شود.</p>
+            {% endif %}
+            <input type="file" name="hero_image" accept=".jpg,.jpeg,.png,.webp" class="pnl-input">
+            <button type="submit" class="pnl-btn pnl-btn-gold" style="margin-top:12px;">💾 ذخیره لوگو و هدر</button>
+        </form>
+    </div>
+
+    <div class="pnl-card">
+        <h3>🔢 عددهای نمایشی شمارنده‌های صفحه اصلی</h3>
+        <p style="font-size:.85rem;opacity:.85;margin:0 0 8px;">عدد نمایش‌یافته = <b>آمار واقعی دیتابیس</b> + آفست زیر (برای تقویت نمایش). آفست ۰ یعنی نمایش دقیق.</p>
+        <form method="POST" action="{{ url_for('panel.settings') }}" class="pnl-stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="save_counters" value="1">
+            <label>آفست مشتریان:</label>
+            <input type="number" name="counter_offset_users" value="{{ counter_offset_users }}" min="0" class="pnl-input">
+            <label>آفست آنالیز سلامت مو و پوست:</label>
+            <input type="number" name="counter_offset_analyses" value="{{ counter_offset_analyses }}" min="0" class="pnl-input">
+            <label>آفست خرید مو:</label>
+            <input type="number" name="counter_offset_hair" value="{{ counter_offset_hair }}" min="0" class="pnl-input">
+            <label>آفست تسویه‌های موفق کیف پول:</label>
+            <input type="number" name="counter_offset_commissions" value="{{ counter_offset_commissions }}" min="0" class="pnl-input">
+            <button type="submit" class="pnl-btn pnl-btn-gold" style="margin-top:12px;">💾 ذخیره شمارنده‌ها</button>
+        </form>
+    </div>
+
+    <div class="pnl-card">
+        <h3>🎨 تم سایت</h3>
+        <form method="POST" action="{{ url_for('panel.settings') }}" class="pnl-stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>تم فعلی: <b>{{ site_theme }}</b></label>
+            <div class="pnl-btn-row">
+                {% for key, label in site_themes %}
+                <label class="pnl-check">
+                    <input type="radio" name="site_theme" value="{{ key }}" {% if site_theme==key %}checked{% endif %}> {{ label }}
+                </label>
+                {% endfor %}
+            </div>
+            <button type="submit" class="pnl-btn pnl-btn-gold" style="margin-top:12px;">💾 ذخیره تم</button>
+        </form>
+    </div>
+
+    <div class="pnl-card">
+        <h3>✨ ظاهر سایت — فوتر، شبکه‌های اجتماعی و گوگل</h3>
+        <p class="pnl-muted">این مقدارها روی فوتر سه‌ستونهٔ همهٔ صفحات عمومی و تگ گوگل اعمال می‌شوند. آیکون هر شبکهٔ اجتماعی فقط وقتی مقدارش ذخیره شده باشد در فوتر نمایش داده می‌شود.</p>
+        <form method="POST" action="{{ url_for('panel.settings') }}" class="pnl-stack-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="save_appearance" value="1">
+            <label>نام کاربری بله (لینک ble.ir):</label>
+            <input type="text" name="support_bale_user" value="{{ bale_user }}" placeholder="gisosadeghi" dir="ltr" class="pnl-input" maxlength="40">
+            <label>تلگرام (بدون @):</label>
+            <input type="text" name="support_telegram" value="{{ telegram }}" placeholder="gisosadeghi" dir="ltr" class="pnl-input" maxlength="40">
+            <label>اینستاگرام (بدون @):</label>
+            <input type="text" name="instagram" value="{{ instagram }}" placeholder="gisosadeghi" dir="ltr" class="pnl-input" maxlength="40">
+            <label>واتس‌اپ (شماره با کد کشور، بدون +):</label>
+            <input type="tel" name="whatsapp" value="{{ whatsapp }}" placeholder="989156012931" dir="ltr" class="pnl-input" maxlength="15">
+            <label>ایتا (بدون @):</label>
+            <input type="text" name="eitaa" value="{{ eitaa }}" placeholder="gisosadeghi" dir="ltr" class="pnl-input" maxlength="40">
+            <label>روبیکا (بدون @):</label>
+            <input type="text" name="rubika" value="{{ rubika }}" placeholder="gisosadeghi" dir="ltr" class="pnl-input" maxlength="40">
+            <label>کد تأیید گوگل (Search Console):</label>
+            <input type="text" name="google_site_verification" value="{{ google_site_verification }}" placeholder="google-site-verification content" dir="ltr" class="pnl-input" maxlength="100">
+            <label>شناسه آنالیتیکس / تگ گوگل (G- یا GTM-):</label>
+            <input type="text" name="google_analytics_id" value="{{ google_analytics_id }}" placeholder="G-XXXXXXXX یا GTM-XXXXXXX" dir="ltr" class="pnl-input" maxlength="40">
+            <button type="submit" class="pnl-btn pnl-btn-gold" style="margin-top:12px;">💾 ذخیره ظاهر سایت</button>
+        </form>
+    </div>
+
+    <div class="pnl-card">
+        <h3>🖋️ نوار فوتر و اعتبار طراح سایت</h3>
+        <p class="pnl-muted">متن کپی‌رایت خالی = پیش‌فرض «© نام برند — شعار برند». اگر نام طراح ذخیره شود، در انتهای نوار فوتر همهٔ صفحات عمومی نمایش داده می‌شود؛ با ذخیرهٔ لینک، نام به لینک سایت طراح تبدیل می‌شود.</p>
+        <form method="POST" action="{{ url_for('panel.settings') }}" class="pnl-stack-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="save_footer_credit" value="1">
+            <label>متن کپی‌رایت (اختیاری — کل نوار را جایگزین می‌کند):</label>
+            <input type="text" name="footer_copyright" value="{{ footer_copyright }}" placeholder="© گیسو صادقی — هوشمند ببین، دقیق انتخاب کن" class="pnl-input" maxlength="200">
+            <label>نام طراح سایت:</label>
+            <input type="text" name="designer_name" value="{{ designer_name }}" placeholder="مثلاً استودیو نمونه" class="pnl-input" maxlength="80">
+            <label>لینک سایت طراح (اختیاری — با http:// یا https://):</label>
+            <input type="url" name="designer_url" value="{{ designer_url }}" placeholder="https://example.com" dir="ltr" class="pnl-input" maxlength="200">
+            <button type="submit" class="pnl-btn pnl-btn-gold" style="margin-top:12px;">💾 ذخیره نوار فوتر</button>
+        </form>
+    </div>
+
+    <div class="pnl-card">
+        <h3>🌐 آدرس سایت گیسو</h3>
+        <form method="POST" action="{{ url_for('panel.settings') }}" class="pnl-stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>آدرس فعلی: <b dir="ltr">{{ site_base_url or '— (پیش‌فرض)' }}</b></label>
+            <input type="text" name="site_base_url" value="{{ site_base_url }}" placeholder="https://gisosadeghi.ir" dir="ltr">
+            <div class="pnl-btn-row" style="margin-top:10px;">
+                <button type="submit" class="pnl-btn pnl-btn-gold" name="site_url_action" value="save">💾 ذخیره آدرس</button>
+                <button type="submit" class="pnl-btn pnl-btn-outline" name="site_url_action" value="test">🔍 تست آدرس</button>
+            </div>
+            <small class="pnl-muted">همان کلید مشترک با ربات — ربات از همین آدرس برای لینک به سایت استفاده می‌کند.</small>
+        </form>
+    </div>
+
+    </div>
+
+    </section>
+
+    {% endif %}
+</div>
+{% endblock %}

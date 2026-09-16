@@ -1,0 +1,85 @@
+{% extends 'user_layout.html' %}
+{% block title %}نظرات - گیسو{% endblock %}
+{% block content %}
+<div class="pu-page">
+    <h1 class="pu-h1">⭐ ثبت نظر و رضایت</h1>
+    <p class="pu-sub">تجربه‌ات از خرید فروشگاه و فروش مو را بنویس</p>
+
+    <div class="pu-grid-2">
+        <div class="pu-card">
+            <h3>🛍 نظر برای سفارش فروشگاه</h3>
+            <form method="POST" action="{{ url_for('submit_review') }}" class="pu-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="review_type" value="shop_order">
+                <label>سفارش</label>
+                {% if shop_orders %}
+                <select name="order_id" required>
+                    {% for o in shop_orders %}
+                    <option value="{{ o.id }}">سفارش #{{ o.id }} - {{ o.product.name if o.product else '' }} ({{ o.created_at }})</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <input type="number" name="order_id" placeholder="شماره سفارش" required min="1">
+                {% endif %}
+                <label>امتیاز</label>
+                <select name="rating" required>
+                    <option value="5">⭐⭐⭐⭐⭐ عالی</option>
+                    <option value="4">⭐⭐⭐⭐ خوب</option>
+                    <option value="3">⭐⭐⭐ متوسط</option>
+                    <option value="2">⭐⭐ ضعیف</option>
+                    <option value="1">⭐ بسیار ضعیف</option>
+                </select>
+                <label>متن نظر</label>
+                <textarea name="comment" rows="3" placeholder="تجربه خریدت را بنویس..." required></textarea>
+                <button class="pu-btn pu-btn-rose">ثبت نظر فروشگاه</button>
+            </form>
+        </div>
+
+        <div class="pu-card">
+            <h3>💇 نظر برای فروش مو</h3>
+            <form method="POST" action="{{ url_for('submit_review') }}" class="pu-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="review_type" value="hair_order">
+                <label>درخواست فروش مو</label>
+                {% if hair_orders %}
+                <select name="order_id" required>
+                    {% for h in hair_orders %}
+                    <option value="{{ h.id }}">درخواست #{{ h.id }} - طول {{ h.length_cm }} سانت ({{ h.created_at }})</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <input type="number" name="order_id" placeholder="شماره درخواست" required min="1">
+                {% endif %}
+                <label>امتیاز</label>
+                <select name="rating" required>
+                    <option value="5">⭐⭐⭐⭐⭐ عالی</option>
+                    <option value="4">⭐⭐⭐⭐ خوب</option>
+                    <option value="3">⭐⭐⭐ متوسط</option>
+                    <option value="2">⭐⭐ ضعیف</option>
+                    <option value="1">⭐ بسیار ضعیف</option>
+                </select>
+                <label>متن نظر</label>
+                <textarea name="comment" rows="3" placeholder="تجربه فروش مو و تعامل با کارشناس را بنویس..." required></textarea>
+                <button class="pu-btn pu-btn-rose">ثبت نظر فروش مو</button>
+            </form>
+        </div>
+    </div>
+
+    {% if reviews %}
+    <div class="pu-card">
+        <h3>📋 نظرات من ({{ reviews|length }})</h3>
+        <div class="pu-list">
+            {% for r in reviews %}
+            <div class="pu-list-item">
+                <div class="pu-list-main">
+                    <span class="pu-muted">{{ '🛍 فروشگاه' if r.review_type == 'shop_order' else '💇 فروش مو' }} — سفارش #{{ r.order_id }}</span>
+                    <span>{{ r.comment }}</span>
+                </div>
+                <b>{{ r.rating }} ⭐</b>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

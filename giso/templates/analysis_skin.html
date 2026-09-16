@@ -1,0 +1,541 @@
+{% extends "base.html" %}
+
+{% block title %}آنالیز پوست | گیسو صادقی{% endblock %}
+{% block meta %}
+<meta name="description" content="آنالیز وضعیت پوست با هوش مصنوعی و دریافت روتین مراقبتی مناسب پوست شما.">
+<meta property="og:title" content="آنالیز پوست | گیسو صادقی">
+<meta property="og:description" content="آنالیز وضعیت پوست با هوش مصنوعی — بدون ادعای تشخیص پزشکی">
+<link rel="canonical" href="{{ url_for('analysis_skin', _external=True) }}">
+<meta property="og:url" content="{{ url_for('analysis_skin', _external=True) }}">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebPage","name":{{ "آنالیز پوست | گیسو صادقی"|tojson }},"description":{{ "آنالیز وضعیت پوست با هوش مصنوعی و دریافت روتین مراقبتی مناسب پوست شما."|tojson }},"url":{{ url_for('analysis_skin', _external=True)|tojson }}}
+</script>
+{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/analysis_flow.css') }}">
+<style>
+.step1-header { text-align:center; margin-bottom:30px; }
+.step1-icon { font-size:60px; margin-bottom:15px; }
+.step1-header h1, .step1-header h2 { font-size:24px; color:#5C3D2E; font-weight:800; margin-bottom:8px; }
+.step1-header p { color:#8B6F5C; font-size:15px; }
+.tips-showcase { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin:30px 0; }
+.tip-card { background:white; padding:20px 15px; border-radius:16px; text-align:center; box-shadow:0 4px 12px rgba(92,61,46,0.06); transition:transform .2s; }
+.tip-card:hover { transform:translateY(-3px); }
+.tip-card.positive { border-top:4px solid #7BA05B; }
+.tip-card.negative { border-top:4px solid #E07856; opacity:0.75; }
+.tip-icon { font-size:36px; margin-bottom:10px; }
+.tip-card h4 { color:#5C3D2E; font-size:15px; margin:8px 0; font-weight:700; }
+.tip-card p { color:#6B4E3D; font-size:13px; line-height:1.6; margin:0; }
+.importance-note { display:flex; align-items:flex-start; gap:15px; background:linear-gradient(135deg,rgba(212,165,116,0.15),rgba(212,165,116,0.05)); padding:20px; border-radius:16px; margin:25px 0; border-right:4px solid #D4A574; }
+.note-icon { font-size:28px; }
+.importance-note strong { color:#5C3D2E; font-size:15px; }
+.importance-note p { color:#6B4E3D; font-size:14px; margin:5px 0 0 0; line-height:1.7; }
+
+/* ===== آپلود + نمونه کنار هم ===== */
+.upload-with-sample { display:grid; grid-template-columns:1fr 280px; gap:30px; align-items:start; margin:30px 0; }
+
+/* ===== اسلات بزرگ آپلود ===== */
+.ahs-drop-big { background:rgba(255,249,240,0.8); border:3px dashed #D4A574; border-radius:24px; padding:60px 40px; height:400px; max-height:400px; min-height:400px; text-align:center; cursor:pointer; transition:0.3s; position:relative; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.ahs-drop-big:hover { background:rgba(212,165,116,0.15); border-color:#B8935F; transform:scale(1.02); }
+.ahs-drop-big .drop-icon { font-size:60px; margin-bottom:15px; }
+.ahs-drop-big h3 { color:#5C3D2E; font-size:20px; margin:0 0 8px; font-weight:700; }
+.ahs-drop-big p { color:#8B6F5C; font-size:14px; margin:0; }
+.ahs-drop-big.has-image { padding:0; background:#f5f5f5; border-style:solid; }
+.drop-preview { display:none; width:100%; height:100%; object-fit:contain; object-position:center; background:#f5f5f5; border-radius:21px; }
+.ahs-drop-big.has-image .drop-preview { display:block; }
+.ahs-drop-big.has-image .drop-icon, .ahs-drop-big.has-image h3, .ahs-drop-big.has-image p { display:none; }
+.drop-remove { position:absolute; top:15px; right:15px; width:36px; height:36px; border-radius:50%; background:#E07856; color:#fff; border:none; cursor:pointer; font-size:20px; line-height:1; z-index:10; display:none; }
+.ahs-drop-big.has-image .drop-remove { display:block; }
+
+/* ===== کارت نمونه عکس درست ===== */
+.sample-card { background:linear-gradient(135deg,rgba(123,160,91,0.1),rgba(123,160,91,0.05)); padding:25px 20px; border-radius:20px; text-align:center; border:2px solid rgba(123,160,91,0.3); }
+.sample-card h4 { color:#5C3D2E; font-size:15px; margin-bottom:15px; font-weight:700; }
+.sample-img-wrapper { position:relative; width:100%; max-width:240px; margin:0 auto 15px; }
+.sample-mini { width:100%; height:240px; object-fit:cover; border-radius:16px; box-shadow:0 6px 20px rgba(92,61,46,0.15); border:3px solid #7BA05B; }
+.sample-check { position:absolute; bottom:8px; right:8px; background:#7BA05B; color:white; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; box-shadow:0 4px 12px rgba(0,0,0,0.2); border:2px solid white; }
+.sample-tips { list-style:none; padding:0; margin:15px 0; text-align:right; }
+.sample-tips li { padding:6px 0; color:#6B4E3D; font-size:13px; border-bottom:1px dashed rgba(212,165,116,0.3); }
+.sample-tips li:last-child { border-bottom:none; }
+.sample-hint { color:#7BA05B; font-size:13px; font-weight:600; margin:10px 0 0 0; }
+
+/* ===== تیک چک نکات عکاسی ===== */
+.image-checks { background:white; padding:25px; border-radius:20px; margin-top:20px; box-shadow:0 4px 15px rgba(92,61,46,0.08); }
+.check-status { padding:0; border-radius:12px; margin-bottom:15px; font-size:15px; font-weight:600; text-align:center; }
+.status-ok { background:linear-gradient(135deg,rgba(123,160,91,0.15),rgba(123,160,91,0.05)); padding:20px; border-radius:12px; color:#5C3D2E; font-weight:600; text-align:center; border-right:4px solid #7BA05B; }
+.status-warning { background:linear-gradient(135deg,rgba(255,193,7,0.15),rgba(255,193,7,0.05)); padding:20px; border-radius:12px; border-right:4px solid #FFC107; }
+.status-title { font-weight:700; color:#5C3D2E; margin-bottom:10px; font-size:15px; }
+.status-warnings { background:white; padding:15px; border-radius:8px; margin-top:10px; text-align:right; }
+.status-warnings strong { color:#E07856; font-size:13px; }
+.status-warnings ul { margin:8px 0 0 0; padding-right:20px; color:#6B4E3D; font-size:13px; }
+.status-warnings li { padding:3px 0; }
+.status-fail { background:linear-gradient(135deg,rgba(224,120,86,0.15),rgba(224,120,86,0.05)); padding:20px; border-radius:12px; color:#C83232; font-weight:600; text-align:center; border-right:4px solid #E07856; }
+.action-buttons { display:flex; gap:10px; margin-top:15px; flex-wrap:wrap; }
+.action-buttons button { flex:1; padding:12px 20px; border-radius:30px; font-size:14px; cursor:pointer; transition:all 0.3s; border:none; font-weight:600; min-width:150px; font-family:'Vazirmatn',sans-serif; }
+.action-buttons .btn-primary { background:linear-gradient(135deg,#D4A574,#B8935F); color:white; }
+.action-buttons .btn-secondary { background:white; color:#5C3D2E; border:2px solid #D4A574; }
+.action-buttons button:hover { transform:translateY(-2px); box-shadow:0 6px 15px rgba(0,0,0,0.15); }
+.check-list { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin:20px 0; }
+.check-item { display:flex; align-items:center; gap:10px; padding:12px 15px; border-radius:12px; background:rgba(255,249,240,0.8); font-size:14px; color:#5C3D2E; }
+.check-item.pass { background:rgba(123,160,91,0.1); border-right:3px solid #7BA05B; }
+.check-item.fail { background:rgba(224,120,86,0.1); border-right:3px solid #E07856; }
+.check-icon { font-size:18px; }
+.check-message { padding:15px; background:rgba(212,165,116,0.15); border-radius:12px; margin:15px 0; color:#5C3D2E; font-size:14px; }
+.check-actions { display:flex; gap:10px; justify-content:center; }
+.check-actions button { padding:12px 24px; border:none; border-radius:30px; font-weight:700; cursor:pointer; font-family:'Vazirmatn',sans-serif; }
+#continueBtn { background:linear-gradient(135deg,#D4A574,#B8935F); color:#fff; }
+#continueBtn.disabled { opacity:0.4; pointer-events:none; }
+#continueBtn:not(.disabled) { animation:pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.03);} }
+.check-actions .ghost-btn { background:transparent; border:2px solid #D4A574; color:#5C3D2E; }
+.validation-loading { text-align:center; padding:30px; color:#8B6F5C; font-size:15px; }
+
+.required-mark { color:#E07856; font-weight:bold; margin-right:5px; }
+.optional-mark { color:#8B6F5C; font-size:12px; margin-right:8px; font-weight:normal; }
+.ahs-qblock.error { border-right:3px solid #E07856; background:rgba(224,120,86,0.05); padding:15px; border-radius:12px; }
+.q-error { color:#E07856; font-size:13px; margin-top:8px; padding:8px 12px; background:rgba(224,120,86,0.1); border-radius:8px; }
+
+@media (max-width:768px){
+    .tips-showcase { grid-template-columns:repeat(2,1fr); }
+    .tip-icon { font-size:30px; }
+    .tip-card h4 { font-size:13px; }
+    .tip-card p { font-size:11px; }
+    .ahs-drop-big { height:300px; max-height:300px; min-height:300px; padding:40px 20px; }
+    .upload-with-sample { grid-template-columns:1fr; gap:20px; }
+    .sample-column { order:-1; }
+    .sample-mini { height:200px; }
+    .check-list { grid-template-columns:1fr; }
+    .check-actions { flex-direction:column; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="ahs-flow-page">
+    <header class="ahs-flow-header">
+        <a href="{{ url_for('index') }}" class="ahs-flow-h-logo" title="گیسو">✨</a>
+        <div class="ahs-flow-h-title">آنالیز تخصصی پوست</div>
+        <a href="{{ url_for('analysis') }}" class="ahs-flow-h-back"><span>← بازگشت به انتخاب</span></a>
+    </header>
+
+    <div class="ahs-stepper" id="ahsStepper">
+        {% set cur = 2 if (initial is not none and initial) else 0 %}
+        {% for label in ['راهنما','آپلود عکس','بررسی اولیه','سوالات تکمیلی','تحلیل','گزارش'] %}
+        <div class="ahs-step {% if loop.index0 == cur %}active{% elif loop.index0 < cur %}done{% endif %}" data-step="{{ loop.index0 }}">
+            <div class="ahs-step-dot">
+                {% if loop.index0 < cur %}<span class="dot-ico">✓</span>
+                {% else %}<span class="dot-ico">{{ loop.index0 + 1 }}</span>{% endif %}
+            </div>
+            {% if not loop.last %}<div class="ahs-step-line"></div>{% endif %}
+            <div class="ahs-step-label">{{ label }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="ahs-flow-card">
+        {% if ai_error %}
+        <div class="ahs-error-box">{{ ai_error }}</div>
+        {% endif %}
+
+        <!-- مرحله ۱: راهنمای عکاسی زیبا -->
+        <div class="ahs-flow-step {% if not initial %}active{% endif %}" id="step1">
+            <div class="step1-header">
+                <div class="step1-icon">📸</div>
+                <h1>قبل از آپلود، این نکات رو بدون</h1>
+                <p>برای تحلیل دقیق پوستت، رعایت این نکات خیلی مهمه</p>
+            </div>
+            <div class="tips-showcase">
+                <div class="tip-card positive"><div class="tip-icon">☀️</div><h4>نور طبیعی</h4><p>کنار پنجره یا در فضای باز عکس بگیر</p></div>
+                <div class="tip-card positive"><div class="tip-icon">📵</div><h4>بدون فیلتر</h4><p>هیچ فیلتر یا افکتی نذار</p></div>
+                <div class="tip-card positive"><div class="tip-icon">📏</div><h4>فاصله مناسب</h4><p>۳۰ تا ۴۰ سانتی‌متر فاصله</p></div>
+                <div class="tip-card positive"><div class="tip-icon">👤</div><h4>تک نفر</h4><p>فقط خودت در عکس باشی</p></div>
+                <div class="tip-card positive"><div class="tip-icon">🧼</div><h4>بدون آرایش</h4><p>ترجیحاً بدون آرایش</p></div>
+                <div class="tip-card negative"><div class="tip-icon">💡</div><h4>نور مصنوعی نه</h4><p>نور زرد لامپ مشکل‌ساز میشه</p></div>
+                <div class="tip-card negative"><div class="tip-icon">🌫</div><h4>عکس تار نه</h4><p>عکس واضح و بدون لرزش</p></div>
+            </div>
+            <div class="importance-note">
+                <span class="note-icon">⚠️</span>
+                <div>
+                    <strong>مهم:</strong>
+                    <p>هوش مصنوعی گیسو قبل از تحلیل، عکسو بررسی می‌کنه. اگه مشکلی داشت، بهت راهنمایی می‌ده که چطور بهتر عکس بگیری.</p>
+                </div>
+            </div>
+            <div class="ahs-privacy" style="margin-bottom:20px;">🔒 عکس‌های شما فقط برای تحلیل استفاده می‌شود و کاملاً محفوظ در پروفایل شخصی شما ذخیره می‌شود.</div>
+            <div class="ahs-flow-btns">
+                <a href="{{ url_for('analysis') }}" class="ahs-btn-ghost">← بازگشت</a>
+                <button type="button" class="ahs-btn-main" onclick="goStep2()">📸 آماده‌ام، بریم عکس آپلود کنم</button>
+            </div>
+        </div>
+
+        <!-- مرحله ۲: آپلود عکس (۱ اسلات بزرگ) -->
+        <div class="ahs-flow-step {% if initial and stage == 2 %}active{% endif %}" id="step2">
+            <h2>عکس صورتت رو آپلود کن</h2>
+            <p class="ahs-sub">یک عکس واضح از صورتت آپلود کن</p>
+
+            <form method="POST" action="{{ url_for('initial_analysis_skin') }}" enctype="multipart/form-data" id="uploadForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="analysis_id" value="{{ session.get('current_analysis_id', '') }}">
+                <div class="upload-with-sample">
+                    <div class="upload-column">
+                        <div class="ahs-drop-big" id="dropBig" onclick="openPicker(this)">
+                            <div class="drop-icon">📸</div>
+                            <h3>عکس رو اینجا بذار یا کلیک کن</h3>
+                            <p>یک عکس واضح از صورتت آپلود کن</p>
+                            <input type="file" name="images" accept="image/jpeg,image/png,image/webp" onchange="handleFile(this)" hidden>
+                            <img class="drop-preview" alt="پیش‌نمایش تصویر آنالیز پوست" width="800" height="800">
+                            <button type="button" class="drop-remove" onclick="removeImage(event, this)">×</button>
+                        </div>
+                    </div>
+                    <div class="sample-column">
+                        <div class="sample-card">
+                            <h4>📸 نمونه عکس درست</h4>
+                            <div class="sample-img-wrapper">
+                                <img src="{{ url_for('static', filename='images/sample_skin.webp') }}" alt="نمونه عکس صحیح برای آنالیز پوست" class="sample-mini" loading="lazy" decoding="async" width="768" height="1376">
+                                <span class="sample-check">✅</span>
+                            </div>
+                            <ul class="sample-tips">
+                                <li>✅ نور طبیعی</li>
+                                <li>✅ فاصله مناسب</li>
+                                <li>✅ بدون فیلتر</li>
+                                <li>✅ صورت واضح</li>
+                            </ul>
+                            <p class="sample-hint">💡 عکست باید مثل این باشه</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- تیک چک نکات عکاسی -->
+                <div class="image-checks" id="imageChecks" style="display:none;">
+                    <h4 style="color:#5C3D2E; margin-bottom:15px;">📋 بررسی عکس</h4>
+                    <div class="check-status" id="checkStatus"></div>
+                    <div class="validation-loading" id="validationLoading" style="display:none;">🔄 در حال بررسی عکس با هوش مصنوعی...</div>
+                    <div class="check-list" id="checkList" style="display:none;">
+                        <div class="check-item" id="check-natural-light"><span class="check-icon">—</span><span>نور طبیعی</span></div>
+                        <div class="check-item" id="check-no-filter"><span class="check-icon">—</span><span>بدون فیلتر</span></div>
+                        <div class="check-item" id="check-distance"><span class="check-icon">—</span><span>فاصله مناسب</span></div>
+                        <div class="check-item" id="check-visible"><span class="check-icon">—</span><span>صورت واضح</span></div>
+                        <div class="check-item" id="check-one-person"><span class="check-icon">—</span><span>تک نفر</span></div>
+                        <div class="check-item" id="check-clear"><span class="check-icon">—</span><span>عکس واضح</span></div>
+                    </div>
+                    <div class="check-message" id="checkMessage" style="display:none;"></div>
+                    <div class="check-actions">
+                        <button type="button" class="ghost-btn" onclick="resetUpload()">🔄 عکس جدید</button>
+                        <button type="button" id="continueBtn" class="disabled" onclick="proceedToInitial()">ادامه ←</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- مرحله ۳: نمایش تحلیل اولیه -->
+        <div class="ahs-flow-step {% if initial and stage == 3 %}active{% endif %}" id="step3">
+            <h2>🔍 تحلیل اولیه پوستت</h2>
+            <p class="ahs-sub">بر اساس بررسی عکس‌های ارسالی</p>
+            {% if initial %}
+            {% if initial.get('overall') %}
+            <div class="ahs-closing-note" style="background:rgba(212,175,55,0.1);">{{ initial.get('overall') }}</div>
+            {% endif %}
+            {% for card in initial.get('cards', []) %}
+            <div class="ahs-analysis-card" style="animation-delay: {{ loop.index0 * 0.15 }}s;">
+                <span class="ac-num">{{ ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣'][loop.index0] }}</span>
+                <h4>{{ card.get('title', '') }}</h4>
+                <p>{{ card.get('text', '') }}</p>
+            </div>
+            {% endfor %}
+            <div class="ahs-closing-note">💡 این تحلیل اولیه بود. برای گزارش کامل و دقیق، به چند سوال کوتاه پاسخ بده.</div>
+            <div class="ahs-flow-btns">
+                <button type="button" class="ahs-btn-ghost" onclick="goUpload()">← تغییر عکس</button>
+                <button type="button" class="ahs-btn-main" onclick="goStep4()">ادامه به سوالات تکمیلی ←</button>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- مرحله ۴: سوالات تکمیلی -->
+        <div class="ahs-flow-step" id="step4">
+            <h2>چند سوال کوتاه برای تحلیل دقیق‌تر</h2>
+            <p class="ahs-sub">بر اساس چیزی که در عکست دیدم، این سوالات کمک می‌کنه</p>
+
+            <form method="POST" action="{{ url_for('final_analysis_skin') }}" id="questionsForm" onsubmit="return validateQuestions(event)">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% for q in questions or [] %}
+                <div class="ahs-qblock" data-required="{{ 'true' if q.get('required') else 'false' }}">
+                    <div class="ahs-qtitle">
+                        {{ loop.index }}. {{ q.title }}
+                        {% if q.get('required') %}<span class="required-mark">*</span>
+                        {% else %}<span class="optional-mark">(اختیاری)</span>{% endif %}
+                    </div>
+                    {% if q.get('free') %}
+                    <textarea class="ahs-textarea" name="{{ q.name }}" placeholder="{{ q.get('placeholder', 'اختیاری...') }}"></textarea>
+                    {% else %}
+                    <div class="ahs-chips">
+                        {% for opt in q.get('options', []) %}
+                        <label class="ahs-chip">
+                            <input type="radio" name="{{ q.name }}" value="{{ opt }}" onchange="chipSelect(this)">
+                            <span>{{ opt }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="q-error" id="q-error-{{ q.name }}" style="display:none;">⚠️ لطفاً به این سوال جواب بده</div>
+                </div>
+                {% endfor %}
+
+                <div class="ahs-flow-btns">
+                    <button type="button" class="ahs-btn-ghost" onclick="goStep3()">← بازگشت</button>
+                    <button type="submit" class="ahs-btn-main">دریافت گزارش نهایی 📊</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</section>
+
+<!-- Loading Screen -->
+<div class="ahs-loading" id="loadingScreen" style="display:none;">
+    <div class="ahs-spinner"></div>
+    <div class="ahs-loading-msg" id="loadingMsg">در حال بررسی عکس...</div>
+    <div class="ahsl-sparkle" style="top:15%; left:10%; width:10px;height:10px; animation-duration:7s;"></div>
+    <div class="ahsl-sparkle" style="top:70%; left:20%; width:7px;height:7px; animation-duration:9s;"></div>
+    <div class="ahsl-sparkle" style="top:30%; left:80%; width:8px;height:8px; animation-duration:8s;"></div>
+    <div class="ahsl-sparkle" style="top:80%; left:85%; width:6px;height:6px; animation-duration:10s;"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ANALYSIS_TYPE = 'skin';
+const LOADING_MSGS = ['در حال بررسی عکس...','تحلیل نوع پوست...','شناسایی نکات کلیدی...','آماده‌سازی گزارش اولیه...'];
+let loadingTimer = null;
+let imageValid = false;
+
+function goStep2() {
+    document.getElementById('step1').classList.remove('active');
+    document.getElementById('step1').classList.add('out-left');
+    setTimeout(() => {
+        document.getElementById('step1').style.display = 'none';
+        const s2 = document.getElementById('step2');
+        s2.classList.add('in-right');
+        document.getElementById('step2').classList.add('active');
+        updateStepper(1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 350);
+}
+function goStep1() {
+    document.getElementById('step2').classList.remove('active');
+    document.getElementById('step2').classList.remove('in-right');
+    const s1 = document.getElementById('step1');
+    s1.style.display = 'block'; s1.classList.add('active'); s1.classList.remove('out-left');
+    updateStepper(0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function goUpload() {
+    document.getElementById('step3').classList.remove('active');
+    const s2 = document.getElementById('step2');
+    s2.style.display = 'block'; s2.classList.add('active');
+    updateStepper(1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function goStep4() {
+    document.getElementById('step3').classList.remove('active');
+    const s4 = document.getElementById('step4');
+    s4.classList.add('in-right');
+    document.getElementById('step4').classList.add('active');
+    updateStepper(3);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function goStep3() {
+    document.getElementById('step4').classList.remove('active');
+    document.getElementById('step4').classList.remove('in-right');
+    document.getElementById('step3').classList.add('active');
+    updateStepper(2);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function updateStepper(activeIdx) {
+    const steps = document.querySelectorAll('.ahs-stepper .ahs-step');
+    steps.forEach((s, i) => {
+        s.classList.remove('active', 'done');
+        if (i < activeIdx) s.classList.add('done');
+        if (i === activeIdx) s.classList.add('active');
+        const dot = s.querySelector('.dot-ico');
+        if (dot) dot.textContent = (i <= activeIdx) ? '✓' : String(i + 1);
+    });
+}
+
+function openPicker(el) { el.querySelector('input[type="file"]').click(); }
+
+function handleFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { alert('فقط JPG یا PNG'); input.value=''; return; }
+    if (file.size > 5*1024*1024) { alert('حداکثر ۵MB'); input.value=''; return; }
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const dropBig = document.getElementById('dropBig');
+        dropBig.classList.add('has-image');
+        dropBig.querySelector('.drop-preview').src = e.target.result;
+        imageValid = false;
+        showValidationLoading();
+        const result = await validateImage(file, ANALYSIS_TYPE);
+        displayImageChecks(result);
+    };
+    reader.readAsDataURL(file);
+}
+function removeImage(ev, btn) { ev.stopPropagation(); resetUpload(); }
+function resetUpload() {
+    const dropBig = document.getElementById('dropBig');
+    dropBig.classList.remove('has-image');
+    dropBig.querySelector('.drop-preview').removeAttribute('src');
+    dropBig.querySelector('input[type="file"]').value = '';
+    document.getElementById('imageChecks').style.display = 'none';
+    document.getElementById('checkList').style.display = 'none';
+    document.getElementById('checkMessage').style.display = 'none';
+    imageValid = false;
+    document.getElementById('continueBtn').classList.add('disabled');
+}
+async function validateImage(file, analysisType) {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('analysis_type', analysisType);
+    try {
+        const response = await fetch('/analysis/validate-image', { method:'POST', headers: {'X-GISO-CSRF': document.querySelector('meta[name="csrf-token"]')?.content || ''}, body: formData });
+        return await response.json();
+    } catch(e) { return { valid:false, message:'خطا در بررسی عکس' }; }
+}
+function showValidationLoading() {
+    const checksDiv = document.getElementById('imageChecks');
+    checksDiv.style.display = 'block';
+    document.getElementById('validationLoading').style.display = 'block';
+    document.getElementById('checkList').style.display = 'none';
+    document.getElementById('checkMessage').style.display = 'none';
+    document.getElementById('checkStatus').innerHTML = '';
+}
+function displayImageChecks(result) {
+    document.getElementById('validationLoading').style.display = 'none';
+    document.getElementById('checkList').style.display = 'grid';
+    const status = document.getElementById('checkStatus');
+    const continueBtn = document.getElementById('continueBtn');
+    if (result.valid) {
+        // ✅ عکس قبول شد (عنوان → نکات، بدون دکمه وسط؛ دکمه‌ها فقط در پایین check-actions)
+        if (result.warnings && result.warnings.length > 0) {
+            status.innerHTML =
+                '<div class="status-warning">' +
+                    '<div class="status-title">✅ عکس قبول شد</div>' +
+                    '<div class="status-warnings"><strong>⚠️ نکات:</strong><ul>' +
+                    result.warnings.map(w => '<li>' + w + '</li>').join('') +
+                    '</ul></div>' +
+                '</div>';
+            continueBtn.classList.remove('disabled');
+        } else {
+            status.innerHTML = '<div class="status-ok">✨ ' + (result.message || 'عکس عالیه!') + '</div>';
+            continueBtn.classList.remove('disabled');
+        }
+    } else {
+        // ❌ رد شد (فقط پیام؛ دکمه «عکس جدید» در پایین check-actions است)
+        status.innerHTML =
+            '<div class="status-fail">❌ ' + (result.message || 'عکس مناسب نیست') + '</div>';
+        continueBtn.classList.add('disabled');
+    }
+    const checks = result.checks || {};
+    const checkMap = {
+        'check-natural-light': checks.natural_light,
+        'check-no-filter': checks.no_filter,
+        'check-distance': checks.good_distance,
+        'check-visible': checks.face_visible,
+        'check-one-person': checks.one_person,
+        'check-clear': checks.clear_image
+    };
+    for (const [id, pass] of Object.entries(checkMap)) {
+        const item = document.getElementById(id);
+        if (item) {
+            item.classList.remove('pass','fail');
+            item.classList.add(pass ? 'pass' : 'fail');
+            item.querySelector('.check-icon').textContent = pass ? '✅' : '❌';
+        }
+    }
+    if (result.valid) { imageValid = true; }
+    else { imageValid = false; }
+    const msg = document.getElementById('checkMessage');
+    if (!result.valid && result.message) { msg.style.display='block'; msg.innerHTML = '💡 پیشنهاد: ' + result.message; }
+    else { msg.style.display='none'; }
+}
+
+function proceedAnyway() {
+    // کاربر تصمیم گرفت با همین عکس (با وجود هشدارها) ادامه بده
+    imageValid = true;
+    document.getElementById('continueBtn').classList.remove('disabled');
+    document.getElementById('continueBtn').scrollIntoView({behavior:'smooth', block:'center'});
+}
+function proceedToInitial() {
+    if (!imageValid) { alert('لطفاً ابتدا یک عکس مناسب آپلود کن.'); return; }
+    document.getElementById('uploadForm').submit();
+    showLoading();
+}
+
+function validateQuestions(event) {
+    event.preventDefault();
+    let allValid = true;
+    document.querySelectorAll('.q-error').forEach(e => e.style.display='none');
+    document.querySelectorAll('.ahs-qblock').forEach(b => b.classList.remove('error'));
+    document.querySelectorAll('.ahs-qblock').forEach(block => {
+        const required = block.dataset.required === 'true';
+        if (!required) return;
+        const radios = block.querySelectorAll('input[type="radio"]');
+        if (radios.length > 0) {
+            const checked = block.querySelector('input[type="radio"]:checked');
+            if (!checked) {
+                allValid = false;
+                document.getElementById('q-error-' + radios[0].name).style.display = 'block';
+                block.classList.add('error');
+            }
+        }
+        const textarea = block.querySelector('textarea');
+        if (textarea && required && !textarea.value.trim()) {
+            allValid = false;
+            document.getElementById('q-error-' + textarea.name).style.display = 'block';
+            block.classList.add('error');
+        }
+    });
+    if (!allValid) {
+        alert('لطفاً به همه سوالات اجباری جواب بده');
+        const firstError = document.querySelector('.ahs-qblock.error');
+        if (firstError) firstError.scrollIntoView({behavior:'smooth', block:'center'});
+        return false;
+    }
+    const form = document.getElementById('questionsForm');
+    showLoading();
+    form.submit();
+    return true;
+}
+function chipSelect(el) {
+    const chip = el.closest('.ahs-chip');
+    chip.closest('.ahs-chips').querySelectorAll('.ahs-chip').forEach(c => c.classList.remove('selected'));
+    chip.classList.add('selected');
+    const qblock = chip.closest('.ahs-qblock');
+    if (qblock) { qblock.classList.remove('error'); const err = qblock.querySelector('.q-error'); if (err) err.style.display='none'; }
+}
+const dropBig = document.getElementById('dropBig');
+if (dropBig) {
+    dropBig.addEventListener('dragover', (e) => { e.preventDefault(); dropBig.style.background='rgba(212,165,116,0.15)'; });
+    dropBig.addEventListener('dragleave', () => { dropBig.style.background=''; });
+    dropBig.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropBig.style.background='';
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        const input = dropBig.querySelector('input[type="file"]');
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        handleFile(input);
+    });
+}
+function showLoading() {
+    const ls = document.getElementById('loadingScreen');
+    ls.style.display = 'flex';
+    let i = 0;
+    loadingTimer = setInterval(() => {
+        i = (i + 1) % LOADING_MSGS.length;
+        document.getElementById('loadingMsg').textContent = LOADING_MSGS[i];
+    }, 2500);
+}
+</script>
+{% endblock %}

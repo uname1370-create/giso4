@@ -1,0 +1,143 @@
+{% extends 'layout.html' %}
+{% block title %}محصولات - پنل مدیریت گیسو{% endblock %}
+{% block content %}
+<div class="pnl-page">
+    <h1 class="pnl-h1">📦 مدیریت محصولات</h1>
+    <p class="pnl-sub">کارت تمیز برای هر محصول — ویرایش کامل (قیمت/توضیح/عکس) در همین صفحه</p>
+    <p><a class="pnl-btn pnl-btn-outline pnl-btn-sm" href="{{ url_for('panel.shop') }}">↩️ بازگشت به مدیریت فروشگاه</a></p>
+
+    <div class="pnl-tabs-wrap">
+        <div class="pnl-tabs" data-tabs>
+            <span class="pnl-tab active" data-pane="list">🗂 لیست محصولات <span class="pnl-tab-badge">{{ products|length }}</span></span>
+            <span class="pnl-tab" data-pane="add">➕ افزودن محصول</span>
+        </div>
+    </div>
+
+    <!-- ═══ تب ۱: لیست محصولات — کارت مرتب ═══ -->
+    <section class="pnl-pane show" id="pane-list">
+        {% if products %}
+        {% for p in products %}
+        <div class="pnl-prod {{ 'subtle' if p.publish_status != 'published' }}">
+            {% if p.image_path %}
+            <img class="pnl-prod-img" src="{{ url_for('static', filename=p.image_path) }}" alt="">
+            {% else %}
+            <div class="pnl-prod-noimg">⚠️ بدون عکس</div>
+            {% endif %}
+            <div>
+                <div class="pnl-prod-name">#{{ p.id }} — {{ p.name }}</div>
+                <div class="pnl-prod-meta">
+                    <span class="pnl-prod-price">{{ toman(p.price) }}</span>
+                    {% if p.old_price and p.old_price > p.price %}<s style="opacity:.6;">{{ toman(p.old_price) }}</s>{% endif %}
+                    {% if p.publish_status == 'published' %}<span class="pnl-chip pnl-chip-pub">🟢 منتشرشده</span>
+                    {% else %}<span class="pnl-chip pnl-chip-review">⏳ در انتظار</span>{% endif %}
+                    {% if p.in_stock %}<span class="pnl-chip pnl-chip-pub">موجود</span>
+                    {% else %}<span class="pnl-chip pnl-chip-rej">ناموجود</span>{% endif %}
+                    {% if not p.image_path %}<span class="pnl-chip pnl-chip-noimg">بدون عکس</span>{% endif %}
+                    <span>{{ {'hair':'مراقبت مو','face':'مراقبت پوست','beauty':'زیبایی'}.get(p.category, p.category) }}{% if p.subcategory %} / {{ p.subcategory }}{% endif %}</span>
+                    <span>{% if p.source == 'channel' %}📢 کانال{% else %}🌐 سایت{% endif %}</span>
+                </div>
+            </div>
+            <div class="pnl-prod-acts">
+                <button type="button" class="pnl-btn pnl-btn-outline pnl-btn-sm"
+                        onclick="var e=document.getElementById('ed-{{ p.id }}'); e.classList.toggle('open');">✏️ ویرایش</button>
+                <form method="POST" action="{{ url_for('admin_product_toggle_stock', product_id=p.id) }}" style="display:inline;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="pnl-btn pnl-btn-outline pnl-btn-sm" title="تغییر موجودی">🔄</button>
+                </form>
+                {% if p.publish_status != 'published' and p.price > 0 %}
+                <form method="POST" action="{{ url_for('admin_product_publish', product_id=p.id) }}" style="display:inline;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="pnl-btn pnl-btn-gold pnl-btn-sm">🚀 انتشار</button>
+                </form>
+                {% endif %}
+                <form method="POST" action="{{ url_for('admin_product_delete', product_id=p.id) }}" style="display:inline;"
+                      onsubmit="return confirm('محصول «{{ p.name }}» حذف شود؟');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="pnl-btn pnl-btn-danger pnl-btn-sm">🗑</button>
+                </form>
+            </div>
+            <!-- ویرایشگر درون‌صفحه -->
+            <div class="pnl-inline-editor" id="ed-{{ p.id }}" style="grid-column:1/-1;">
+                <form method="POST" action="{{ url_for('admin_product_edit', product_id=p.id) }}"
+                      enctype="multipart/form-data" class="pnl-ed-box">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div><label>نام محصول</label><input type="text" name="name" value="{{ p.name }}"></div>
+                    <div><label>قیمت فاکتور (داخلی)</label><input type="number" name="cost_price" id="cost-{{ p.id }}" value="{{ p.cost_price or 0 }}" min="0" oninput="gisoPriceFromCost(this);"><small class="pnl-muted">قیمت فروش خودکار = فاکتور × ۱٫۵</small></div>
+                    <div><label>قیمت فروش (تومان)</label><input type="number" name="price" id="price-{{ p.id }}" value="{{ p.price }}" min="0"></div>
+                    <div><label>قیمت قبل از تخفیف</label><input type="number" name="old_price" value="{{ p.old_price or 0 }}" min="0"></div>
+                    <div><label>دسته</label>
+                        <select name="category">
+                            <option value="hair" {{ 'selected' if p.category=='hair' }}>مراقبت مو</option>
+                            <option value="face" {{ 'selected' if p.category=='face' }}>مراقبت پوست</option>
+                            <option value="beauty" {{ 'selected' if p.category=='beauty' }}>زیبایی</option>
+                        </select>
+                    </div>
+                    <div><label>زیردسته</label><input type="text" name="subcategory" value="{{ p.subcategory or '' }}"></div>
+                    <div><label>موجودی</label>
+                        <select name="in_stock">
+                            <option value="1" {{ 'selected' if p.in_stock }}>موجود</option>
+                            <option value="0" {{ 'selected' if not p.in_stock }}>ناموجود</option>
+                        </select>
+                    </div>
+                    <div class="full"><label>توضیحات</label><textarea name="description" rows="2">{{ p.description or '' }}</textarea></div>
+                    <div class="full pnl-img-swap">
+                        <span class="lbl">عکس فعلی:</span>
+                        {% if p.image_path %}
+                        <img src="{{ url_for('static', filename=p.image_path) }}" alt="">
+                        {% else %}
+                        <span class="pnl-chip pnl-chip-noimg">ندارد</span>
+                        {% endif %}
+                        <span class="lbl">عکس جدید (در صورت تمایل به تعویض):</span>
+                        <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp" style="font-size:.75rem;">
+                    </div>
+                    <div class="pnl-ed-actions">
+                        <button type="submit" class="pnl-btn pnl-btn-gold pnl-btn-sm">💾 ذخیره (همین‌جا)</button>
+                        <button type="button" class="pnl-btn pnl-btn-outline pnl-btn-sm"
+                                onclick="document.getElementById('ed-{{ p.id }}').classList.remove('open');">انصراف</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="pnl-card"><div class="pnl-empty"><p>محصولی ثبت نشده است — از تب «افزودن محصول» شروع کنید.</p></div></div>
+        {% endif %}
+    </section>
+
+    <!-- ═══ تب ۲: افزودن محصول ═══ -->
+    <section class="pnl-pane" id="pane-add">
+        <div class="pnl-card">
+            <h3>➕ افزودن محصول جدید</h3>
+            <form method="POST" action="{{ url_for('admin_product_add') }}" enctype="multipart/form-data" class="pnl-grid-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="name" placeholder="نام محصول" required>
+                <input type="number" name="cost_price" id="cost-new" placeholder="قیمت فاکتور (داخلی)" value="0" min="0" oninput="gisoPriceFromCost(this);">
+                <input type="number" name="price" id="price-new" placeholder="قیمت فروش (تومان)" required>
+                <input type="number" name="old_price" placeholder="قیمت قبل از تخفیف (اختیاری)">
+                <select name="category">
+                    <option value="hair">مراقبت مو</option>
+                    <option value="face">مراقبت پوست</option>
+                    <option value="beauty">زیبایی</option>
+                </select>
+                <textarea name="description" placeholder="توضیحات" rows="2"></textarea>
+                <label class="pnl-check"><input type="checkbox" name="in_stock" value="1" checked> موجود باشد</label>
+                <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp">
+                <button type="submit" class="pnl-btn pnl-btn-gold">💾 ذخیره محصول</button>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}{{ super() }}
+<script>
+function gisoPriceFromCost(src){
+    var cost = parseFloat(src.value || "0");
+    if (!(cost > 0)) { return; }
+    var raw = cost * 1.5;
+    var rounded = Math.ceil(raw / 10000) * 10000;
+    var priceInput = src.closest("form").querySelector('input[name="price"]');
+    if (priceInput) { priceInput.value = rounded; }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}گیسو صادقی - مراقبت هوشمند زیبایی مو و پوست{% endblock %}</title>
+    {% block meta %}
+    <meta name="description" content="گیسو؛ خدمات هوشمند مو و پوست، بازارچه موی طبیعی و فروشگاه تخصصی زیبایی.">
+    <meta name="keywords" content="گیسو، مراقبت مو، موی طبیعی، بازارچه مو، زیبایی">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="{{ request.base_url }}">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="گیسو صادقی">
+    <meta property="og:description" content="خدمات هوشمند مو و پوست و بازارچه تخصصی موی طبیعی گیسو">
+    <meta property="og:url" content="{{ request.base_url }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="گیسو صادقی">
+    <meta name="twitter:description" content="خدمات هوشمند مو و پوست و بازارچه تخصصی موی طبیعی گیسو">
+    {% endblock %}
+    <meta property="og:site_name" content="گیسو صادقی">
+    <meta property="og:locale" content="fa_IR">
+    <meta property="og:image" content="{{ url_for('static', filename='images/giso-main-hero.png', _external=True) }}">
+    <meta name="twitter:image" content="{{ url_for('static', filename='images/giso-main-hero.png', _external=True) }}">
+    <meta name="author" content="گیسو صادقی">
+    <meta name="theme-color" content="#8B5A2B">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="گیسو">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/giso-main-hero.png') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    {% if site_appearance and site_appearance.google_site_verification %}
+    <meta name="google-site-verification" content="{{ site_appearance.google_site_verification }}">
+    {% endif %}
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/giso-original-artwork.svg') }}">
+
+    <!-- مورد ۱۹ help.md: فونت و آیکون‌ها self-host شدند (حذف درخواست render-blocking به Google/cdnjs) -->
+    <!-- پشتیبان غیرمسدودکننده: اگر فونت محلی در استقرار نبود، وزیرمتن از گوگل بارگیری می‌شود (مورد ۲۲ help2) -->
+    <link rel="preload" href="{{ url_for('static', filename='fonts/Vazirmatn-VF.woff2') }}" as="font" type="font/woff2"
+        crossorigin>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/vazirmatn.css') }}?v=6">
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='vendor/fontawesome/css/fontawesome.min.css') }}?v=6.6.0-local">
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='vendor/fontawesome/css/solid.min.css') }}?v=6.6.0-local">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/themes.css') }}?v=10">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ai_widget.css') }}?v=12">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ai_widget_avatar.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/giso-brand.css') }}?v=1">
+    {% block head %}{% endblock %}
+    {# آخرین لایه: هویت تم‌های جدید و محافظ‌های ریسپانسیو بدون تغییر چیدمان بیزینسی صفحات #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme_experiences.css') }}?v=9">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive_guardrails.css') }}?v=3">
+    {% set _site_url = request.host_url.rstrip('/') %}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "{{ _site_url }}/#organization",
+          "name": "گیسو صادقی",
+          "url": "{{ _site_url }}",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "{{ url_for('static', filename='images/giso-main-hero.png', _external=True) }}"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "{{ _site_url }}/#website",
+          "url": "{{ _site_url }}",
+          "name": "گیسو صادقی",
+          "publisher": {"@id": "{{ _site_url }}/#organization"},
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "{{ _site_url }}/shop?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }
+      ]
+    }
+    </script>
+    {% if site_appearance and site_appearance.google_analytics_id %}
+    {% if site_appearance.google_analytics_id.startswith('GTM-') %}
+    <script>(function (w, d, s, l, i) { w[l] = w[l] || []; w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' }); var f = d.getElementsByTagName(s)[0], j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : ''; j.async = true; j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl; f.parentNode.insertBefore(j, f); })(window, document, 'script', 'dataLayer', '{{ site_appearance.google_analytics_id }}');</script>
+    {% else %}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ site_appearance.google_analytics_id }}"></script>
+    <script>window.dataLayer = window.dataLayer || []; function gtag() { dataLayer.push(arguments); } gtag('js', new Date()); gtag('config', '{{ site_appearance.google_analytics_id }}');</script>
+    {% endif %}
+    {% endif %}
+</head>
+
+<body data-theme="{{ site_theme | default('original') }}" data-idle-minutes="{{ idle_minutes() | default(10) }}">
+
+    <a class="giso-skip-link" href="#gisoMain">پرش به محتوا</a>
+    <nav class="giso-navbar" aria-label="ناوبری اصلی">
+        <div class="giso-container">
+            <a href="{{ url_for('index') }}" class="giso-brand-logo">
+                {% if site_brand and site_brand.get('logo') %}
+                <img src="{{ url_for('static', filename=site_brand['logo']) }}"
+                    alt="{{ site_brand.get('name', 'گیسو صادقی') }}" class="giso-brand-img" width="44" height="44">
+                {% else %}
+                <div class="giso-brand-mark">✂️</div>
+                {% endif %}
+                <div class="giso-brand-text-block">
+                    <span class="giso-brand-title">{{ site_brand.get('name') if site_brand else '' or 'گیسو صادقی'
+                        }}</span>
+                    <span class="giso-brand-tagline">{{ site_brand.get('tagline') if site_brand else '' or 'هوشمند ببین،
+                        دقیق انتخاب کن' }}</span>
+                </div>
+            </a>
+
+            <div class="giso-nav-links" id="gisoNav">
+                <a href="{{ url_for('index') }}" {% if request.endpoint=='index' %}aria-current="page" {% endif %}><i
+                        class="fas fa-home"></i> خانه</a>
+                <a href="{{ url_for('hair_sale') }}" {% if request.endpoint=='hair_sale' %}aria-current="page" {% endif
+                    %}><i class="fas fa-cut"></i> ارزیابی و خرید هوشمند مو</a>
+                <a href="{{ url_for('marketplace.listings') }}" {% if request.blueprint=='marketplace'
+                    %}aria-current="page" {% endif %}><i class="fas fa-store"></i> بازارچه مو</a>
+                <a href="{{ url_for('analysis') }}" {% if request.blueprint=='analysis' or request.endpoint=='analysis'
+                    %}aria-current="page" {% endif %}><i class="fas fa-magic"></i> آنالیز هوشمند</a>
+                <a href="{{ url_for('beauty_centers.list_centers') }}" {% if request.blueprint=='beauty_centers'
+                    %}aria-current="page" {% endif %}><i class="fas fa-spa"></i> مراکز زیبایی</a>
+                <a href="{{ url_for('shop') }}" {% if request.blueprint=='shop' or request.endpoint=='shop'
+                    %}aria-current="page" {% endif %}><i class="fas fa-shopping-bag"></i> فروشگاه</a>
+
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('dashboard') }}"><i class="fas fa-user-circle"></i> پنل کاربری</a>
+                <div class="giso-bell-wrap" id="gisoSiteBellWrap">
+                    <button type="button" class="giso-bell" id="gisoSiteBell" title="اعلان‌ها" aria-label="اعلان‌ها"
+                        aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-bell"></i>
+                        <span class="giso-bell-badge" id="gisoSiteBellBadge" hidden>۰</span>
+                    </button>
+                    <div class="giso-bell-drop" id="gisoSiteBellDrop" hidden>
+                        <div class="giso-bell-drop-head">
+                            <span><i class="fas fa-bell"></i> آخرین اعلان‌ها</span>
+                            <a
+                                href="{{ url_for('panel.notifications') if is_giso_admin_user() else url_for('panel_user.notifications') }}">مشاهده
+                                همه</a>
+                        </div>
+                        <div class="giso-bell-drop-body" id="gisoSiteBellBody">
+                            <p class="giso-bell-empty">در حال دریافت…</p>
+                        </div>
+                    </div>
+                </div>
+                <style>
+                    .giso-bell {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 34px;
+                        height: 34px;
+                        border-radius: 50%;
+                        background: linear-gradient(160deg, #fff9f0, #f5e6d3);
+                        border: 1.5px solid rgba(212, 175, 55, .55);
+                        color: #b8941f;
+                        font-size: 15px;
+                        margin-inline-start: 6px;
+                        transition: transform .2s, box-shadow .2s;
+                        animation: gisoBellPulse 3s ease infinite
+                    }
+
+                    .giso-bell:hover {
+                        transform: translateY(-2px) scale(1.08);
+                        box-shadow: 0 6px 16px rgba(212, 175, 55, .35)
+                    }
+
+                    @keyframes gisoBellPulse {
+
+                        0%,
+                        100% {
+                            transform: scale(1)
+                        }
+
+                        50% {
+                            transform: scale(1.08)
+                        }
+                    }
+                </style>
+                <span class="giso-user giso-header-phone"><i class="fas fa-mobile-screen"></i>{{ current_user.phone
+                    }}</span>
+                <a href="{{ url_for('logout') }}" class="giso-btn giso-btn-ghost giso-header-logout"><i
+                        class="fas fa-arrow-right-from-bracket"></i> خروج</a>
+                {% else %}
+                <a href="{{ url_for('login') }}" class="giso-btn giso-btn-outline giso-header-login">ورود</a>
+                <a href="{{ url_for('register') }}" class="giso-btn giso-btn-gold">ثبت‌نام</a>
+                {% endif %}
+            </div>
+
+            <button class="giso-menu-btn" aria-label="باز و بسته کردن منو"
+                onclick="document.getElementById('gisoNav').classList.toggle('active')">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <div class="giso-flash-wrap">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+        <div class="giso-flash gf-{{ cat }}">{{ msg }}<button onclick="this.parentElement.remove()">&times;</button>
+        </div>
+        {% endfor %}
+        {% endwith %}
+    </div>
+
+    {# ─── نوتیفیکیشن درون‌سایتی: Toast + داده flash برای JS (فقط کاربر لاگین‌شده فعال می‌شود) ─── #}
+    <div class="giso-toast-wrap" id="gisoToastWrap" aria-live="polite"></div>
+    {% if current_user.is_authenticated %}
+    <script id="gisoFlashData"
+        type="application/json">{{ get_flashed_messages(with_categories=true)|tojson|safe }}</script>
+    {% endif %}
+
+    <main class="giso-main" id="gisoMain">
+        {% block content %}{% endblock %}
+    </main>
+
+    {% set _bale_url = (site_appearance.bale_url if site_appearance and site_appearance.bale_url else
+    'https://ble.ir/1191639507') %}
+    {% set _brand_name = (site_brand.get('name') if site_brand else '') or 'گیسو صادقی' %}
+    {% set _brand_tagline = (site_brand.get('tagline') if site_brand else '') or 'هوشمند ببین، دقیق انتخاب کن' %}
+    {% set _footer_socials = [] %}
+    {% if site_appearance %}
+    {% if site_appearance.telegram_url %}{% set _ = _footer_socials.append(('telegram', site_appearance.telegram_url, 'تلگرام')) %}{% endif %}
+    {% if site_appearance.instagram_url %}{% set _ = _footer_socials.append(('instagram', site_appearance.instagram_url, 'اینستاگرام')) %}{% endif %}
+    {% if site_appearance.whatsapp_url %}{% set _ = _footer_socials.append(('whatsapp', site_appearance.whatsapp_url, 'واتس‌اپ')) %}{% endif %}
+    {% if site_appearance.eitaa_url %}{% set _ = _footer_socials.append(('eitaa', site_appearance.eitaa_url, 'ایتا')) %}{% endif %}
+    {% if site_appearance.rubika_url %}{% set _ = _footer_socials.append(('rubika', site_appearance.rubika_url, 'روبیکا')) %}{% endif %}
+    {% endif %}
+    <footer class="giso-footer" role="contentinfo">
+        <div class="giso-footer-inner">
+            <section class="giso-footer-col giso-footer-action">
+                <span class="giso-footer-ico" aria-hidden="true"><i class="fas fa-comments"></i></span>
+                <h2>پشتیبانی هوشمند</h2>
+                <p>سوالی درباره مو یا پوست داری؟ همین‌جا بپرس — مشاور هوشمند گیسو آنلاین است.</p>
+                <button type="button" class="giso-footer-cta" id="gisoFooterAiOpen" data-giso-open-widget>
+                    <i class="fas fa-comments"></i> گفتگو با مشاور
+                </button>
+            </section>
+            <section class="giso-footer-col giso-footer-action">
+                <span class="giso-footer-ico giso-footer-ico--bale" aria-hidden="true">
+                    <img src="{{ url_for('static', filename='images/bale-icon.svg') }}" alt="" width="44" height="42" loading="lazy">
+                </span>
+                <h2>ربات و کانال بله</h2>
+                <p>ثبت‌نام، پیگیری سفارش و خبرهای تخفیف — همه در ربات بله؛ استارت با یک کلیک.</p>
+                <a class="giso-footer-cta" href="{{ _bale_url }}" target="_blank" rel="noopener noreferrer"
+                   aria-label="ورود به ربات بله (پیام جدید در تب جدید باز می‌شود)">
+                    <img class="giso-cta-bale" src="{{ url_for('static', filename='images/bale-icon.svg') }}" alt="" width="20" height="19" loading="lazy">
+                    ورود به ربات بله
+                </a>
+            </section>
+            <section class="giso-footer-col giso-footer-action">
+                <span class="giso-footer-ico" aria-hidden="true"><i class="fas fa-mobile-screen"></i></span>
+                <h2>نصب روی گوشی</h2>
+                <p>یک بار نصب کن؛ گیسو مثل اپلیکیشن روی صفحهٔ اصلی گوشی‌ات می‌نشیند.</p>
+                <button type="button" class="giso-footer-cta" id="gisoPwaInstall">
+                    <i class="fas fa-download"></i> نصب اپلیکیشن
+                </button>
+                <p class="giso-pwa-hint" id="gisoPwaHint" hidden></p>
+            </section>
+        </div>
+        {% if _footer_socials %}
+        <nav class="giso-footer-social-wrap" aria-label="شبکه‌های اجتماعی گیسو">
+            {% for _key, _url, _title in _footer_socials %}
+            <a href="{{ _url }}" target="_blank" rel="noopener noreferrer nofollow"
+               aria-label="{{ _title }} گیسو" title="{{ _title }}" class="giso-social-{{ _key }}">
+                <img src="{{ url_for('static', filename='images/social/' ~ _key ~ '.svg') }}" alt="" width="22" height="22" loading="lazy">
+            </a>
+            {% endfor %}
+        </nav>
+        {% endif %}
+        <div class="giso-footer-bar">
+            <p>
+                {% if site_appearance and site_appearance.footer_copyright %}{{ site_appearance.footer_copyright }}{% else %}© {{ _brand_name }} — {{ _brand_tagline }}{% endif %}
+                {% if site_appearance and site_appearance.designer_name %}
+                <span class="giso-designer-credit"> · طراحی: {% if site_appearance.designer_url %}<a href="{{ site_appearance.designer_url }}" target="_blank" rel="noopener noreferrer nofollow">{{ site_appearance.designer_name }}</a>{% else %}{{ site_appearance.designer_name }}{% endif %}</span>
+                {% endif %}
+            </p>
+        </div>
+    </footer>
+
+    {% include 'components/ai_widget.html' %}
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/ai_widget.js') }}?v=8"></script>
+    {% if current_user.is_authenticated %}
+    <script src="{{ url_for('static', filename='js/giso_idle.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/giso_notifications.js') }}?v=1"></script>
+    {% endif %}
+    <script src="{{ url_for('static', filename='js/fa_display.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/ux_events.js') }}?v=1" defer></script>
+    <script src="{{ url_for('static', filename='js/chat_submit.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/pwa_install.js') }}?v=1" defer></script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

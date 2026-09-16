@@ -1,0 +1,39 @@
+{% extends 'layout.html' %}
+{% block title %}حساب کاربری - پنل مدیریت گیسو{% endblock %}
+{% block content %}
+<div class="pnl-page">
+    <h1 class="pnl-h1">👤 حساب کاربری</h1>
+    <p class="pnl-sub">مشخصات حساب ادمین و تغییر امن رمز عبور</p>
+    <div class="pnl-grid-2">
+        <section class="pnl-card">
+            <h3>اطلاعات حساب</h3>
+            <div class="pnl-tx-row"><b>شماره موبایل:</b> <span dir="ltr">{{ user.phone }}</span></div>
+            <div class="pnl-tx-row"><b>نقش:</b> {% if is_super %}سوپرادمین{% elif is_special %}ادمین اختصاصی{% else %}ادمین عادی تأییدشده{% endif %}</div>
+            <form method="POST" action="{{ url_for('panel.account_profile') }}" class="pnl-stack-form" style="margin-top:12px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label>نام</label>
+                <input type="text" name="first_name" value="{{ user.first_name or '' }}" maxlength="60">
+                <label>نام خانوادگی</label>
+                <input type="text" name="last_name" value="{{ user.last_name or '' }}" maxlength="60">
+                <button class="pnl-btn pnl-btn-gold">ذخیره نام</button>
+            </form>
+        </section>
+        <section class="pnl-card">
+            <h3>🔒 تغییر رمز عبور</h3>
+            <form method="POST" action="{{ url_for('panel.account_password') }}" class="pnl-stack-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label>رمز فعلی</label>
+                <input type="password" name="current_password" autocomplete="current-password" required>
+                <label>رمز جدید (حداقل ۶ کاراکتر، حرف و عدد)</label>
+                <input type="password" name="new_password" class="giso-pw-new" minlength="6" autocomplete="new-password" required>
+                <label>تکرار رمز جدید</label>
+                <input type="password" name="new_password2" minlength="6" autocomplete="new-password" required>
+                <button class="pnl-btn pnl-btn-gold">ذخیره رمز جدید</button>
+            </form>
+        </section>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/password_meter.js') }}?v=1"></script>
+{% endblock %}

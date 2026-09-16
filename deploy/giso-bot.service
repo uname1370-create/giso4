@@ -1,0 +1,27 @@
+[Unit]
+Description=GISO Bale Bot (ربات گیسو)
+After=network.target
+
+[Service]
+Type=simple
+# ── مقادیر مخصوص سرور خود را اینجا تنظیم کنید ──
+User=rs2013
+Group=rs2013
+WorkingDirectory=/home/rs2013/sadeghiai/giso
+Environment=PYTHONPATH=/home/rs2013/sadeghiai
+# توکن ربات گیسو از فایل امن خارج از ریپو خوانده می‌شود (نه inline / نه placeholder).
+# 🔴 یکی از دو مورد زیر را فعال کنید:
+#  - فایل EnvironmentFile بسازید:  /etc/giso/bot.env  →  GISO_BOT_TOKEN=توکن_واقعی
+#  - یا متغیر GISO_BOT_TOKEN را در environment سرور تعریف کنید.
+EnvironmentFile=-/etc/giso/bot.env
+# اگر EnvironmentFile موجود نباشد، توکن از giso_config در bot.db خوانده می‌شود.
+ExecStart=/home/rs2013/sadeghiai/venv/bin/python -u /home/rs2013/sadeghiai/giso/bot.py
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}گیسو صادقی | مسیر هوشمند مو، پوست و زیبایی{% endblock %}
+
+{% block meta %}
+<meta name="description" content="در گیسو ارزش موی خود را بررسی کنید، بین فروش مستقیم و بازارچه انتخاب کنید یا با آنالیز هوشمند مو و پوست به برنامه مراقبتی، محصول و مرکز مرتبط برسید.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ request.base_url }}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="گیسو صادقی؛ هوشمند ببین، دقیق انتخاب کن">
+<meta property="og:description" content="دو مسیر روشن برای فروش مو و مراقبت هوشمند مو و پوست.">
+<meta property="og:image" content="{{ url_for('static', filename='images/giso-main-hero.png', _external=True) }}">
+<meta property="og:url" content="{{ request.base_url }}">
+<meta name="twitter:card" content="summary_large_image">
+{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home_original.css') }}?v=4">
+{% endblock %}
+
+{% block content %}
+<div class="home-main">
+<section class="home-hero" aria-labelledby="homeHeroTitle">
+  <div class="giso-container home-hero-grid">
+    <div class="home-hero-copy">
+      {% if site_theme == 'smart_assistant' %}
+      <span class="home-eyebrow"><i class="fas fa-wand-magic-sparkles"></i> پلتفرم هوشمند زیبایی و موی طبیعی</span>
+      <h1 id="homeHeroTitle">ارزش موی شما <em>در دستان شماست.</em></h1>
+      <p class="home-hero-lead">هوشمندانه بفروشید و هوشمندانه مراقبت کنید؛ از ارزیابی و بازارچه مو تا آنالیز هوشمند، محصولات تخصصی و مراکز زیبایی.</p>
+      <div class="home-hero-actions" aria-label="شروع مسیر دستیار هوشمند"><a class="home-btn home-btn-primary" href="{{ url_for('hair_sale') }}"><i class="fas fa-scissors"></i> ارزش موی من چقدر است؟</a><a class="home-btn home-btn-secondary" href="{{ url_for('analysis') }}"><i class="fas fa-wand-magic-sparkles"></i> آنالیز رایگان مو و پوست</a></div>
+      {% else %}
+      <span class="home-eyebrow"><i class="fas fa-wand-sparkles"></i> زیبایی هوشمند، انتخاب مطمئن‌تر</span>
+      <h1 id="homeHeroTitle">برای مو، پوست و زیبایی؛ <em>اول دقیق‌تر بدان</em>، بعد مطمئن‌تر انتخاب کن.</h1>
+      <p class="home-hero-lead">ارزش مویت را بررسی کن و بین فروش مستقیم یا بازارچه انتخاب کن؛ یا با یک عکس وضعیت مو و پوستت را بشناس و به برنامه، محصول و مرکز مرتبط برس.</p>
+      <div class="home-hero-actions" aria-label="شروع مسیر گیسو"><a class="home-btn home-btn-primary" href="{{ url_for('hair_sale') }}"><i class="fas fa-scissors"></i> ارزش موی من چقدر است؟</a><a class="home-btn home-btn-secondary" href="{{ url_for('analysis') }}"><i class="fas fa-wand-magic-sparkles"></i> بررسی مو یا پوست</a></div>
+      {% endif %}
+      <div class="home-trust-row">
+        <span><i class="fas fa-shield-heart"></i> اطلاعاتت محرمانه می‌ماند</span>
+        <span><i class="fas fa-bolt"></i> شروع سریع و مرحله‌به‌مرحله</span>
+        <span><i class="fas fa-database"></i> پیشنهاد بر پایه داده واقعی</span>
+      </div>
+    </div>
+    <div class="home-hero-visual">
+      <div class="home-orbit home-orbit-one"></div><div class="home-orbit home-orbit-two"></div>
+      <div class="home-hero-frame">
+        <picture>
+          <source srcset="{{ url_for('static', filename='images/giso-main-hero.webp') }}" type="image/webp">
+          <img src="{{ url_for('static', filename='images/giso-main-hero.png') }}" width="1000" height="1000" alt="گیسو؛ مسیر هوشمند ارزیابی و فروش موی طبیعی" fetchpriority="high">
+        </picture>
+      </div>
+      <div class="home-hero-signature" aria-label="گیسو صادقی، همراه هوشمند زیبایی">
+        <strong>گیسو صادقی</strong>
+        <span>همراه هوشمند زیبایی</span>
+      </div>
+    </div>
+  </div>
+  <a class="home-scroll-cue" href="#choose-path" aria-label="مشاهده مسیرهای گیسو"><span>مسیرت را انتخاب کن</span><i class="fas fa-chevron-down"></i></a>
+</section>
+
+<section class="home-paths" id="choose-path" aria-labelledby="pathsTitle">
+  <div class="giso-container">
+    <header class="home-section-head">
+      <span>از همین‌جا شروع کن</span><h2 id="pathsTitle">امروز برای چه کاری به گیسو آمده‌ای؟</h2>
+      <p>لازم نیست بین خدمات مختلف بگردی؛ هدفت را انتخاب کن تا قدم‌به‌قدم به مسیر درست بروی.</p>
+    </header>
+    <div class="home-path-grid">
+      <article class="home-path-card home-path-hair">
+        <div class="home-path-top"><span class="home-path-number">01</span><div class="home-path-icon"><i class="fas fa-scissors"></i></div></div>
+        <span class="home-path-kicker">فروش و بازارچه موی طبیعی</span>
+        <h3>می‌خواهم ارزش مویم را بدانم و بفروشم</h3>
+        <p>اول مشخصات و تصویر مو را ثبت کن؛ سپس با دید روشن بین فروش مستقیم به گیسو و دریافت پیشنهاد در بازارچه انتخاب کن.</p>
+        <ol class="home-mini-steps"><li><i class="fas fa-camera"></i><span>ثبت عکس و مشخصات</span></li><li><i class="fas fa-scale-balanced"></i><span>بررسی ارزش تقریبی</span></li><li><i class="fas fa-route"></i><span>انتخاب مسیر فروش</span></li><li><i class="fas fa-comments"></i><span>پیگیری و مذاکره</span></li></ol>
+        <div class="home-path-actions"><a class="home-btn home-btn-dark" href="{{ url_for('hair_sale') }}">شروع ارزیابی مو <i class="fas fa-arrow-left"></i></a><a class="home-text-link" href="{{ url_for('marketplace.listings') }}">مشاهده بازارچه</a></div>
+      </article>
+      <article class="home-path-card home-path-health">
+        <div class="home-path-top"><span class="home-path-number">02</span><div class="home-path-icon"><i class="fas fa-wand-magic-sparkles"></i></div></div>
+        <span class="home-path-kicker">سلامت و زیبایی هوشمند</span>
+        <h3>برای مشکل مو یا پوستم یک مسیر روشن می‌خواهم</h3>
+        <p>با یک عکس شروع کن؛ وضعیت را بهتر بشناس، برنامه مراقبتی بگیر و بعد محصولات یا مراکز دارای خدمات مرتبط را ببین.</p>
+        <ol class="home-mini-steps"><li><i class="fas fa-camera"></i><span>ارسال یک عکس</span></li><li><i class="fas fa-file-waveform"></i><span>گزارش هوشمند</span></li><li><i class="fas fa-calendar-check"></i><span>برنامه مراقبتی</span></li><li><i class="fas fa-bag-shopping"></i><span>محصول یا مرکز مرتبط</span></li></ol>
+        <div class="home-path-actions"><a class="home-btn home-btn-primary" href="{{ url_for('analysis') }}">شروع آنالیز <i class="fas fa-arrow-left"></i></a><a class="home-text-link" href="{{ url_for('beauty_centers.list_centers') }}">مشاهده مراکز</a></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="home-journey" aria-labelledby="journeyTitle">
+ <div class="giso-container home-journey-grid">
+  <div class="home-journey-copy"><span class="home-eyebrow"><i class="fas fa-link"></i> همه‌چیز به هم متصل است</span><h2 id="journeyTitle">گیسو فقط یک ابزار نیست؛ مسیرت را تا اقدام بعدی ادامه می‌دهد</h2><p>بعد از شناخت نیاز، بین مراقبت در خانه، دریافت خدمت تخصصی یا فروش مو تصمیم می‌گیری. هر بخش ادامه طبیعی مرحله قبل است.</p><a class="home-text-link home-link-strong" href="{{ url_for('analysis') }}">مسیر هوشمند من را شروع کن <i class="fas fa-arrow-left"></i></a></div>
+  <div class="home-journey-track">
+   <a href="{{ url_for('analysis') }}"><i class="fas fa-camera"></i><b>شناخت</b><small>آنالیز مو و پوست</small></a><span><i class="fas fa-chevron-left"></i></span>
+   <a href="{{ url_for('analysis') }}"><i class="fas fa-list-check"></i><b>برنامه</b><small>اقدام‌های شخصی‌تر</small></a><span><i class="fas fa-chevron-left"></i></span>
+   <a href="{{ url_for('shop') }}"><i class="fas fa-bag-shopping"></i><b>مراقبت</b><small>محصول مرتبط</small></a><span><i class="fas fa-chevron-left"></i></span>
+   <a href="{{ url_for('beauty_centers.list_centers') }}"><i class="fas fa-spa"></i><b>خدمت</b><small>مرکز مرتبط</small></a>
+  </div>
+ </div>
+</section>
+
+<section class="home-services" aria-labelledby="servicesTitle"><div class="giso-container">
+ <header class="home-section-head"><span>ابزارهای گیسو</span><h2 id="servicesTitle">هر چیزی که برای یک انتخاب بهتر نیاز داری</h2><p>خدمات مستقل نیستند؛ هر کدام بخشی از یک تجربه سریع و منظم‌اند.</p></header>
+ <div class="home-service-grid">
+  <a href="{{ url_for('hair_sale') }}"><i class="fas fa-scissors"></i><div><h3>ارزیابی و فروش مو</h3><p>ثبت مشخصات، تخمین اولیه و پیگیری درخواست</p></div><span class="fas fa-arrow-left"></span></a>
+  <a href="{{ url_for('marketplace.listings') }}"><i class="fas fa-store"></i><div><h3>بازارچه مو</h3><p>مشاهده آگهی، پیشنهاد، مذاکره و انتخاب</p></div><span class="fas fa-arrow-left"></span></a>
+  <a href="{{ url_for('analysis') }}"><i class="fas fa-wand-magic-sparkles"></i><div><h3>آنالیز هوشمند</h3><p>گزارش و برنامه مراقبتی مو یا پوست</p></div><span class="fas fa-arrow-left"></span></a>
+  <a href="{{ url_for('shop') }}"><i class="fas fa-bag-shopping"></i><div><h3>فروشگاه هوشمند</h3><p>محصولات مرتبط با نیاز و آنالیز واقعی</p></div><span class="fas fa-arrow-left"></span></a>
+  <a href="{{ url_for('beauty_centers.list_centers') }}" data-testid="beauty-centers-home-card"><i class="fas fa-spa"></i><div><h3>مراکز زیبایی گیسو</h3><p>جست‌وجو بر اساس منطقه و خدمت موردنیاز؛ گیسو فقط بستر معرفی است.</p></div><span class="fas fa-arrow-left"></span></a>
+  <button type="button" onclick="document.querySelector('.giso-ai-fab, #gisoAiFab')?.click()"><i class="fas fa-headset"></i><div><h3>مشاور هوشمند</h3><p>برای انتخاب مسیر درست، سؤال خود را بپرس</p></div><span class="fas fa-arrow-left"></span></button>
+ </div>
+</div></section>
+
+{% if home_stats %}
+<section class="home-proof" aria-labelledby="proofTitle"><div class="giso-container">
+ <header class="home-section-head home-section-head-light"><span>آمار واقعی گیسو</span><h2 id="proofTitle">اعتماد با عددهای واقعی ساخته می‌شود</h2></header>
+ <div class="home-stats">
+  <div><i class="fas fa-users"></i><b class="home-count" data-target="{{ home_stats.users_display }}">{{ home_stats.users_display|fa_number }}</b><span>کاربر گیسو</span></div>
+  <div><i class="fas fa-wand-magic-sparkles"></i><b class="home-count" data-target="{{ home_stats.analyses_display }}">{{ home_stats.analyses_display|fa_number }}</b><span>آنالیز ثبت‌شده</span></div>
+  <div><i class="fas fa-scissors"></i><b class="home-count" data-target="{{ home_stats.hair_display }}">{{ home_stats.hair_display|fa_number }}</b><span>درخواست بررسی مو</span></div>
+  <div><i class="fas fa-star"></i><b>{{ home_stats.avg_rating }}/۵</b><span>میانگین رضایت{% if home_stats.reviews %} از {{ home_stats.reviews }} نظر{% endif %}</span></div>
+ </div>
+</div></section>
+{% endif %}
+
+{% if home_reviews %}
+<section class="home-reviews" aria-labelledby="reviewsTitle"><div class="giso-container">
+ <header class="home-section-head"><span>تجربه واقعی کاربران</span><h2 id="reviewsTitle">تجربه‌های واقعی از مسیرهای گیسو</h2><p>نظرهای تأییدشده کاربران را در نوار زیر ببین؛ کارت‌ها به‌آرامی و خودکار حرکت می‌کنند.</p></header>
+ <div class="home-review-rail" id="homeReviewRail">
+ {% for rv in home_reviews %}<article><div class="home-review-stars" aria-label="{{ rv.rating }} از ۵">{% for i in range(5) %}<i class="fas fa-star {{ 'is-on' if i < rv.rating else '' }}"></i>{% endfor %}</div><blockquote>«{{ rv.comment }}»</blockquote><footer><div><b>{{ rv.name }}</b><span>{{ rv.label }}</span></div>{% if rv.product_name %}<small>{{ rv.product_name }}</small>{% endif %}</footer></article>{% endfor %}
+ </div>
+</div></section>
+{% endif %}
+
+<section class="home-final"><div class="giso-container home-final-box"><div><span>هنوز مطمئن نیستی از کجا شروع کنی؟</span><h2>هدفت را انتخاب کن؛ گیسو ادامه مسیر را ساده می‌کند.</h2></div><div><a class="home-btn home-btn-primary" href="{{ url_for('hair_sale') }}">فروش مو</a><a class="home-btn home-btn-secondary" href="{{ url_for('analysis') }}">سلامت مو و پوست</a></div></div></section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+ const els=document.querySelectorAll('.home-count'); if(!els.length)return;
+ const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const run=(el)=>{const target=parseInt(el.dataset.target||'0',10);if(reduced||!target){el.textContent=target.toLocaleString('fa-IR');return}const start=performance.now();const tick=(now)=>{const p=Math.min(1,(now-start)/1300);el.textContent=Math.round(target*(1-Math.pow(1-p,3))).toLocaleString('fa-IR');if(p<1)requestAnimationFrame(tick)};requestAnimationFrame(tick)};
+ if('IntersectionObserver' in window){const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){run(e.target);io.unobserve(e.target)}}),{threshold:.4});els.forEach(e=>{e.textContent='۰';io.observe(e)})}else els.forEach(run);
+})();
+/* نوار خودکار نظرات؛ با لمس/هاور متوقف می‌شود و motion preference را رعایت می‌کند. */
+(function(){
+ const rail=document.getElementById('homeReviewRail');
+ if(!rail || rail.children.length<2 || (window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+ let timer=null;
+ const move=()=>{const card=rail.querySelector('article');const step=(card?.offsetWidth||300)+16;const max=rail.scrollWidth-rail.clientWidth;const pos=Math.abs(rail.scrollLeft);rail.scrollTo({left:pos>=max-10?0:rail.scrollLeft-step,behavior:'smooth'});};
+ const start=()=>{if(!timer)timer=setInterval(move,4200)};const stop=()=>{clearInterval(timer);timer=null};
+ rail.addEventListener('mouseenter',stop);rail.addEventListener('mouseleave',start);rail.addEventListener('touchstart',stop,{passive:true});rail.addEventListener('touchend',start,{passive:true});start();
+})();
+</script>
+{% endblock %}

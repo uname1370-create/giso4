@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}ترندهای بازار - یار همراه من{% endblock %}
+{% block content %}
+<section class="simple-page">
+<div class="container page-wrap">
+    <div class="page-header">
+        <h1><i class="fas fa-chart-line"></i> ترندهای بازار</h1>
+        <p>تحلیل هوشمند مهارت‌های داغ و نیاز بازار کار.</p>
+    </div>
+    <div class="empty-state">
+        <i class="fas fa-chart-line empty-state-icon"></i>
+        <p>این صفحه از ایجنت‌های AI یار هوشمند تغذیه می‌شود. در به‌روزرسانی‌های آتی به‌طور کامل در دسترس خواهد بود.</p>
+        <a href="{{ url_for('mentor_dashboard') }}" class="btn btn-primary">بازگشت به یار همراه من</a>
+    </div>
+</div>
+</section>
+{% endblock %}

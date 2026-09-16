@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}ابزارهای هوش مصنوعی - sadeghiai{% endblock %}
+
+{% block content %}
+<section class="tools-page">
+    <div class="container">
+        <div class="section-heading">
+            <h1><i class="fas fa-tools"></i> ابزارهای هوش مصنوعی</h1>
+            <p>انجام کارهای پیچیده و زمان‌بر تنها با یک کلیک</p>
+        </div>
+
+        <div class="cards-grid">
+            <div class="card glass card-hover">
+                <div class="card-icon icon-blue"><i class="fas fa-file-alt"></i></div>
+                <h3>📝 تولید متن هوشمند</h3>
+                <p class="card-desc">تولید محتوای متنی، مقاله، ایمیل و ... با کمک هوش مصنوعی</p>
+                <span class="badge badge-soon">به زودی</span>
+            </div>
+
+            <div class="card glass card-hover">
+                <div class="card-icon icon-purple"><i class="fas fa-image"></i></div>
+                <h3>🎨 ساخت تصویر</h3>
+                <p class="card-desc">ساخت تصاویر هنری و گرافیکی از روی توضیحات متنی</p>
+                <span class="badge badge-soon">به زودی</span>
+            </div>
+
+            <div class="card glass card-hover">
+                <div class="card-icon icon-mix"><i class="fas fa-code"></i></div>
+                <h3>💻 دستیار کدنویسی</h3>
+                <p class="card-desc">کمک به نوشتن، رفع باگ و توضیح کدهای برنامه‌نویسی</p>
+                <span class="badge badge-soon">به زودی</span>
+            </div>
+
+            <div class="card glass card-hover">
+                <div class="card-icon icon-blue"><i class="fas fa-language"></i></div>
+                <h3>🌐 ترجمه هوشمند</h3>
+                <p class="card-desc">ترجمه متون بین زبان‌های مختلف با کیفیت بالا</p>
+                <span class="badge badge-soon">به زودی</span>
+            </div>
+
+            <div class="card glass card-hover">
+                <div class="card-icon icon-purple"><i class="fas fa-graduation-cap"></i></div>
+                <h3>🎓 خلاصه‌ساز کتاب و مقاله</h3>
+                <p class="card-desc">خلاصه‌سازی هوشمند متون طولانی، کتاب و مقاله</p>
+                <span class="badge badge-soon">به زودی</span>
+            </div>
+
+            <div class="card glass card-hover">
+                <div class="card-icon icon-mix"><i class="fas fa-clipboard-check"></i></div>
+                <h3>✅ برنامه‌ریز مطالعه</h3>
+                <p class="card-desc">ساخت برنامه مطالعه شخصی بر اساس هدف و زمان شما</p>
+                <span class="badge badge-live">فعال</span>
+                <a href="{{ url_for('career_path') if current_user.is_authenticated else url_for('auth.login') }}" class="card-link">استفاده <i class="fas fa-arrow-left"></i></a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

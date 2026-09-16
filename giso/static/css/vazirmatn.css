@@ -1,0 +1,14 @@
+/* فونت وزیرمتن — میزبانی محلی (مورد ۱۹ img/help.md)
+   جایگزین لینک render-blocking به fonts.googleapis.com.
+   تک‌منبع: فایل متغیر (Variable) Vazirmatn-VF.woff2 — همان پوشش کامل
+   وزن‌های گوگل‌فونتس (۱۰۰ تا ۹۰۰) ولی از خود سرور؛ تیترهای ۸۰۰/۹۰۰ و
+   بدنهٔ ۴۰۰/۵۰ دقیقاً با همان برش واقعی رندر می‌شوند، نه برش جایگزین.
+   مجوز: OFL (آزاد) — متن مجوز در fonts/OFL.txt */
+@font-face {
+  font-family: 'Vazirmatn';
+  src: url('../fonts/Vazirmatn-VF.woff2') format('woff2-variations'),
+       url('../fonts/Vazirmatn-VF.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}

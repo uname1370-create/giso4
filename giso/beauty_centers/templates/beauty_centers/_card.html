@@ -1,0 +1,39 @@
+{% set _bc_score100 = center.feedback.get('score100', 0) if center.feedback else 0 %}
+<article class="bc-card {{ 'is-featured' if center.promotion_active else '' }} {{ 'is-selected' if center.is_featured else '' }}">
+  <div class="bc-card-head">
+    <a class="bc-card-media" href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}" tabindex="-1" aria-hidden="true">
+      <img src="{{ url_for('beauty_centers.center_media', center_id=center.id) }}" alt="" loading="lazy" width="600" height="400" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'">
+      <span class="bc-img-fallback"><i class="fas fa-spa" aria-hidden="true"></i>تصویر مرکز</span>
+      <span class="bc-card-shade" aria-hidden="true"></span>
+      <span class="bc-card-ribbons">
+        {% if center.is_featured %}<b class="bc-ribbon is-selected">منتخب گیسو</b>{% endif %}
+        {% if center.promotion_active %}<b class="bc-ribbon is-featured">آگهی ویژه</b>{% endif %}
+        {% if center.discount_service_active %}<b class="bc-ribbon is-discount">تخفیف خدمات</b>{% endif %}
+      </span>
+    </a>
+    <div class="bc-card-title">
+      <h3><a href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}">{{ center.name }}</a></h3>
+      <p class="bc-location"><i class="fas fa-location-dot" aria-hidden="true"></i>{{ center.city }}{% if center.region %}، {{ center.region }}{% endif %}</p>
+    </div>
+  </div>
+  <div class="bc-card-body">
+    <div class="bc-card-trust"><span class="bc-checked"><i class="fas fa-circle-check" aria-hidden="true"></i> اطلاعات اولیه بررسی‌شده</span><span class="bc-category">{{ center.category_label }}</span></div>
+    <small class="bc-type">{{ center.type_label }}</small>
+    <div class="bc-cost"><span>{{ center.price_level_label }}</span>{% if center.starting_price %}<strong>شروع خدمات از {{ toman(center.starting_price) }}</strong><small>اطلاعات هزینه توسط مرکز اعلام شده است؛ مبلغ نهایی را مستقیم با مرکز هماهنگ کنید.</small>{% else %}<strong>قیمت، با توافق شما و شرایط خدمت</strong><small>برای تعرفه دقیق با مرکز هماهنگ شوید.</small>{% endif %}</div>
+    <div class="bc-tags">{% for label in center.service_labels[:3] %}<span>{{ label }}</span>{% endfor %}</div>
+    {% if center.match_tags %}<p class="bc-match"><i class="fas fa-wand-sparkles" aria-hidden="true"></i>مرتبط: {{ center.match_tags|join('، ') }}</p>{% endif %}
+    <div class="bc-card-rating">
+      {% if center.feedback and center.feedback.get('count', 0) >= 3 %}
+        <div class="bc-score-row">
+          <span class="bc-stars" role="img" aria-label="امتیاز {{ _bc_score100 }} از ۱۰۰"><span class="bc-stars-track" aria-hidden="true">★★★★★</span><span class="bc-stars-fill" aria-hidden="true" style="width: {{ _bc_score100 }}%">★★★★★</span></span>
+          <strong>{{ center.feedback.get('score', 0) }}<small> از ۵</small></strong>
+        </div>
+        <small>{{ center.feedback.get('count', 0) }} ارزیابی معتبر · {{ center.feedback.get('label', '') }}</small>
+      {% else %}
+        <span>امتیاز کلی مرکز</span>
+        <small>هنوز ارزیابی کافی ثبت نشده است.</small>
+      {% endif %}
+    </div>
+    <a class="bc-btn bc-btn-soft" href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}">مشاهده مرکز <i class="fas fa-arrow-left" aria-hidden="true"></i></a>
+  </div>
+</article>

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}پیشخوان مدیریت - sadeghiai{% endblock %}
+{% block content %}
+<section class="page-section admin-section">
+    <div class="container">
+        <div class="page-header">
+            <h1><i class="fas fa-crown"></i> پیشخوان مدیریت سایت آموزشی</h1>
+            <p class="page-sub">خوش آمدید <strong>{{ user.first_name or 'ادمین' }}</strong>! این پنل، نسخهٔ وبِ پنل ادمین ربات است.</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card gold">
+                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                <div class="stat-val">{{ stats.users_count }}</div>
+                <div class="stat-label">کاربران</div>
+                <a href="{{ url_for('admin_users') }}" class="stat-link">مدیریت کاربران</a>
+            </div>
+            <div class="stat-card blue">
+                <div class="stat-icon"><i class="fas fa-book"></i></div>
+                <div class="stat-val">{{ stats.courses_count }}</div>
+                <div class="stat-label">دوره‌ها</div>
+                <a href="{{ url_for('admin_courses') }}" class="stat-link">مدیریت دوره‌ها</a>
+            </div>
+            <div class="stat-card purple">
+                <div class="stat-icon"><i class="fas fa-bullseye"></i></div>
+                <div class="stat-val">{{ stats.missions_count }}</div>
+                <div class="stat-label">ماموریت‌ها</div>
+                <a href="{{ url_for('admin_missions') }}" class="stat-link">مدیریت ماموریت‌ها</a>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-icon"><i class="fas fa-gem"></i></div>
+                <div class="stat-val">{{ stats.shop_count }}</div>
+                <div class="stat-label">آیتم‌های گنجینه</div>
+                <a href="{{ url_for('admin_shop') }}" class="stat-link">مدیریت گنجینه</a>
+            </div>
+            <div class="stat-card orange">
+                <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
+                <div class="stat-val">{{ stats.cash_pending }}</div>
+                <div class="stat-label">درخواست نقدی در انتظار</div>
+                <a href="{{ url_for('admin_cash') }}" class="stat-link">بررسی درخواست‌ها</a>
+            </div>
+            <div class="stat-card red">
+                <div class="stat-icon"><i class="fas fa-headset"></i></div>
+                <div class="stat-val">{{ stats.open_tickets }}</div>
+                <div class="stat-label">تیکت پشتیبانی باز</div>
+                <a href="{{ url_for('admin_reports') }}" class="stat-link">گزارشات</a>
+            </div>
+        </div>
+
+        <div class="admin-grid">
+            <a href="{{ url_for('admin_reports') }}" class="big-card">
+                <i class="fas fa-chart-bar"></i>
+                <h3>گزارشات و آمار</h3>
+                <p>آمار کلی، لیست کاربران و گزارش پلتفرم‌ها</p>
+            </a>
+            <a href="{{ url_for('admin_messaging') }}" class="big-card">
+                <i class="fas fa-bullhorn"></i>
+                <h3>مرکز پیام‌رسانی</h3>
+                <p>ارسال پیام همگانی و اعلان‌ها (به‌زودی از وب)</p>
+            </a>
+            <a href="{{ url_for('admin_consultant') }}" class="big-card">
+                <i class="fas fa-user-headset"></i>
+                <h3>مدیریت مشاور</h3>
+                <p>بررسی درخواست‌های مشاوره انسانی و پاسخ‌گویی سایت</p>
+            </a>
+            <a href="{{ url_for('admin_features') }}" class="big-card">
+                <i class="fas fa-key"></i>
+                <h3>دسترسی بخش‌ها</h3>
+                <p>مدیریت دسترسی قابلیت‌ها (از داخل ربات)</p>
+            </a>
+            <a href="{{ url_for('admin_ai') }}" class="big-card">
+                <i class="fas fa-brain"></i>
+                <h3>مدیریت یار هوشمند</h3>
+                <p>تنظیمات AI و کلیدها (از داخل ربات)</p>
+            </a>
+            <a href="{{ url_for('admin_settings') }}" class="big-card">
+                <i class="fas fa-cog"></i>
+                <h3>تنظیمات عمومی</h3>
+                <p>عضویت/دعوت اجباری، دستورات ربات و... (از ربات)</p>
+            </a>
+            <a href="{{ url_for('admin_giso') }}" class="big-card">
+                <i class="fas fa-ribbon"></i>
+                <h3>مدیریت گیسو</h3>
+                <p>تنظیمات ربات گیسو (توکن/عبارت/ادمین‌ها) — از ربات</p>
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

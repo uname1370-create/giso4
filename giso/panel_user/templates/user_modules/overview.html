@@ -1,0 +1,88 @@
+{% extends 'user_layout.html' %}
+{% block title %}خلاصه من - گیسو{% endblock %}
+{% block head %}
+<style>
+/* §۸ پیشخوان فشرده و واکنش‌گرا — اعمال آنی بدون کش */
+.pu-page .pu-h1{font-size:1.15rem}
+.pu-page .pu-sub{margin-bottom:10px;font-size:.84rem}
+.pu-next-action{grid-template-columns:44px minmax(0,1fr) auto;gap:12px;padding:12px 14px;border-radius:15px}
+.pu-next-action>i{width:42px;height:42px;border-radius:12px;font-size:1.05rem}
+.pu-next-action h2{font-size:.92rem;margin:0 0 2px}
+.pu-next-action p{font-size:.75rem}
+.pu-next-action .pu-btn{padding:7px 12px;font-size:.74rem}
+.pu-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:10px}
+.pu-kpi{padding:10px 12px;border-radius:13px;gap:6px;flex-direction:column;align-items:flex-start}
+.pu-kpi-ico{font-size:17px}
+.pu-kpi strong{font-size:.95rem}
+.pu-kpi span:last-child{font-size:.7rem}
+.pu-card{padding:12px 14px;margin-bottom:12px;border-radius:14px}
+.pu-card h3{font-size:.9rem;margin-bottom:8px}
+.pu-page .pu-list{max-height:236px;overflow-y:auto;scrollbar-width:thin}
+.pu-list-item{padding:8px 10px;border-radius:11px}
+.pu-list-item strong{font-size:.8rem}
+.pu-list-item .pu-list-main span{font-size:.72rem}
+@media(max-width:680px){.pu-kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="pu-page">
+    <h1 class="pu-h1">سلام {{ user.name or user.first_name or 'دوست عزیز' }} 🌸</h1>
+    <p class="pu-sub">همه فعالیت‌هایت در گیسو، همین‌جا</p>
+
+    <section class="pu-next-action" aria-label="اقدام بعدی پیشنهادی">
+      {% if last_hair and last_hair.status == 'priced' %}<i class="fas fa-tags"></i><div><h2>قیمت نهایی موی شما آماده است</h2><p>جزئیات پیشنهاد را ببینید و درباره ادامه مسیر تصمیم بگیرید.</p></div><a class="pu-btn pu-btn-rose" href="{{ url_for('panel_user.hair_sale') }}">مشاهده پیشنهاد</a>
+      {% elif last_hair and last_hair.status in ('pending','reviewing') %}<i class="fas fa-clock"></i><div><h2>درخواست فروش موی شما در حال بررسی است</h2><p>وضعیت و پیام‌های کارشناس را از همین بخش پیگیری کنید.</p></div><a class="pu-btn pu-btn-outline" href="{{ url_for('panel_user.hair_sale') }}">پیگیری درخواست</a>
+      {% elif counts.analyses == 0 %}<i class="fas fa-wand-magic-sparkles"></i><div><h2>مسیر هوشمندت را با یک آنالیز شروع کن</h2><p>مو یا پوستت را بهتر بشناس و برنامه مراقبتی مرتبط دریافت کن.</p></div><a class="pu-btn pu-btn-rose" href="{{ url_for('analysis') }}">شروع آنالیز</a>
+      {% else %}<i class="fas fa-scissors"></i><div><h2>امروز چه کاری می‌خواهی انجام دهی؟</h2><p>ارزش مو را بررسی کن یا آخرین برنامه مراقبتی خودت را ببین.</p></div><a class="pu-btn pu-btn-rose" href="{{ url_for('hair_sale') }}">بررسی ارزش مو</a>{% endif %}
+    </section>
+
+    <div class="pu-kpis">
+        <a href="{{ url_for('panel_user.analyses') }}" class="pu-kpi"><span class="pu-kpi-ico">🔍</span><strong>{{ counts.analyses }}</strong><span>آنالیزها</span></a>
+        <a href="{{ url_for('panel_user.orders') }}" class="pu-kpi"><span class="pu-kpi-ico">🛍</span><strong>{{ counts.orders }}</strong><span>سفارش‌ها</span></a>
+        <a href="{{ url_for('panel_user.hair_sale') }}" class="pu-kpi"><span class="pu-kpi-ico">💇</span><strong>{{ counts.hair }}</strong><span>فروش مو</span></a>
+        <a href="{{ url_for('panel_user.chats') }}" class="pu-kpi"><span class="pu-kpi-ico">💬</span><strong>{{ counts.chats }}</strong><span>گفتگوها</span></a>
+        <a href="{{ url_for('panel_user.wallet', tab='summary') }}" class="pu-kpi"><span class="pu-kpi-ico">💵</span><strong>{{ toman(counts.cash_balance) }}</strong><span>موجودی نقدی</span></a>
+        <a href="{{ url_for('panel_user.wallet', tab='missions') }}" class="pu-kpi"><span class="pu-kpi-ico">🎁</span><strong>{{ toman(counts.spend_balance) }}</strong><span>اعتبار مصرفی</span></a>
+        <a href="{{ url_for('panel_user.reviews') }}" class="pu-kpi"><span class="pu-kpi-ico">⭐</span><strong>{{ counts.reviews }}</strong><span>نظرات</span></a>
+    </div>
+
+    <section class="pu-card">
+        <h3>🔔 اعلان‌های من</h3>
+        {% if overview_notifications %}
+        <div class="pu-list">
+            {% for n in overview_notifications %}
+            <div class="pu-list-item">
+                <div class="pu-list-main">
+                    <strong>{{ n.title }}</strong>
+                    <span>{{ n.message }}</span>
+                    <span class="pu-muted">{{ n.created_at }}</span>
+                </div>
+                <span class="pu-badge {{ 'pu-badge-warn' if n.status=='unread' else 'pu-badge-info' }}">{{ 'جدید' if n.status=='unread' else 'خوانده‌شده' }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <a class="pu-btn pu-btn-outline pu-btn-sm" href="{{ url_for('panel_user.notifications') }}">مشاهده همه اعلان‌ها</a>
+        {% else %}<p class="pu-muted">اعلان تازه‌ای ندارید. تاریخچه اعلان‌ها تا ۷ روز نگهداری می‌شود.</p>{% endif %}
+    </section>
+
+    {% if last_hair %}
+    <div class="pu-card">
+        <h3>💇 آخرین درخواست فروش مو</h3>
+        <div class="pu-row-between">
+            <div>
+                <span class="pu-muted">درخواست #{{ last_hair.id }} — طول {{ last_hair.length_cm }} سانت</span>
+                {% if last_hair.status == 'pending' %}<span class="pu-badge pu-badge-warn">در انتظار بررسی</span>
+                {% elif last_hair.status == 'reviewing' %}<span class="pu-badge pu-badge-info">در حال بررسی</span>
+                {% elif last_hair.status == 'priced' %}<span class="pu-badge pu-badge-ok">قیمت نهایی ثبت شد 💰</span>
+                {% elif last_hair.status == 'approved' %}<span class="pu-badge pu-badge-ok">تایید شد ✅</span>
+                {% elif last_hair.status == 'rejected' %}<span class="pu-badge pu-badge-off">رد شد ❌</span>
+                {% elif last_hair.status == 'completed' %}<span class="pu-badge pu-badge-done">تکمیل شد 📦</span>
+                {% else %}<span class="pu-badge">{{ last_hair.status }}</span>{% endif %}
+            </div>
+            <a href="{{ url_for('panel_user.hair_sale') }}" class="pu-btn pu-btn-outline pu-btn-sm">مشاهده جزئیات</a>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

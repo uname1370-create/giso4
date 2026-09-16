@@ -1,0 +1,26 @@
+# Core web framework
+Flask==3.0.0
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.1.1
+Werkzeug==3.0.1
+
+# Telegram/Bale bot
+python-telegram-bot[job-queue]==20.7
+python-dotenv==1.0.0
+
+# HTTP proxy support (SOCKS5) for telegram (optional)
+httpx[socks]>=0.25.0
+
+# Image processing / PDF / QR
+Pillow==10.1.0
+fpdf2>=2.7.0
+qrcode[pil]>=7.4.0
+arabic-reshaper>=3.0.0
+python-bidi>=0.4.2
+
+# HTTP client
+requests==2.31.0
+
+# Production WSGI server (threaded, no GIL bottleneck like Flask dev server)
+# Used by giso/app.py and web/app.py __main__ with fallback to app.run if absent.
+waitress==3.0.0
