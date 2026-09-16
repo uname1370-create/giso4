@@ -972,3 +972,775 @@ implementation - testing - optimization - refinement.
 Use autonomous judgment while respecting the user's intent, explicit
 constraints, existing project, and the actual capabilities of the
 available tools.
+---
+
+# 50. Production Quality Gate
+
+After the visual/design implementation is complete, the Agent MUST perform a production-readiness pass before considering the work finished.
+
+This pass is not a generic checklist. It is an adaptive quality gate selected from the actual project.
+
+At minimum, when applicable, verify:
+
+- performance and loading
+- Core Web Vitals
+- responsive behavior
+- accessibility
+- SEO/indexability
+- security and data boundaries
+- runtime/build integrity
+- asset weight and loading strategy
+- critical user flows
+- browser/device behavior
+- 3D/GPU performance when 3D is present
+
+The Agent must not treat the design as finished merely because the page looks visually complete.
+
+Use:
+
+**Design → Implement → Run → Measure → Audit → Optimize → Re-run → Verify → Deliver**
+
+The optimization pass must preserve the intended visual quality and interaction model unless evidence shows that a change is necessary.
+
+---
+
+# 51. Performance-by-Design and Lightweight High-Fidelity
+
+High visual quality must NOT be achieved by simply increasing the number of effects, polygons, textures, DOM nodes, JavaScript, or post-processing passes.
+
+The target is:
+
+**High Visual Fidelity + Low Perceived Weight + Controlled Runtime Cost**
+
+Prefer techniques that produce a strong visual result at low cost.
+
+Examples include:
+
+- optimized geometry instead of unnecessary geometry density
+- baked or precomputed visual information where appropriate
+- compressed textures and modern image formats
+- responsive image sizing
+- lazy loading below-the-fold media
+- progressive loading
+- selective 3D rather than full-page 3D when full 3D is unnecessary
+- CSS effects when they are visually sufficient
+- GPU-friendly shaders
+- limited post-processing
+- instancing for repeated objects
+- LOD or adaptive quality for complex scenes
+- reduced particle/simulation complexity on constrained devices
+- font subsetting and controlled font loading
+- code splitting and route-level loading
+- removal of unnecessary dependencies
+- reduction of third-party scripts
+- avoiding excessive DOM complexity
+
+Do not optimize blindly.
+
+First identify the actual bottleneck, then apply the smallest optimization that materially improves it.
+
+A visually impressive technique should be rejected when its cost is disproportionate to its contribution to the experience.
+
+---
+
+# 52. Web Performance Quality Gate
+
+For public websites, evaluate performance using both laboratory evidence and, when available, real-user evidence.
+
+Relevant measurements may include:
+
+- LCP
+- INP
+- CLS
+- FCP
+- TTFB
+- total transfer size
+- request count
+- JavaScript execution
+- long tasks
+- main-thread work
+- render-blocking resources
+- image/font loading
+- third-party cost
+- memory usage
+- 3D frame time and GPU pressure when relevant
+
+Core Web Vitals should be treated as user-experience evidence rather than a single score.
+
+When measurement is possible, compare before/after results.
+
+For 3D experiences additionally inspect:
+
+- frame time
+- sustained FPS where meaningful
+- draw calls
+- triangles
+- texture memory
+- shader complexity
+- post-processing cost
+- model transfer size
+- initialization cost
+- disposal/lifecycle behavior
+- mobile degradation
+
+Do not claim a performance improvement without measurement or clearly identified evidence.
+
+---
+
+# 53. SEO-by-Design and Post-Design SEO Audit
+
+SEO must not be bolted onto a visually complete website as an afterthought.
+
+During design and implementation, preserve crawlable, semantic, indexable content where relevant.
+
+After implementation, adapt the SEO audit to the actual site type.
+
+Check, when applicable:
+
+### Technical SEO
+
+- crawlability
+- indexability
+- HTTP status codes
+- canonical URLs
+- robots.txt
+- XML sitemap
+- redirects
+- URL structure
+- internal linking
+- rendered content
+- mobile behavior
+- page speed
+- duplicate content
+- pagination or faceted navigation when relevant
+
+### On-Page SEO
+
+- title
+- meta description where useful
+- heading hierarchy
+- descriptive links
+- meaningful image `alt` text
+- content hierarchy
+- search intent alignment
+- unique page content
+
+### Structured Data
+
+Select schema types based on the actual page/entity rather than adding generic markup everywhere.
+
+Possible types include:
+
+- Organization
+- LocalBusiness
+- Product
+- Article
+- Breadcrumb
+- Event
+- SoftwareApplication
+- ProfilePage
+- Video
+- other supported types appropriate to the project
+
+Prefer accurate, complete structured data over large amounts of inaccurate markup.
+
+Validate structured data with appropriate validation tools.
+
+Do not promise rankings.
+
+The Agent must distinguish:
+
+- technically eligible
+- technically healthy
+- potentially discoverable
+- potentially enhanced in search
+- actual search performance, which requires real search data
+
+---
+
+# 54. Security-by-Design and Post-Design Security Audit
+
+Security must be considered during architecture and implementation and re-checked after the design is implemented.
+
+Security testing must only be performed against systems the user is authorized to test.
+
+Adapt security depth to the actual project.
+
+When relevant inspect:
+
+- secrets and exposed credentials
+- client/server boundaries
+- authentication
+- authorization
+- session handling
+- input validation
+- output encoding
+- API security
+- CORS
+- CSRF where applicable
+- security headers
+- cookie configuration
+- error disclosure
+- file/upload handling
+- dependency vulnerabilities
+- third-party integrations
+- sensitive data exposure
+- business-logic abuse
+- deployment configuration
+- debug/test artifacts
+- source-map or build exposure when relevant
+
+Use a combination of:
+
+**Automated Breadth + Manual/Reasoned Depth**
+
+Do not rely on one scanner or one security score.
+
+Use current authoritative security methodology and adapt testing to the project's threat model and attack surface.
+
+For business-critical systems, explicitly test important workflows and authorization boundaries rather than only scanning the public pages.
+
+---
+
+# 55. Business and Conversion Quality Layer
+
+When the project is commercial, the Agent must recognize business-critical paths and preserve them during visual and technical optimization.
+
+Potential critical paths include:
+
+- landing → product/service discovery
+- search → result → selection
+- product → detail → cart
+- cart → checkout
+- registration → activation
+- login → core action
+- pricing → signup
+- lead form → submission
+- content → conversion
+- subscription → payment
+- contact → qualified lead
+
+The Agent should evaluate, when relevant:
+
+- value proposition clarity
+- information hierarchy
+- CTA visibility
+- product/service presentation
+- trust signals
+- pricing clarity
+- friction
+- form usability
+- mobile conversion path
+- loading friction
+- error states
+- analytics instrumentation
+- abandonment points
+
+Do not claim an actual conversion or revenue increase without business data.
+
+Separate:
+
+- observed issue
+- evidence-backed usability problem
+- conversion hypothesis
+- measured business outcome
+
+Visual optimization must never accidentally damage the primary business path.
+
+---
+
+# 56. Adaptive Tool and Research Algorithm
+
+Do not use every available tool.
+
+Select tools based on the question being answered.
+
+Use the following decision logic:
+
+### If the question is about source architecture
+
+Use:
+
+- repository/file inspection
+- dependency/lockfile inspection
+- build configuration
+- static analysis when available
+
+### If the question is about actual runtime behavior
+
+Use:
+
+- browser/runtime inspection
+- console and network inspection
+- interaction testing
+- screenshots/rendered inspection
+
+### If the question is about performance
+
+Use:
+
+- Lighthouse or equivalent
+- browser performance traces
+- network waterfall
+- Core Web Vitals evidence
+- runtime/GPU profiling for 3D when available
+
+### If the question is about SEO
+
+Use:
+
+- source inspection
+- crawler/browser inspection
+- Google Search documentation
+- structured-data validation
+- robots/sitemap/canonical checks
+- Search Console data when available
+
+### If the question is about accessibility
+
+Use:
+
+- automated accessibility testing
+- semantic/source inspection
+- keyboard testing
+- focus testing
+- reduced-motion testing
+- manual interaction checks
+
+### If the question is about security
+
+Use:
+
+- authorized security testing
+- dependency/security tooling
+- source inspection
+- runtime/network inspection
+- API and authentication testing where authorized
+- current OWASP methodology
+
+### If the question is about visual quality
+
+Use:
+
+- rendered screenshots
+- browser inspection
+- responsive comparison
+- reference/principle analysis
+
+### If the question is about compatibility
+
+Use:
+
+- actual browser/device testing where available
+- current browser compatibility data
+- feature detection
+- fallback verification
+
+Research only when it can resolve an uncertainty or improve a decision.
+
+Prefer authoritative and current sources for standards and platform behavior.
+
+---
+
+# 57. Post-Design Optimization Algorithm
+
+For every sufficiently complex website, use this adaptive sequence after implementation:
+
+**1. Render**
+→ run the actual website.
+
+**2. Observe**
+→ inspect the real visual result, runtime, interactions, and loading.
+
+**3. Establish Baseline**
+→ record relevant performance, accessibility, SEO, security, and functional evidence.
+
+**4. Detect**
+→ identify the highest-impact weaknesses.
+
+**5. Diagnose**
+→ distinguish symptom from root cause.
+
+**6. Prioritize**
+→ consider user impact, business impact, severity, confidence, effort, and regression risk.
+
+**7. Optimize**
+→ apply the smallest sufficient change.
+
+**8. Re-run**
+→ repeat the affected tests.
+
+**9. Compare**
+→ compare before/after behavior and measurements.
+
+**10. Regression Check**
+→ verify that visual quality, critical flows, architecture, responsiveness, SEO, accessibility, and security were not unintentionally degraded.
+
+**11. Final Quality Gate**
+→ only declare completion when material issues are resolved or explicitly documented as unresolved/unverified.
+
+The Agent must not rewrite a stable architecture merely to optimize one metric.
+
+If an optimization conflicts with the user's intended design, find a cheaper implementation before reducing the intended experience.
+
+---
+
+# 58. Final High-End Website Scenario
+
+When asked to create a high-end website, the Agent should behave approximately as follows:
+
+**Understand the goal**
+→ identify audience, business purpose, content, critical actions, project state, and constraints.
+
+**Define the experience**
+→ establish information architecture, art direction, interaction model, responsive states, and where 3D genuinely adds value.
+
+**Design for performance**
+→ establish practical budgets for page weight, media, JavaScript, DOM complexity, 3D assets, rendering cost, and loading behavior.
+
+**Build**
+→ use the existing architecture when suitable; introduce new technology only when justified by the experience.
+
+**Create high visual quality efficiently**
+→ combine typography, spacing, composition, motion, lighting, materials, imagery, CSS, SVG, and selective 3D rather than making everything computationally expensive.
+
+**Run**
+→ inspect the real implementation rather than judging only source code.
+
+**Measure**
+→ collect performance, accessibility, SEO, and runtime evidence.
+
+**Audit**
+→ select the appropriate quality modules based on the actual project.
+
+**Optimize**
+→ fix the highest-impact issues while preserving the visual concept.
+
+**Verify**
+→ test responsive behavior, critical interactions, accessibility, indexability, security boundaries, and relevant browser/device states.
+
+**Deliver**
+→ provide the polished experience and clearly distinguish verified results from assumptions or unverified areas.
+
+The final quality target is not:
+
+**“Maximum effects.”**
+
+It is:
+
+**“Maximum perceived quality per unit of technical cost.”**
+
+---
+
+# 59. Non-Negotiable Design-to-Production Principle
+
+A high-end website is not considered complete at the moment the design looks impressive.
+
+The complete lifecycle is:
+
+**Concept → Experience Architecture → Art Direction → Performance-Aware Design → Implementation → Runtime Inspection → Performance Audit → Accessibility Audit → SEO Audit → Security Audit → Business/Critical-Flow Audit → Optimization → Regression Verification → Delivery**
+
+The Agent must adapt the depth of each stage to the actual project.
+
+Do not execute irrelevant audits.
+
+Do not skip relevant audits merely because the page looks visually complete.
+
+Do not trade away essential UX, SEO, accessibility, security, or business functionality for visual effects without explicit justification.
+
+Do not confuse a Lighthouse score, SEO eligibility, accessibility automation, or a security scanner result with a complete professional audit.
+
+The final judgment must come from combined evidence.
+
+---
+
+# 60. Standards and Source Freshness
+
+When standards or platform behavior materially affect a decision, verify the current authoritative source before implementation when practical.
+
+Preferred source classes include:
+
+- W3C/WAI for accessibility standards
+- Google Search Central for Google Search requirements and structured data
+- Chrome/MDN and relevant browser documentation for web platform behavior
+- OWASP for web application security methodology
+- official framework/library documentation for implementation APIs
+- current browser compatibility data for support decisions
+
+Record the relevant standard/version/date when it materially affects the decision.
+
+Never rely on an old remembered rule when a current authoritative source can be checked.
+
+---
+
+# 61. Final Operating Algorithm
+
+For complex 3D web projects, the complete adaptive algorithm is:
+
+**UNDERSTAND
+→ MODEL
+→ ARCHITECT
+→ ART DIRECT
+→ DESIGN FOR PERFORMANCE
+→ CHOOSE TECHNOLOGY
+→ BUILD
+→ RUN
+→ INSPECT
+→ MEASURE
+→ AUDIT
+→ DIAGNOSE
+→ OPTIMIZE
+→ VERIFY
+→ REGRESSION CHECK
+→ DELIVER**
+
+This is a decision framework, not a rigid checklist.
+
+The Agent decides which modules, tools, measurements, standards, and research are actually necessary for the specific project.
+
+The objective is to produce a website that is simultaneously:
+
+- visually high-end
+- lightweight where practical
+- performant
+- responsive
+- accessible
+- search-friendly
+- secure
+- maintainable
+- business-appropriate
+- technically verified
+- original to the user's concept
+
+without unnecessarily changing a stable existing architecture.
+
+
+---
+
+## 62. Adaptive Creative Decision Framework
+
+### Purpose
+This Skill defines standards, priorities, constraints, evaluation criteria, and quality gates. It does not prescribe a fixed visual recipe.
+
+The Agent must independently determine how to design each project while preserving the following priority order:
+
+1. 3D visual quality and meaningful visual impact
+2. Creative coherence and art direction
+3. User experience and interaction quality
+4. Language, typography, Persian/RTL quality when applicable
+5. Appropriate technical realization
+6. Performance
+7. Responsive adaptation
+8. Accessibility
+9. SEO
+10. Security, stability, maintainability, and regression safety
+
+The Agent must not sacrifice meaningful 3D quality merely to reduce technical cost. It must instead seek the least expensive implementation capable of achieving the intended visual result.
+
+### Core Decision Rule
+For every major design or implementation decision:
+
+**Understand → Generate viable approaches → Evaluate against priorities → Choose → Build → Inspect → Refine**
+
+Do not blindly follow a predetermined stack, visual style, camera, material, shader, layout, or interaction pattern.
+
+### Creative Autonomy
+The Agent decides:
+- visual concept
+- composition
+- spatial hierarchy
+- geometry strategy
+- material strategy
+- lighting
+- camera language
+- environment
+- motion
+- interaction
+- typography
+- color system
+- rendering technology
+- asset strategy
+- responsive behavior
+- performance strategy
+
+The Skill only defines the quality bar and decision constraints.
+
+### Non-Negotiable Visual Standard
+The final 3D experience must demonstrate intentional:
+- geometry and silhouette
+- material response
+- lighting
+- camera/framing
+- depth and spatial hierarchy
+- composition
+- motion
+- environmental context
+- visual detail where it materially improves perception
+
+The Agent must allocate detail according to visual importance instead of distributing technical complexity uniformly.
+
+### High-Fidelity Material Intelligence
+When materials are visually important, the Agent must reason about:
+- physical or artistic material identity
+- base color
+- roughness
+- metallic behavior
+- normal/detail response
+- reflection/refraction where appropriate
+- micro-surface variation
+- light interaction
+- scale and realism
+- environmental contribution
+
+Do not use generic materials by default when the material itself is a major part of the visual story.
+
+### Persian / RTL / Typography Intelligence
+When the project contains Persian or mixed Persian/English content, the Agent must treat language and typography as part of the visual system.
+
+It must intelligently determine:
+- RTL/LTR direction
+- semantic document direction
+- Persian-compatible font selection
+- font weights
+- glyph quality
+- line-height
+- word and letter spacing
+- heading hierarchy
+- mixed-script bidi behavior
+- Persian/Latin numeral behavior according to context
+- wrapping and truncation
+- responsive typography
+- navigation and control direction
+- directional icons
+- forms and input alignment
+
+Persian typography must remain visually intentional and readable across viewport sizes. Typography must be composed with the 3D scene rather than added after the visual design.
+
+The Agent may choose a suitable Persian font family according to brand personality, readability, visual hierarchy, licensing, loading cost, and browser compatibility. It must not assume one universal Persian font for every project.
+
+### Adaptive Rendering Ladder
+Choose the simplest rendering layer that can achieve the intended result:
+
+**HTML/CSS → SVG → Optimized Image/Video → Canvas → WebGL/Three.js/R3F → WebGPU → Specialized Simulation**
+
+This is a decision ladder, not a mandatory sequence.
+
+Use a more advanced layer only when it creates meaningful visual, interaction, or technical value that a simpler layer cannot provide.
+
+Do not use WebGPU, WebGL, Three.js, shaders, particles, physics, or post-processing merely because the project is described as “3D”.
+
+### Performance Without Visual Compromise
+Performance optimization begins during design but does not define the artistic direction.
+
+When an expensive element is valuable, optimize its implementation before removing it.
+
+Preferred strategies include:
+- optimized geometry
+- retopology where appropriate
+- LOD
+- instancing
+- baked/precomputed lighting where appropriate
+- texture atlases
+- KTX2/Basis texture compression
+- GLB/GLTF
+- Meshopt/Draco compression where appropriate
+- AVIF/WebP responsive imagery
+- WOFF2 and font subsetting
+- dynamic imports
+- code splitting
+- lazy loading
+- progressive loading
+- selective post-processing
+- adaptive quality
+- device capability tiers
+- caching/CDN where appropriate
+
+Never optimize blindly. Measure first, identify the actual bottleneck, then optimize.
+
+### Responsive 3D Intelligence
+Responsive behavior must be designed, not merely scaled.
+
+The Agent may independently change:
+- camera
+- framing
+- object scale
+- scene composition
+- interaction model
+- animation intensity
+- geometry detail
+- texture resolution
+- post-processing
+- lighting complexity
+- UI arrangement
+
+Desktop, tablet, and mobile may use different compositions when that produces a better experience.
+
+### Runtime Adaptive Quality
+When appropriate, establish quality states such as:
+- high
+- medium
+- low
+- fallback
+
+Adapt according to measured or safely inferred:
+- GPU capability
+- device class
+- viewport
+- memory constraints
+- network conditions
+- frame time
+- loading cost
+
+Adaptive quality must preserve the visual identity of the experience rather than randomly disabling effects.
+
+### Web Quality Protection
+After the 3D direction is established, verify that implementation does not unnecessarily damage:
+- semantic HTML
+- crawlable content
+- heading hierarchy
+- metadata
+- accessibility
+- keyboard interaction
+- reduced-motion behavior
+- responsive layout
+- security boundaries
+- maintainability
+- browser compatibility
+
+Important content and navigation must not depend exclusively on the successful rendering of a 3D scene.
+
+### Existing Project Protection
+When extending an existing project:
+- inspect before changing
+- understand the current architecture
+- preserve stable systems
+- avoid unnecessary rewrites
+- reuse existing dependencies when appropriate
+- make the smallest architectural change that achieves the intended result
+
+### Visual Self-Critique
+Before delivery, the Agent must inspect the rendered result and ask:
+- Is the 3D visually convincing?
+- Are materials believable and intentional?
+- Is lighting helping the subject?
+- Is the camera composition strong?
+- Does the page have a clear visual hierarchy?
+- Does the experience feel designed rather than assembled?
+- Does typography support the visual system?
+- Is the Persian/RTL implementation polished when applicable?
+- Is any effect present without meaningful purpose?
+- Is anything visually weak enough to require refinement?
+
+If the answer is materially negative, iterate before delivery.
+
+### Final Decision Principle
+The Agent should optimize for:
+
+**Maximum perceived visual quality per unit of necessary technical cost**
+
+not minimum technical cost at the expense of the intended experience.
+
+### Final Operating Loop
+**UNDERSTAND → CONCEPTUALIZE → ART DIRECT → DESIGN 3D → SELECT TECHNIQUE → BUILD → RUN → INSPECT → MEASURE → OPTIMIZE → VERIFY → CRITIQUE → REFINE → REGRESSION CHECK → DELIVER**
+
+The Agent remains creatively autonomous throughout this loop.
