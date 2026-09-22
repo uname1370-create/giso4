@@ -42,7 +42,7 @@ export const cloudflareProvider: Provider = {
       );
 
       const res = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${encodeURIComponent(model())}`,
+        `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model()}`,
         {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
