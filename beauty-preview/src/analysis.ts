@@ -12,9 +12,6 @@ export interface BeautyPhotoAnalysis {
   browThickness: string;
   browArch: string;
   browSymmetry: string;
-  browTail: string;
-  browStart: string;
-  recommendedShape: string;
   hairTone: string;
   browTone: string;
   skinUndertone: string;
@@ -75,8 +72,6 @@ Rules:
 - Reject photos that are blurry, extremely dark/bright, heavily filtered, strongly angled, obstructed, or have eyebrows hidden by hair/glasses.
 - Do NOT invent precise medical or biometric facts.
 - Analyze only visible visual characteristics.
-- Describe the customer's existing brow structure before suggesting the preview direction.
-- The recommendedShape must be conservative and compatible with the person's existing brow position and facial proportions; do not invent a dramatic new shape.
 - For pigment, match the existing natural eyebrow and hair tone. Never recommend pure black by default.
 - Prefer a natural neutral/warm/cool brown family based on the visible hair, brow and skin undertone.
 - The goal is a realistic microblading preview, not beautifying or redesigning the face.
@@ -94,9 +89,6 @@ JSON shape:
   "browThickness": "medium",
   "browArch": "soft",
   "browSymmetry": "slightly_asymmetric",
-  "browTail": "natural_tapered",
-  "browStart": "soft_natural",
-  "recommendedShape": "soft_natural_arch",
   "hairTone": "dark_brown",
   "browTone": "medium_dark_brown",
   "skinUndertone": "warm_neutral",
@@ -119,7 +111,6 @@ JSON shape:
         image: imageDataUri,
         question: prompt,
         reasoning: false,
-        stream: false,
         temperature: 0.1,
         max_tokens: 1200,
       }),
@@ -181,9 +172,6 @@ JSON shape:
     browThickness: stringValue(parsed.browThickness, 'medium'),
     browArch: stringValue(parsed.browArch, 'soft'),
     browSymmetry: stringValue(parsed.browSymmetry, 'natural'),
-    browTail: stringValue(parsed.browTail, 'natural_tapered'),
-    browStart: stringValue(parsed.browStart, 'soft_natural'),
-    recommendedShape: stringValue(parsed.recommendedShape, 'soft_natural_arch'),
     hairTone: stringValue(parsed.hairTone, 'natural'),
     browTone: stringValue(parsed.browTone, 'natural'),
     skinUndertone: stringValue(parsed.skinUndertone, 'neutral'),
