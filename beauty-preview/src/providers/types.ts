@@ -20,6 +20,8 @@ export interface Provider {
   label: string;
   /** نام متغیر محیطی کلید API */
   envKey: string;
+  /** Optional custom configuration check for providers with multiple credentials. */
+  isConfigured?: () => boolean;
   /**
    * تولید تصویر و برگرداندن آدرس/بایت آن.
    * در صورت خطا باید throw کند تا زنجیرهٔ جایگزین به پروایدر بعدی برود.
