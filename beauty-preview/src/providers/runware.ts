@@ -242,7 +242,11 @@ export const runwareProvider: Provider = {
         );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        failures.push(`${selectedModel}: ${message}`);
+        const detail =
+          error instanceof ProviderError && error.detail ? error.detail.slice(0, 500) : '';
+        failures.push(
+          `${selectedModel}: ${message}${detail ? ` — ${detail}` : ""}`,
+        );
       }
     }
 
