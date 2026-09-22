@@ -431,9 +431,7 @@ export default function HomePage() {
           imageBase64: photoDataUri,
           style: selectedStyle.label,
           // رنگ از تحلیل واقعی عکس تعیین می‌شود؛ این فیلدهای قدیمی عمداً ارسال نمی‌شوند.
-          referenceImageBase64: await prepareReferenceImage(
-            selectedStyle.imageUrl || styleSampleImage(selectedStyle),
-          ),
+          referenceImageBase64: await prepareReferenceImage(selectedStyle.imageUrl || styleSampleImage(selectedStyle)).catch(() => prepareReferenceImage(styleSampleImage(selectedStyle))),
         }),
       });
 
