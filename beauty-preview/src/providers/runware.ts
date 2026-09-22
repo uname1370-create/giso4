@@ -1,14 +1,12 @@
 /**
  * src/providers/runware.ts
  * ---------------------------------------------------------------------------
- * پروایدر ۱ — Runware  (https://runware.ai/docs)
+ * Provider 1 — Runware
  *
- * نکتهٔ مهم: Runware با فرمت OpenAI کار نمی‌کند. ورودی همیشه یک «آرایهٔ
- * JSON» از تسک‌هاست و خروجی در `data` (آرایه) برمی‌گردد.
- *
- * فرایند دو مرحله‌ای:
- *   الف) taskType = "imageUpload"   → خروجی: imageUUID
- *   ب)  taskType = "imageInference" → ورودی: seedImage = imageUUID، خروجی: imageURL
+ * Runware image editing uses one imageInference task with
+ * inputs.referenceImages. The provider tries models from cheapest to
+ * most expensive and moves to the next model only when the current one
+ * fails. This keeps the existing provider-level fallback architecture intact.
  * ---------------------------------------------------------------------------
  */
 
@@ -21,16 +19,32 @@ import {
 import type { Provider, ProviderInput } from './types';
 
 const DEFAULT_ENDPOINT = 'https://api.runware.ai/v1';
-const DEFAULT_MODEL = 'bfl:flux-1-kontext-pro@1';
 
-/** آدرس API (قابل تغییر با RUNWARE_API_URL برای پروکسی/تست) */
+/**
+ * Ordered by current Runware reference-to-image example cost:
+ * Qwen-Image-Edit  ~$0.0045
+ * P-Image-Edit     ~$0.0088
+ * FLUX.1 Kontext Dev ~$0.013
+ * FLUX.1 Kontext Pro $0.04
+ */
+const DEFAULT_MODELS = [
+  'runware:108@20',
+  'prunaai:2@1',
+  'runware:106@1',
+  'bfl:3@1',
+] as const;
+
 function endpoint(): string {
   return (process.env.RUNWARE_API_URL ?? '').trim() || DEFAULT_ENDPOINT;
 }
 
-/** مدل (قابل تغییر با RUNWARE_MODEL) */
-function model(): string {
-  return (process.env.RUNWARE_MODEL ?? '').trim() || DEFAULT_MODEL;
+function models(): string[] {
+  const configured = (process.env.RUNWARE_MODELS ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return configured.length > 0 ? configured : [...DEFAULT_MODELS];
 }
 
 interface RunwareTask {
@@ -42,7 +56,6 @@ interface RunwareTask {
   imageBase64Data?: string;
 }
 
-/** پاسخ Runware یا `{ data: [...] }` است یا مستقیماً آرایه */
 function readTasks(payload: unknown): RunwareTask[] {
   if (Array.isArray(payload)) return payload as RunwareTask[];
   if (payload && typeof payload === 'object') {
@@ -59,6 +72,7 @@ async function callRunware(
   timeoutMs: number,
 ): Promise<unknown> {
   const { signal, done } = timeoutSignal(timeoutMs);
+
   try {
     const res = await fetch(endpoint(), {
       method: 'POST',
@@ -73,6 +87,7 @@ async function callRunware(
 
     const raw = await res.text();
     let payload: unknown = null;
+
     try {
       payload = raw ? JSON.parse(raw) : null;
     } catch {
@@ -94,9 +109,11 @@ async function callRunware(
     return payload;
   } catch (error) {
     if (error instanceof ProviderError) throw error;
+
     if (error instanceof Error && error.name === 'AbortError') {
       throw new ProviderError('Runware: زمان انتظار به پایان رسید');
     }
+
     throw new ProviderError(
       `Runware ${stage} ناموفق بود`,
       error instanceof Error ? error.message : String(error),
@@ -106,16 +123,62 @@ async function callRunware(
   }
 }
 
-/** ساخت UUID v4 (بدون وابستگی اضافه) */
 function uuid(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
   }
+
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
     const rand = (Math.random() * 16) | 0;
     const value = char === 'x' ? rand : (rand & 0x3) | 0x8;
     return value.toString(16);
   });
+}
+
+async function generateWithModel(
+  input: ProviderInput,
+  apiKey: string,
+  selectedModel: string,
+  timeoutMs: number,
+): Promise<string> {
+  const inferencePayload = await callRunware(
+    [
+      {
+        taskType: 'imageInference',
+        taskUUID: uuid(),
+        model: selectedModel,
+        positivePrompt: input.prompt,
+        inputs: {
+          referenceImages: [input.image.dataUri],
+        },
+        width: Number(process.env.RUNWARE_WIDTH ?? 1024),
+        height: Number(process.env.RUNWARE_HEIGHT ?? 1024),
+        outputType: 'URL',
+        outputFormat: 'JPG',
+        numberResults: 1,
+        includeCost: true,
+      },
+    ],
+    apiKey,
+    `imageInference model=${selectedModel}`,
+    timeoutMs,
+  );
+
+  const inferenceTasks = readTasks(inferencePayload);
+  const result =
+    inferenceTasks.find((task) => task?.taskType === 'imageInference') ??
+    inferenceTasks[0];
+
+  if (result?.imageURL) return result.imageURL;
+  if (result?.imageDataURI) return result.imageDataURI;
+  if (result?.imageBase64Data) {
+    return `data:image/jpeg;base64,${result.imageBase64Data}`;
+  }
+
+  throw new ProviderError(
+    `Runware: مدل ${selectedModel} تصویری برنگرداند`,
+    JSON.stringify(inferencePayload).slice(0, 300),
+  );
 }
 
 export const runwareProvider: Provider = {
@@ -124,75 +187,29 @@ export const runwareProvider: Provider = {
   envKey: 'RUNWARE_API_KEY',
 
   async generate(input: ProviderInput): Promise<string> {
-    const { prompt, image } = input;
     const timeoutMs = timeoutFor(input);
     const apiKey = (process.env.RUNWARE_API_KEY ?? '').trim();
-    if (!apiKey) throw new ProviderError('Runware: کلید API تنظیم نشده است');
 
-    const uploadTaskUUID = uuid();
-
-    /* ---------- مرحلهٔ الف: آپلود تصویر ---------- */
-    const uploadPayload = await callRunware(
-      [
-        {
-          taskType: 'imageUpload',
-          taskUUID: uploadTaskUUID,
-          image: image.dataUri,
-        },
-      ],
-      apiKey,
-      'imageUpload',
-      timeoutMs,
-    );
-
-    const uploadTasks = readTasks(uploadPayload);
-    const uploaded =
-      uploadTasks.find((task) => task?.taskType === 'imageUpload' && task?.imageUUID) ??
-      uploadTasks.find((task) => Boolean(task?.imageUUID));
-
-    const seedImage = uploaded?.imageUUID;
-    if (!seedImage) {
-      throw new ProviderError(
-        'Runware: imageUUID دریافت نشد',
-        JSON.stringify(uploadPayload).slice(0, 300),
-      );
+    if (!apiKey) {
+      throw new ProviderError('Runware: کلید API تنظیم نشده است');
     }
 
-    /* ---------- مرحلهٔ ب: تولید تصویر ---------- */
-    const inferenceUUID = uuid();
-    const inferencePayload = await callRunware(
-      [
-        {
-          taskType: 'imageInference',
-          taskUUID: inferenceUUID,
-          model: model(),
-          positivePrompt: prompt,
-          seedImage,
-          width: Number(process.env.RUNWARE_WIDTH ?? 1024),
-          height: Number(process.env.RUNWARE_HEIGHT ?? 1024),
-          outputType: 'URL',
-          outputFormat: 'jpg',
-          numberResults: 1,
-        },
-      ],
-      apiKey,
-      'imageInference',
-      timeoutMs,
-    );
+    const failures: string[] = [];
 
-    const inferenceTasks = readTasks(inferencePayload);
-    const result =
-      inferenceTasks.find((task) => task?.taskType === 'imageInference') ?? inferenceTasks[0];
-
-    if (result?.imageURL) return result.imageURL;
-    if (result?.imageDataURI) return result.imageDataURI;
-    if (result?.imageBase64Data) return `data:image/jpeg;base64,${result.imageBase64Data}`;
+    for (const selectedModel of models()) {
+      try {
+        return await generateWithModel(input, apiKey, selectedModel, timeoutMs);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push(`${selectedModel}: ${message}`);
+      }
+    }
 
     throw new ProviderError(
-      'Runware: هیچ تصویری دریافت نشد',
-      JSON.stringify(inferencePayload).slice(0, 300),
+      'Runware: همه مدل‌های ویرایش تصویر ناموفق بودند',
+      failures.join(' | ').slice(0, 1200),
     );
   },
 };
 
-export const __runwareInternals = { readTasks, endpoint, model };
+export const __runwareInternals = { readTasks, endpoint, models };
