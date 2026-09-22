@@ -37,7 +37,7 @@ function model(): string {
 }
 
 function cleanJson(text: string): string {
-  const fenced = text.match(/```(?:json)?\\s*([\\s\\S]*?)```/i);
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fenced?.[1]) return fenced[1].trim();
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
