@@ -165,7 +165,7 @@ async function uploadReferenceImage(
     );
   }
 
-  return uploaded.imageUUID;
+  return uploaded.imageURL || uploaded.imageUUID;
 }
 
 async function generateWithModel(
@@ -187,10 +187,6 @@ async function generateWithModel(
         },
         width: Number(process.env.RUNWARE_WIDTH ?? 1024),
         height: Number(process.env.RUNWARE_HEIGHT ?? 1024),
-        outputType: 'URL',
-        outputFormat: 'JPG',
-        numberResults: 1,
-        includeCost: true,
       },
     ],
     apiKey,
@@ -243,16 +239,17 @@ export const runwareProvider: Provider = {
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const detail =
-          error instanceof ProviderError && error.detail ? error.detail.slice(0, 500) : '';
+          (error as { detail?: unknown })?.detail;
+        const safeDetail = detail ? String(detail).slice(0, 700) : '';
         failures.push(
-          `${selectedModel}: ${message}${detail ? ` — ${detail}` : ""}`,
+          `${selectedModel}: ${message}${safeDetail ? ` — ${safeDetail}` : ""}`,
         );
       }
     }
 
     throw new ProviderError(
       'Runware: همه مدل‌های ویرایش تصویر ناموفق بودند',
-      failures.join(' | ').slice(0, 1200),
+      failures.join(' | ').slice(0, 2400),
     );
   },
 };
