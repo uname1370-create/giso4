@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from face.landmarks import build_target_mask
 from processing.composite import composite_target
-from processing.validation import validate_non_target_preservation
+from processing.validation import validate_non_target_preservation, validate_provider_isolation
 
 router = APIRouter()
 
@@ -46,6 +46,7 @@ def process(req: ProcessRequest) -> ProcessResponse:
         original = decode_data_uri(req.original)
         edited = decode_data_uri(req.edited)
         mask = build_target_mask(original, service)
+        provider_score = validate_provider_isolation(original, edited, mask)
         result_bytes, coverage = composite_target(original, edited, mask)
         score = validate_non_target_preservation(original, result_bytes, mask)
     except ValueError as exc:
@@ -58,8 +59,10 @@ def process(req: ProcessRequest) -> ProcessResponse:
         raise HTTPException(status_code=422, detail="Target region could not be detected reliably.")
     if coverage > 0.12:
         raise HTTPException(status_code=422, detail="Target mask is too large; refusing unsafe full-face compositing.")
-    if score < 0.985:
-        warnings.append("Non-target preservation score is below the preferred threshold.")
+    if provider_score < 0.70:
+        raise HTTPException(status_code=422, detail="AI provider changed too much outside the detected eyebrow region; result rejected for safety.")
+    if provider_score < 0.88:
+        warnings.append("AI provider changed some non-target pixels; final compositing preserved the original outside the mask.")
 
     return ProcessResponse(
         ok=True,
