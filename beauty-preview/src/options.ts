@@ -169,7 +169,7 @@ export function buildEnglishPrompt(
   const styleText = styleLabelEn ? `${styleLabel} (${styleLabelEn})` : styleLabel;
   return (
     `Edit ONLY the existing eyebrow regions in this exact face photo. ` +
-    `Apply professional ${styleText} microblading with pigment color ${colorHex} (${colorName}). ` +
+    `Apply professional ${styleText} microblading using a natural, soft, realistic brown pigment matched to the person's existing eyebrow and hair tone. ` +
     `Preserve the person's identity and original facial geometry exactly. ` +
     `Do not change eyes, eyelids, eyelashes, nose, lips, cheeks, forehead, skin texture, skin tone, hair, ears, face shape, lighting, camera angle, background, clothing, or image composition. ` +
     `Do not add makeup outside the eyebrow regions. ` +
