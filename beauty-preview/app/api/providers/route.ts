@@ -20,9 +20,9 @@
 
 import { NextResponse } from 'next/server';
 
-import { PROVIDERS } from '@/lib/providers';
-import { ProviderError, parseDataUri } from '@/lib/providers/http';
-import type { ProviderInput } from '@/lib/providers/types';
+import { PROVIDERS } from '@/providers';
+import { ProviderError, parseDataUri } from '@/providers/http';
+import type { ProviderInput } from '@/providers/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

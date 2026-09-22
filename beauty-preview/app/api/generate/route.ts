@@ -10,10 +10,10 @@
 
 import { NextResponse } from 'next/server';
 
-import { EYEBROW_STYLES, buildEnglishPrompt } from '@/lib/options';
-import { generateWithFallback, configuredProviders } from '@/lib/providers';
-import { parseDataUri } from '@/lib/providers/http';
-import type { AttemptLog } from '@/lib/providers/types';
+import { EYEBROW_STYLES, buildEnglishPrompt } from '@/options';
+import { generateWithFallback, configuredProviders } from '@/providers';
+import { parseDataUri } from '@/providers/http';
+import type { AttemptLog } from '@/providers/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

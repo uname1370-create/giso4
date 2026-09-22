@@ -13,7 +13,8 @@ beauty-preview/
 │   ├── fonts/                  ← Vazirmatn (self-hosted) + مجوز OFL
 │   ├── api/generate/route.ts   ← روت اصلی: اعتبارسنجی + زنجیرهٔ پروایدرها
 │   └── api/providers/route.ts  ← بررسی سلامت پروایدرها/کلیدها (?check=1)
-└── lib/
+└── src/                        ← ⚠️ نام پوشه عمداً src است (نه lib): الگوی lib/
+    │                              در .gitignore ریشهٔ ریپو هر پوشهٔ lib/ را نادیده می‌گیرد
     ├── options.ts              ← ۴ مدل ابرو، ۶ رنگ، پیام/لینک واتساپ، پرامپت انگلیسی
     ├── brow-shapes.ts          ← مولد تصاویر SVG ابرو (بدون چهره، پس‌زمینهٔ شفاف)
     └── providers/
@@ -154,18 +155,18 @@ Keep everything else exactly the same.
 Realistic, natural, high quality beauty result.
 ```
 
-نام انگلیسی هر مدل از `labelEn` در `lib/options.ts` می‌آید تا مدل‌های تصویری (که فارسی را
+نام انگلیسی هر مدل از `labelEn` در `src/options.ts` می‌آید تا مدل‌های تصویری (که فارسی را
 ضعیف می‌فهمند) دقیق‌تر عمل کنند.
 
 ---
 
 ## ۴) تصاویر SVG ابروها
 
-`lib/brow-shapes.ts` به‌صورت برنامه‌نویسی‌شده و قطعی (deterministic) تصویر SVG می‌سازد:
+`src/brow-shapes.ts` به‌صورت برنامه‌نویسی‌شده و قطعی (deterministic) تصویر SVG می‌سازد:
 مسیر بستهٔ ابرو + تارهای موی کوتاه که از لبهٔ پایین به سمت بالا و دم ابرو کشیده شده‌اند و با
 `clipPath` داخل شکل ابرو بریده می‌شوند. هیچ چهره یا پوستی در تصویر نیست و پس‌زمینه کاملاً شفاف است.
 
-اگر خواستید عکس واقعی بگذارید، فایل را در `public/eyebrows/` قرار دهید و در `lib/options.ts`
+اگر خواستید عکس واقعی بگذارید، فایل را در `public/eyebrows/` قرار دهید و در `src/options.ts`
 مقدار `sampleImage` همان مدل را به مسیر فایل تغییر دهید؛ در غیر این صورت همان SVG تولیدی
 نمایش داده می‌شود.
 

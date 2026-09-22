@@ -24,7 +24,7 @@ import {
   buildDemoOverlaySvg,
   svgToDataUri,
   type BrowStyleKey,
-} from '@/lib/brow-shapes';
+} from '@/brow-shapes';
 import {
   ACCEPTED_MIME_TYPES,
   ACCEPT_ATTRIBUTE,
@@ -35,7 +35,7 @@ import {
   styleSampleImage,
   type BrowColor,
   type EyebrowStyle,
-} from '@/lib/options';
+} from '@/options';
 
 /* -------------------------------------------------------------------------- */
 /* انواع و ابزارها                                                            */
