@@ -159,22 +159,43 @@ export function buildWhatsAppLink(styleLabel: string, colorName: string): string
   )}`;
 }
 
+/** مشخصات فنی هر تکنیک؛ نام مدل به‌تنهایی برای FLUX کافی نیست. */
+export function styleDesignSpec(styleKey: BrowStyleKey): string {
+  switch (styleKey) {
+    case 'hairstroke':
+      return 'Natural Hairstroke: ultra-fine individual hair strokes, realistic hair-growth direction, sparse soft front, medium-low natural density, soft arch, tapered tail, no powder fill, no solid block.';
+    case 'feather':
+      return 'Feather Brow: airy feathered strokes, soft layered hair texture, light front, visible separated feather pattern, natural irregularity, softly tapered tail, no solid block.';
+    case 'ombre':
+      return 'Ombre Powder: soft powder shading, lightest at the front, gradual deeper body and tail, velvety diffused texture, soft edges, no dominant individual hair strokes.';
+    case 'combination':
+      return 'Combination: fine natural hairstrokes at the front, soft powder shading through the body and tail, blended transition, medium natural density, never blocky.';
+  }
+}
+
 /** پیام انگلیسی ارسالی به مدل ویرایش تصویر */
 export function buildEnglishPrompt(
   styleLabel: string,
   colorName: string,
   colorHex: string,
   styleLabelEn?: string,
+  styleKey?: BrowStyleKey,
+  designBrief?: string,
 ): string {
   const styleText = styleLabelEn ? `${styleLabel} (${styleLabelEn})` : styleLabel;
+  const spec = styleKey ? styleDesignSpec(styleKey) : '';
+  const brief = designBrief ? ` Customer-specific Design Brief: ${designBrief}` : '';
   return (
-    `Edit ONLY the existing eyebrow regions in this exact face photo. ` +
-    `Apply professional ${styleText} microblading using a natural, soft, realistic brown pigment matched to the person's existing eyebrow and hair tone. ` +
+    `IMAGE 0 IS THE ORIGINAL CUSTOMER PHOTO. IMAGE 1 IS ONLY THE SELECTED EYEBROW DESIGN REFERENCE. ` +
+    `Edit ONLY the existing eyebrow regions of image 0. Transfer the eyebrow technique, stroke pattern, density, arch character and finish from image 1 onto the customer's existing brows. ` +
+    `Do not copy any face, skin, eyes, lighting or identity from image 1. ` +
+    `Selected technique: ${styleText}. ${spec} ${brief} ` +
+    `Pigment must be selected to harmonize with the customer's visible natural eyebrow and hair tone. ` +
+    `Do not use a fixed artificial brown or pure black. Keep the pigment neutral and realistic, with subtle translucency and natural variation. ` +
     `Preserve the person's identity and original facial geometry exactly. ` +
     `Do not change eyes, eyelids, eyelashes, nose, lips, cheeks, forehead, skin texture, skin tone, hair, ears, face shape, lighting, camera angle, background, clothing, or image composition. ` +
-    `Do not add makeup outside the eyebrow regions. ` +
-    `Keep the result photorealistic and anatomically natural. ` +
-    `The eyebrows must remain aligned to the person's original brow position and bone structure. ` +
-    `This is a localized beauty edit, not a face regeneration.`
+    `Do not add makeup outside the eyebrow regions. Do not reshape the face. Do not regenerate the portrait. ` +
+    `Keep both brows aligned with the person's original brow position and bone structure; improve only the brow design requested. ` +
+    `The result must look like the same real photograph after professional eyebrow microblading, not an AI beauty filter.`
   );
 }
