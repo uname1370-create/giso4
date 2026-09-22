@@ -74,6 +74,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} مگابایت`;
 }
 
+/** آیا همهٔ تلاش‌ها با خطای اتصال/شبکه رد شده‌اند؟ (سرور به اینترنت دسترسی ندارد) */
+function looksLikeNetworkFailure(attempts: AttemptInfo[] | undefined): boolean {
+  if (!attempts || attempts.length === 0) return false;
+  const networkPattern = /fetch failed|Connection error|ECONNRESET|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|زمان انتظار/i;
+  return attempts.every((attempt) => !attempt.ok && networkPattern.test(attempt.error ?? ''));
+}
+
 function isAcceptedMime(type: string): boolean {
   return (ACCEPTED_MIME_TYPES as readonly string[]).includes(type) || type === 'image/jpg';
 }
@@ -663,9 +670,19 @@ export default function HomePage() {
                 </details>
               ) : null}
 
+              {looksLikeNetworkFailure(result?.attempts) ? (
+                <p className="mt-3 rounded-xl border border-gold/30 bg-gold/10 px-3 py-2 text-[11px] leading-6 text-gold/90">
+                  <strong>نکته:</strong> همهٔ سرویس‌ها با خطای <em>اتصال</em> رد شده‌اند، نه با خطای
+                  کلید. یعنی این سرور به اینترنت دسترسی ندارد. اپ را روی کامپیوتر/سرور خودتان
+                  (<code>npm run dev</code>) اجرا کنید یا وضعیت کلیدها را با{' '}
+                  <code>/api/providers?check=1</code> ببینید.
+                </p>
+              ) : null}
+
               <p className="mt-3 text-[11px] text-red-100/70">
-                اگر همهٔ سرویس‌ها پاسخ ندهند، کلیدهای API در فایل <code>.env.local</code> را بررسی
-                کنید.
+                اگر همهٔ سرویس‌ها پاسخ ندهند، کلیدهای API را در فایل <code>.env</code> (یا{' '}
+                <code>.env.local</code>) بررسی کنید و با <code>/api/providers?check=1</code> تست
+                بگیرید.
               </p>
             </div>
           ) : null}
