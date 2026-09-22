@@ -113,7 +113,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 /** نمونهٔ مدل را به حداکثر 512px کاهش می‌دهد؛ محدودیت Multi-Reference Cloudflare. */
 async function prepareReferenceImage(src: string): Promise<string> {
   const image = await loadImage(src);
-  const maxSide = 512;
+  const maxSide = 511;
   const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || 1, image.naturalHeight || 1));
   const width = Math.max(1, Math.round((image.naturalWidth || 512) * scale));
   const height = Math.max(1, Math.round((image.naturalHeight || 512) * scale));
@@ -477,7 +477,7 @@ export default function HomePage() {
       );
       setStatus('error');
     }
-  }, [photoDataUri, selectedStyle]);
+  }, [photoDataUri, selectedStyle, selectedColor]);
 
   /* --------------------------------- دانلود -------------------------------- */
   const handleDownload = useCallback(async () => {
