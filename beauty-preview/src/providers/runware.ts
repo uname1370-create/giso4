@@ -135,10 +135,44 @@ function uuid(): string {
   });
 }
 
+async function uploadReferenceImage(
+  input: ProviderInput,
+  apiKey: string,
+  timeoutMs: number,
+): Promise<string> {
+  const uploadPayload = await callRunware(
+    [
+      {
+        taskType: 'imageUpload',
+        taskUUID: uuid(),
+        image: input.image.dataUri,
+      },
+    ],
+    apiKey,
+    'imageUpload',
+    timeoutMs,
+  );
+
+  const uploadTasks = readTasks(uploadPayload);
+  const uploaded =
+    uploadTasks.find((task) => task?.taskType === 'imageUpload' && task?.imageUUID) ??
+    uploadTasks.find((task) => Boolean(task?.imageUUID));
+
+  if (!uploaded?.imageUUID) {
+    throw new ProviderError(
+      'Runware: imageUUID دریافت نشد',
+      JSON.stringify(uploadPayload).slice(0, 500),
+    );
+  }
+
+  return uploaded.imageUUID;
+}
+
 async function generateWithModel(
   input: ProviderInput,
   apiKey: string,
   selectedModel: string,
+  referenceImageUUID: string,
   timeoutMs: number,
 ): Promise<string> {
   const inferencePayload = await callRunware(
@@ -149,7 +183,7 @@ async function generateWithModel(
         model: selectedModel,
         positivePrompt: input.prompt,
         inputs: {
-          referenceImages: [input.image.dataUri],
+          referenceImages: [referenceImageUUID],
         },
         width: Number(process.env.RUNWARE_WIDTH ?? 1024),
         height: Number(process.env.RUNWARE_HEIGHT ?? 1024),
@@ -194,11 +228,18 @@ export const runwareProvider: Provider = {
       throw new ProviderError('Runware: کلید API تنظیم نشده است');
     }
 
+    const referenceImageUUID = await uploadReferenceImage(input, apiKey, timeoutMs);
     const failures: string[] = [];
 
     for (const selectedModel of models()) {
       try {
-        return await generateWithModel(input, apiKey, selectedModel, timeoutMs);
+        return await generateWithModel(
+          input,
+          apiKey,
+          selectedModel,
+          referenceImageUUID,
+          timeoutMs,
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         failures.push(`${selectedModel}: ${message}`);
