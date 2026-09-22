@@ -163,13 +163,13 @@ export function buildWhatsAppLink(styleLabel: string, colorName: string): string
 export function styleDesignSpec(styleKey: BrowStyleKey): string {
   switch (styleKey) {
     case 'hairstroke':
-      return 'Natural Hairstroke: ultra-fine individual hair strokes, realistic hair-growth direction, sparse soft front, medium-low natural density, soft arch, tapered tail, no powder fill, no solid block.';
+      return 'Natural Hairstroke: ultra-fine individual hair strokes only, follow the customer’s existing brow growth direction and natural brow boundary, sparse soft front, medium-low natural density, soft arch, tapered tail, preserve natural gaps and asymmetry, NO powder fill, NO skin tint, NO shadow, NO halo.';
     case 'feather':
-      return 'Feather Brow: airy feathered strokes, soft layered hair texture, light front, visible separated feather pattern, natural irregularity, softly tapered tail, no solid block.';
+      return 'Feather Brow: airy separated feather strokes only, follow the customer’s existing growth direction, soft light front, visible individual hair texture, natural irregularity, softly tapered tail, preserve natural gaps, NO solid pigment area, NO skin tint, NO shadow, NO halo.';
     case 'ombre':
-      return 'Ombre Powder: soft powder shading, lightest at the front, gradual deeper body and tail, velvety diffused texture, soft edges, no dominant individual hair strokes.';
+      return 'Ombre Powder: soft translucent powder shading ONLY INSIDE THE CUSTOMER’S EXISTING EYEBROW REGION, lightest at the front and gradually deeper through the brow body and tail, velvety diffused brow texture, soft brow edges, NO pigment on skin below or above the brow, NO eyelid shadow, NO makeup halo, NO facial retouching.';
     case 'combination':
-      return 'Combination: fine natural hairstrokes at the front, soft powder shading through the body and tail, blended transition, medium natural density, never blocky.';
+      return 'Combination: fine natural hairstrokes at the front plus soft translucent powder shading ONLY INSIDE THE EXISTING EYEBROW REGION, blended transition, medium natural density, preserve natural gaps and asymmetry, NO pigment outside the brow, NO under-brow shadow, NO eyelid makeup, NEVER blocky.';
   }
 }
 
@@ -190,12 +190,13 @@ export function buildEnglishPrompt(
     `Edit ONLY the existing eyebrow regions of image 0. Transfer the eyebrow technique, stroke pattern, density, arch character and finish from image 1 onto the customer's existing brows. ` +
     `Do not copy any face, skin, eyes, lighting or identity from image 1. ` +
     `Selected technique: ${styleText}. ${spec} ${brief} ` +
-    `Pigment must be selected to harmonize with the customer's visible natural eyebrow and hair tone. ` +
-    `Do not use a fixed artificial brown or pure black. Keep the pigment neutral and realistic, with subtle translucency and natural variation. ` +
+    `Pigment must be inferred from the customer's visible natural eyebrow and hair tone and harmonized with skin undertone. Use a realistic pigment family, temperature and depth; never use a fixed HEX color, pure black, or an arbitrary red/orange/brown tint. ` +
+    `Apply pigment only within the existing natural eyebrow hair region. Do not tint surrounding skin. ` +
+    `The selected reference image defines technique and finish only; never copy its brow placement, face, skin, color cast, lighting or anatomy. ` +
     `Preserve the person's identity and original facial geometry exactly. ` +
     `Do not change eyes, eyelids, eyelashes, nose, lips, cheeks, forehead, skin texture, skin tone, hair, ears, face shape, lighting, camera angle, background, clothing, or image composition. ` +
-    `Do not add makeup outside the eyebrow regions. Do not reshape the face. Do not regenerate the portrait. ` +
-    `Keep both brows aligned with the person's original brow position and bone structure; improve only the brow design requested. ` +
-    `The result must look like the same real photograph after professional eyebrow microblading, not an AI beauty filter.`
+    `Do not add makeup outside the eyebrow regions. No under-brow shadow, no brown/gray halo, no pigment on eyelids or forehead, no beauty filter, no skin smoothing. Do not reshape the face. Do not regenerate the portrait. ` +
+    `Keep both brows anchored to the customer's original brow position, bone structure, growth direction and natural asymmetry. Change only the eyebrow design. ` +
+    `The result must look like the same real photograph after professional microblading, with only the eyebrow technique changed.`
   );
 }
