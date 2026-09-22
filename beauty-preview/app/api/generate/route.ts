@@ -62,6 +62,7 @@ interface GenerateFailure {
   ok: false;
   error: string;
   attempts: AttemptLog[];
+  analysis?: BeautyPhotoAnalysis;
 }
 
 function badRequest(error: string): NextResponse<GenerateFailure> {
