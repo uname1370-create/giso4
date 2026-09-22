@@ -126,6 +126,20 @@ export const cloudflareProvider: Provider = {
           `face.${input.image.extension}`,
         );
 
+        // The customer photo is always image 0. When a style reference exists,
+        // send it as image 1 so the image model can use it as a technique/style
+        // reference without replacing the customer's identity or anatomy.
+        if (input.referenceImage) {
+          form.append(
+            'input_image_1',
+            new Blob(
+              [new Uint8Array(input.referenceImage.bytes)],
+              { type: input.referenceImage.mime },
+            ),
+            `brow-reference.${input.referenceImage.extension}`,
+          );
+        }
+
         const res = await fetch(
           `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/run/${model()}`,
           {
