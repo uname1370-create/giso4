@@ -72,9 +72,12 @@ Rules:
 - Reject photos that are blurry, extremely dark/bright, heavily filtered, strongly angled, obstructed, or have eyebrows hidden by hair/glasses.
 - Do NOT invent precise medical or biometric facts.
 - Analyze only visible visual characteristics.
-- For pigment, match the existing natural eyebrow and hair tone. Never recommend pure black by default.
-- Prefer a natural neutral/warm/cool brown family based on the visible hair, brow and skin undertone.
-- The goal is a realistic microblading preview, not beautifying or redesigning the face.
+- Treat the customer's original eyebrows as the source of truth. Do not invent a new brow shape.
+- Carefully assess visible brow density, thickness, arch character, symmetry, natural start and tail character, and the existing hair-growth direction.
+- For pigment, match the customer's actual visible brow and hair tone first, then account for visible skin undertone. Estimate family, temperature and depth from the photo; do not choose a fixed website color or HEX value.
+- Never recommend pure black by default. Avoid artificial orange/red casts unless clearly present in the customer's natural brow/hair.
+- The generated preview must preserve the customer's original brow position, facial proportions, skin appearance and natural asymmetry.
+- The goal is a realistic microblading preview, not beautifying, face reshaping, skin retouching, or inventing a new eyebrow anatomy.
 
 JSON shape:
 {
