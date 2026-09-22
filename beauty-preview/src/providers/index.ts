@@ -1,15 +1,16 @@
 /**
  * src/providers/index.ts
  * ---------------------------------------------------------------------------
- * زنجیرهٔ جایگزین ۴ پروایدری (4-provider fallback):
+ * زنجیرهٔ جایگزین ۴ پروایدر (4-provider fallback):
  *
- *   ۱) Runware      → RUNWARE_API_KEY      (غیر OpenAI — آرایهٔ JSON)
- *   ۲) SiliconFlow  → SILICONFLOW_API_KEY  (images/edits + SDK)
- *   ۳) AIMLAPI      → AIMLAPI_API_KEY      (image_url)
- *   ۴) Pollinations → POLLINATIONS_API_KEY (images/edits + SDK)
+ *   ۱) Runware      → RUNWARE_API_KEY
+ *   ۲) SiliconFlow  → SILICONFLOW_API_KEY
+ *   ۳) AIMLAPI      → AIMLAPI_API_KEY
+ *   ۴) Pollinations → POLLINATIONS_API_KEY
  *
- * هر پروایدری که کلیدش خالی باشد رد می‌شود و در صورت خطا، پروایدر بعدی
- * امتحان می‌شود. همهٔ فراخوانی‌ها فقط سمت سرور انجام می‌شوند.
+ * هر پروایدر بدون کلید رد می‌شود و در صورت خطا، پروایدر بعدی امتحان می‌شود.
+ * لاگ‌های تشخیصی فقط metadata و پیام خطا را ثبت می‌کنند؛ کلید API، تصویر و
+ * محتوای base64 هرگز لاگ نمی‌شوند.
  * ---------------------------------------------------------------------------
  */
 
@@ -45,6 +46,15 @@ export function configuredProviders(): Provider[] {
   return PROVIDERS.filter(isProviderConfigured);
 }
 
+function logProvider(
+  provider: Provider,
+  event: 'START' | 'SKIP' | 'SUCCESS' | 'FAILED',
+  details?: string,
+): void {
+  const suffix = details ? ` | ${details.slice(0, 500)}` : '';
+  console.error(`[AI-PROVIDER] ${provider.id} ${event}${suffix}`);
+}
+
 /**
  * اجرای زنجیرهٔ جایگزین تا اولین موفقیت.
  * اگر همه شکست بخورند، خطایی با خلاصهٔ تلاش‌ها پرتاب می‌شود.
@@ -62,20 +72,26 @@ export async function generateWithFallback(input: ProviderInput): Promise<Fallba
         ms: 0,
         error: 'کلید API تنظیم نشده است (skip)',
       });
+      logProvider(provider, 'SKIP', 'API key not configured');
       continue;
     }
 
     const attemptStart = Date.now();
+    logProvider(provider, 'START');
+
     try {
       const image = await provider.generate(input);
       const remote = await materializeImage(image);
+      const duration = Date.now() - attemptStart;
 
       attempts.push({
         provider: provider.id,
         label: provider.label,
         ok: true,
-        ms: Date.now() - attemptStart,
+        ms: duration,
       });
+
+      logProvider(provider, 'SUCCESS', `duration=${duration}ms`);
 
       return {
         provider,
@@ -86,15 +102,23 @@ export async function generateWithFallback(input: ProviderInput): Promise<Fallba
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const detail =
-        error instanceof ProviderError && error.detail ? ` — ${error.detail.slice(0, 220)}` : '';
+        error instanceof ProviderError && error.detail ? error.detail.slice(0, 500) : '';
+      const duration = Date.now() - attemptStart;
+      const attemptError = detail ? `${message} — ${detail}` : message;
 
       attempts.push({
         provider: provider.id,
         label: provider.label,
         ok: false,
-        ms: Date.now() - attemptStart,
-        error: `${message}${detail}`,
+        ms: duration,
+        error: attemptError,
       });
+
+      logProvider(
+        provider,
+        'FAILED',
+        `duration=${duration}ms | ${attemptError}`,
+      );
       // سراغ پروایدر بعدی می‌رویم
     }
   }
@@ -103,6 +127,11 @@ export async function generateWithFallback(input: ProviderInput): Promise<Fallba
     .filter((attempt) => attempt.error && attempt.error !== 'کلید API تنظیم نشده است (skip)')
     .map((attempt) => `${attempt.label}: ${attempt.error}`)
     .join(' • ');
+
+  const totalMs = Date.now() - startedAt;
+  console.error(
+    `[AI-PROVIDER] ALL_FAILED | providers=${attempts.length} | duration=${totalMs}ms`,
+  );
 
   throw Object.assign(
     new Error('هیچ‌کدام از سرویس‌های هوش مصنوعی پاسخ ندادند' + (summary ? ` — ${summary}` : '')),
