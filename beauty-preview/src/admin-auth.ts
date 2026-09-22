@@ -13,6 +13,9 @@
  *   `Authorization: Bearer <token>` فرستاده می‌شود. اعتبار توکن بدون نگه‌داشتن
  *   وضعیت در سرور (stateless) و تنها با محاسبهٔ مجدد امضا بررسی می‌شود.
  *
+ *   برای ابزارهای ساده (curl، اسکریپت) هدر `x-admin-password: <ADMIN_PASSWORD>`
+ *   هم پذیرفته می‌شود — همان روش سادهٔ پیشنهادی در سند طراحی.
+ *
  * ⚠️ این یک لایهٔ محافظتی ساده برای پنل داخلی است، نه سیستم احراز هویت کامل.
  *    رمز پیش‌فرض را با ADMIN_PASSWORD در .env عوض کنید.
  * ---------------------------------------------------------------------------
@@ -69,9 +72,20 @@ export function bearerToken(request: Request): string | null {
   return match ? match[1].trim() : null;
 }
 
-/** آیا این درخواست مدیرِ وارد‌شده است؟ */
+/**
+ * بررسی رمز عبور در هدر `x-admin-password` (روش سادهٔ جایگزین توکن).
+ * برای درخواست‌های curl/اسکریپتی کاربرد دارد.
+ */
+export function hasValidPasswordHeader(request: Request): boolean {
+  const header = request.headers.get('x-admin-password');
+  if (!header) return false;
+  return safeCompare(header, adminPassword());
+}
+
+/** آیا این درخواست مدیرِ وارد‌شده است؟ (توکن Bearer یا هدر رمز عبور) */
 export function isAuthorized(request: Request): boolean {
-  return verifyToken(bearerToken(request));
+  if (verifyToken(bearerToken(request))) return true;
+  return hasValidPasswordHeader(request);
 }
 
 /** پاسخ استاندارد ۴۰۱ */

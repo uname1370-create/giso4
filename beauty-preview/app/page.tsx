@@ -30,7 +30,12 @@ import {
   ACCEPT_ATTRIBUTE,
   BROW_COLORS,
   EYEBROW_STYLES,
+  HERO_IMAGE_URL,
+  HERO_SUBTITLE,
+  HERO_TITLE,
+  INSTAGRAM_URL,
   MAX_FILE_SIZE_BYTES,
+  buildHeroWhatsAppLink,
   buildWhatsAppLink,
   styleSampleImage,
   type BrowColor,
@@ -48,12 +53,6 @@ interface AttemptInfo {
   label: string;
   ok: boolean;
   error?: string;
-}
-
-/** تصاویر آپلودشده از پنل مدیریت (/site-images.json) */
-interface SiteImages {
-  brows?: Partial<Record<BrowStyleKey, string>>;
-  hero?: string | null;
 }
 
 interface GenerateResponse {
@@ -237,6 +236,16 @@ function WhatsAppIcon() {
   );
 }
 
+function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="17.2" cy="6.8" r="1.15" fill="currentColor" />
+    </svg>
+  );
+}
+
 function CheckIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
@@ -260,8 +269,13 @@ export default function HomePage() {
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
 
-  /** تصاویر اختصاصی که مدیر از پنل آپلود کرده است (اگر نباشند، SVG خودکار) */
-  const [siteImages, setSiteImages] = useState<SiteImages | null>(null);
+  /**
+   * تصاویری که مدیر از پنل آپلود کرده ولی برای مرورگر قابل خواندن نبودند
+   * (۴۰۴) — برای همان‌ها به تصویر SVG خودکار برمی‌گردیم.
+   */
+  const [missingImages, setMissingImages] = useState<Record<string, boolean>>({});
+  /** اگر تصویر هیرو نباشد (یا خوانده نشود) پس‌زمینهٔ گرادیانی نمایش داده می‌شود */
+  const [heroAvailable, setHeroAvailable] = useState(true);
 
   const [status, setStatus] = useState<Status>('idle');
   const [loadingStep, setLoadingStep] = useState(0);
@@ -274,12 +288,16 @@ export default function HomePage() {
   /* --------------------------------- مشتقات -------------------------------- */
   const samples = useMemo(
     () =>
-      EYEBROW_STYLES.map((style) => ({
-        style,
-        src: siteImages?.brows?.[style.key] || styleSampleImage(style),
-        isPhoto: Boolean(siteImages?.brows?.[style.key]),
-      })),
-    [siteImages],
+      EYEBROW_STYLES.map((style) => {
+        const uploaded = !missingImages[style.key];
+        return {
+          style,
+          // اول تصویر واقعیِ آپلودشده از پنل، و اگر نبود تصویر SVG خودکار
+          src: uploaded ? style.imageUrl : styleSampleImage(style),
+          isPhoto: uploaded,
+        };
+      }),
+    [missingImages],
   );
 
   const colorUnlocked = Boolean(selectedStyle);
@@ -292,42 +310,21 @@ export default function HomePage() {
     return buildWhatsAppLink(selectedStyle.label, selectedColor.name);
   }, [selectedStyle, selectedColor]);
 
-  /* ------------------- ثبت بازدید + تصاویر پنل مدیریت ------------------- */
-  // ۱) یک بازدید برای هر نشست مرورگر ثبت می‌شود (آمار پنل /admin)
-  // ۲) تصاویر آپلودشده از پنل مدیریت خوانده می‌شوند تا روی کارت‌ها/هیرو بنشینند
+  /* ---------------------------- ثبت بازدید ---------------------------- */
+  // یک بازدید برای هر نشست مرورگر ثبت می‌شود (آمار پنل /admin) — بی‌صدا و بی‌خطا.
   useEffect(() => {
-    let cancelled = false;
-
-    const countVisit = () => {
-      try {
-        if (window.sessionStorage.getItem('beauty_visit_counted')) return;
-        window.sessionStorage.setItem('beauty_visit_counted', '1');
-        void fetch('/api/track', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'visit' }),
-          keepalive: true,
-        });
-      } catch {
-        /* آمار نباید تجربهٔ کاربر را خراب کند */
-      }
-    };
-
-    void (async () => {
-      countVisit();
-      try {
-        const res = await fetch(`/site-images.json?t=${Date.now()}`, { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = (await res.json()) as SiteImages;
-        if (!cancelled) setSiteImages(data);
-      } catch {
-        /* تصاویر پیش‌فرض نمایش داده می‌شوند */
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    try {
+      if (window.sessionStorage.getItem('beauty_visit_counted')) return;
+      window.sessionStorage.setItem('beauty_visit_counted', '1');
+      void fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'visit' }),
+        keepalive: true,
+      });
+    } catch {
+      /* آمار نباید تجربهٔ کاربر را خراب کند */
+    }
   }, []);
 
   /* --------------------------- پیام‌های در حال ساخت -------------------------- */
@@ -483,19 +480,55 @@ export default function HomePage() {
 
   /* ---------------------------------- UI ---------------------------------- */
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:py-16">
-      {/* --------------------------- تصویر هیرو (پنل) --------------------------- */}
-      {siteImages?.hero ? (
-        <div className="mb-9 overflow-hidden rounded-3xl border border-gold/20">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+    <>
+      {/* ======================= هیرو (تصویر پنل مدیریت) ======================= */}
+      {/* اگر مدیر از پنل تصویر آپلود کرده باشد نمایش داده می‌شود، وگرنه همان
+          پس‌زمینهٔ گرادیانی طلایی می‌ماند. ارتفاع ثابت ۳۲۰ پیکسل. */}
+      <section className="relative h-[320px] w-full overflow-hidden border-b border-gold/15 bg-[linear-gradient(135deg,#120F08_0%,#0A0A0A_45%,#17120A_100%)]">
+        {heroAvailable ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={siteImages.hero}
+            src={HERO_IMAGE_URL}
             alt="سالن زیبایی عسل رجبی"
-            className="h-52 w-full object-cover sm:h-72"
+            onError={() => setHeroAvailable(false)}
+            className="absolute inset-0 h-full w-full object-cover"
           />
-        </div>
-      ) : null}
+        ) : null}
 
+        {/* لایهٔ تیره تا متن روی هر تصویری خوانا بماند */}
+        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/70 to-ink/40" />
+
+        <div className="relative mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center px-4 text-center">
+          <h1 className="text-4xl font-black tracking-tight text-gold drop-shadow-[0_2px_18px_rgba(0,0,0,0.75)] sm:text-5xl">
+            {HERO_TITLE}
+          </h1>
+          <p className="mt-4 max-w-xl text-sm leading-7 text-white/90 sm:text-base">
+            {HERO_SUBTITLE}
+          </p>
+          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <a
+              href={buildHeroWhatsAppLink()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-gold !px-6 !py-3 !text-sm"
+            >
+              <WhatsAppIcon />
+              مشاوره و نوبت در واتساپ
+            </a>
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-outline !px-6 !py-3 !text-sm"
+            >
+              <InstagramIcon />
+              اینستاگرام
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:py-16">
       {/* ------------------------------- سربرگ ------------------------------- */}
       <header className="text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-gold/80">BEAUTY STUDIO</p>
@@ -538,9 +571,15 @@ export default function HomePage() {
                   }`}
                 >
                   <div className="mb-3 flex h-28 items-center justify-center rounded-xl bg-[radial-gradient(circle_at_50%_40%,rgba(212,175,55,0.12),transparent_65%)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={src}
                       alt={style.label}
+                      onError={
+                        isPhoto
+                          ? () => setMissingImages((prev) => ({ ...prev, [style.key]: true }))
+                          : undefined
+                      }
                       className={
                         isPhoto
                           ? 'h-28 w-full rounded-lg object-cover transition group-hover:scale-[1.04]'
@@ -883,6 +922,7 @@ export default function HomePage() {
         </p>
         <p className="mt-3">میکروبلیدینگ تخصصی — خانم رجبی · تمام حقوق محفوظ است.</p>
       </footer>
-    </main>
+      </main>
+    </>
   );
 }

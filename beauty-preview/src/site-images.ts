@@ -1,23 +1,25 @@
 /**
  * src/site-images.ts
  * ---------------------------------------------------------------------------
- * مدیریت تصاویر آپلودشده از پنل مدیریت:
+ * مدیریت تصاویر آپلودشده از پنل مدیریت (/admin):
  *
- *   - فایل‌ها در `public/` ذخیره می‌شوند:
- *       public/eyebrows/<style>-<timestamp>.<ext>   ← تصاویر مدل‌های ابرو
- *       public/hero/hero-<timestamp>.<ext>          ← تصویر هیرو صفحهٔ اصلی
+ *   تصاویر ابروها — فقط PNG، حداکثر ۵ مگابایت، با نام‌های ثابت:
+ *       public/eyebrows/natural-hairstroke.png   ← هایر استروک طبیعی
+ *       public/eyebrows/feather.png              ← فدر براو
+ *       public/eyebrows/ombre-powder.png         ← اومبره پودری
+ *       public/eyebrows/combination.png          ← کامبینیشن
  *
- *   - تصاویر از طریق روت `/api/site-image/...` سرو می‌شوند، نه مستقیم از public/.
- *     دلیل: در حالت production سرور Next فهرست پوشهٔ public را فقط یک بار در زمان
- *     بالا آمدن می‌خواند؛ فایلی که بعد از استارت آپلود شود تا ری‌استارت ۴۰۴ می‌دهد.
- *     این روت فایل را در هر درخواست از دیسک می‌خواند تا آپلود در dev و production
- *     بلافاصله دیده شود.
+ *   تصویر هیرو — JPG/PNG/WEBP، حداکثر ۱۰ مگابایت:
+ *       public/hero/hero.jpg  یا  hero.png  یا  hero.webp
+ *       (فقط یکی از این سه هم‌زمان وجود دارد؛ آپلود جدید بقیه را پاک می‌کند)
  *
- *   - فهرست تصاویر در `public/site-images.json` نگه داشته می‌شود تا صفحهٔ اصلی
- *     بتواند با یک fetch ساده (بدون API) آن را بخواند:
+ * نام‌ها ثابت‌اند (نه timestamp‌دار) تا صفحهٔ اصلی بتواند بدون هیچ فهرست
+ * جانبی، تصویر مدیر را جای SVG خودکار بگذارد و اگر فایل نبود به SVG برگردد.
  *
- *       { "brows": { "hairstroke": "/api/site-image/eyebrows/hairstroke-1712.jpg" },
- *         "hero": "/api/site-image/hero/hero-1712.jpg", "updatedAt": "..." }
+ * تصاویر از روت `/api/site-image/...` سرو می‌شوند، نه مستقیم از public/:
+ * سرور production نکست فهرست پوشهٔ public را فقط یک بار در زمان بالا آمدن
+ * می‌خواند؛ پس فایلی که بعد از استارت آپلود شود تا ری‌استارت سرور ۴۰۴ می‌دهد.
+ * روت در هر درخواست فایل را از دیسک می‌خواند.
  *
  * فقط سمت سرور استفاده می‌شود.
  * ---------------------------------------------------------------------------
@@ -26,32 +28,21 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type { BrowStyleKey } from './brow-shapes';
-
-export interface SiteImages {
-  /** تصویر اختصاصی هر مدل ابرو (اگر نباشد، SVG خودکار نمایش داده می‌شود) */
-  brows: Partial<Record<BrowStyleKey, string>>;
-  /** تصویر هیرو صفحهٔ اصلی */
-  hero: string | null;
-  /** زمان آخرین تغییر (ISO) */
-  updatedAt: string | null;
-}
+import { BROW_IMAGE_FOLDER, HERO_IMAGE_BASENAME, HERO_IMAGE_FOLDER, EYEBROW_STYLES } from './options';
 
 /** ریشهٔ پوشهٔ public */
 export const PUBLIC_DIR = path.join(process.cwd(), 'public');
 
-/** مسیر فایل فهرست تصاویر */
-export const MANIFEST_PATH = path.join(PUBLIC_DIR, 'site-images.json');
+/** حداکثر حجم تصویر ابرو (۵ مگابایت) */
+export const MAX_BROW_BYTES = 5 * 1024 * 1024;
 
-export const BROW_KEYS: BrowStyleKey[] = ['hairstroke', 'feather', 'ombre', 'combination'];
+/** حداکثر حجم تصویر هیرو (۱۰ مگابایت) */
+export const MAX_HERO_BYTES = 10 * 1024 * 1024;
 
-/** پیشوند روت سرو کردن تصاویر آپلودی */
-export const SITE_IMAGE_ROUTE = '/api/site-image';
+/** فرمت‌های مجاز تصویر هیرو */
+export const HERO_EXTENSIONS = ['jpg', 'png', 'webp'] as const;
 
-/** پوشه‌هایی که آپلود در آن‌ها مجاز است */
-export const UPLOAD_FOLDERS = ['eyebrows', 'hero'] as const;
-
-export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
+export type HeroExtension = (typeof HERO_EXTENSIONS)[number];
 
 /** نوع محتوا بر اساس پسوند فایل */
 export const MIME_BY_EXTENSION: Record<string, string> = {
@@ -61,93 +52,166 @@ export const MIME_BY_EXTENSION: Record<string, string> = {
   webp: 'image/webp',
 };
 
-/** الگوی نام امن فایل‌های آپلودی (نام را خودمان می‌سازیم) */
-const SAFE_FILE = /^[a-z0-9][a-z0-9-]*\.(jpg|jpeg|png|webp)$/i;
+/** امضای بایتی فایل‌های تصویری (برای اطمینان از اینکه فایل واقعاً تصویر است) */
+const SIGNATURES: Array<{ extension: HeroExtension; mime: string; bytes: number[]; offset?: number }> = [
+  { extension: 'jpg', mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff] },
+  { extension: 'png', mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+  {
+    extension: 'webp',
+    mime: 'image/webp',
+    bytes: [0x57, 0x45, 0x42, 0x50], // "WEBP" در بایت‌های ۸ تا ۱۱
+    offset: 8,
+  },
+];
 
-/** اندازهٔ مجاز آپلود (۵ مگابایت) */
-export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-
-export const ALLOWED_MIME: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/jpg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
-
-/* -------------------------------------------------------------------------- */
-/* قفل نوشتن                                                                  */
-/* -------------------------------------------------------------------------- */
-
-let queue: Promise<unknown> = Promise.resolve();
-
-function withLock<T>(task: () => Promise<T>): Promise<T> {
-  const run = queue.then(task, task);
-  queue = run.catch(() => undefined);
-  return run;
+/** تشخیص نوع واقعی فایل از روی محتوایش (نه از روی هدر مرورگر) */
+export function detectImageExtension(buffer: Buffer): HeroExtension | null {
+  for (const signature of SIGNATURES) {
+    const offset = signature.offset ?? 0;
+    const matches = signature.bytes.every((byte, index) => buffer[offset + index] === byte);
+    if (matches) return signature.extension;
+  }
+  return null;
 }
 
 /* -------------------------------------------------------------------------- */
-/* فهرست تصاویر                                                               */
+/* ابروها                                                                     */
 /* -------------------------------------------------------------------------- */
 
-function emptySiteImages(): SiteImages {
-  return { brows: {}, hero: null, updatedAt: null };
+/** مشخصات آپلود هر مدل ابرو */
+export interface BrowTarget {
+  /** کلید داخلی مدل */
+  key: string;
+  /** نام فایل روی دیسک، مثل feather.png */
+  fileName: string;
+  /** نام فارسی مدل */
+  label: string;
+  /** مسیر فایل داخل public، مثل /eyebrows/feather.png */
+  publicPath: string;
 }
 
-function sanitize(raw: unknown): SiteImages {
-  if (!raw || typeof raw !== 'object') return emptySiteImages();
-  const record = raw as Record<string, unknown>;
+/** فهرست مدل‌های ابرو با مسیر فایل ثابتشان (برگرفته از src/options.ts) */
+export const BROW_TARGETS: BrowTarget[] = EYEBROW_STYLES.map((style) => ({
+  key: style.key,
+  fileName: style.imageFileName,
+  label: style.label,
+  publicPath: style.imagePath,
+}));
 
-  const brows: Partial<Record<BrowStyleKey, string>> = {};
-  const rawBrows = record.brows;
-  if (rawBrows && typeof rawBrows === 'object') {
-    for (const key of BROW_KEYS) {
-      const value = (rawBrows as Record<string, unknown>)[key];
-      if (typeof value === 'string' && value) brows[key] = value;
+export function findBrowTarget(value: string | null | undefined): BrowTarget | null {
+  if (!value) return null;
+  const needle = value.trim().toLowerCase();
+  if (!needle) return null;
+
+  return (
+    BROW_TARGETS.find(
+      (target) =>
+        target.key.toLowerCase() === needle ||
+        target.label === value.trim() ||
+        target.label.toLowerCase() === needle ||
+        target.fileName.toLowerCase() === needle ||
+        target.fileName.replace(/\.png$/, '').toLowerCase() === needle,
+    ) ?? null
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* مسیر‌یابی امن                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * تبدیل مسیر درخواستی (بدون پیشوند /api/site-image) به مسیر فایل روی دیسک.
+ *
+ *   eyebrows/feather.png  → <public>/eyebrows/feather.png
+ *   hero/hero             → <public>/hero/hero.jpg|png|webp (اولین فایلی که وجود دارد)
+ *   hero/hero.jpg         → <public>/hero/hero.jpg
+ *
+ * اگر مسیر نامعتبر یا خارج از public باشد، `null` برمی‌گردد (path traversal).
+ */
+export async function resolveSiteImage(
+  relative: string,
+): Promise<{ filePath: string; mime: string } | null> {
+  if (!relative || relative.includes('..') || relative.includes('\\')) return null;
+
+  const clean = relative.replace(/^\/+/, '');
+  const parts = clean.split('/').filter(Boolean);
+  if (parts.length !== 2) return null;
+
+  const [folder, name] = parts;
+  const root = path.resolve(PUBLIC_DIR);
+
+  // ---- تصویر ابرو: فقط نام‌های ثابت و فقط PNG ----
+  if (folder === BROW_IMAGE_FOLDER.replace(/^\//, '')) {
+    const target = BROW_TARGETS.find((item) => item.fileName === name);
+    if (!target) return null;
+
+    const filePath = path.resolve(root, folder, target.fileName);
+    if (!filePath.startsWith(root + path.sep)) return null;
+    return { filePath, mime: MIME_BY_EXTENSION.png };
+  }
+
+  // ---- تصویر هیرو ----
+  if (folder === HERO_IMAGE_FOLDER.replace(/^\//, '')) {
+    const lower = name.toLowerCase();
+
+    // نام دقیق فایل (با پسوند) — ولی فقط با نام پایهٔ hero
+    if (/^hero\.(jpg|jpeg|png|webp)$/.test(lower)) {
+      const extension = lower.split('.').pop() as string;
+      const fileName = `${HERO_IMAGE_BASENAME}.${extension === 'jpeg' ? 'jpg' : extension}`;
+      const filePath = path.resolve(root, folder, fileName);
+      if (!filePath.startsWith(root + path.sep)) return null;
+      return { filePath, mime: MIME_BY_EXTENSION[extension] ?? 'application/octet-stream' };
+    }
+
+    // نام بدون پسوند: اولین فایلی که وجود دارد
+    if (lower === HERO_IMAGE_BASENAME) {
+      for (const extension of HERO_EXTENSIONS) {
+        const filePath = path.resolve(root, folder, `${HERO_IMAGE_BASENAME}.${extension}`);
+        try {
+          await fs.access(filePath);
+          return { filePath, mime: MIME_BY_EXTENSION[extension] };
+        } catch {
+          /* این پسوند وجود ندارد — بعدی */
+        }
+      }
+      return null;
     }
   }
 
-  return {
-    brows,
-    hero: typeof record.hero === 'string' && record.hero ? record.hero : null,
-    updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : null,
-  };
+  return null;
 }
 
-export async function readSiteImages(): Promise<SiteImages> {
+/** خواندن فایل تصویر برای سرو کردن (روت /api/site-image) */
+export async function readSiteImage(relative: string): Promise<{ buffer: Buffer; mime: string } | null> {
+  const resolved = await resolveSiteImage(relative);
+  if (!resolved) return null;
+
   try {
-    const text = await fs.readFile(MANIFEST_PATH, 'utf8');
-    return sanitize(JSON.parse(text));
+    const buffer = await fs.readFile(resolved.filePath);
+    return { buffer, mime: resolved.mime };
   } catch {
-    return emptySiteImages();
+    return null;
   }
 }
 
-async function writeSiteImages(data: SiteImages): Promise<SiteImages> {
-  const next: SiteImages = { ...data, updatedAt: new Date().toISOString() };
-  await fs.mkdir(path.dirname(MANIFEST_PATH), { recursive: true });
-  await fs.writeFile(MANIFEST_PATH, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
-  return next;
-}
-
-/** به‌روزرسانی فهرست (با قفل، برای جلوگیری از نوشتن هم‌زمان) */
-export async function updateSiteImages(
-  patch: (current: SiteImages) => SiteImages,
-): Promise<SiteImages> {
-  return withLock(async () => {
-    const current = await readSiteImages();
-    return writeSiteImages(patch(current));
-  });
+/** آیا این مدل ابرو تصویر اختصاصی دارد؟ */
+export async function browImageExists(target: BrowTarget): Promise<boolean> {
+  try {
+    await fs.access(path.resolve(PUBLIC_DIR, target.publicPath.replace(/^\//, '')));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /* -------------------------------------------------------------------------- */
-/* ذخیره و حذف فایل                                                           */
+/* ذخیره و حذف                                                                */
 /* -------------------------------------------------------------------------- */
 
-export interface SavedUpload {
-  /** آدرسی که به مرورگر داده می‌شود، مثل /api/site-image/eyebrows/hairstroke-1712.jpg */
+export interface SavedImage {
+  /** آدرسی که به مرورگر داده می‌شود (روت /api/site-image) */
   url: string;
-  /** مسیر فایل داخل public، مثل /eyebrows/hairstroke-1712.jpg */
+  /** مسیر فایل داخل public */
   publicPath: string;
   /** نام فایل */
   fileName: string;
@@ -155,98 +219,89 @@ export interface SavedUpload {
   mime: string;
 }
 
-/**
- * ذخیرهٔ فایل آپلودی داخل public/<folder>/ با نام امن.
- * نام فایل ساختهٔ خودمان است (prefix + timestamp) و از ورودی کاربر نمی‌آید.
- */
-export async function saveUpload(
-  folder: 'eyebrows' | 'hero',
-  prefix: string,
-  file: File,
-): Promise<SavedUpload> {
-  const extension = ALLOWED_MIME[file.type.toLowerCase()];
-  if (!extension) {
-    throw new Error('فقط فایل‌های JPG، PNG و WEBP پذیرفته می‌شوند.');
-  }
-  if (file.size > MAX_UPLOAD_BYTES) {
-    throw new Error('حجم فایل بیش از ۵ مگابایت است.');
-  }
-  if (file.size === 0) {
-    throw new Error('فایل خالی است.');
-  }
-
-  const safePrefix = prefix.replace(/[^a-z0-9-]/gi, '') || 'image';
-  const fileName = `${safePrefix}-${Date.now()}.${extension}`;
-  const directory = path.join(PUBLIC_DIR, folder);
-
-  await fs.mkdir(directory, { recursive: true });
+/** ذخیرهٔ تصویر ابرو (فقط PNG، حداکثر ۵ مگابایت) */
+export async function saveBrowImage(target: BrowTarget, file: File): Promise<SavedImage> {
   const buffer = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(path.join(directory, fileName), buffer);
+
+  if (buffer.length === 0) throw new Error('فایل خالی است.');
+  if (buffer.length > MAX_BROW_BYTES) throw new Error('حجم تصویر بیش از ۵ مگابایت است.');
+  if (detectImageExtension(buffer) !== 'png') {
+    throw new Error('برای تصویر ابرو فقط فایل PNG پذیرفته می‌شود.');
+  }
+
+  const directory = path.join(PUBLIC_DIR, BROW_IMAGE_FOLDER.replace(/^\//, ''));
+  await fs.mkdir(directory, { recursive: true });
+  await fs.writeFile(path.join(directory, target.fileName), buffer);
 
   return {
-    url: `${SITE_IMAGE_ROUTE}/${folder}/${fileName}`,
-    publicPath: `/${folder}/${fileName}`,
-    fileName,
+    url: `/api/site-image${target.publicPath}`,
+    publicPath: target.publicPath,
+    fileName: target.fileName,
     bytes: buffer.length,
-    mime: file.type,
+    mime: 'image/png',
   };
 }
 
+/** حذف تصویر ابرو (اگر وجود داشته باشد) */
+export async function deleteBrowImage(target: BrowTarget): Promise<boolean> {
+  try {
+    await fs.unlink(path.resolve(PUBLIC_DIR, target.publicPath.replace(/^\//, '')));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * تبدیل آدرس ذخیره‌شده در فهرست تصاویر به مسیر فایل داخل public.
- *
- *   /api/site-image/hero/hero-1712.jpg  →  <public>/hero/hero-1712.jpg
- *   /hero/hero-1712.jpg                 →  <public>/hero/hero-1712.jpg  (فرمت قدیمی)
- *
- * اگر مسیر نامعتبر/خارج از public باشد، `null` برمی‌گردد (محافظت از path traversal).
+ * ذخیرهٔ تصویر هیرو.
+ * فایل با نام hero.<ext> ذخیره می‌شود و بقیهٔ پسوندهای hero پاک می‌شوند تا
+ * همیشه فقط یک تصویر هیرو وجود داشته باشد.
  */
-export function resolveUploadPath(url: string | null | undefined): string | null {
-  if (!url || typeof url !== 'string' || url.includes('..') || url.includes('\\')) return null;
+export async function saveHeroImage(file: File): Promise<SavedImage> {
+  const buffer = Buffer.from(await file.arrayBuffer());
 
-  const relative = url.startsWith(SITE_IMAGE_ROUTE)
-    ? url.slice(SITE_IMAGE_ROUTE.length)
-    : url.startsWith('/')
-      ? url
-      : `/${url}`;
+  if (buffer.length === 0) throw new Error('فایل خالی است.');
+  if (buffer.length > MAX_HERO_BYTES) throw new Error('حجم تصویر بیش از ۱۰ مگابایت است.');
 
-  const parts = relative.split('/').filter(Boolean);
-  if (parts.length !== 2) return null;
+  const extension = detectImageExtension(buffer);
+  if (!extension) {
+    throw new Error('فقط فایل‌های JPG، PNG و WEBP پذیرفته می‌شوند.');
+  }
 
-  const [folder, fileName] = parts;
-  if (!(UPLOAD_FOLDERS as readonly string[]).includes(folder)) return null;
-  if (!SAFE_FILE.test(fileName)) return null;
+  const directory = path.join(PUBLIC_DIR, HERO_IMAGE_FOLDER.replace(/^\//, ''));
+  await fs.mkdir(directory, { recursive: true });
 
-  const target = path.resolve(PUBLIC_DIR, folder, fileName);
-  const root = path.resolve(PUBLIC_DIR);
-  if (!target.startsWith(root + path.sep)) return null;
+  const fileName = `${HERO_IMAGE_BASENAME}.${extension}`;
+  await fs.writeFile(path.join(directory, fileName), buffer);
 
-  return target;
+  // بقیهٔ فرمت‌ها را پاک کن تا فقط یک تصویر هیرو بماند
+  for (const other of HERO_EXTENSIONS) {
+    if (other === extension) continue;
+    await fs.unlink(path.join(directory, `${HERO_IMAGE_BASENAME}.${other}`)).catch(() => undefined);
+  }
+
+  return {
+    url: `/api/site-image${HERO_IMAGE_FOLDER}/${HERO_IMAGE_BASENAME}`,
+    publicPath: `${HERO_IMAGE_FOLDER}/${fileName}`,
+    fileName,
+    bytes: buffer.length,
+    mime: MIME_BY_EXTENSION[extension],
+  };
 }
 
-/** حذف یک فایل آپلودشده با آدرس ذخیره‌شده در فهرست تصاویر */
-export async function deleteUpload(url: string | null | undefined): Promise<void> {
-  const target = resolveUploadPath(url);
-  if (!target) return;
+/** حذف تصویر هیرو (همهٔ پسوندها) */
+export async function deleteHeroImage(): Promise<boolean> {
+  const directory = path.join(PUBLIC_DIR, HERO_IMAGE_FOLDER.replace(/^\//, ''));
+  let removed = false;
 
-  try {
-    await fs.unlink(target);
-  } catch {
-    // فایل از قبل نیست — مشکلی نیست
+  for (const extension of HERO_EXTENSIONS) {
+    try {
+      await fs.unlink(path.join(directory, `${HERO_IMAGE_BASENAME}.${extension}`));
+      removed = true;
+    } catch {
+      /* این پسوند وجود نداشت */
+    }
   }
-}
 
-/** خواندن فایل آپلودشده برای سرو کردن (روت /api/site-image) */
-export async function readUpload(
-  url: string | null | undefined,
-): Promise<{ buffer: Buffer; mime: string } | null> {
-  const target = resolveUploadPath(url);
-  if (!target) return null;
-
-  try {
-    const buffer = await fs.readFile(target);
-    const extension = path.extname(target).slice(1).toLowerCase();
-    return { buffer, mime: MIME_BY_EXTENSION[extension] ?? 'application/octet-stream' };
-  } catch {
-    return null;
-  }
+  return removed;
 }

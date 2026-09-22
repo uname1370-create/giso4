@@ -1,20 +1,25 @@
 /**
  * app/api/admin/upload-hero/route.ts
  * ---------------------------------------------------------------------------
- * آپلود/حذف تصویر هیرو صفحهٔ اصلی (نیازمند توکن ورود):
+ * آپلود تصویر هیروی صفحهٔ اصلی از پنل مدیریت.
  *
- *   POST   /api/admin/upload-hero    form-data: file
- *   DELETE /api/admin/upload-hero    ← حذف تصویر هیرو
+ *   POST   multipart/form-data:  file
+ *          JPG / PNG / WEBP، حداکثر ۱۰ مگابایت.
+ *          فایل با نام hero.<ext> در public/hero ذخیره می‌شود و بقیهٔ
+ *          پسوندها پاک می‌شوند تا همیشه فقط یک تصویر هیرو وجود داشته باشد.
  *
- * فایل در public/hero/hero-<timestamp>.<ext> ذخیره و در
- * public/site-images.json ثبت می‌شود.
+ *   DELETE  ← حذف تصویر هیرو (صفحهٔ اصلی به پس‌زمینهٔ گرادیانی برمی‌گردد)
+ *
+ * احراز هویت: هدر Authorization: Bearer <token> (خروجی /api/admin/login)
+ * یا هدر x-admin-password با مقدار ADMIN_PASSWORD.
  * ---------------------------------------------------------------------------
  */
 
 import { NextResponse } from 'next/server';
 
 import { isAuthorized, unauthorizedResponse } from '@/admin-auth';
-import { deleteUpload, readSiteImages, saveUpload, updateSiteImages } from '@/site-images';
+import { HERO_IMAGE_URL } from '@/options';
+import { deleteHeroImage, saveHeroImage } from '@/site-images';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,10 +31,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: 'درخواست نامعتبر است (form-data خوانده نشد).' },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, error: 'درخواست نامعتبر است.' }, { status: 400 });
   }
 
   const file = form.get('file');
@@ -38,34 +40,25 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const saved = await saveUpload('hero', 'hero', file);
-    const previous = (await readSiteImages()).hero;
-
-    if (previous && previous !== saved.url) {
-      await deleteUpload(previous);
-    }
-
-    const images = await updateSiteImages((current) => ({ ...current, hero: saved.url }));
-
-    return NextResponse.json({ ok: true, ...saved, images });
+    const saved = await saveHeroImage(file);
+    return NextResponse.json({
+      ok: true,
+      // آدرس پایدار (بدون پسوند) که همیشه به تصویر فعلی اشاره می‌کند
+      url: HERO_IMAGE_URL,
+      publicPath: saved.publicPath,
+      fileName: saved.fileName,
+      bytes: saved.bytes,
+      mime: saved.mime,
+    });
   } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : 'ذخیرهٔ تصویر ناموفق بود.',
-      },
-      { status: 400 },
-    );
+    const message = error instanceof Error ? error.message : 'ذخیرهٔ تصویر ناموفق بود.';
+    return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
 }
 
 export async function DELETE(request: Request): Promise<NextResponse> {
   if (!isAuthorized(request)) return unauthorizedResponse();
 
-  const current = await readSiteImages();
-  if (current.hero) await deleteUpload(current.hero);
-
-  const images = await updateSiteImages((value) => ({ ...value, hero: null }));
-
-  return NextResponse.json({ ok: true, removed: Boolean(current.hero), images });
+  const removed = await deleteHeroImage();
+  return NextResponse.json({ ok: true, removed });
 }

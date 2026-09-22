@@ -7,8 +7,8 @@
  *   ۱) یک نسخهٔ Next.js روی پورت تست بالا می‌آورد (با ADMIN_PASSWORD تستی)
  *   ۲) ورود، احراز هویت، آمار، ثبت بازدید/پیش‌نمایش و آپلود/حذف تصاویر را
  *      به‌صورت واقعی آزمایش می‌کند
- *   ۳) در پایان، `data/stats.json` و `public/site-images.json` را به حالت
- *      اول برمی‌گرداند تا آمار واقعی شما دست‌نخورده بماند
+ *   ۳) در پایان، `data/stats.json`، تصاویر آپلودشده و tsconfig.json را به حالت
+ *      اول برمی‌گرداند تا آمار و تصاویر واقعی شما دست‌نخورده بماند
  *
  * اجرا:  npm run test:admin
  * ---------------------------------------------------------------------------
@@ -41,8 +41,18 @@ const TINY_JPEG_BASE64 =
  */
 const STAGES = [
   { path: 'data/stats.json' },
-  { path: 'public/site-images.json' },
   { path: 'tsconfig.json' },
+];
+
+/** فایل‌های تصویری که تست می‌سازد و در پایان حذف/بازگردانی می‌شوند */
+const IMAGE_ARTIFACTS = [
+  'public/eyebrows/feather.png',
+  'public/eyebrows/natural-hairstroke.png',
+  'public/eyebrows/ombre-powder.png',
+  'public/eyebrows/combination.png',
+  'public/hero/hero.jpg',
+  'public/hero/hero.png',
+  'public/hero/hero.webp',
 ];
 
 let pass = 0;
@@ -100,6 +110,15 @@ async function waitFor(url, timeoutMs = 180_000) {
 const FALLBACK_PASSWORD = '1234';
 
 async function main() {
+  /* --- پشتیبان‌گیری از تصاویر فعلی تا در پایان بازگردانده شوند --- */
+  const imageBackups = IMAGE_ARTIFACTS.map((relative) => {
+    const absolute = path.join(appRoot, relative);
+    return {
+      absolute,
+      content: fs.existsSync(absolute) ? fs.readFileSync(absolute) : null,
+    };
+  });
+
   /* --- پشتیبان‌گیری از فایل‌های داده تا در پایان بازگردانده شوند --- */
   const backups = STAGES.map((stage) => {
     const absolute = path.join(appRoot, stage.path);
@@ -235,13 +254,15 @@ async function main() {
   );
 
   /* ------------------------ آپلود تصاویر ابرو ------------------------ */
-  const browForm = new FormData();
-  browForm.append('style', 'hairstroke');
-  browForm.append(
-    'file',
-    new Blob([Buffer.from(TINY_JPEG_BASE64, 'base64')], { type: 'image/jpeg' }),
-    'brow.jpg',
+  // تصویر ابرو باید PNG باشد — یک PNG کوچک واقعی (۱×۱ پیکسل) می‌سازیم
+  const TINY_PNG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==',
+    'base64',
   );
+
+  const browForm = new FormData();
+  browForm.append('styleName', 'فدر براو'); // آزمون پذیرش نام فارسی مدل
+  browForm.append('file', new Blob([TINY_PNG], { type: 'image/png' }), 'feather.png');
   const browUpload = await fetch(`${BASE}/api/admin/upload-brow`, {
     method: 'POST',
     headers: auth,
@@ -250,28 +271,46 @@ async function main() {
   const browData = await browUpload.json();
   check('آپلود تصویر ابرو → 200', browUpload.status === 200 && browData.ok === true, browData.url);
   check(
-    'فایل روی دیسک ذخیره شد',
-    Boolean(browData.publicPath) && fs.existsSync(path.join(appRoot, 'public', browData.publicPath)),
+    'فایل با نام ثابت ذخیره شد — /eyebrows/feather.png',
+    browData.publicPath === '/eyebrows/feather.png' &&
+      fs.existsSync(path.join(appRoot, 'public', 'eyebrows', 'feather.png')),
     browData.publicPath,
   );
-  const manifestAfterBrow = JSON.parse(
-    fs.readFileSync(path.join(appRoot, 'public/site-images.json'), 'utf8'),
+  check(
+    'پاسخ، آدرس روت /api/site-image را برمی‌گرداند',
+    browData.url === '/api/site-image/eyebrows/feather.png',
+    browData.url,
   );
-  check('site-images.json به‌روز شد', manifestAfterBrow.brows?.hairstroke === browData.url);
   const served = await fetch(`${BASE}${browData.url}`);
   check(
-    'فایل از طریق روت /api/site-image سرو می‌شود',
-    served.status === 200 && served.headers.get('content-type') === 'image/jpeg',
+    'تصویر از روت /api/site-image سرو می‌شود',
+    served.status === 200 && served.headers.get('content-type') === 'image/png',
     `${served.status} ${served.headers.get('content-type')}`,
   );
   check(
     'مسیرهای نامعتبر → 404',
     (await fetch(`${BASE}/api/site-image/hero/nope.jpg`)).status === 404 &&
-      (await fetch(`${BASE}/api/site-image/other/x.jpg`)).status === 404,
+      (await fetch(`${BASE}/api/site-image/other/x.jpg`)).status === 404 &&
+      (await fetch(`${BASE}/api/site-image/eyebrows/unknown.png`)).status === 404,
   );
 
+  // فایل غیر PNG (هم با MIME دروغین) باید رد شود
+  const jpegAsBrow = new FormData();
+  jpegAsBrow.append('styleName', 'feather');
+  jpegAsBrow.append(
+    'file',
+    new Blob([Buffer.from(TINY_JPEG_BASE64, 'base64')], { type: 'image/png' }),
+    'fake.png',
+  );
+  const jpegAsBrowRes = await fetch(`${BASE}/api/admin/upload-brow`, {
+    method: 'POST',
+    headers: auth,
+    body: jpegAsBrow,
+  });
+  check('فایل JPG با پسوند PNG رد می‌شود → 400', jpegAsBrowRes.status === 400);
+
   const textForm = new FormData();
-  textForm.append('style', 'hairstroke');
+  textForm.append('styleName', 'feather');
   textForm.append('file', new Blob([Buffer.from('hello')], { type: 'text/plain' }), 'x.txt');
   check(
     'فایل غیرتصویری رد می‌شود → 400',
@@ -280,12 +319,8 @@ async function main() {
   );
 
   const badStyleForm = new FormData();
-  badStyleForm.append('style', 'unknown-style');
-  badStyleForm.append(
-    'file',
-    new Blob([Buffer.from(TINY_JPEG_BASE64, 'base64')], { type: 'image/jpeg' }),
-    'x.jpg',
-  );
+  badStyleForm.append('styleName', 'unknown-style');
+  badStyleForm.append('file', new Blob([TINY_PNG], { type: 'image/png' }), 'x.png');
   check(
     'مدل ابروی نامعتبر رد می‌شود → 400',
     (
@@ -298,25 +333,35 @@ async function main() {
   );
 
   const noAuthForm = new FormData();
-  noAuthForm.append('style', 'hairstroke');
-  noAuthForm.append(
-    'file',
-    new Blob([Buffer.from(TINY_JPEG_BASE64, 'base64')], { type: 'image/jpeg' }),
-    'x.jpg',
-  );
+  noAuthForm.append('styleName', 'feather');
+  noAuthForm.append('file', new Blob([TINY_PNG], { type: 'image/png' }), 'x.png');
   check(
     'آپلود بدون توکن → 401',
     (await fetch(`${BASE}/api/admin/upload-brow`, { method: 'POST', body: noAuthForm })).status ===
       401,
   );
+  check(
+    'آپلود با هدر x-admin-password (روش سادهٔ سند) → 200',
+    (
+      await fetch(`${BASE}/api/admin/upload-brow`, {
+        method: 'POST',
+        headers: { 'x-admin-password': TEST_PASSWORD },
+        body: noAuthForm,
+      })
+    ).status === 200,
+  );
+  check(
+    'هدر x-admin-password اشتباه → 401',
+    (
+      await fetch(`${BASE}/api/admin/stats`, {
+        headers: { 'x-admin-password': 'wrong-password' },
+      })
+    ).status === 401,
+  );
 
   /* -------------------------- تصویر هیرو -------------------------- */
   const heroForm = new FormData();
-  heroForm.append(
-    'file',
-    new Blob([Buffer.from(TINY_JPEG_BASE64, 'base64')], { type: 'image/jpeg' }),
-    'hero.jpg',
-  );
+  heroForm.append('file', new Blob([TINY_PNG], { type: 'image/png' }), 'hero.png');
   const heroUpload = await fetch(`${BASE}/api/admin/upload-hero`, {
     method: 'POST',
     headers: auth,
@@ -325,23 +370,46 @@ async function main() {
   const heroData = await heroUpload.json();
   check('آپلود تصویر هیرو → 200', heroUpload.status === 200 && heroData.ok === true, heroData.url);
   check(
-    'تصویر هیرو روی دیسک',
-    Boolean(heroData.publicPath) && fs.existsSync(path.join(appRoot, 'public', heroData.publicPath)),
+    'تصویر هیرو با نام hero.png ذخیره شد',
+    heroData.publicPath === '/hero/hero.png' &&
+      fs.existsSync(path.join(appRoot, 'public', 'hero', 'hero.png')),
     heroData.publicPath,
   );
   check(
-    'تصویر هیرو از روت سرو می‌شود',
-    (await fetch(`${BASE}${heroData.url}`)).status === 200,
+    'آدرس هیرو پایدار است (بدون پسوند)',
+    heroData.url === '/api/site-image/hero/hero',
+    heroData.url,
   );
+  const heroServed = await fetch(`${BASE}${heroData.url}`);
+  check('تصویر هیرو از روت سرو می‌شود', heroServed.status === 200, `HTTP ${heroServed.status}`);
 
-  const publicManifest = await (await fetch(`${BASE}/site-images.json`)).json();
+  // آپلود JPG روی PNG قبلی: فرمت قبلی باید پاک شود
+  const heroJpgForm = new FormData();
+  heroJpgForm.append(
+    'file',
+    new Blob([Buffer.from(TINY_JPEG_BASE64, 'base64')], { type: 'image/jpeg' }),
+    'hero.jpg',
+  );
+  const heroJpgUpload = await fetch(`${BASE}/api/admin/upload-hero`, {
+    method: 'POST',
+    headers: auth,
+    body: heroJpgForm,
+  });
   check(
-    'صفحهٔ اصلی فهرست تصاویر را می‌خواند',
-    publicManifest.brows?.hairstroke === browData.url && publicManifest.hero === heroData.url,
+    'آپلود JPG روی PNG → فقط hero.jpg می‌ماند',
+    heroJpgUpload.status === 200 &&
+      fs.existsSync(path.join(appRoot, 'public', 'hero', 'hero.jpg')) &&
+      !fs.existsSync(path.join(appRoot, 'public', 'hero', 'hero.png')),
+  );
+  const heroAfter = await fetch(`${BASE}${heroData.url}`);
+  check(
+    'آدرس پایدار هنوز تصویر می‌دهد (حالا JPG)',
+    heroAfter.status === 200 && heroAfter.headers.get('content-type') === 'image/jpeg',
+    `${heroAfter.status} ${heroAfter.headers.get('content-type')}`,
   );
 
   /* ----------------------------- حذف‌ها ----------------------------- */
-  const deleteBrow = await fetch(`${BASE}/api/admin/upload-brow?style=hairstroke`, {
+  const deleteBrow = await fetch(`${BASE}/api/admin/upload-brow?style=feather`, {
     method: 'DELETE',
     headers: auth,
   });
@@ -349,24 +417,34 @@ async function main() {
   check('حذف تصویر ابرو → 200', deleteBrow.status === 200 && deleteBrowData.removed === true);
   check(
     'فایل ابرو از دیسک پاک شد',
-    !fs.existsSync(path.join(appRoot, 'public', browData.publicPath)),
+    !fs.existsSync(path.join(appRoot, 'public', 'eyebrows', 'feather.png')),
   );
-  check('بعد از حذف، آدرس تصویر → 404', (await fetch(`${BASE}${browData.url}`)).status === 404);
+  check(
+    'بعد از حذف، صفحهٔ اصلی به SVG برمی‌گردد (۴۰۴)',
+    (await fetch(`${BASE}/api/site-image/eyebrows/feather.png`)).status === 404,
+  );
 
   const deleteHero = await fetch(`${BASE}/api/admin/upload-hero`, { method: 'DELETE', headers: auth });
-  check('حذف تصویر هیرو → 200', deleteHero.status === 200);
+  const deleteHeroData = await deleteHero.json();
+  check('حذف تصویر هیرو → 200', deleteHero.status === 200 && deleteHeroData.removed === true);
   check(
     'فایل هیرو از دیسک پاک شد',
-    !fs.existsSync(path.join(appRoot, 'public', heroData.publicPath)),
-  );
-
-  const finalManifest = JSON.parse(
-    fs.readFileSync(path.join(appRoot, 'public/site-images.json'), 'utf8'),
+    !fs.existsSync(path.join(appRoot, 'public', 'hero', 'hero.jpg')),
   );
   check(
-    'فهرست تصاویر به حالت خالی برگشت',
-    !finalManifest.brows?.hairstroke && finalManifest.hero === null,
+    'بعد از حذف، هیرو ۴۰۴ می‌دهد (پس‌زمینهٔ گرادیانی)',
+    (await fetch(`${BASE}/api/site-image/hero/hero`)).status === 404,
   );
+
+  /* --- بازگرداندن تصاویر به حالت اول --- */
+  for (const backup of imageBackups) {
+    try {
+      if (backup.content) fs.writeFileSync(backup.absolute, backup.content);
+      else if (fs.existsSync(backup.absolute)) fs.unlinkSync(backup.absolute);
+    } catch {
+      /* بازگردانی اختیاری است */
+    }
+  }
 
   /* --- بازگرداندن فایل‌های داده به حالت اول --- */
   for (const backup of backups) {

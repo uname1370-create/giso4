@@ -25,7 +25,13 @@ import {
   faTime,
   getAdminToken,
 } from '@/admin-client';
-import { EYEBROW_STYLES } from '@/options';
+import {
+  EYEBROW_STYLES,
+  HERO_IMAGE_URL,
+  HERO_TITLE,
+  MAX_BROW_IMAGE_BYTES,
+  MAX_HERO_IMAGE_BYTES,
+} from '@/options';
 
 /* -------------------------------------------------------------------------- */
 /* انواع                                                                      */
@@ -48,17 +54,14 @@ interface StatsResponse {
   error?: string;
 }
 
-interface SiteImagesResponse {
-  brows?: Record<string, string>;
-  hero?: string | null;
-  updatedAt?: string | null;
-}
-
 interface UploadResponse {
   ok: boolean;
   url?: string;
+  publicPath?: string;
+  fileName?: string;
+  bytes?: number;
+  removed?: boolean;
   error?: string;
-  images?: SiteImagesResponse;
 }
 
 type TabKey = 'stats' | 'brows' | 'hero';
@@ -70,7 +73,15 @@ const TABS: { key: TabKey; icon: string; label: string }[] = [
   { key: 'hero', icon: '🌟', label: 'تصویر هیرو' },
 ];
 
-const ACCEPT = 'image/jpeg,image/png,image/webp';
+/** تصویر ابرو فقط PNG است */
+const BROW_ACCEPT = 'image/png';
+/** تصویر هیرو JPG/PNG/WEBP */
+const HERO_ACCEPT = 'image/jpeg,image/png,image/webp';
+
+/** نمایش حجم فایل به فارسی */
+function faSize(bytes: number): string {
+  return `${faNumber(Math.round(bytes / (1024 * 1024)))} مگابایت`;
+}
 
 /** نام فارسی هر مدل ابرو از روی کلید آن */
 function styleLabel(key?: string): string {
@@ -92,7 +103,14 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  const [images, setImages] = useState<SiteImagesResponse>({ brows: {}, hero: null });
+  /**
+   * شمارهٔ نسخه — بعد از هر آپلود/حذف یکی زیاد می‌شود تا مرورگر تصویر تازه را
+   * دوباره بخواند (نام فایل‌ها ثابت است، پس بدون این کار ممکن است کش شود).
+   */
+  const [version, setVersion] = useState(0);
+  /** مدل‌هایی که تصویر اختصاصی ندارند (آپلود نشده یا حذف شده است) */
+  const [browActive, setBrowActive] = useState<Record<string, boolean>>({});
+  const [heroActive, setHeroActive] = useState(false);
   const [uploadingStyle, setUploadingStyle] = useState<string | null>(null);
   const [heroUploading, setHeroUploading] = useState(false);
 
@@ -146,24 +164,10 @@ export default function AdminDashboardPage() {
     }
   }, [handleAuthError]);
 
-  /* --------------------------- تصاویر سایت --------------------------- */
-  const loadImages = useCallback(async () => {
-    try {
-      // فهرست تصاویر یک فایل عمومی است؛ کش مرورگر دور زده می‌شود
-      const res = await fetch(`/site-images.json?t=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = (await res.json()) as SiteImagesResponse;
-      setImages({ brows: data.brows ?? {}, hero: data.hero ?? null });
-    } catch {
-      /* نادیده — تصاویر پیش‌فرض نمایش داده می‌شوند */
-    }
-  }, []);
-
   useEffect(() => {
     if (!ready) return;
     void loadStats();
-    void loadImages();
-  }, [ready, loadStats, loadImages]);
+  }, [ready, loadStats]);
 
   /* --------------------------- آپلود ابرو --------------------------- */
   const handleBrowUpload = useCallback(
@@ -173,7 +177,7 @@ export default function AdminDashboardPage() {
       setBanner(null);
       try {
         const form = new FormData();
-        form.append('style', styleKey);
+        form.append('styleName', styleKey);
         form.append('file', file);
 
         const res = await adminFetch('/api/admin/upload-brow', { method: 'POST', body: form });
@@ -183,8 +187,9 @@ export default function AdminDashboardPage() {
           setBanner({ kind: 'error', text: data.error || 'آپلود تصویر ناموفق بود.' });
           return;
         }
-        if (data.images) setImages(data.images);
-        setBanner({ kind: 'ok', text: `تصویر «${styleLabel(styleKey)}» ذخیره شد.` });
+        setBrowActive((prev) => ({ ...prev, [styleKey]: true }));
+        setVersion((value) => value + 1);
+        setBanner({ kind: 'ok', text: 'تصویر با موفقیت ذخیره شد ✓' });
       } catch (error) {
         if (handleAuthError(error)) return;
         setBanner({ kind: 'error', text: 'ارتباط با سرور برقرار نشد.' });
@@ -211,8 +216,9 @@ export default function AdminDashboardPage() {
           setBanner({ kind: 'error', text: data.error || 'حذف تصویر ناموفق بود.' });
           return;
         }
-        if (data.images) setImages(data.images);
-        setBanner({ kind: 'ok', text: `تصویر «${styleLabel(styleKey)}» حذف شد.` });
+        setBrowActive((prev) => ({ ...prev, [styleKey]: false }));
+        setVersion((value) => value + 1);
+        setBanner({ kind: 'ok', text: 'تصویر حذف شد؛ تصویر SVG خودکار برگشت.' });
       } catch (error) {
         if (handleAuthError(error)) return;
         setBanner({ kind: 'error', text: 'ارتباط با سرور برقرار نشد.' });
@@ -240,8 +246,9 @@ export default function AdminDashboardPage() {
           setBanner({ kind: 'error', text: data.error || 'آپلود تصویر هیرو ناموفق بود.' });
           return;
         }
-        if (data.images) setImages(data.images);
-        setBanner({ kind: 'ok', text: 'تصویر هیرو ذخیره شد.' });
+        setHeroActive(true);
+        setVersion((value) => value + 1);
+        setBanner({ kind: 'ok', text: 'تصویر هیرو با موفقیت ذخیره شد ✓' });
       } catch (error) {
         if (handleAuthError(error)) return;
         setBanner({ kind: 'error', text: 'ارتباط با سرور برقرار نشد.' });
@@ -263,8 +270,9 @@ export default function AdminDashboardPage() {
         setBanner({ kind: 'error', text: data.error || 'حذف تصویر ناموفق بود.' });
         return;
       }
-      if (data.images) setImages(data.images);
-      setBanner({ kind: 'ok', text: 'تصویر هیرو حذف شد.' });
+      setHeroActive(false);
+      setVersion((value) => value + 1);
+      setBanner({ kind: 'ok', text: 'تصویر هیرو حذف شد؛ پس‌زمینهٔ گرادیانی برگشت.' });
     } catch (error) {
       if (handleAuthError(error)) return;
       setBanner({ kind: 'error', text: 'ارتباط با سرور برقرار نشد.' });
@@ -451,12 +459,16 @@ export default function AdminDashboardPage() {
         {tab === 'brows' ? (
           <section className="space-y-4">
             <p className="rounded-2xl border border-white/[0.08] bg-card px-5 py-4 text-[11px] leading-6 text-mist">
-              برای هر مدل ابرو می‌توانید یک تصویر نمونهٔ اختصاصی آپلود کنید (JPG/PNG/WEBP، حداکثر ۵
-              مگابایت). تا وقتی تصویری آپلود نشده باشد، همان تصویر SVG خودکار نمایش داده می‌شود.
+              برای هر مدل ابرو یک تصویر نمونهٔ اختصاصی آپلود کنید — فقط PNG، حداکثر{' '}
+              {faSize(MAX_BROW_IMAGE_BYTES)}. تصویر با نام ثابت ذخیره می‌شود و بلافاصله روی صفحهٔ
+              اصلی جای تصویر SVG خودکار می‌نشیند. تا وقتی تصویری آپلود نشده باشد، همان SVG نمایش
+              داده می‌شود.
             </p>
 
             {EYEBROW_STYLES.map((style) => {
-              const uploaded = images.brows?.[style.key];
+              // تصویر هر مدل یک آدرس ثابت دارد؛ اگر آپلود نشده باشد بارگذاری‌اش خطا می‌دهد
+              const imageSrc = `${style.imageUrl}?v=${version}`;
+              const uploaded = browActive[style.key] === true;
               const busy = uploadingStyle === style.key;
               return (
                 <div
@@ -464,16 +476,19 @@ export default function AdminDashboardPage() {
                   className="card flex flex-col gap-4 !py-5 sm:flex-row sm:items-center"
                 >
                   <div className="flex h-20 w-32 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-[#0F0F0F]">
-                    {uploaded ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={uploaded}
-                        alt={style.label}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-[11px] text-mist/70">SVG خودکار</span>
-                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imageSrc}
+                      alt={style.label}
+                      onLoad={() => setBrowActive((prev) => ({ ...prev, [style.key]: true }))}
+                      onError={() =>
+                        setBrowActive((prev) =>
+                          prev[style.key] === false ? prev : { ...prev, [style.key]: false },
+                        )
+                      }
+                      className={uploaded ? 'h-full w-full object-cover' : 'hidden'}
+                    />
+                    {uploaded ? null : <span className="text-[11px] text-mist/70">SVG خودکار</span>}
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -482,8 +497,11 @@ export default function AdminDashboardPage() {
                       {uploaded ? (
                         <span className="text-emerald-300">تصویر اختصاصی فعال</span>
                       ) : (
-                        'تصویر پیش‌فرض (تولیدی)'
+                        'تصویر پیش‌فرض (SVG تولیدی)'
                       )}
+                    </p>
+                    <p className="mt-1 font-mono text-[10px] text-mist/60" dir="ltr">
+                      {style.imagePath}
                     </p>
                   </div>
 
@@ -493,7 +511,7 @@ export default function AdminDashboardPage() {
                         browInputs.current[style.key] = element;
                       }}
                       type="file"
-                      accept={ACCEPT}
+                      accept={BROW_ACCEPT}
                       className="hidden"
                       onChange={(event) => void handleBrowUpload(style.key, event.target.files?.[0])}
                     />
@@ -503,7 +521,16 @@ export default function AdminDashboardPage() {
                       onClick={() => browInputs.current[style.key]?.click()}
                       className="btn-gold !px-5 !py-2.5 !text-xs disabled:opacity-60"
                     >
-                      {busy ? 'در حال آپلود…' : uploaded ? 'تغییر تصویر' : 'آپلود تصویر'}
+                      {busy ? (
+                        <>
+                          <span className="me-2 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink/30 border-t-ink align-[-2px]" />
+                          در حال آپلود…
+                        </>
+                      ) : uploaded ? (
+                        'تغییر تصویر'
+                      ) : (
+                        'آپلود تصویر'
+                      )}
                     </button>
                     {uploaded ? (
                       <button
@@ -528,21 +555,24 @@ export default function AdminDashboardPage() {
             <div className="card">
               <h2 className="mb-2 text-sm font-extrabold">تصویر هیرو صفحهٔ اصلی</h2>
               <p className="text-[11px] leading-6 text-mist">
-                این تصویر در بالای صفحهٔ اصلی (بالای عنوان «پیش‌نمایش هوشمند ابرو») نمایش داده
-                می‌شود. پیشنهاد: عکس افقی با نسبت ۱۶:۹، JPG/PNG/WEBP و حداکثر ۵ مگابایت.
+                این تصویر در بخش هیرو (بالای صفحهٔ اصلی، ارتفاع ۳۲۰ پیکسل) به‌عنوان پس‌زمینه نمایش
+                داده می‌شود و روی آن عنوان «{HERO_TITLE}» و دکمه‌های واتساپ/اینستاگرام می‌نشیند.
+                پیشنهاد: عکس افقی با نسبت ۱۶:۹، فرمت JPG/PNG/WEBP و حداکثر {faSize(MAX_HERO_IMAGE_BYTES)}.
               </p>
 
               <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-[#0F0F0F]">
-                {images.hero ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={images.hero}
-                    alt="تصویر هیرو"
-                    className="h-56 w-full object-cover sm:h-72"
-                  />
-                ) : (
-                  <div className="flex h-40 items-center justify-center text-xs text-mist/70">
-                    هنوز تصویر هیرویی آپلود نشده است
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`${HERO_IMAGE_URL}?v=${version}`}
+                  alt="تصویر هیرو"
+                  onLoad={() => setHeroActive(true)}
+                  onError={() => setHeroActive(false)}
+                  className={heroActive ? 'h-56 w-full object-cover sm:h-72' : 'hidden'}
+                />
+                {heroActive ? null : (
+                  <div className="flex h-40 flex-col items-center justify-center gap-2 bg-[linear-gradient(135deg,#120F08_0%,#0A0A0A_45%,#17120A_100%)] text-xs text-mist/70">
+                    <span>هنوز تصویر هیرویی آپلود نشده است</span>
+                    <span className="text-[10px] text-mist/50">پس‌زمینهٔ گرادیانی نمایش داده می‌شود</span>
                   </div>
                 )}
               </div>
@@ -551,7 +581,7 @@ export default function AdminDashboardPage() {
                 <input
                   ref={heroInput}
                   type="file"
-                  accept={ACCEPT}
+                  accept={HERO_ACCEPT}
                   className="hidden"
                   onChange={(event) => void handleHeroUpload(event.target.files?.[0])}
                 />
@@ -561,9 +591,18 @@ export default function AdminDashboardPage() {
                   onClick={() => heroInput.current?.click()}
                   className="btn-gold !px-6 !py-3 !text-sm disabled:opacity-60"
                 >
-                  {heroUploading ? 'در حال آپلود…' : images.hero ? 'تغییر تصویر هیرو' : 'آپلود تصویر هیرو'}
+                  {heroUploading ? (
+                    <>
+                      <span className="me-2 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-ink/30 border-t-ink align-[-2px]" />
+                      در حال آپلود…
+                    </>
+                  ) : heroActive ? (
+                    'تغییر تصویر هیرو'
+                  ) : (
+                    'آپلود تصویر هیرو'
+                  )}
                 </button>
-                {images.hero ? (
+                {heroActive ? (
                   <button
                     type="button"
                     disabled={heroUploading}

@@ -1,28 +1,24 @@
 /**
  * app/api/admin/upload-brow/route.ts
  * ---------------------------------------------------------------------------
- * آپلود تصویر اختصاصی برای هر مدل ابرو (نیازمند توکن ورود):
+ * آپلود تصویر اختصاصی هر مدل ابرو از پنل مدیریت.
  *
- *   POST   /api/admin/upload-brow          form-data: file, style
- *   DELETE /api/admin/upload-brow?style=…  ← حذف تصویر و بازگشت به SVG خودکار
+ *   POST   multipart/form-data:  file  +  styleName
+ *          styleName می‌تواند کلید مدل (feather)، نام فارسی (فدر براو) یا نام
+ *          فایل (feather.png) باشد. فقط PNG، حداکثر ۵ مگابایت.
+ *          فایل با نام ثابت ذخیره می‌شود: public/eyebrows/<file>.png
  *
- * خروجی موفق: { ok: true, style, url, images: {...} }
- * فایل در public/eyebrows/<style>-<timestamp>.<ext> ذخیره و در
- * public/site-images.json ثبت می‌شود؛ صفحهٔ اصلی همان فایل را نمایش می‌دهد.
+ *   DELETE ?style=feather   ← حذف تصویر و برگشت به SVG خودکار
+ *
+ * احراز هویت: هدر Authorization: Bearer <token> (خروجی /api/admin/login)
+ * یا هدر x-admin-password با مقدار ADMIN_PASSWORD.
  * ---------------------------------------------------------------------------
  */
 
 import { NextResponse } from 'next/server';
 
 import { isAuthorized, unauthorizedResponse } from '@/admin-auth';
-import type { BrowStyleKey } from '@/brow-shapes';
-import {
-  BROW_KEYS,
-  deleteUpload,
-  readSiteImages,
-  saveUpload,
-  updateSiteImages,
-} from '@/site-images';
+import { BROW_TARGETS, deleteBrowImage, findBrowTarget, saveBrowImage } from '@/site-images';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,72 +30,55 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json(
-      { ok: false, error: 'درخواست نامعتبر است (form-data خوانده نشد).' },
-      { status: 400 },
-    );
+    return NextResponse.json({ ok: false, error: 'درخواست نامعتبر است.' }, { status: 400 });
   }
 
-  const style = String(form.get('style') ?? '').trim();
   const file = form.get('file');
-
-  if (!BROW_KEYS.includes(style as BrowStyleKey)) {
-    return NextResponse.json(
-      { ok: false, error: 'مدل ابرو نامعتبر است.' },
-      { status: 400 },
-    );
-  }
   if (!(file instanceof File)) {
     return NextResponse.json({ ok: false, error: 'فایلی انتخاب نشده است.' }, { status: 400 });
   }
 
-  const styleKey = style as BrowStyleKey;
-
-  try {
-    const saved = await saveUpload('eyebrows', styleKey, file);
-    const previous = (await readSiteImages()).brows[styleKey];
-
-    // فایل قبلی همین مدل (اگر بود) حذف می‌شود تا پوشه شلوغ نشود
-    if (previous && previous !== saved.url) {
-      await deleteUpload(previous);
-    }
-
-    const images = await updateSiteImages((current) => ({
-      ...current,
-      brows: { ...current.brows, [styleKey]: saved.url },
-    }));
-
-    return NextResponse.json({ ok: true, style: styleKey, ...saved, images });
-  } catch (error) {
+  const styleValue = form.get('styleName') ?? form.get('style');
+  const target = findBrowTarget(typeof styleValue === 'string' ? styleValue : null);
+  if (!target) {
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : 'ذخیرهٔ تصویر ناموفق بود.',
+        error: 'مدل ابرو نامعتبر است.',
+        styles: BROW_TARGETS.map((item) => ({ key: item.key, label: item.label })),
       },
       { status: 400 },
     );
+  }
+
+  try {
+    const saved = await saveBrowImage(target, file);
+    return NextResponse.json({
+      ok: true,
+      style: target.key,
+      label: target.label,
+      url: saved.url,
+      publicPath: saved.publicPath,
+      fileName: saved.fileName,
+      bytes: saved.bytes,
+      mime: saved.mime,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'ذخیرهٔ تصویر ناموفق بود.';
+    return NextResponse.json({ ok: false, error: message }, { status: 400 });
   }
 }
 
 export async function DELETE(request: Request): Promise<NextResponse> {
   if (!isAuthorized(request)) return unauthorizedResponse();
 
-  const style = new URL(request.url).searchParams.get('style')?.trim() ?? '';
-  if (!BROW_KEYS.includes(style as BrowStyleKey)) {
+  const styleValue = new URL(request.url).searchParams.get('style');
+  const target = findBrowTarget(styleValue);
+  if (!target) {
     return NextResponse.json({ ok: false, error: 'مدل ابرو نامعتبر است.' }, { status: 400 });
   }
 
-  const styleKey = style as BrowStyleKey;
-  const current = await readSiteImages();
-  const existing = current.brows[styleKey];
-
-  if (existing) await deleteUpload(existing);
-
-  const images = await updateSiteImages((value) => {
-    const brows = { ...value.brows };
-    delete brows[styleKey];
-    return { ...value, brows };
-  });
-
-  return NextResponse.json({ ok: true, style: styleKey, removed: Boolean(existing), images });
+  const removed = await deleteBrowImage(target);
+  // پس از حذف، صفحهٔ اصلی خودش به تصویر SVG خودکار برمی‌گردد
+  return NextResponse.json({ ok: true, style: target.key, removed });
 }
