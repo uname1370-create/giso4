@@ -11,7 +11,8 @@ beauty-preview/
 │   ├── page.tsx                ← تنها صفحه: ۵ مرحله (مدل، رنگ، عکس، ساخت، نتیجه)
 │   ├── globals.css             ← تم تیره/لوکس، کلاس‌های مشترک (btn-gold، tooltip…)
 │   ├── fonts/                  ← Vazirmatn (self-hosted) + مجوز OFL
-│   └── api/generate/route.ts   ← تنها روت سرور: اعتبارسنجی + زنجیرهٔ پروایدرها
+│   ├── api/generate/route.ts   ← روت اصلی: اعتبارسنجی + زنجیرهٔ پروایدرها
+│   └── api/providers/route.ts  ← بررسی سلامت پروایدرها/کلیدها (?check=1)
 └── lib/
     ├── options.ts              ← ۴ مدل ابرو، ۶ رنگ، پیام/لینک واتساپ، پرامپت انگلیسی
     ├── brow-shapes.ts          ← مولد تصاویر SVG ابرو (بدون چهره، پس‌زمینهٔ شفاف)
@@ -31,7 +32,7 @@ beauty-preview/
 ```bash
 cd beauty-preview
 npm install
-cp .env.example .env.local     # کلیدهای API را داخلش بگذارید
+cp .env.example .env.local     # کلیدهای API را داخلش بگذارید (یا در .env)
 npm run dev                    # http://localhost:3000
 ```
 
@@ -41,7 +42,49 @@ npm run dev                    # http://localhost:3000
 npm run build       # ساخت نسخهٔ production
 npm start           # اجرای نسخهٔ ساخته‌شده روی پورت ۳۰۰۰
 npm run type-check  # بررسی تایپ‌ها (tsc --noEmit)
+npm run test:chain  # تست زنجیرهٔ جایگزین با سرور mock (بدون مصرف اعتبار)
 ```
+
+### ⚠️ مهم — کلیدها را کامیت نکنید
+
+- فایل‌های `.env` و `.env.local` در `.gitignore` هستند؛ **هرگز** آن‌ها را `git add` نکنید.
+- اگر کلیدی اشتباهاً کامیت و پوش شد، فرض کنید **سوخته** است: همان لحظه کلید را در پنل
+  پروایدر باطل/چرخش (rotate) کنید. پاک‌کردن فایل، کلیدِ رفته در تاریخچهٔ گیت را بی‌اثر نمی‌کند.
+- ترتیب اولویت در Next.js:
+
+  ```
+  .env.development.local  →  .env.local  →  .env.development  →  .env
+  ```
+
+  ⚠️ اگر متغیری را در فایل بالاتر **خالی** بگذارید (مثلاً `RUNWARE_API_KEY=` در `.env.local`)،
+  همان مقدار خالی بر `.env` غلبه می‌کند و پروایدر غیرفعال می‌شود. پس کلیدها را فقط در **یک**
+  فایل مقدار بدهید.
+
+### تست سلامت کلیدها (درخواست واقعی)
+
+با یک درخواست GET، هر کلید به‌صورت جداگانه و واقعی آزمایش می‌شود:
+
+```bash
+curl "http://localhost:3000/api/providers?check=1"      # تست واقعی همهٔ پروایدرها
+curl "http://localhost:3000/api/providers"              # فقط وضعیت (بدون مصرف اعتبار)
+```
+
+خروجی نمونه:
+
+```json
+{
+  "ok": true,
+  "demo": false,
+  "summary": "2 از 4 پروایدر سالم است",
+  "providers": [
+    { "id": "runware", "label": "Runware", "envKey": "RUNWARE_API_KEY", "configured": true, "ok": true, "ms": 4210 },
+    { "id": "siliconflow", "label": "SiliconFlow", "envKey": "SILICONFLOW_API_KEY", "configured": true, "ok": false, "ms": 30012, "error": "..." }
+  ]
+}
+```
+
+> حالت `check=1` یک تصویر ۸×۸ واقعی تولید می‌کند و ممکن است مقدار ناچیزی از اعتبار حساب
+> مصرف شود؛ برای همین به‌صورت پیش‌فرض خاموش است.
 
 ---
 
