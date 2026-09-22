@@ -1,14 +1,11 @@
 /**
  * src/providers/aimlapi.ts
  * ---------------------------------------------------------------------------
- * پروایدر ۳ — AIMLAPI  (https://docs.aimlapi.com/)
+ * پروایدر ۳ — AIMLAPI
  *
- * سازگار با فرمت OpenAI، اما تصویر ورودی با فیلد `image_url` فرستاده می‌شود
- * (نه آپلود فایل):
- *   POST https://api.aimlapi.com/v1/images/generations
- *   model: flux/kontext-pro/image-to-image
- *
- * اگر مدل با پارامتر `image_size` مخالفت کند، یک‌بار دیگر بدون آن تلاش می‌کنیم.
+ * مدل پیش‌فرض: blackforestlabs/flux-2-edit
+ * برای image editing طراحی شده و image_urls را با URL یا Local Base64
+ * می‌پذیرد؛ بنابراین برای عکس آپلودشدهٔ کاربر به CDN واسط نیاز نداریم.
  * ---------------------------------------------------------------------------
  */
 
@@ -23,14 +20,12 @@ import {
 import type { Provider, ProviderInput } from './types';
 
 const DEFAULT_ENDPOINT = 'https://api.aimlapi.com/v1/images/generations';
-const DEFAULT_MODEL = 'flux/kontext-pro/image-to-image';
+const DEFAULT_MODEL = 'blackforestlabs/flux-2-edit';
 
-/** آدرس API (قابل تغییر با AIMLAPI_API_URL) */
 function endpoint(): string {
   return (process.env.AIMLAPI_API_URL ?? '').trim() || DEFAULT_ENDPOINT;
 }
 
-/** مدل (قابل تغییر با AIMLAPI_MODEL) */
 function model(): string {
   return (process.env.AIMLAPI_MODEL ?? '').trim() || DEFAULT_MODEL;
 }
@@ -44,17 +39,21 @@ interface AttemptOutcome {
 async function attempt(
   apiKey: string,
   input: ProviderInput,
-  withImageSize: boolean,
 ): Promise<AttemptOutcome> {
   const { prompt, image } = input;
   const { signal, done } = timeoutSignal(timeoutFor(input));
+
   try {
-    const body: Record<string, unknown> = {
+    const body = {
       model: model(),
       prompt,
-      image_url: image.dataUri,
+      image_urls: [image.dataUri],
+      image_size: 'portrait_4_3',
+      output_format: 'png',
+      num_images: 1,
+      enable_prompt_expansion: true,
+      enable_safety_checker: true,
     };
-    if (withImageSize) body.image_size = '1024x1024';
 
     const res = await fetch(endpoint(), {
       method: 'POST',
@@ -79,11 +78,13 @@ async function attempt(
       return {
         url: null,
         status: res.status,
-        errorText: extractApiError(payload) || raw.slice(0, 300) || `HTTP ${res.status}`,
+        errorText:
+          extractApiError(payload) ||
+          raw.slice(0, 500) ||
+          `HTTP ${res.status}`,
       };
     }
 
-    // پاسخ‌های AIMLAPI می‌توانند در `images[0].url` یا `data[0].url` باشند
     return {
       url: readAnyImage(payload) ?? readOpenAiImage(payload),
       status: res.status,
@@ -93,6 +94,7 @@ async function attempt(
     if (error instanceof Error && error.name === 'AbortError') {
       throw new ProviderError('AIMLAPI: زمان انتظار به پایان رسید');
     }
+
     throw new ProviderError(
       'AIMLAPI ناموفق بود',
       error instanceof Error ? error.message : String(error),
@@ -109,25 +111,17 @@ export const aimlapiProvider: Provider = {
 
   async generate(input: ProviderInput): Promise<string> {
     const apiKey = (process.env.AIMLAPI_API_KEY ?? '').trim();
-    if (!apiKey) throw new ProviderError('AIMLAPI: کلید API تنظیم نشده است');
-
-    const first = await attempt(apiKey, input, true);
-    if (first.url) return first.url;
-
-    // اگر خطا مربوط به پارامترهای ورودی بود، بار دوم بدون image_size
-    if (first.status === 400 || first.status === 422) {
-      const second = await attempt(apiKey, input, false);
-      if (second.url) return second.url;
-      throw new ProviderError(`AIMLAPI ناموفق بود (HTTP ${second.status})`, second.errorText);
+    if (!apiKey) {
+      throw new ProviderError('AIMLAPI: کلید API تنظیم نشده است');
     }
 
-    if (first.status === 0 || first.status >= 500) {
-      throw new ProviderError(`AIMLAPI ناموفق بود (HTTP ${first.status})`, first.errorText);
-    }
+    const result = await attempt(apiKey, input);
+
+    if (result.url) return result.url;
 
     throw new ProviderError(
-      `AIMLAPI: هیچ تصویری دریافت نشد (HTTP ${first.status})`,
-      first.errorText,
+      `AIMLAPI ناموفق بود (HTTP ${result.status})`,
+      result.errorText,
     );
   },
 };
