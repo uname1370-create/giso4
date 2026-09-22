@@ -3,9 +3,8 @@
  * ---------------------------------------------------------------------------
  * زنجیرهٔ جایگزین پروایدرها:
  *
- *   ۱) OpenRouter   → OPENROUTER_API_KEY → FLUX.2 Klein 4B
- *   ۲) Cloudflare   → CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID → FLUX.2 Klein 4B
- *   ۳) Pollinations → POLLINATIONS_API_KEY
+ *   ۱) Cloudflare   → ۳ حساب مستقل → FLUX.2 Klein 4B
+ *   ۲) Pollinations → POLLINATIONS_API_KEY
  *
  * هر پروایدر بدون کلید رد می‌شود و در صورت خطا، پروایدر بعدی امتحان می‌شود.
  * لاگ‌های تشخیصی فقط metadata و پیام خطا را ثبت می‌کنند؛ کلید API، تصویر و
@@ -15,12 +14,10 @@
 
 import { ProviderError, materializeImage } from './http';
 import { cloudflareProvider } from './cloudflare';
-import { openrouterProvider } from './openrouter';
 import { pollinationsProvider } from './pollinations';
 import type { AttemptLog, Provider, ProviderInput } from './types';
 
 export const PROVIDERS: Provider[] = [
-  openrouterProvider,
   cloudflareProvider,
   pollinationsProvider,
 ];
@@ -36,7 +33,7 @@ export interface FallbackResult {
 }
 
 export function isProviderConfigured(provider: Provider): boolean {
-  return (process.env[provider.envKey] ?? '').trim().length > 0;
+  return provider.isConfigured ? provider.isConfigured() : (process.env[provider.envKey] ?? '').trim().length > 0;
 }
 
 export function configuredProviders(): Provider[] {
