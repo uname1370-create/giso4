@@ -13,7 +13,7 @@ import {
 import type { Provider, ProviderInput } from './types';
 
 const DEFAULT_MODEL = '@cf/black-forest-labs/flux-2-klein-4b';
-const MAX_OUTPUT_SIDE = 1024;
+const MAX_OUTPUT_SIDE = 1536;
 const MIN_OUTPUT_SIDE = 256;
 
 type CloudflareAccount = {
