@@ -168,9 +168,13 @@ export function buildEnglishPrompt(
 ): string {
   const styleText = styleLabelEn ? `${styleLabel} (${styleLabelEn})` : styleLabel;
   return (
-    `Apply professional microblading eyebrows in the style of ${styleText} ` +
-    `with color ${colorHex} (${colorName}) to this face photo. ` +
-    `Keep everything else exactly the same. ` +
-    `Realistic, natural, high quality beauty result.`
+    `Edit ONLY the existing eyebrow regions in this exact face photo. ` +
+    `Apply professional ${styleText} microblading with pigment color ${colorHex} (${colorName}). ` +
+    `Preserve the person's identity and original facial geometry exactly. ` +
+    `Do not change eyes, eyelids, eyelashes, nose, lips, cheeks, forehead, skin texture, skin tone, hair, ears, face shape, lighting, camera angle, background, clothing, or image composition. ` +
+    `Do not add makeup outside the eyebrow regions. ` +
+    `Keep the result photorealistic and anatomically natural. ` +
+    `The eyebrows must remain aligned to the person's original brow position and bone structure. ` +
+    `This is a localized beauty edit, not a face regeneration.`
   );
 }
