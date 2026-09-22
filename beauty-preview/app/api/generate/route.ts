@@ -125,9 +125,6 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
     return badRequest('تصویر مرجع مدل ابرو بیش از حد بزرگ است.');
   }
 
-  const knownStyle = EYEBROW_STYLES.find((item) => item.label === style);
-  if (!knownStyle) return badRequest('مدل ابروی انتخاب‌شده معتبر نیست.');
-
   /* ----------------------------- حالت نمایشی ------------------------------ */
   // حالت نمایشی نباید به Vision یا API خارجی وابسته باشد.
   if (isDemoActive()) {
@@ -144,6 +141,9 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   }
 
   /* -------------------------------- پرامپت -------------------------------- */
+  const knownStyle = EYEBROW_STYLES.find((item) => item.label === style);
+  if (!knownStyle) return badRequest('مدل ابروی انتخاب‌شده معتبر نیست.');
+
   let analysis: BeautyPhotoAnalysis | null = null;
   try {
     analysis = await analyzeBeautyPhoto(image.dataUri);
@@ -179,9 +179,6 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
       thickness: analysis.browThickness,
       arch: analysis.browArch,
       symmetry: analysis.browSymmetry,
-      tail: analysis.browTail,
-      start: analysis.browStart,
-      recommended_shape: analysis.recommendedShape,
     },
     natural_color: {
       hair_tone: analysis.hairTone,
