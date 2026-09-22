@@ -195,7 +195,7 @@ export function buildEnglishPrompt(
     `Preserve the person's identity and original facial geometry exactly. ` +
     `Do not change eyes, eyelids, eyelashes, nose, lips, cheeks, forehead, skin texture, skin tone, hair, ears, face shape, lighting, camera angle, background, clothing, or image composition. ` +
     `Do not add makeup outside the eyebrow regions. Do not reshape the face. Do not regenerate the portrait. ` +
-    `Keep both brows anchored to the person's original brow position, natural growth direction and bone structure; preserve the customer's natural asymmetry where appropriate and improve only the selected brow technique. ` +
+    `Keep both brows aligned with the person's original brow position and bone structure; improve only the brow design requested. ` +
     `The result must look like the same real photograph after professional eyebrow microblading, not an AI beauty filter.`
   );
 }
