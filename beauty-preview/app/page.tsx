@@ -62,6 +62,18 @@ interface GenerateResponse {
   error?: string;
   attempts?: AttemptInfo[];
   ms?: number;
+  analysis?: PhotoAnalysis;
+}
+
+interface PhotoAnalysis {
+  acceptable: boolean;
+  message: string;
+  imageQuality: string;
+  hairTone: string;
+  browTone: string;
+  pigmentFamily: string;
+  pigmentTemperature: string;
+  pigmentDepth: string;
 }
 
 const LOADING_MESSAGES = [
@@ -95,6 +107,24 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     element.onerror = () => reject(new Error('بارگذاری تصویر ناموفق بود'));
     element.src = src;
   });
+}
+
+
+/** نمونهٔ مدل را به حداکثر 512px کاهش می‌دهد؛ محدودیت Multi-Reference Cloudflare. */
+async function prepareReferenceImage(src: string): Promise<string> {
+  const image = await loadImage(src);
+  const maxSide = 512;
+  const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || 1, image.naturalHeight || 1));
+  const width = Math.max(1, Math.round((image.naturalWidth || 512) * scale));
+  const height = Math.max(1, Math.round((image.naturalHeight || 512) * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('آماده‌سازی تصویر مرجع ناموفق بود');
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL('image/png');
 }
 
 function readFileAsDataUri(file: File): Promise<string> {
@@ -400,8 +430,8 @@ export default function HomePage() {
         body: JSON.stringify({
           imageBase64: photoDataUri,
           style: selectedStyle.label,
-          colorName: selectedColor.name,
-          colorHex: selectedColor.hex,
+          // رنگ از تحلیل واقعی عکس تعیین می‌شود؛ این فیلدهای قدیمی عمداً ارسال نمی‌شوند.
+          referenceImageBase64: await prepareReferenceImage(selectedStyle.imageUrl),
         }),
       });
 
@@ -797,6 +827,15 @@ export default function HomePage() {
                 />
               </div>
 
+              {result.analysis ? (
+                <div className="mb-4 rounded-xl border border-gold/20 bg-gold/[0.05] px-4 py-3 text-[11px] leading-6 text-mist">
+                  <span className="font-bold text-gold">رنگ و تناژ طبیعی:</span>{' '}
+                  {result.analysis.pigmentFamily} · {result.analysis.pigmentTemperature} · {result.analysis.pigmentDepth}
+                  <span className="mx-2 text-white/20">|</span>
+                  <span>هماهنگ با رنگ طبیعی مو و ابرو</span>
+                </div>
+              ) : null}
+
               {result.demo ? (
                 <p className="mt-4 rounded-xl border border-gold/25 bg-gold/[0.06] px-4 py-3 text-[11px] leading-6 text-gold/90">
                   این تصویر <strong>شبیه‌سازی محلی</strong> است (چون هیچ کلید API فعالی تنظیم نشده)
@@ -845,7 +884,7 @@ export default function HomePage() {
             <section className="rounded-3xl border border-dashed border-white/[0.08] px-6 py-10 text-center">
               <p className="text-sm font-bold text-mist">پیش‌نمایش شما اینجا نمایش داده می‌شود</p>
               <p className="mt-2 text-xs text-mist/70">
-                با انتخاب مدل، رنگ و آپلود عکس، دکمهٔ «ایجاد پیش‌نمایش هوشمند» فعال می‌شود.
+                با انتخاب مدل و آپلود عکس، دکمهٔ «ایجاد پیش‌نمایش هوشمند» فعال می‌شود.
               </p>
             </section>
           )}
