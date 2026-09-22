@@ -14,6 +14,10 @@
 /out/
 next-env.d.ts
 
+# پوشه‌های build و فایل‌های موقت اسکریپت‌های تست (npm run test:chain / test:admin)
+/.next-*/
+/.tmp-*
+
 # production
 /build
 

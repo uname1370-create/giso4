@@ -14,6 +14,7 @@ import { EYEBROW_STYLES, buildEnglishPrompt } from '@/options';
 import { generateWithFallback, configuredProviders } from '@/providers';
 import { parseDataUri } from '@/providers/http';
 import type { AttemptLog } from '@/providers/types';
+import { recordEvent } from '@/stats';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,18 @@ interface GenerateBody {
   style?: unknown;
   colorName?: unknown;
   colorHex?: unknown;
+}
+
+/**
+ * ثبت رویداد «پیش‌نمایش» برای پنل مدیریت (data/stats.json).
+ * این کار هرگز نباید پاسخ کاربر را خراب کند؛ پس خطاهایش نادیده گرفته می‌شوند.
+ */
+function trackPreview(styleKey: string): void {
+  void recordEvent({
+    type: 'preview',
+    style: styleKey,
+    time: new Date().toISOString(),
+  });
 }
 
 interface GenerateSuccess {
@@ -108,6 +121,7 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   // در حالت نمایشی تصویر دوباره برگردانده نمی‌شود (حجم اضافه)؛ کلاینت خودش
   // شکل ابرو را با همان عکس محلی ترکیب می‌کند.
   if (isDemoActive()) {
+    trackPreview(knownStyle?.key ?? style);
     return NextResponse.json({
       ok: true,
       provider: 'demo',
@@ -121,6 +135,7 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   /* --------------------------- زنجیرهٔ پروایدرها --------------------------- */
   try {
     const result = await generateWithFallback({ prompt, image });
+    trackPreview(knownStyle?.key ?? style);
     return NextResponse.json({
       ok: true,
       provider: result.provider.id,

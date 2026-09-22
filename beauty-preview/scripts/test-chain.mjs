@@ -29,6 +29,8 @@ const appRoot = path.resolve(here, '..');
 
 const MOCK_PORT = Number(process.env.MOCK_PORT ?? 4699);
 const APP_PORT = Number(process.env.APP_PORT ?? 3210);
+/** پوشهٔ build مخصوص تست — تا `.next` سرور توسعهٔ در حال اجرا خراب نشود */
+const TEST_DIST_DIR = '.next-chain-test';
 const MODE_FILE = path.join(os.tmpdir(), `beauty-preview-mock-mode-${process.pid}.txt`);
 
 const TINY_JPEG_BASE64 =
@@ -51,6 +53,40 @@ function spawnProcess(command, args, options) {
   child.stderr.on('data', () => {});
   children.push(child);
   return child;
+}
+
+/**
+ * Next.js با `distDir` غیرپیش‌فرض، مسیر تایپ‌هایش را به tsconfig.json اضافه می‌کند؛
+ * پس نسخهٔ اصلی را برمی‌گردانیم تا git status کاربر تمیز بماند.
+ */
+let originalTsconfig = null;
+
+function backupTsconfig() {
+  try {
+    originalTsconfig = fs.readFileSync(path.join(appRoot, 'tsconfig.json'));
+  } catch {
+    originalTsconfig = null;
+  }
+}
+
+function restoreTsconfig() {
+  if (!originalTsconfig) return;
+  try {
+    fs.writeFileSync(path.join(appRoot, 'tsconfig.json'), originalTsconfig);
+  } catch {
+    /* بازگردانی اختیاری است */
+  }
+}
+
+function cleanupTestArtifacts() {
+  restoreTsconfig();
+  for (const target of [TEST_DIST_DIR, '.tmp-chain-stats.json']) {
+    try {
+      fs.rmSync(path.join(appRoot, target), { recursive: true, force: true });
+    } catch {
+      /* پاک‌سازی اختیاری است */
+    }
+  }
 }
 
 function shutdown() {
@@ -118,6 +154,8 @@ async function main() {
     throw new Error('سرور mock بالا نیامد');
   }
 
+  backupTsconfig();
+
   console.log('— اجرای Next.js روی پورت تست …');
   spawnProcess('npx', ['next', 'dev', '-H', '127.0.0.1', '-p', String(APP_PORT)], {
     cwd: appRoot,
@@ -134,6 +172,9 @@ async function main() {
       POLLINATIONS_BASE_URL: `http://127.0.0.1:${MOCK_PORT}/pl/v1`,
       DEMO_MODE: 'off',
       PROVIDER_TIMEOUT_MS: '20000',
+      // آمار پنل مدیریت نباید با اجرای تست تغییر کند
+      STATS_PATH: path.join(appRoot, '.tmp-chain-stats.json'),
+      NEXT_DIST_DIR: TEST_DIST_DIR,
     },
   });
 
@@ -177,10 +218,17 @@ async function main() {
 main()
   .then((code) => {
     shutdown();
-    setTimeout(() => process.exit(code === 0 ? 0 : 1), 300);
+    // کمی صبر تا پروسه‌های فرزند کامل بسته شوند، بعد پاک‌سازی
+    setTimeout(() => {
+      cleanupTestArtifacts();
+      process.exit(code === 0 ? 0 : 1);
+    }, 1500);
   })
   .catch((error) => {
     console.error('خطا در تست:', error.message);
     shutdown();
-    setTimeout(() => process.exit(1), 300);
+    setTimeout(() => {
+      cleanupTestArtifacts();
+      process.exit(1);
+    }, 1500);
   });

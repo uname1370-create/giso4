@@ -9,7 +9,8 @@
     "start": "next start -H 0.0.0.0 -p 3000",
     "type-check": "tsc --noEmit",
     "test:chain": "node scripts/test-chain.mjs",
-    "mock:providers": "node scripts/mock-providers.mjs"
+    "mock:providers": "node scripts/mock-providers.mjs",
+    "test:admin": "node scripts/test-admin.mjs"
   },
   "dependencies": {
     "next": "14.2.35",

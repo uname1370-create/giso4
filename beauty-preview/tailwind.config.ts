@@ -3,7 +3,8 @@ import type { Config } from 'tailwindcss';
 const config: Config = {
   content: [
     './app/**/*.{ts,tsx}',
-    './lib/**/*.{ts,tsx}',
+    // ماژول‌ها از lib/ به src/ منتقل شده‌اند (به README مراجعه کنید)
+    './src/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {

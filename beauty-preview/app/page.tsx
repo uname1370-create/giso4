@@ -50,6 +50,12 @@ interface AttemptInfo {
   error?: string;
 }
 
+/** تصاویر آپلودشده از پنل مدیریت (/site-images.json) */
+interface SiteImages {
+  brows?: Partial<Record<BrowStyleKey, string>>;
+  hero?: string | null;
+}
+
 interface GenerateResponse {
   ok: boolean;
   provider?: string;
@@ -254,6 +260,9 @@ export default function HomePage() {
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
 
+  /** تصاویر اختصاصی که مدیر از پنل آپلود کرده است (اگر نباشند، SVG خودکار) */
+  const [siteImages, setSiteImages] = useState<SiteImages | null>(null);
+
   const [status, setStatus] = useState<Status>('idle');
   const [loadingStep, setLoadingStep] = useState(0);
   const [result, setResult] = useState<GenerateResponse | null>(null);
@@ -264,8 +273,13 @@ export default function HomePage() {
 
   /* --------------------------------- مشتقات -------------------------------- */
   const samples = useMemo(
-    () => EYEBROW_STYLES.map((style) => ({ style, src: styleSampleImage(style) })),
-    [],
+    () =>
+      EYEBROW_STYLES.map((style) => ({
+        style,
+        src: siteImages?.brows?.[style.key] || styleSampleImage(style),
+        isPhoto: Boolean(siteImages?.brows?.[style.key]),
+      })),
+    [siteImages],
   );
 
   const colorUnlocked = Boolean(selectedStyle);
@@ -277,6 +291,44 @@ export default function HomePage() {
     if (!selectedStyle || !selectedColor) return null;
     return buildWhatsAppLink(selectedStyle.label, selectedColor.name);
   }, [selectedStyle, selectedColor]);
+
+  /* ------------------- ثبت بازدید + تصاویر پنل مدیریت ------------------- */
+  // ۱) یک بازدید برای هر نشست مرورگر ثبت می‌شود (آمار پنل /admin)
+  // ۲) تصاویر آپلودشده از پنل مدیریت خوانده می‌شوند تا روی کارت‌ها/هیرو بنشینند
+  useEffect(() => {
+    let cancelled = false;
+
+    const countVisit = () => {
+      try {
+        if (window.sessionStorage.getItem('beauty_visit_counted')) return;
+        window.sessionStorage.setItem('beauty_visit_counted', '1');
+        void fetch('/api/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'visit' }),
+          keepalive: true,
+        });
+      } catch {
+        /* آمار نباید تجربهٔ کاربر را خراب کند */
+      }
+    };
+
+    void (async () => {
+      countVisit();
+      try {
+        const res = await fetch(`/site-images.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = (await res.json()) as SiteImages;
+        if (!cancelled) setSiteImages(data);
+      } catch {
+        /* تصاویر پیش‌فرض نمایش داده می‌شوند */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /* --------------------------- پیام‌های در حال ساخت -------------------------- */
   useEffect(() => {
@@ -432,6 +484,18 @@ export default function HomePage() {
   /* ---------------------------------- UI ---------------------------------- */
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:py-16">
+      {/* --------------------------- تصویر هیرو (پنل) --------------------------- */}
+      {siteImages?.hero ? (
+        <div className="mb-9 overflow-hidden rounded-3xl border border-gold/20">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={siteImages.hero}
+            alt="سالن زیبایی عسل رجبی"
+            className="h-52 w-full object-cover sm:h-72"
+          />
+        </div>
+      ) : null}
+
       {/* ------------------------------- سربرگ ------------------------------- */}
       <header className="text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-gold/80">BEAUTY STUDIO</p>
@@ -454,7 +518,7 @@ export default function HomePage() {
           locked={false}
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {samples.map(({ style, src }) => {
+            {samples.map(({ style, src, isPhoto }) => {
               const isSelected = selectedStyle?.key === style.key;
               return (
                 <button
@@ -477,7 +541,11 @@ export default function HomePage() {
                     <img
                       src={src}
                       alt={style.label}
-                      className="h-20 w-auto max-w-full opacity-95 transition group-hover:scale-[1.04]"
+                      className={
+                        isPhoto
+                          ? 'h-28 w-full rounded-lg object-cover transition group-hover:scale-[1.04]'
+                          : 'h-20 w-auto max-w-full opacity-95 transition group-hover:scale-[1.04]'
+                      }
                       draggable={false}
                     />
                   </div>
