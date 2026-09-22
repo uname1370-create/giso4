@@ -125,6 +125,21 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
     return badRequest('تصویر مرجع مدل ابرو بیش از حد بزرگ است.');
   }
 
+  /* ----------------------------- حالت نمایشی ------------------------------ */
+  // حالت نمایشی نباید به Vision یا API خارجی وابسته باشد.
+  if (isDemoActive()) {
+    trackPreview(knownStyle.key);
+    console.error(`[AI-GENERATE] DEMO_SUCCESS | duration=${Date.now() - requestStartedAt}ms`);
+    return NextResponse.json({
+      ok: true,
+      provider: 'demo',
+      providerLabel: 'حالت نمایشی',
+      demo: true,
+      attempts: [],
+      ms: 0,
+    });
+  }
+
   /* -------------------------------- پرامپت -------------------------------- */
   const knownStyle = EYEBROW_STYLES.find((item) => item.label === style);
   if (!knownStyle) return badRequest('مدل ابروی انتخاب‌شده معتبر نیست.');
@@ -184,22 +199,6 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
     knownStyle.key,
     designBrief,
   );
-
-  /* ----------------------------- حالت نمایشی ------------------------------ */
-  // در حالت نمایشی تصویر دوباره برگردانده نمی‌شود (حجم اضافه)؛ کلاینت خودش
-  // شکل ابرو را با همان عکس محلی ترکیب می‌کند.
-  if (isDemoActive()) {
-    trackPreview(knownStyle?.key ?? style);
-    console.error(`[AI-GENERATE] DEMO_SUCCESS | duration=${Date.now() - requestStartedAt}ms`);
-    return NextResponse.json({
-      ok: true,
-      provider: 'demo',
-      providerLabel: 'حالت نمایشی',
-      demo: true,
-      attempts: [],
-      ms: 0,
-    });
-  }
 
   /* --------------------------- زنجیرهٔ پروایدرها --------------------------- */
   try {
