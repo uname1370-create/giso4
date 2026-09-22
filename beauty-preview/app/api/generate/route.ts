@@ -43,7 +43,7 @@ function trackPreview(styleKey: string): void {
 
 interface GenerateSuccess {
   ok: true;
-  /** 'runware' | 'siliconflow' | 'aimlapi' | 'pollinations' | 'demo' */
+  /** 'openrouter' | 'cloudflare' | 'pollinations' | 'demo' */
   provider: string;
   providerLabel: string;
   /** data URI یا آدرس تصویر (در حالت نمایشی خالی است و کلاینت خودش می‌سازد) */
