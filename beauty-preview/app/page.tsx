@@ -28,7 +28,6 @@ import {
 import {
   ACCEPTED_MIME_TYPES,
   ACCEPT_ATTRIBUTE,
-  BROW_COLORS,
   EYEBROW_STYLES,
   HERO_IMAGE_URL,
   HERO_SUBTITLE,
@@ -38,7 +37,6 @@ import {
   buildHeroWhatsAppLink,
   buildWhatsAppLink,
   styleSampleImage,
-  type BrowColor,
   type EyebrowStyle,
 } from '@/options';
 
@@ -260,7 +258,7 @@ function CheckIcon() {
 
 export default function HomePage() {
   const [selectedStyle, setSelectedStyle] = useState<EyebrowStyle | null>(null);
-  const [selectedColor, setSelectedColor] = useState<BrowColor | null>(null);
+  const [selectedColor] = useState({ name: 'قهوه‌ای طبیعی', hex: '#8B6914' });
 
   const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
   const [photoName, setPhotoName] = useState<string>('');
@@ -300,13 +298,12 @@ export default function HomePage() {
     [missingImages],
   );
 
-  const colorUnlocked = Boolean(selectedStyle);
-  const uploadUnlocked = Boolean(selectedStyle && selectedColor);
-  const generateUnlocked = Boolean(selectedStyle && selectedColor && photoDataUri);
+  const uploadUnlocked = Boolean(selectedStyle);
+  const generateUnlocked = Boolean(selectedStyle && photoDataUri);
   const canGenerate = generateUnlocked && status !== 'loading';
 
   const whatsappLink = useMemo(() => {
-    if (!selectedStyle || !selectedColor) return null;
+    if (!selectedStyle) return null;
     return buildWhatsAppLink(selectedStyle.label, selectedColor.name);
   }, [selectedStyle, selectedColor]);
 
@@ -387,8 +384,8 @@ export default function HomePage() {
 
   /* --------------------------------- ساخت --------------------------------- */
   const handleGenerate = useCallback(async () => {
-    if (!selectedStyle || !selectedColor || !photoDataUri) {
-      setError('برای ساخت پیش‌نمایش، مدل ابرو، رنگ و عکس چهره لازم است.');
+    if (!selectedStyle || !photoDataUri) {
+      setError('برای ساخت پیش‌نمایش، مدل ابرو و عکس چهره لازم است.');
       return;
     }
 
@@ -450,16 +447,14 @@ export default function HomePage() {
       );
       setStatus('error');
     }
-  }, [photoDataUri, selectedColor, selectedStyle]);
+  }, [photoDataUri, selectedStyle]);
 
   /* --------------------------------- دانلود -------------------------------- */
   const handleDownload = useCallback(async () => {
     const url = result?.resultUrl;
     if (!url) return;
 
-    const fileName = `microblading-${selectedStyle?.key ?? 'preview'}-${
-      selectedColor?.hex.replace('#', '') ?? 'color'
-    }.jpg`;
+    const fileName = `microblading-${selectedStyle?.key ?? 'preview'}.jpg`;
 
     try {
       const res = await fetch(url);
@@ -476,7 +471,7 @@ export default function HomePage() {
       // در بدترین حالت، تصویر در تب جدید باز می‌شود تا کاربر ذخیره کند
       window.open(url, '_blank', 'noopener,noreferrer');
     }
-  }, [result, selectedColor, selectedStyle]);
+  }, [result, selectedStyle]);
 
   /* ---------------------------------- UI ---------------------------------- */
   return (
@@ -536,7 +531,7 @@ export default function HomePage() {
           پیش‌نمایش هوشمند <span className="text-gold">ابرو</span>
         </h1>
         <p className="mt-4 text-sm text-mist sm:text-base">
-          مدل و رنگ میکروبلیدینگ را انتخاب کنید، عکس چهره‌تان را آپلود کنید و نتیجه را قبل از
+          مدل میکروبلیدینگ را انتخاب کنید، عکس چهره‌تان را آپلود کنید و نتیجه را قبل از
           نوبت‌گرفتن ببینید.
         </p>
         <div className="mx-auto mt-7 h-px w-44 bg-gradient-to-l from-transparent via-gold to-transparent" />
@@ -601,63 +596,13 @@ export default function HomePage() {
           </div>
         </StepSection>
 
-        {/* ----------------------------- ۲) رنگ ----------------------------- */}
+        {/* --------------------------- ۲) آپلود عکس -------------------------- */}
         <StepSection
           index="۲"
-          title="رنگ ابرو را انتخاب کنید"
-          subtitle="شش رنگ استاندارد پیگمنت میکروبلیدینگ"
-          locked={!colorUnlocked}
-          lockHint="ابتدا مدل ابرو"
-        >
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-5">
-            {BROW_COLORS.map((color) => {
-              const isSelected = selectedColor?.hex === color.hex;
-              return (
-                <div key={color.hex} className="group relative">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedColor(color);
-                      setStatus('idle');
-                      setResult(null);
-                      setError(null);
-                    }}
-                    aria-pressed={isSelected}
-                    aria-label={color.name}
-                    title={color.name}
-                    className={`h-12 w-12 rounded-full transition-all duration-300 ${
-                      isSelected
-                        ? 'scale-105 ring-2 ring-white ring-offset-4 ring-offset-card'
-                        : 'ring-1 ring-white/20 hover:scale-105 hover:ring-gold/60'
-                    }`}
-                    style={{ backgroundColor: color.hex }}
-                  />
-                  <span className="tooltip">{color.name}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <p className="mt-5 text-xs text-mist">
-            {selectedColor ? (
-              <>
-                رنگ انتخابی:{' '}
-                <span className="font-bold text-gold">{selectedColor.name}</span>{' '}
-                <span className="font-mono text-[11px] text-mist/80">({selectedColor.hex})</span>
-              </>
-            ) : (
-              'روی هر دایره بمانید تا نام فارسی رنگ را ببینید.'
-            )}
-          </p>
-        </StepSection>
-
-        {/* --------------------------- ۳) آپلود عکس -------------------------- */}
-        <StepSection
-          index="۳"
           title="عکس چهره خود را آپلود کنید"
           subtitle="عکس واضح، روبه‌رو و بدون فیلتر بهترین نتیجه را می‌دهد"
           locked={!uploadUnlocked}
-          lockHint="ابتدا مدل و رنگ"
+          lockHint="ابتدا مدل"
         >
           <div
             role="button"
@@ -725,9 +670,9 @@ export default function HomePage() {
 
         {/* ---------------------------- ۴) دکمهٔ ساخت -------------------------- */}
         <StepSection
-          index="۴"
+          index="۳"
           title="پیش‌نمایش هوشمند را بسازید"
-          subtitle="ترکیب مدل، رنگ و عکس شما در یک تصویر"
+          subtitle="ترکیب مدل و عکس شما در یک تصویر"
           locked={false}
         >
           <button
@@ -748,7 +693,7 @@ export default function HomePage() {
 
           {!generateUnlocked ? (
             <p className="mt-4 text-center text-xs text-mist">
-              برای فعال شدن دکمه، انتخاب مدل ابرو، انتخاب رنگ و آپلود عکس لازم است.
+              برای فعال شدن دکمه، انتخاب مدل ابرو و آپلود عکس لازم است.
             </p>
           ) : (
             <p className="mt-4 text-center text-[11px] text-mist/80">
@@ -883,13 +828,6 @@ export default function HomePage() {
               <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-mist">
                 <span>
                   مدل: <span className="font-bold text-white">{selectedStyle?.label}</span>
-                </span>
-                <span className="flex items-center gap-2">
-                  رنگ: <span className="font-bold text-white">{selectedColor?.name}</span>
-                  <span
-                    className="inline-block h-3 w-3 rounded-full ring-1 ring-white/25"
-                    style={{ backgroundColor: selectedColor?.hex }}
-                  />
                 </span>
                 {typeof result.ms === 'number' && !result.demo ? (
                   <span>زمان ساخت: {(result.ms / 1000).toFixed(1)} ثانیه</span>
