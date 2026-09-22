@@ -101,29 +101,7 @@ gunicorn giso.wsgi:application --bind 0.0.0.0:5001 --workers 2
 | پنل کاربر سایت | `giso/panel_user/` |
 | مدل‌ها / دیتابیس | `giso/models.py` → `giso/data/giso.db` |
 | تم‌ها (۲ تم قابل انتخاب: `original` ← مسیر هوشمند گیسو، `smart_assistant` ← دستیار هوشمند؛ مقادیر تاریخی به `smart_assistant` نگاشت می‌شوند) | `giso/static/css/home_original.css`, `theme_experiences.css`, `panel/modules/settings.py` |
-
----
-
-## ۵.۱ بخش چهارم — پیش‌نمایش هوشمند ابرو (`beauty-preview/`)
-
-> راهنمای فنی کامل این بخش: [`beauty-preview/README.md`](beauty-preview/README.md)
-
-**چیست:** وب‌اپ تک‌صفحه‌ای **Next.js 14 + TypeScript + Tailwind** (RTL، فارسی، فونت وزیرمتن) برای
-پیش‌نمایش میکروبلیدینگ ابرو. کاربر مدل ابرو (۴ سبک) و رنگ (۶ رنگ) را انتخاب می‌کند، عکس چهره را
-آپلود می‌کند و تصویر «قبل/بعد» را با اسلایدر مقایسه می‌بیند؛ سپس دانلود یا رزرو نوبت در واتساپ.
-
-- **اجرا:** `cd beauty-preview && npm install && cp .env.example .env.local && npm run dev` → پورت **3000**
-- **معماری:** تنها صفحه در `app/page.tsx`، تنها روت سرور در `app/api/generate/route.ts`
-- **زنجیرهٔ جایگزین AI:** Runware → SiliconFlow → AIMLAPI → Pollinations (کلید خالی = skip؛ خطا = پروایدر بعدی)
-- **تصاویر SVG ابرو:** تولیدی و قطعی در `lib/brow-shapes.ts` (بدون چهره، پس‌زمینهٔ شفاف)
-- **تست زنجیره بدون کلید واقعی:** `npm run test:chain` (سرور mock + ۵ سناریو)
-- **حالت نمایشی:** اگر هیچ کلید API‌ای نباشد (`DEMO_MODE=auto`)، شکل ابرو محلی روی عکس کشیده می‌شود
-  تا کل مسیر صفحه قابل تست باشد و با برچسب شفاف «حالت نمایشی» نمایش داده می‌شود.
-- **قواعد:** بدون دیتابیس/auth/پنل؛ کلیدهای API فقط سمت سرور؛ بدون هیچ بستهٔ PWA.
-
----
-
-## ۶. قوانین ثابت توسعه
+# ۶. قوانین ثابت توسعه
 
 1. کار فقط روی برنچ فعال؛ commit/push مستقیم به برنچ‌های مرجع ممنوع.
 2. `bot_edu/` و `web/` تغییر نمی‌کنند (LOCKED) مگر دستور صریح و مستند.
