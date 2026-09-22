@@ -32,10 +32,7 @@ interface GenerateBody {
   colorHex?: unknown;
 }
 
-/**
- * ثبت رویداد «پیش‌نمایش» برای پنل مدیریت (data/stats.json).
- * این کار هرگز نباید پاسخ کاربر را خراب کند؛ پس خطاهایش نادیده گرفته می‌شوند.
- */
+/** ثبت رویداد «پیش‌نمایش» برای پنل مدیریت. خطاهای آن نادیده گرفته می‌شوند. */
 function trackPreview(styleKey: string): void {
   void recordEvent({
     type: 'preview',
@@ -85,10 +82,14 @@ function isDemoActive(): boolean {
 }
 
 export async function POST(request: Request): Promise<NextResponse<GenerateSuccess | GenerateFailure>> {
+  const requestStartedAt = Date.now();
+  console.error('[AI-GENERATE] START');
+
   let body: GenerateBody;
   try {
     body = (await request.json()) as GenerateBody;
   } catch {
+    console.error('[AI-GENERATE] BAD_REQUEST | invalid JSON');
     return badRequest('بدنهٔ درخواست نامعتبر است (JSON خوانده نشد).');
   }
 
@@ -122,6 +123,7 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   // شکل ابرو را با همان عکس محلی ترکیب می‌کند.
   if (isDemoActive()) {
     trackPreview(knownStyle?.key ?? style);
+    console.error(`[AI-GENERATE] DEMO_SUCCESS | duration=${Date.now() - requestStartedAt}ms`);
     return NextResponse.json({
       ok: true,
       provider: 'demo',
@@ -136,6 +138,9 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   try {
     const result = await generateWithFallback({ prompt, image });
     trackPreview(knownStyle?.key ?? style);
+    console.error(
+      `[AI-GENERATE] SUCCESS | provider=${result.provider.id} | duration=${Date.now() - requestStartedAt}ms`,
+    );
     return NextResponse.json({
       ok: true,
       provider: result.provider.id,
@@ -148,6 +153,15 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   } catch (error) {
     const attempts = (error as { attempts?: AttemptLog[] })?.attempts ?? [];
     const message = error instanceof Error ? error.message : 'خطای ناشناخته در ساخت تصویر';
+    const failedSummary = attempts
+      .filter((attempt) => !attempt.ok && attempt.error)
+      .map((attempt) => `${attempt.provider}=${attempt.error}`)
+      .join(' | ');
+
+    console.error(
+      `[AI-GENERATE] FAILED | status=502 | duration=${Date.now() - requestStartedAt}ms | ${failedSummary || message}`,
+    );
+
     return NextResponse.json({ ok: false, error: message, attempts }, { status: 502 });
   }
 }
