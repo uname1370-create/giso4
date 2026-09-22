@@ -15,6 +15,7 @@ import { generateWithFallback, configuredProviders } from '@/providers';
 import { parseDataUri } from '@/providers/http';
 import type { AttemptLog } from '@/providers/types';
 import { recordEvent } from '@/stats';
+import { applyVisionQuality } from '@/vision';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -137,6 +138,8 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   /* --------------------------- زنجیرهٔ پروایدرها --------------------------- */
   try {
     const result = await generateWithFallback({ prompt, image });
+    const vision = await applyVisionQuality(image.dataUri, result.image, 'eyebrows');
+    const finalImage = vision?.result ?? result.image;
     trackPreview(knownStyle?.key ?? style);
     console.error(
       `[AI-GENERATE] SUCCESS | provider=${result.provider.id} | duration=${Date.now() - requestStartedAt}ms`,
@@ -145,7 +148,7 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
       ok: true,
       provider: result.provider.id,
       providerLabel: result.provider.label,
-      resultUrl: result.image,
+      resultUrl: finalImage,
       demo: false,
       attempts: result.attempts,
       ms: result.ms,
