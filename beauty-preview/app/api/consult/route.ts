@@ -48,6 +48,7 @@ INPUTS YOU RECEIVE:
 2. SELECTED_SERVICE — one of: eyebrows | lips | eyeliner | removal.
 3. INITIAL_STYLE — the style/technique the client pre-selected.
 4. FACE_METRICS — optional pre-computed browser measurements (face ratios, symmetry, distances). Treat these as measured hints, not guesses. If a metric contradicts what you see, trust the PHOTO and flag the metric as unreliable.
+5. CLIENT_TASTE — the client's stated taste (daily makeup intensity, brow shape, density). Respect it when shaping option params; morphology and safety always win over taste.
 
 ANALYSIS PROTOCOL (apply in this exact order):
 A. FACE MORPHOLOGY — Classify face shape (oval | round | square | oblong | heart | diamond) using proportions + jaw/forehead reading. Apply the classical thirds (hairline-brow-nose-chin) and fifths (five eye widths) proportion check. Score overall symmetry 0-100.
@@ -148,6 +149,7 @@ interface ConsultBody {
   service?: unknown;
   initialStyle?: unknown;
   faceMetrics?: unknown;
+  preferences?: unknown;
 }
 
 export interface ConsultOption {
@@ -279,10 +281,12 @@ async function callCloudflareVision(
   service: string,
   initialStyle: string,
   faceMetrics: unknown,
+  clientTaste: string,
 ): Promise<ConsultPrescription> {
   const userText = [
     `SELECTED_SERVICE: ${service}`,
     `INITIAL_STYLE: ${initialStyle || 'client_has_no_preference'}`,
+    `CLIENT_TASTE: ${clientTaste}`,
     `FACE_METRICS: ${faceMetrics ? JSON.stringify(faceMetrics).slice(0, 2000) : 'none'}`,
     'Analyze CUSTOMER_PHOTO per the ARIA protocol and call pmu_prescription exactly once.',
   ].join('\n');
@@ -396,6 +400,29 @@ export async function POST(request: Request): Promise<NextResponse> {
   const service = typeof body.service === 'string' ? body.service.trim() : '';
   const initialStyle = typeof body.initialStyle === 'string' ? body.initialStyle.trim() : '';
 
+  // سلیقه کاربر (اختیاری): فقط مقادیر شناخته‌شده پذیرفته می‌شود
+  const rawTaste =
+    body.preferences && typeof body.preferences === 'object'
+      ? (body.preferences as Record<string, unknown>)
+      : {};
+  const tasteOf = (value: unknown, allowed: string[]): string | null =>
+    typeof value === 'string' && allowed.includes(value) ? value : null;
+  const taste = {
+    dailyMakeup: tasteOf(rawTaste.dailyMakeup, ['natural', 'soft', 'bold']),
+    browShape: tasteOf(rawTaste.browShape, ['natural', 'defined']),
+    density: tasteOf(rawTaste.density, ['fluffy', 'dense']),
+  };
+  const tasteText = [
+    taste.dailyMakeup ? `daily makeup ${taste.dailyMakeup}` : '',
+    taste.browShape ? `brow shape ${taste.browShape}` : '',
+    taste.density ? `density ${taste.density}` : '',
+  ]
+    .filter(Boolean)
+    .join('; ');
+  const clientTasteLine = tasteText
+    ? `${tasteText} — respect this taste in option params (density/depth), never override safety or morphology.`
+    : 'no taste stated';
+
   if (!imageBase64) {
     return NextResponse.json({ ok: false, error: 'عکس چهره ارسال نشده است.' }, { status: 400 });
   }
@@ -410,11 +437,19 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // بدون کلید: نسخه نمایشی تا فلو UX نخوابد
   if (configured.length === 0) {
+    const prescription = buildDemoPrescription(service, initialStyle);
+    // بازتاب سلیقه در نسخه نمایشی (مسیر واقعی در پرامپت LLM اعمال می‌شود)
+    for (const opt of prescription.options) {
+      if (taste.dailyMakeup === 'bold') opt.params.pigment_depth = 'rich';
+      else if (taste.dailyMakeup === 'natural') opt.params.pigment_depth = 'sheer';
+      if (taste.density === 'dense') opt.params.stroke_density = 0.8;
+      else if (taste.density === 'fluffy') opt.params.stroke_density = 0.45;
+    }
     return NextResponse.json({
       ok: true,
       demo: true,
       provider: 'demo',
-      prescription: buildDemoPrescription(service, initialStyle),
+      prescription,
       ms: Date.now() - startedAt,
     });
   }
@@ -428,6 +463,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         service,
         initialStyle,
         body.faceMetrics,
+        clientTasteLine,
       );
       return NextResponse.json({
         ok: true,

@@ -41,6 +41,7 @@ interface ConsultStepProps {
   initialStyleKey: string;
   initialStyleLabel: string;
   faceMetrics?: Record<string, unknown> | null;
+  preferences?: { dailyMakeup: string; browShape: string; density: string } | null;
   cacheKey: string;
   cachedData: ConsultPrescription | null;
   selectedOptionId: number;
@@ -82,6 +83,7 @@ export const ConsultStep: React.FC<ConsultStepProps> = ({
   initialStyleKey,
   initialStyleLabel,
   faceMetrics,
+  preferences,
   cacheKey,
   cachedData,
   selectedOptionId,
@@ -130,6 +132,7 @@ export const ConsultStep: React.FC<ConsultStepProps> = ({
         service: selectedService,
         initialStyle: initialStyleKey,
         faceMetrics: faceMetrics ?? null,
+        preferences: preferences ?? null,
       }),
     })
       .then(async (res) => {

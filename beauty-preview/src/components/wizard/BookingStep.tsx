@@ -23,6 +23,17 @@ interface BookingStepProps {
   onSubmit: (e: React.FormEvent) => void;
   onBack: () => void;
   onReset: () => void;
+  safety?: {
+    pregnantOrNursing: boolean;
+    skinAllergyOrKeloid: boolean;
+    specialMedication: boolean;
+  };
+  isSafetyRestricted?: boolean;
+  onSafetyChange?: (safety: {
+    pregnantOrNursing: boolean;
+    skinAllergyOrKeloid: boolean;
+    specialMedication: boolean;
+  }) => void;
 }
 
 export const BookingStep: React.FC<BookingStepProps> = ({
@@ -37,6 +48,9 @@ export const BookingStep: React.FC<BookingStepProps> = ({
   onSubmit,
   onBack,
   onReset,
+  safety,
+  isSafetyRestricted = false,
+  onSafetyChange,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const isGold = planTier === 'gold';
@@ -219,6 +233,34 @@ export const BookingStep: React.FC<BookingStepProps> = ({
             />
           </div>
 
+          {safety && onSafetyChange && (
+            <div className="p-4 rounded-xl bg-neutral-950 border border-neutral-800 space-y-2.5">
+              <p className="text-xs font-bold text-neutral-200">تأیید سلامت (قبل از رزرو):</p>
+              {(
+                [
+                  ['pregnantOrNursing', '۱. در دوران بارداری یا شیردهی قرار دارم.'],
+                  ['skinAllergyOrKeloid', '۲. سابقه حساسیت پوستی شدید، اگزمای موضعی یا تشکیل کلوئید (گوشت اضافه) دارم.'],
+                  ['specialMedication', '۳. داروی راکوتان (در ۶ ماه اخیر) یا داروی ضدانعقاد خون مصرف می‌کنم.'],
+                ] as const
+              ).map(([field, label]) => (
+                <label key={field} className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={safety[field]}
+                    onChange={(e) => onSafetyChange({ ...safety, [field]: e.target.checked })}
+                    className="mt-0.5 w-4 h-4 rounded accent-amber-500"
+                  />
+                  <span className="text-[11px] text-neutral-300 leading-relaxed">{label}</span>
+                </label>
+              ))}
+              {isSafetyRestricted && (
+                <p className="text-[11px] text-red-300 leading-relaxed bg-red-950/50 border border-red-500/40 rounded-lg p-2.5">
+                  ⚠️ با توجه به شرایط خاص شما، اجرای PMU نیاز به ویزیت حضوری داره — رزرو شما به‌صورت مشاوره حضوری ثبت می‌شه.
+                </p>
+              )}
+            </div>
+          )}
+
           <p className="text-[11px] text-neutral-500 text-center leading-relaxed">
             🔒 اطلاعات و عکس شما به صورت محرمانه نزد مرکز عسل رجبی محفوظ است.
           </p>
@@ -236,7 +278,11 @@ export const BookingStep: React.FC<BookingStepProps> = ({
               disabled={bookingSubmitting}
               className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-neutral-950 text-xs font-bold shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer text-center"
             >
-              {bookingSubmitting ? 'در حال ثبت...' : 'ثبت درخواست و دریافت کارت VIP ✨'}
+              {bookingSubmitting
+                ? 'در حال ثبت...'
+                : isSafetyRestricted
+                  ? 'رزرو مشاوره حضوری 🩺'
+                  : 'ثبت درخواست و دریافت کارت VIP ✨'}
             </button>
           </div>
         </form>
