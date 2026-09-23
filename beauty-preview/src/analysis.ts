@@ -114,6 +114,7 @@ JSON shape:
         image: imageDataUri,
         question: prompt,
         reasoning: false,
+        stream: false,
         temperature: 0.1,
         max_tokens: 1200,
       }),
