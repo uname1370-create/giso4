@@ -70,12 +70,12 @@ def build_target_mask(data: bytes, service: str) -> np.ndarray:
     right = _landmark_points(result, RIGHT_BROW, ww, wh)
     mask_small = np.zeros((wh, ww), dtype=np.uint8)
 
-    # Convex hull around the complete eyebrow contour. A small geometric
-    # expansion covers the hair strokes without reaching the eyelid.
+    # Convex hull around the complete eyebrow contour. Keep a small edit margin
+    # so sparse PMU strokes can extend naturally from a thin existing brow.
     for pts in (left, right):
         hull = cv2.convexHull(np.round(pts).astype(np.int32))
         center = pts.mean(axis=0)
-        expanded = center + (hull.reshape(-1, 2).astype(np.float32) - center) * 1.035
+        expanded = center + (hull.reshape(-1, 2).astype(np.float32) - center) * 1.06
         cv2.fillPoly(mask_small, [np.round(expanded).astype(np.int32)], 255)
 
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
@@ -138,3 +138,128 @@ def align_edited_to_original(original_data: bytes, edited_data: bytes) -> bytes:
     if not ok:
         raise ValueError("could not encode aligned image")
     return encoded.tobytes()
+
+
+def analyze_brow_photo(data: bytes) -> dict:
+    """Deterministic customer brow profile using the same MediaPipe geometry as masking."""
+    image = _decode(data)
+    height, width = image.shape[:2]
+    result, ww, wh = _detect_landmarks(image)
+
+    left = _landmark_points(result, LEFT_BROW, ww, wh)
+    right = _landmark_points(result, RIGHT_BROW, ww, wh)
+
+    def side_profile(points: np.ndarray) -> dict:
+        x_min, y_min = points.min(axis=0)
+        x_max, y_max = points.max(axis=0)
+        width_px = max(1.0, float(x_max - x_min))
+        height_px = max(1.0, float(y_max - y_min))
+        thickness_ratio = height_px / width_px
+        thickness = "thin" if thickness_ratio < 0.20 else "thick" if thickness_ratio > 0.32 else "medium"
+
+        # Brow contour is ordered from inner to outer. The vertical change gives
+        # a conservative growth-direction estimate without inventing anatomy.
+        dy = float(points[-1][1] - points[0][1])
+        growth = "upward_to_tail" if dy < -2 else "downward_to_tail" if dy > 2 else "mostly_horizontal"
+        arch_y = float(points[:, 1].min())
+        mean_y = float(points[:, 1].mean())
+        arch = "defined" if arch_y < mean_y - max(1.0, height_px * 0.16) else "soft"
+
+        return {
+            "start": "customer_existing_position",
+            "arch": arch,
+            "tail": "customer_existing_position",
+            "thickness": thickness,
+            "density": "measured_from_customer_pixels",
+            "growthDirection": growth,
+            "asymmetry": "preserve_customer_asymmetry",
+            "bbox": {
+                "x": round(x_min / width * 1000) / 1000,
+                "y": round(y_min / height * 1000) / 1000,
+                "width": round(width_px / width * 1000) / 1000,
+                "height": round(height_px / height * 1000) / 1000,
+            },
+        }
+
+    # Face shape is intentionally coarse. It is a routing hint, not a biometric claim.
+    face_points = _landmark_points(result, (10, 152, 234, 454), ww, wh)
+    face_w = max(1.0, float(face_points[:, 0].max() - face_points[:, 0].min()))
+    face_h = max(1.0, float(face_points[:, 1].max() - face_points[:, 1].min()))
+    ratio = face_h / face_w
+    face_shape = "long" if ratio > 1.55 else "wide" if ratio < 1.20 else "oval"
+
+    mask = build_target_mask(data, "eyebrows")
+    mask_bool = mask > 32
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    brow_pixels = gray[mask_bool]
+    if brow_pixels.size < 20:
+        raise ValueError("eyebrows not sufficiently visible")
+
+    # Compare brow-region darkness to a narrow local ring. This is used only for
+    # coarse density/tone classification, never to invent a precise pigment color.
+    ring = cv2.dilate(mask, np.ones((9, 9), np.uint8), iterations=1) > 32
+    ring = np.logical_and(ring, ~mask_bool)
+    skin_pixels = gray[ring]
+    darkness = float(np.median(skin_pixels) - np.median(brow_pixels)) if skin_pixels.size else 20.0
+    density = "low" if darkness < 22 else "medium" if darkness < 42 else "high"
+
+    brow_bgr = image[mask_bool]
+    median_bgr = np.median(brow_bgr, axis=0)
+    median_rgb = median_bgr[::-1]
+    r_mean, g_mean, b_mean = [float(x) for x in median_rgb]
+    if max(r_mean, g_mean, b_mean) < 65:
+        brow_tone = "very_dark"
+    elif r_mean > b_mean * 1.18 and g_mean > b_mean * 1.05:
+        brow_tone = "warm_brown"
+    elif abs(r_mean - b_mean) < 18:
+        brow_tone = "cool_neutral_brown"
+    else:
+        brow_tone = "natural_brown"
+
+    # Sample cheek-area pixels from stable face landmarks to estimate only a coarse
+    # undertone. It is deliberately broad because camera white balance is unknown.
+    cheek_points = _landmark_points(result, (50, 205, 280, 425), ww, wh)
+    samples = []
+    for x, y in cheek_points.astype(int):
+        x0, x1 = max(0, x - 8), min(width, x + 9)
+        y0, y1 = max(0, y - 8), min(height, y + 9)
+        samples.append(image[y0:y1, x0:x1].reshape(-1, 3))
+    skin = np.concatenate(samples, axis=0) if samples else np.empty((0, 3))
+    if skin.size:
+        sr, sg, sb = np.median(skin[:, ::-1], axis=0)
+        if sr > sb * 1.10 and sg >= sb * 0.98:
+            undertone = "warm"
+        elif sb > sr * 1.06:
+            undertone = "cool"
+        else:
+            undertone = "neutral"
+    else:
+        undertone = "neutral"
+
+    temperature = "warm" if undertone == "warm" or brow_tone == "warm_brown" else "cool" if undertone == "cool" else "neutral"
+    pigment_family = "natural_brown" if brow_tone != "very_dark" else "deep_natural_brown"
+    pigment_depth = "deep" if brow_tone == "very_dark" else "medium"
+
+    return {
+        "acceptable": True,
+        "reason": "good_photo",
+        "message": "عکس برای پیش‌نمایش مناسب است.",
+        "faceVisible": True,
+        "eyebrowsVisible": True,
+        "imageQuality": "good",
+        "faceShape": face_shape,
+        "browDensity": density,
+        "browThickness": side_profile(left)["thickness"],
+        "browArch": side_profile(left)["arch"],
+        "browSymmetry": "natural_asymmetry_preserved",
+        "hairTone": "inferred_from_visible_brow",
+        "browTone": brow_tone,
+        "skinUndertone": undertone,
+        "pigmentFamily": pigment_family,
+        "pigmentTemperature": temperature,
+        "pigmentDepth": pigment_depth,
+        "avoidPigments": ["pure_black", "strong_orange", "strong_red"],
+        "leftBrow": side_profile(left),
+        "rightBrow": side_profile(right),
+        "browEditZone": "existing_brow_plus_small_natural_margin",
+    }
