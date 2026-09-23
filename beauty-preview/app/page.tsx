@@ -3,903 +3,439 @@
 /**
  * app/page.tsx
  * ---------------------------------------------------------------------------
- * تنها صفحهٔ اپلیکیشن — پیش‌نمایش هوشمند ابرو (میکروبلیدینگ)
- *
- * مراحل:
- *   ۱) انتخاب مدل ابرو   ۲) انتخاب رنگ   ۳) آپلود عکس   ۴) دکمهٔ ساخت   ۵) نتیجه
- * تمام فراخوانی‌های هوش مصنوعی از طریق POST /api/generate و فقط سمت سرور
- * انجام می‌شود؛ هیچ کلید API‌ای در مرورگر نیست.
+ * ویزارد هوشمند ۶ مرحله‌ای استودیو PMU عسل رجبی (معماری کامپوننت‌بندی شده)
  * ---------------------------------------------------------------------------
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ReactCompareSlider,
-  ReactCompareSliderHandle,
-  ReactCompareSliderImage,
-} from 'react-compare-slider';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
-  DEMO_OVERLAY_SIZE,
   buildDemoOverlaySvg,
   svgToDataUri,
   type BrowStyleKey,
 } from '@/brow-shapes';
 import {
   ACCEPTED_MIME_TYPES,
-  ACCEPT_ATTRIBUTE,
-  EYEBROW_STYLES,
-  HERO_IMAGE_URL,
-  HERO_SUBTITLE,
-  HERO_TITLE,
-  INSTAGRAM_URL,
   MAX_FILE_SIZE_BYTES,
-  buildHeroWhatsAppLink,
-  buildWhatsAppLink,
-  styleSampleImage,
-  type EyebrowStyle,
 } from '@/options';
+import { StepIndicator } from '@/components/StepIndicator';
+import { SERVICES_CONTENT, type ServiceInfo } from '@/services-content';
+import { SERVICE_TECHNIQUES, type TechniqueStyleOption } from '@/techniques';
 
-/* -------------------------------------------------------------------------- */
-/* انواع و ابزارها                                                            */
-/* -------------------------------------------------------------------------- */
+// کامپوننت‌های ماژولار مراحل ویزارد
+import { HeroStep } from '@/components/wizard/HeroStep';
+import { ServiceSelectStep } from '@/components/wizard/ServiceSelectStep';
+import { UploadStep } from '@/components/wizard/UploadStep';
+import { SafetyCheckStep } from '@/components/wizard/SafetyCheckStep';
+import { PreferencesStep } from '@/components/wizard/PreferencesStep';
+import { PreviewStep } from '@/components/wizard/PreviewStep';
+import { BookingStep } from '@/components/wizard/BookingStep';
+import { AiChatWidget } from '@/components/AiChatWidget';
+import { type PlanTier } from '@/plan-config';
 
-type Status = 'idle' | 'loading' | 'success' | 'error';
+type ServiceType = 'eyebrows' | 'lips' | 'eyeliner' | 'removal';
+type WizardStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type GenerationStatus = 'idle' | 'loading' | 'success' | 'error';
 
-interface AttemptInfo {
-  provider?: string;
-  label: string;
-  ok: boolean;
-  error?: string;
+interface ClientPreferences {
+  dailyMakeup: 'natural' | 'soft' | 'bold';
+  browShape: 'natural' | 'defined';
+  density: 'fluffy' | 'dense';
 }
 
-interface GenerateResponse {
-  ok: boolean;
-  provider?: string;
-  providerLabel?: string;
-  resultUrl?: string;
-  demo?: boolean;
-  error?: string;
-  attempts?: AttemptInfo[];
-  ms?: number;
-  analysis?: PhotoAnalysis;
+interface MedicalSafetyCheck {
+  pregnantOrNursing: boolean;
+  skinAllergyOrKeloid: boolean;
+  specialMedication: boolean;
 }
 
-interface PhotoAnalysis {
-  acceptable: boolean;
-  message: string;
-  imageQuality: string;
-  hairTone: string;
-  browTone: string;
-  pigmentFamily: string;
-  pigmentTemperature: string;
-  pigmentDepth: string;
+interface BookingFormData {
+  fullName: string;
+  phoneNumber: string;
+  instagramId: string;
+  notes: string;
 }
 
-const LOADING_MESSAGES = [
-  'در حال ارسال تصویر به سرویس هوش مصنوعی…',
-  'تحلیل چهره و تشخیص خط ابرو…',
-  'اعمال میکروبلیدینگ با مدل و رنگ انتخابی…',
-  'آماده‌سازی پیش‌نمایش نهایی…',
+const WIZARD_STEPS = [
+  { id: 0, title: 'خانه' },
+  { id: 1, title: 'انتخاب خدمت' },
+  { id: 2, title: 'آپلود تصویر' },
+  { id: 3, title: 'بررسی ایمنی' },
+  { id: 4, title: 'سلیقه و انتخاب مدل' },
+  { id: 5, title: 'پیش‌نمایش هوشمند' },
+  { id: 6, title: 'رزرو نوبت' },
 ];
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} بایت`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} کیلوبایت`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} مگابایت`;
-}
-
-/** آیا همهٔ تلاش‌ها با خطای اتصال/شبکه رد شده‌اند؟ (سرور به اینترنت دسترسی ندارد) */
-function looksLikeNetworkFailure(attempts: AttemptInfo[] | undefined): boolean {
-  if (!attempts || attempts.length === 0) return false;
-  const networkPattern = /fetch failed|Connection error|ECONNRESET|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|زمان انتظار/i;
-  return attempts.every((attempt) => !attempt.ok && networkPattern.test(attempt.error ?? ''));
-}
-
-function isAcceptedMime(type: string): boolean {
-  return (ACCEPTED_MIME_TYPES as readonly string[]).includes(type) || type === 'image/jpg';
-}
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const element = new Image();
-    element.onload = () => resolve(element);
-    element.onerror = () => reject(new Error('بارگذاری تصویر ناموفق بود'));
-    element.src = src;
-  });
-}
-
-
-/** نمونهٔ مدل را به حداکثر 512px کاهش می‌دهد؛ محدودیت Multi-Reference Cloudflare. */
-async function prepareReferenceImage(src: string): Promise<string> {
-  const image = await loadImage(src);
-  const maxSide = 511;
-  const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || 1, image.naturalHeight || 1));
-  const width = Math.max(1, Math.round((image.naturalWidth || 512) * scale));
-  const height = Math.max(1, Math.round((image.naturalHeight || 512) * scale));
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('آماده‌سازی تصویر مرجع ناموفق بود');
-  ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(image, 0, 0, width, height);
-  return canvas.toDataURL('image/png');
-}
-
-function readFileAsDataUri(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('خواندن فایل ناموفق بود'));
-    reader.readAsDataURL(file);
-  });
-}
-
-/**
- * حالت نمایشی (وقتی هیچ کلید API تنظیم نشده باشد):
- * شکل ابرو با مدل و رنگ انتخابی، به‌صورت محلی و تقریبی روی عکس کشیده می‌شود.
- * این تصویر «شبیه‌سازی» است و نه خروجی واقعی هوش مصنوعی.
- */
-async function composeDemoPreview(
-  photoDataUri: string,
-  styleKey: BrowStyleKey,
-  colorHex: string,
-): Promise<string> {
-  const base = await loadImage(photoDataUri);
-  const width = base.naturalWidth || 1024;
-  const height = base.naturalHeight || 1024;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return photoDataUri;
-
-  ctx.drawImage(base, 0, 0, width, height);
-
-  const overlay = await loadImage(svgToDataUri(buildDemoOverlaySvg(styleKey, colorHex)));
-  const overlayWidth = width * 0.6;
-  const overlayHeight = overlayWidth * (DEMO_OVERLAY_SIZE.height / DEMO_OVERLAY_SIZE.width);
-
-  ctx.save();
-  ctx.globalAlpha = 0.92;
-  ctx.filter = 'blur(0.8px)';
-  ctx.drawImage(overlay, (width - overlayWidth) / 2, height * 0.315, overlayWidth, overlayHeight);
-  ctx.restore();
-
-  return canvas.toDataURL('image/jpeg', 0.92);
-}
-
-/* -------------------------------------------------------------------------- */
-/* اجزای کوچک                                                                 */
-/* -------------------------------------------------------------------------- */
-
-function StepSection({
-  index,
-  title,
-  subtitle,
-  locked,
-  lockHint,
-  children,
-  id,
-}: {
-  index: string;
-  title: string;
-  subtitle?: string;
-  locked: boolean;
-  lockHint?: string;
-  children: React.ReactNode;
-  id?: string;
-}) {
-  return (
-    <section
-      id={id}
-      className={`card transition-all duration-500 ${
-        locked ? 'opacity-45 saturate-50' : 'animate-fadeUp opacity-100'
-      }`}
-    >
-      <header className="mb-6 flex items-center gap-3">
-        <span className="step-badge">{index}</span>
-        <div className="min-w-0">
-          <h2 className="text-base font-extrabold sm:text-lg">{title}</h2>
-          {subtitle ? <p className="mt-1 text-xs text-mist">{subtitle}</p> : null}
-        </div>
-        {locked && lockHint ? (
-          <span className="ms-auto hidden shrink-0 rounded-full border border-white/10 px-3 py-1 text-[11px] text-mist/80 sm:block">
-            {lockHint}
-          </span>
-        ) : null}
-      </header>
-      <div className={locked ? 'pointer-events-none select-none' : undefined}>{children}</div>
-    </section>
-  );
-}
-
-function Spinner() {
-  return (
-    <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-ink/30 border-t-ink" />
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="mx-auto h-10 w-10 text-gold" aria-hidden="true">
-      <path
-        d="M12 16V4m0 0L8 8m4-4 4 4"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M4 15v2a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-2"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
-      <path
-        d="M12 4v12m0 0 4-4m-4 4-4-4M5 20h14"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function WhatsAppIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.28-1.38a9.9 9.9 0 0 0 4.76 1.21h.01c5.46 0 9.91-4.45 9.91-9.91A9.86 9.86 0 0 0 12.04 2Zm0 18.13h-.01a8.2 8.2 0 0 1-4.18-1.15l-.3-.18-3.11.82.83-3.04-.19-.31a8.16 8.16 0 0 1-1.25-4.36c0-4.54 3.7-8.24 8.25-8.24a8.2 8.2 0 0 1 5.83 2.42 8.18 8.18 0 0 1 2.42 5.83c0 4.54-3.7 8.24-8.29 8.24Zm4.52-6.17c-.25-.12-1.47-.72-1.69-.8-.23-.09-.39-.13-.56.12s-.64.8-.78.96c-.14.17-.29.19-.53.06a6.7 6.7 0 0 1-1.97-1.21 7.4 7.4 0 0 1-1.36-1.69c-.14-.25-.01-.38.11-.5.11-.11.25-.29.37-.43.12-.15.16-.25.25-.42.08-.16.04-.31-.02-.43-.06-.12-.55-1.34-.76-1.83-.2-.48-.4-.41-.55-.42h-.47c-.16 0-.42.06-.64.31-.22.25-.84.82-.84 2 0 1.18.86 2.32.98 2.48.12.17 1.68 2.57 4.07 3.6.57.25 1.01.39 1.36.5.57.18 1.09.16 1.5.1.46-.07 1.41-.58 1.61-1.13.2-.56.2-1.03.14-1.13-.06-.1-.22-.17-.47-.29Z" />
-    </svg>
-  );
-}
-
-function InstagramIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8" />
-      <circle cx="17.2" cy="6.8" r="1.15" fill="currentColor" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
-      <path d="m5 13 4.5 4.5L19 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* صفحهٔ اصلی                                                                  */
-/* -------------------------------------------------------------------------- */
-
 export default function HomePage() {
-  const [selectedStyle, setSelectedStyle] = useState<EyebrowStyle | null>(null);
-  const [selectedColor] = useState({ name: 'قهوه‌ای طبیعی', hex: '#8B6914' });
+  const [currentStep, setCurrentStep] = useState<WizardStep>(0);
+  const [selectedService, setSelectedService] = useState<ServiceType>('eyebrows');
+  const [planTier, setPlanTier] = useState<PlanTier>('gold');
+  const [tenantName, setTenantName] = useState<string>('استودیو تخصصی عسل رجبی');
+  const [customAssistantName, setCustomAssistantName] = useState<string>('');
 
-  const [photoDataUri, setPhotoDataUri] = useState<string | null>(null);
-  const [photoName, setPhotoName] = useState<string>('');
-  const [photoSize, setPhotoSize] = useState<number>(0);
-
-  const [dragging, setDragging] = useState(false);
-  const [fileError, setFileError] = useState<string | null>(null);
-
-  /**
-   * تصاویری که مدیر از پنل آپلود کرده ولی برای مرورگر قابل خواندن نبودند
-   * (۴۰۴) — برای همان‌ها به تصویر SVG خودکار برمی‌گردیم.
-   */
-  const [missingImages, setMissingImages] = useState<Record<string, boolean>>({});
-  /** اگر تصویر هیرو نباشد (یا خوانده نشود) پس‌زمینهٔ گرادیانی نمایش داده می‌شود */
-  const [heroAvailable, setHeroAvailable] = useState(true);
-
-  const [status, setStatus] = useState<Status>('idle');
-  const [loadingStep, setLoadingStep] = useState(0);
-  const [result, setResult] = useState<GenerateResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const resultRef = useRef<HTMLDivElement>(null);
-
-  /* --------------------------------- مشتقات -------------------------------- */
-  const samples = useMemo(
-    () =>
-      EYEBROW_STYLES.map((style) => {
-        const uploaded = !missingImages[style.key];
-        return {
-          style,
-          // اول تصویر واقعیِ آپلودشده از پنل، و اگر نبود تصویر SVG خودکار
-          src: uploaded ? style.imageUrl : styleSampleImage(style),
-          isPhoto: uploaded,
-        };
-      }),
-    [missingImages],
-  );
-
-  const uploadUnlocked = Boolean(selectedStyle);
-  const generateUnlocked = Boolean(selectedStyle && photoDataUri);
-  const canGenerate = generateUnlocked && status !== 'loading';
-
-  const whatsappLink = useMemo(() => {
-    if (!selectedStyle) return null;
-    return buildWhatsAppLink(selectedStyle.label, selectedColor.name);
-  }, [selectedStyle, selectedColor]);
-
-  /* ---------------------------- ثبت بازدید ---------------------------- */
-  // یک بازدید برای هر نشست مرورگر ثبت می‌شود (آمار پنل /admin) — بی‌صدا و بی‌خطا.
   useEffect(() => {
-    try {
-      if (window.sessionStorage.getItem('beauty_visit_counted')) return;
-      window.sessionStorage.setItem('beauty_visit_counted', '1');
-      void fetch('/api/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'visit' }),
-        keepalive: true,
-      });
-    } catch {
-      /* آمار نباید تجربهٔ کاربر را خراب کند */
-    }
+    fetch('/api/plan')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.ok && data.tenant) {
+          if (data.tenant.planTier) setPlanTier(data.tenant.planTier);
+          if (data.tenant.name) setTenantName(data.tenant.name);
+          if (data.tenant.customAssistantName) setCustomAssistantName(data.tenant.customAssistantName);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  /* --------------------------- پیام‌های در حال ساخت -------------------------- */
+  const [imageBase64, setImageBase64] = useState<string>('');
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>('');
+  const [uploadError, setUploadError] = useState<string>('');
+
+  const [educationalWarning, setEducationalWarning] = useState<string>('');
+
+  const [safety, setSafety] = useState<MedicalSafetyCheck>({
+    pregnantOrNursing: false,
+    skinAllergyOrKeloid: false,
+    specialMedication: false,
+  });
+
+  const isSafetyRestricted =
+    safety.pregnantOrNursing || safety.skinAllergyOrKeloid || safety.specialMedication;
+
+  const [preferences, setPreferences] = useState<ClientPreferences>({
+    dailyMakeup: 'natural',
+    browShape: 'natural',
+    density: 'fluffy',
+  });
+
+  const availableTechniques = useMemo<TechniqueStyleOption[]>(() => {
+    if (selectedService === 'removal') return [];
+    return SERVICE_TECHNIQUES[selectedService] || [];
+  }, [selectedService]);
+
+  const [selectedTechniqueKey, setSelectedTechniqueKey] = useState<string>('hairstroke');
+
   useEffect(() => {
-    if (status !== 'loading') {
-      setLoadingStep(0);
+    if (selectedService !== 'removal' && availableTechniques.length > 0) {
+      setSelectedTechniqueKey(availableTechniques[0].key);
+    }
+  }, [selectedService, availableTechniques]);
+
+  const activeTechnique = useMemo<TechniqueStyleOption | undefined>(() => {
+    return availableTechniques.find((t) => t.key === selectedTechniqueKey) || availableTechniques[0];
+  }, [availableTechniques, selectedTechniqueKey]);
+
+  // گوش دادن به اکشن‌های چت‌بات برای تغییر زنده مراحل
+  useEffect(() => {
+    const handleStepEvent = (e: Event) => {
+      const custom = e as CustomEvent<{ step: number }>;
+      if (custom.detail && typeof custom.detail.step === 'number') {
+        setCurrentStep(custom.detail.step as WizardStep);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('set_wizard_step', handleStepEvent);
+    return () => window.removeEventListener('set_wizard_step', handleStepEvent);
+  }, []);
+
+  const [genStatus, setGenStatus] = useState<GenerationStatus>('idle');
+  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [resultImage, setResultImage] = useState<string>('');
+  const [isDemo, setIsDemo] = useState(false);
+
+  const [booking, setBooking] = useState<BookingFormData>({
+    fullName: '',
+    phoneNumber: '',
+    instagramId: '',
+    notes: '',
+  });
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+
+  const handleFileSelection = useCallback((file: File) => {
+    setUploadError('');
+    setEducationalWarning('');
+
+    if (!ACCEPTED_MIME_TYPES.includes(file.type as (typeof ACCEPTED_MIME_TYPES)[number])) {
+      setUploadError('فرمت تصویر پشتیبانی نمی‌شود. لطفاً فایل JPG، PNG یا WEBP انتخاب نمایید.');
       return;
     }
-    const timer = setInterval(() => {
-      setLoadingStep((step) => (step + 1) % LOADING_MESSAGES.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [status]);
 
-  /* ------------------------- اسکرول به نتیجه پس از ساخت ------------------------ */
-  useEffect(() => {
-    if (status === 'success' && resultRef.current) {
-      resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [status, result]);
-
-  /* -------------------------------- فایل عکس ------------------------------- */
-  const handleFile = useCallback(async (file: File | undefined | null) => {
-    if (!file) return;
-    setFileError(null);
-
-    if (!isAcceptedMime(file.type)) {
-      setFileError('فقط فایل‌های JPG، PNG و WEBP پذیرفته می‌شوند.');
-      return;
-    }
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      setFileError(`حجم فایل ${formatBytes(file.size)} است؛ حداکثر ۵ مگابایت مجاز است.`);
+      setUploadError('حجم فایل بیش از ۵ مگابایت است. لطفاً عکس کم‌حجم‌تری انتخاب کنید.');
       return;
     }
 
-    try {
-      const dataUri = await readFileAsDataUri(file);
-      setPhotoDataUri(dataUri);
-      setPhotoName(file.name || 'تصویر آپلودشده');
-      setPhotoSize(file.size);
-      // با تغییر عکس، نتیجهٔ قبلی بی‌اعتبار می‌شود
-      setStatus('idle');
-      setResult(null);
-      setError(null);
-    } catch {
-      setFileError('خواندن فایل ناموفق بود. لطفاً دوباره تلاش کنید.');
-    }
+    const objectUrl = URL.createObjectURL(file);
+    setImagePreviewUrl(objectUrl);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const b64 = typeof reader.result === 'string' ? reader.result : '';
+      setImageBase64(b64);
+
+      try {
+        const res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: b64 }),
+        });
+        const data = await res.json();
+        if (data.ok && data.analysis && data.analysis.warningMessage) {
+          setEducationalWarning(data.analysis.warningMessage);
+        }
+      } catch {
+        // فلو متوقف نمی‌شود
+      }
+
+      setCurrentStep(3);
+    };
+    reader.readAsDataURL(file);
   }, []);
 
-  const removePhoto = useCallback(() => {
-    setPhotoDataUri(null);
-    setPhotoName('');
-    setPhotoSize(0);
-    setFileError(null);
-    setStatus('idle');
-    setResult(null);
-    setError(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  }, []);
-
-  /* --------------------------------- ساخت --------------------------------- */
-  const handleGenerate = useCallback(async () => {
-    if (!selectedStyle || !photoDataUri) {
-      setError('برای ساخت پیش‌نمایش، مدل ابرو و عکس چهره لازم است.');
+  const handleGeneratePreview = useCallback(async () => {
+    if (!imageBase64) {
+      setUploadError('تصویر چهره یافت نشد. لطفاً ابتدا عکس را بارگذاری نمایید.');
+      setCurrentStep(2);
       return;
     }
 
-    setStatus('loading');
-    setError(null);
-    setResult(null);
+    setGenStatus('loading');
+    setStatusMessage('در حال اسکن بیومتریک چهره و اعمال پیگمنت‌های نانو...');
+    setResultImage('');
 
     try {
-      const res = await fetch('/api/generate', {
+      const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imageBase64: photoDataUri,
-          style: selectedStyle.label,
-          // رنگ از تحلیل واقعی عکس تعیین می‌شود؛ این فیلدهای قدیمی عمداً ارسال نمی‌شوند.
-          referenceImageBase64: await prepareReferenceImage(selectedStyle.imageUrl || styleSampleImage(selectedStyle)).catch(() => prepareReferenceImage(styleSampleImage(selectedStyle))),
+          imageBase64,
+          style: activeTechnique?.label || 'طبیعی',
+          colorName: 'طبیعی چهره',
+          colorHex: '#3D2817',
+          preferences: {
+            ...preferences,
+            lipLook: selectedService === 'lips' ? selectedTechniqueKey : undefined,
+            eyelinerLook: selectedService === 'eyeliner' ? selectedTechniqueKey : undefined,
+          },
         }),
       });
 
-      const data = (await res.json()) as GenerateResponse;
+      const data = await response.json();
 
-      if (!res.ok || !data.ok) {
-        setError(data?.error || 'ساخت پیش‌نمایش ناموفق بود. لطفاً دوباره تلاش کنید.');
-        setResult(data);
-        setStatus('error');
+      if (!response.ok || !data.ok) {
+        setGenStatus('error');
+        setStatusMessage(data.error || 'خطا در تولید پیش‌نمایش هوشمند.');
         return;
       }
 
-      // حالت نمایشی: شکل ابرو به‌صورت محلی و تقریبی روی عکس کشیده می‌شود
       if (data.demo) {
-        try {
-          const composed = await composeDemoPreview(
-            photoDataUri,
-            selectedStyle.key,
-            selectedColor.hex,
-          );
-          setResult({ ...data, resultUrl: composed });
-        } catch {
-          setResult({ ...data, resultUrl: photoDataUri });
-        }
-        setStatus('success');
-        return;
+        setIsDemo(true);
+        const demoSvg = svgToDataUri(
+          buildDemoOverlaySvg(
+            selectedService === 'eyebrows' ? (selectedTechniqueKey as BrowStyleKey) : 'hairstroke',
+            '#78522A',
+          ),
+        );
+        setResultImage(demoSvg);
+      } else {
+        setIsDemo(false);
+        setResultImage(data.resultUrl);
       }
 
-      if (!data.resultUrl) {
-        setError('پاسخ سرویس بدون تصویر بود. لطفاً دوباره تلاش کنید.');
-        setResult(data);
-        setStatus('error');
-        return;
-      }
-
-      setResult(data);
-      setStatus('success');
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? `خطای شبکه: ${requestError.message}`
-          : 'خطای ناشناخته در ارتباط با سرور.',
-      );
-      setStatus('error');
+      setGenStatus('success');
+      setStatusMessage('');
+    } catch {
+      setGenStatus('error');
+      setStatusMessage('خطا در برقراری ارتباط با سرور.');
     }
-  }, [photoDataUri, selectedStyle, selectedColor]);
+  }, [imageBase64, activeTechnique, preferences, selectedService, selectedTechniqueKey]);
 
-  /* --------------------------------- دانلود -------------------------------- */
-  const handleDownload = useCallback(async () => {
-    const url = result?.resultUrl;
-    if (!url) return;
-
-    const fileName = `microblading-${selectedStyle?.key ?? 'preview'}.jpg`;
+  const handleBookingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBookingSubmitting(true);
+    setBookingError('');
 
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = objectUrl;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
-    } catch {
-      // در بدترین حالت، تصویر در تب جدید باز می‌شود تا کاربر ذخیره کند
-      window.open(url, '_blank', 'noopener,noreferrer');
+      const payload = {
+        fullName: booking.fullName,
+        phoneNumber: booking.phoneNumber,
+        instagramId: booking.instagramId,
+        selectedService,
+        selectedStyle:
+          selectedService === 'removal'
+            ? 'ریمو تخصصی تاتو'
+            : `${SERVICES_CONTENT[selectedService]?.title} (${activeTechnique?.label})`,
+        notes: booking.notes,
+        originalImageData: imageBase64 || undefined,
+        resultImageData: resultImage || undefined,
+      };
+
+      const res = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'خطا در ثبت نوبت');
+      }
+
+      setBookingSuccess(true);
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : 'خطایی رخ داد.');
+    } finally {
+      setBookingSubmitting(false);
     }
-  }, [result, selectedStyle]);
+  };
 
-  /* ---------------------------------- UI ---------------------------------- */
+  const currentServiceInfo: ServiceInfo = SERVICES_CONTENT[selectedService];
+
   return (
-    <>
-      {/* ======================= هیرو (تصویر پنل مدیریت) ======================= */}
-      {/* اگر مدیر از پنل تصویر آپلود کرده باشد نمایش داده می‌شود، وگرنه همان
-          پس‌زمینهٔ گرادیانی طلایی می‌ماند. ارتفاع ثابت ۳۲۰ پیکسل. */}
-      <section className="relative h-[320px] w-full overflow-hidden border-b border-gold/15 bg-[linear-gradient(135deg,#120F08_0%,#0A0A0A_45%,#17120A_100%)]">
-        {heroAvailable ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={HERO_IMAGE_URL}
-            alt="سالن زیبایی عسل رجبی"
-            onError={() => setHeroAvailable(false)}
-            className="absolute inset-0 h-full w-full object-cover"
-          />
-        ) : null}
+    <main className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col justify-between selection:bg-amber-500 selection:text-neutral-950 font-[family-name:var(--font-vazirmatn)]">
+      {/* سربرگ لوکس VIP */}
+      <header className="border-b border-neutral-800/80 bg-neutral-950/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div
+            onClick={() => setCurrentStep(0)}
+            className="flex items-center gap-3 cursor-pointer group"
+          >
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-600 via-amber-400 to-amber-200 flex items-center justify-center text-neutral-950 font-black text-xs shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform border border-amber-300/40">
+              AR
+            </div>
+            <div>
+              <span className="text-sm md:text-base font-bold tracking-wide text-neutral-100 group-hover:text-amber-400 transition-colors">
+                عسل رجبی
+              </span>
+              <span className="text-[10px] text-emerald-400 block -mt-0.5 font-medium tracking-widest">
+                PMU STUDIO • MASHHAD
+              </span>
+            </div>
+          </div>
 
-        {/* لایهٔ تیره تا متن روی هر تصویری خوانا بماند */}
-        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/70 to-ink/40" />
-
-        <div className="relative mx-auto flex h-full w-full max-w-5xl flex-col items-center justify-center px-4 text-center">
-          <h1 className="text-4xl font-black tracking-tight text-gold drop-shadow-[0_2px_18px_rgba(0,0,0,0.75)] sm:text-5xl">
-            {HERO_TITLE}
-          </h1>
-          <p className="mt-4 max-w-xl text-sm leading-7 text-white/90 sm:text-base">
-            {HERO_SUBTITLE}
-          </p>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-            <a
-              href={buildHeroWhatsAppLink()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-gold !px-6 !py-3 !text-sm"
-            >
-              <WhatsAppIcon />
-              مشاوره و نوبت در واتساپ
-            </a>
-            <a
-              href={INSTAGRAM_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-outline !px-6 !py-3 !text-sm"
-            >
-              <InstagramIcon />
-              اینستاگرام
-            </a>
+          <div className="flex items-center gap-3 md:gap-4 text-xs">
+            <span className="text-neutral-400 hidden sm:inline">مشهد مقدس</span>
           </div>
         </div>
-      </section>
-
-      <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:py-16">
-      {/* ------------------------------- سربرگ ------------------------------- */}
-      <header className="text-center">
-        <p className="text-[11px] font-bold uppercase tracking-[0.4em] text-gold/80">BEAUTY STUDIO</p>
-        <h1 className="mt-5 text-3xl font-extrabold leading-tight sm:text-4xl">
-          پیش‌نمایش هوشمند <span className="text-gold">ابرو</span>
-        </h1>
-        <p className="mt-4 text-sm text-mist sm:text-base">
-          مدل میکروبلیدینگ را انتخاب کنید، عکس چهره‌تان را آپلود کنید و نتیجه را قبل از
-          نوبت‌گرفتن ببینید.
-        </p>
-        <div className="mx-auto mt-7 h-px w-44 bg-gradient-to-l from-transparent via-gold to-transparent" />
       </header>
 
-      <div className="mt-10 space-y-6 lg:mt-14">
-        {/* --------------------------- ۱) مدل ابرو --------------------------- */}
-        <StepSection
-          index="۱"
-          title="مدل ابرو را انتخاب کنید"
-          subtitle="چهار سبک محبوب میکروبلیدینگ"
-          locked={false}
-        >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {samples.map(({ style, src, isPhoto }) => {
-              const isSelected = selectedStyle?.key === style.key;
-              return (
-                <button
-                  key={style.key}
-                  type="button"
-                  onClick={() => {
-                    setSelectedStyle(style);
-                    setStatus('idle');
-                    setResult(null);
-                    setError(null);
-                  }}
-                  aria-pressed={isSelected}
-                  className={`group relative overflow-hidden rounded-2xl border p-4 text-center transition-all duration-300 ${
-                    isSelected
-                      ? 'border-gold bg-gold/[0.07] shadow-gold'
-                      : 'border-white/[0.08] bg-cardSoft hover:-translate-y-0.5 hover:border-gold/40'
-                  }`}
-                >
-                  <div className="mb-3 flex h-28 items-center justify-center rounded-xl bg-[radial-gradient(circle_at_50%_40%,rgba(212,175,55,0.12),transparent_65%)]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={src}
-                      alt={style.label}
-                      onError={
-                        isPhoto
-                          ? () => setMissingImages((prev) => ({ ...prev, [style.key]: true }))
-                          : undefined
-                      }
-                      className={
-                        isPhoto
-                          ? 'h-28 w-full rounded-lg object-cover transition group-hover:scale-[1.04]'
-                          : 'h-20 w-auto max-w-full opacity-95 transition group-hover:scale-[1.04]'
-                      }
-                      draggable={false}
-                    />
-                  </div>
-                  <span className="block text-sm font-bold">{style.label}</span>
-                  <span className="mt-1 block text-[11px] text-mist">{style.hint}</span>
-                  {isSelected ? (
-                    <span className="absolute end-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-gold text-ink">
-                      <CheckIcon />
-                    </span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </StepSection>
+      {/* محتوای ویزارد */}
+      <div className="flex-1 py-6 md:py-10 px-4 flex flex-col justify-center">
+        {currentStep === 0 && <HeroStep onStart={() => setCurrentStep(1)} />}
 
-        {/* --------------------------- ۲) آپلود عکس -------------------------- */}
-        <StepSection
-          index="۲"
-          title="عکس چهره خود را آپلود کنید"
-          subtitle="عکس واضح، روبه‌رو و بدون فیلتر بهترین نتیجه را می‌دهد"
-          locked={!uploadUnlocked}
-          lockHint="ابتدا مدل"
-        >
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                fileInputRef.current?.click();
-              }
-            }}
-            onDragOver={(event) => {
-              event.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(event) => {
-              event.preventDefault();
-              setDragging(false);
-              void handleFile(event.dataTransfer.files?.[0]);
-            }}
-            className={`cursor-pointer rounded-2xl border border-dashed px-6 py-9 text-center transition-all duration-300 ${
-              dragging
-                ? 'border-gold bg-gold/10'
-                : 'border-white/15 hover:border-gold/50 hover:bg-white/[0.02]'
-            }`}
-          >
-            <UploadIcon />
-            <p className="mt-4 text-sm font-bold">عکس چهره خود را آپلود کنید</p>
-            <p className="mt-2 text-xs text-mist">
-              فایل را اینجا رها کنید یا کلیک کنید — JPG، PNG یا WEBP، حداکثر ۵ مگابایت
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPT_ATTRIBUTE}
-              className="hidden"
-              onChange={(event) => void handleFile(event.target.files?.[0])}
+        {currentStep > 0 && (
+          <div className="max-w-4xl mx-auto w-full">
+            <StepIndicator
+              currentStep={currentStep}
+              steps={WIZARD_STEPS}
+              onStepClick={(s: number) => {
+                if (s > 3 && isSafetyRestricted) return;
+                setCurrentStep(s as WizardStep);
+              }}
             />
-          </div>
 
-          {fileError ? (
-            <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-xs font-semibold text-red-200">
-              {fileError}
-            </p>
-          ) : null}
-
-          {photoDataUri ? (
-            <div className="mt-5 flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-cardSoft p-3">
-              <img
-                src={photoDataUri}
-                alt="پیش‌نمایش عکس آپلودشده"
-                className="h-16 w-16 rounded-xl object-cover ring-1 ring-white/10"
+            {currentStep === 1 && (
+              <ServiceSelectStep
+                selectedService={selectedService}
+                planTier={planTier}
+                onSelectService={(s) => setSelectedService(s)}
+                onBack={() => setCurrentStep(0)}
+                onNext={() => {
+                  if (selectedService === 'removal') setCurrentStep(5);
+                  else setCurrentStep(2);
+                }}
               />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold">{photoName}</p>
-                <p className="mt-1 text-[11px] text-mist">{formatBytes(photoSize)}</p>
-              </div>
-              <button type="button" onClick={removePhoto} className="btn-outline !px-4 !py-2 text-xs">
-                حذف عکس
-              </button>
-            </div>
-          ) : null}
-        </StepSection>
-
-        {/* ---------------------------- ۴) دکمهٔ ساخت -------------------------- */}
-        <StepSection
-          index="۳"
-          title="پیش‌نمایش هوشمند را بسازید"
-          subtitle="ترکیب مدل و عکس شما در یک تصویر"
-          locked={false}
-        >
-          <button
-            type="button"
-            disabled={!canGenerate}
-            onClick={() => void handleGenerate()}
-            className="btn-gold w-full text-lg"
-          >
-            {status === 'loading' ? (
-              <>
-                <Spinner />
-                <span>{LOADING_MESSAGES[loadingStep]}</span>
-              </>
-            ) : (
-              'ایجاد پیش‌نمایش هوشمند'
             )}
-          </button>
 
-          {!generateUnlocked ? (
-            <p className="mt-4 text-center text-xs text-mist">
-              برای فعال شدن دکمه، انتخاب مدل ابرو و آپلود عکس لازم است.
-            </p>
-          ) : (
-            <p className="mt-4 text-center text-[11px] text-mist/80">
-              ساخت تصویر ممکن است تا یک دقیقه زمان ببرد؛ لطفاً صفحه را نبندید.
-            </p>
-          )}
+            {currentStep === 2 && (
+              <UploadStep
+                currentServiceInfo={currentServiceInfo}
+                imagePreviewUrl={imagePreviewUrl}
+                uploadError={uploadError}
+                educationalWarning={educationalWarning}
+                onFileSelect={handleFileSelection}
+                onBack={() => setCurrentStep(1)}
+                onNext={() => setCurrentStep(3)}
+              />
+            )}
 
-          {status === 'error' && error ? (
-            <div className="mt-5 rounded-2xl border border-red-400/30 bg-red-500/10 p-4">
-              <p className="text-xs font-bold text-red-100">خطا در ساخت پیش‌نمایش</p>
-              <p className="mt-2 text-xs leading-6 text-red-100/90">{error}</p>
+            {currentStep === 3 && (
+              <SafetyCheckStep
+                currentServiceInfo={currentServiceInfo}
+                imagePreviewUrl={imagePreviewUrl}
+                educationalWarning={educationalWarning}
+                safety={safety}
+                isSafetyRestricted={isSafetyRestricted}
+                onSafetyChange={(newSafety) => setSafety(newSafety)}
+                onBack={() => setCurrentStep(2)}
+                onNext={() => setCurrentStep(4)}
+              />
+            )}
 
-              {result?.attempts?.length ? (
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-[11px] text-red-100/70">
-                    جزئیات فنی تلاش سرویس‌ها
-                  </summary>
-                  <ul className="mt-2 space-y-1 text-[11px] text-red-100/70">
-                    {result.attempts.map((attempt, index) => (
-                      <li key={`${attempt.provider ?? attempt.label}-${index}`}>
-                        {attempt.ok ? '✓' : '✕'} {attempt.label}
-                        {attempt.error ? ` — ${attempt.error}` : ''}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
+            {currentStep === 4 && (
+              <PreferencesStep
+                currentServiceInfo={currentServiceInfo}
+                availableTechniques={availableTechniques}
+                selectedTechniqueKey={selectedTechniqueKey}
+                preferences={preferences}
+                onSelectTechnique={(key) => setSelectedTechniqueKey(key)}
+                onPreferencesChange={(p) => setPreferences(p)}
+                onBack={() => setCurrentStep(3)}
+                onNext={() => setCurrentStep(5)}
+              />
+            )}
 
-              {looksLikeNetworkFailure(result?.attempts) ? (
-                <p className="mt-3 rounded-xl border border-gold/30 bg-gold/10 px-3 py-2 text-[11px] leading-6 text-gold/90">
-                  <strong>نکته:</strong> همهٔ سرویس‌ها با خطای <em>اتصال</em> رد شده‌اند، نه با خطای
-                  کلید. یعنی این سرور به اینترنت دسترسی ندارد. اپ را روی کامپیوتر/سرور خودتان
-                  (<code>npm run dev</code>) اجرا کنید یا وضعیت کلیدها را با{' '}
-                  <code>/api/providers?check=1</code> ببینید.
-                </p>
-              ) : null}
+            {currentStep === 5 && (
+              <PreviewStep
+                selectedService={selectedService}
+                currentServiceInfo={currentServiceInfo}
+                planTier={planTier}
+                activeTechnique={activeTechnique}
+                genStatus={genStatus}
+                statusMessage={statusMessage}
+                resultImage={resultImage}
+                imagePreviewUrl={imagePreviewUrl}
+                isDemo={isDemo}
+                onGenerate={handleGeneratePreview}
+                onBack={() => setCurrentStep(4)}
+                onNext={() => setCurrentStep(6)}
+              />
+            )}
 
-              <p className="mt-3 text-[11px] text-red-100/70">
-                اگر همهٔ سرویس‌ها پاسخ ندهند، کلیدهای API را در فایل <code>.env</code> (یا{' '}
-                <code>.env.local</code>) بررسی کنید و با <code>/api/providers?check=1</code> تست
-                بگیرید.
-              </p>
-            </div>
-          ) : null}
-        </StepSection>
-
-        {/* ----------------------------- ۵) نتیجه ----------------------------- */}
-        <div ref={resultRef}>
-          {status === 'success' && result?.resultUrl && photoDataUri ? (
-            <section className="card animate-fadeUp">
-              <header className="mb-6 flex flex-wrap items-center gap-3">
-                <span className="step-badge">۵</span>
-                <div>
-                  <h2 className="text-base font-extrabold sm:text-lg">نتیجهٔ پیش‌نمایش</h2>
-                  <p className="mt-1 text-xs text-mist">
-                    دستگیرهٔ وسط را بکشید تا «قبل» و «بعد» را مقایسه کنید.
-                  </p>
-                </div>
-                <span className="ms-auto rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-[11px] font-bold text-gold">
-                  {result.demo ? 'حالت نمایشی (بدون کلید API)' : `ساخته‌شده با ${result.providerLabel}`}
-                </span>
-              </header>
-
-              <div className="giso-compare overflow-hidden rounded-2xl border border-white/[0.08] bg-black">
-                <ReactCompareSlider
-                  itemOne={
-                    <div className="relative h-full w-full">
-                      <ReactCompareSliderImage
-                        src={photoDataUri}
-                        alt="قبل"
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      />
-                      <span className="side-label left-4">قبل</span>
-                    </div>
-                  }
-                  itemTwo={
-                    <div className="relative h-full w-full">
-                      <ReactCompareSliderImage
-                        src={result.resultUrl}
-                        alt="بعد"
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      />
-                      <span className="side-label right-4">بعد</span>
-                    </div>
-                  }
-                  handle={
-                    <ReactCompareSliderHandle
-                      buttonStyle={{
-                        width: 46,
-                        height: 46,
-                        border: '2px solid #D4AF37',
-                        background: 'rgba(10,10,10,0.85)',
-                        color: '#D4AF37',
-                        boxShadow: '0 10px 30px -12px rgba(212,175,55,0.9)',
-                        backdropFilter: 'blur(6px)',
-                      }}
-                      linesStyle={{ color: 'rgba(212,175,55,0.85)', width: 2 }}
-                    />
-                  }
-                  style={{ width: '100%', height: 'min(68vh, 620px)' }}
-                />
-              </div>
-
-              {result.analysis ? (
-                <div className="mb-4 rounded-xl border border-gold/20 bg-gold/[0.05] px-4 py-3 text-[11px] leading-6 text-mist">
-                  <span className="font-bold text-gold">رنگ و تناژ طبیعی:</span>{' '}
-                  {result.analysis.pigmentFamily} · {result.analysis.pigmentTemperature} · {result.analysis.pigmentDepth}
-                  <span className="mx-2 text-white/20">|</span>
-                  <span>هماهنگ با رنگ طبیعی مو و ابرو</span>
-                </div>
-              ) : null}
-
-              {result.demo ? (
-                <p className="mt-4 rounded-xl border border-gold/25 bg-gold/[0.06] px-4 py-3 text-[11px] leading-6 text-gold/90">
-                  این تصویر <strong>شبیه‌سازی محلی</strong> است (چون هیچ کلید API فعالی تنظیم نشده)
-                  و شکل ابرو به‌صورت تقریبی روی عکس کشیده شده است. با وارد کردن کلید یکی از
-                  سرویس‌ها در فایل <code>.env.local</code>، پیش‌نمایش واقعی با هوش مصنوعی ساخته
-                  می‌شود.
-                </p>
-              ) : null}
-
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button type="button" onClick={() => void handleDownload()} className="btn-gold flex-1 !py-3.5 !text-base">
-                  <DownloadIcon />
-                  دانلود تصویر
-                </button>
-
-                {whatsappLink ? (
-                  <a
-                    href={whatsappLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-whatsapp flex-1 !py-3.5 !text-base"
-                  >
-                    <WhatsAppIcon />
-                    رزرو نوبت در واتساپ
-                  </a>
-                ) : null}
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] text-mist">
-                <span>
-                  مدل: <span className="font-bold text-white">{selectedStyle?.label}</span>
-                </span>
-                {typeof result.ms === 'number' && !result.demo ? (
-                  <span>زمان ساخت: {(result.ms / 1000).toFixed(1)} ثانیه</span>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => void handleGenerate()}
-                  className="ms-auto text-[11px] font-bold text-gold underline decoration-gold/40 underline-offset-4 transition hover:text-gold-soft"
-                >
-                  ساخت دوباره
-                </button>
-              </div>
-            </section>
-          ) : (
-            <section className="rounded-3xl border border-dashed border-white/[0.08] px-6 py-10 text-center">
-              <p className="text-sm font-bold text-mist">پیش‌نمایش شما اینجا نمایش داده می‌شود</p>
-              <p className="mt-2 text-xs text-mist/70">
-                با انتخاب مدل و آپلود عکس، دکمهٔ «ایجاد پیش‌نمایش هوشمند» فعال می‌شود.
-              </p>
-            </section>
-          )}
-        </div>
+            {currentStep === 6 && (
+              <BookingStep
+                currentServiceInfo={currentServiceInfo}
+                planTier={planTier}
+                activeTechnique={activeTechnique}
+                booking={booking}
+                bookingSuccess={bookingSuccess}
+                bookingSubmitting={bookingSubmitting}
+                bookingError={bookingError}
+                onBookingChange={(b) => setBooking(b)}
+                onSubmit={handleBookingSubmit}
+                onBack={() => setCurrentStep(5)}
+                onReset={() => {
+                  setBookingSuccess(false);
+                  setCurrentStep(0);
+                }}
+              />
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ------------------------------- پانویس ------------------------------ */}
-      <footer className="mt-12 border-t border-white/[0.06] pt-6 text-center text-[11px] leading-6 text-mist/70">
-        <p>
-          این پیش‌نمایش با هوش مصنوعی ساخته می‌شود و نتیجهٔ نهایی بستگی به پوست، مو و تکنیک اجرا
-          دارد. برای مشاورهٔ دقیق، در واتساپ پیام بدهید.
-        </p>
-        <p className="mt-3">میکروبلیدینگ تخصصی — خانم رجبی · تمام حقوق محفوظ است.</p>
+      <footer className="border-t border-neutral-900 bg-neutral-950/90 py-5 text-center text-xs text-neutral-500">
+        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <p>© {new Date().getFullYear()} {tenantName}</p>
+          <div className="flex items-center gap-3 text-[11px] text-neutral-400">
+            <span>طراحی اختصاصی با هوش مصنوعی و بینایی ماشین</span>
+          </div>
+        </div>
       </footer>
-      </main>
-    </>
+
+      {/* چت‌بات هوشمند مشاور با Feature Gate بر اساس پلن */}
+      <AiChatWidget planTier={planTier} customAssistantName={customAssistantName} />
+    </main>
   );
 }

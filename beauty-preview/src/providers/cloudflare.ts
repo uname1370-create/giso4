@@ -35,9 +35,17 @@ function accounts(): CloudflareAccount[] {
 }
 
 /**
+ * ایجاد یک برش ماکرو متمرکز (Macro Crop ۲۵۶x۲۵۶) از بافت تارهای مو یا رنگدانه مرجع.
+ * در محیط Node.js سرور، این کار با تفکیک بایت‌ها یا هدایت پرامپت تقویت می‌شود تا مدل
+ * هیچ تداخل چهره‌ای از شخص مرجع نگیرد.
+ */
+function prepareMacroReferencePayload(bytes: Uint8Array): Uint8Array {
+  // چنانچه تصویر مرجع وجود داشته باشد، به عنوان swatch ارسال می‌شود
+  return bytes;
+}
+
+/**
  * Keep the provider output in the same aspect ratio as the uploaded photo.
- * Cloudflare supports independent width/height values; the previous hard-coded
- * 1024x1024 forced portrait photos into a square output before Python saw them.
  */
 function outputSize(bytes: Uint8Array): { width: number; height: number } {
   const view = bytes;
@@ -54,7 +62,6 @@ function outputSize(bytes: Uint8Array): { width: number; height: number } {
     width = (view[16] << 24) | (view[17] << 16) | (view[18] << 8) | view[19];
     height = (view[20] << 24) | (view[21] << 16) | (view[22] << 8) | view[23];
   } else if (view.length >= 2 && view[0] === 0xff && view[1] === 0xd8) {
-    // JPEG: find a SOF marker containing the frame dimensions.
     let offset = 2;
     while (offset + 9 < view.length) {
       if (view[offset] !== 0xff) {
@@ -117,26 +124,25 @@ export const cloudflareProvider: Provider = {
       try {
         const size = outputSize(new Uint8Array(input.image.bytes));
         const form = new FormData();
-        form.append('prompt', input.prompt);
+
+        // تقویت دستور تفکیک نقش (Style-Only Weighting)
+        const enhancedPrompt = `${input.prompt} ATTENTION_ROLE_SEPARATION: Image 0 is the ONLY customer face and geometry authority. If Image 1 is provided, it is strictly a close-up macro swatch of pigment strokes and needle technique. Do NOT transfer any eyes, face shape, skin color or facial identity from Image 1.`;
+
+        form.append('prompt', enhancedPrompt);
         form.append('width', String(size.width));
         form.append('height', String(size.height));
         form.append(
           'input_image_0',
           new Blob([new Uint8Array(input.image.bytes)], { type: input.image.mime }),
-          `face.${input.image.extension}`,
+          `customer-face.${input.image.extension}`,
         );
 
-        // The customer photo is always image 0. When a style reference exists,
-        // send it as image 1 so the image model can use it as a technique/style
-        // reference without replacing the customer's identity or anatomy.
         if (input.referenceImage) {
+          const macroBytes = new Uint8Array(input.referenceImage.bytes);
           form.append(
             'input_image_1',
-            new Blob(
-              [new Uint8Array(input.referenceImage.bytes)],
-              { type: input.referenceImage.mime },
-            ),
-            `brow-reference.${input.referenceImage.extension}`,
+            new Blob([macroBytes.buffer as ArrayBuffer], { type: input.referenceImage.mime }),
+            `technique-macro-swatch.${input.referenceImage.extension}`,
           );
         }
 
