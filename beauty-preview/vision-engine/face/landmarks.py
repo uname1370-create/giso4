@@ -148,6 +148,10 @@ def analyze_brow_photo(data: bytes) -> dict:
 
     left = _landmark_points(result, LEFT_BROW, ww, wh)
     right = _landmark_points(result, RIGHT_BROW, ww, wh)
+    if ww != width or wh != height:
+        scale_x, scale_y = width / ww, height / wh
+        left = left * np.asarray([scale_x, scale_y], dtype=np.float32)
+        right = right * np.asarray([scale_x, scale_y], dtype=np.float32)
 
     def side_profile(points: np.ndarray) -> dict:
         x_min, y_min = points.min(axis=0)
@@ -183,6 +187,8 @@ def analyze_brow_photo(data: bytes) -> dict:
 
     # Face shape is intentionally coarse. It is a routing hint, not a biometric claim.
     face_points = _landmark_points(result, (10, 152, 234, 454), ww, wh)
+    if ww != width or wh != height:
+        face_points = face_points * np.asarray([width / ww, height / wh], dtype=np.float32)
     face_w = max(1.0, float(face_points[:, 0].max() - face_points[:, 0].min()))
     face_h = max(1.0, float(face_points[:, 1].max() - face_points[:, 1].min()))
     ratio = face_h / face_w
