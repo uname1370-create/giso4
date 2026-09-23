@@ -15,6 +15,7 @@ import { generateWithFallback, configuredProviders } from '@/providers';
 import { parseDataUri } from '@/providers/http';
 import type { AttemptLog } from '@/providers/types';
 import { recordEvent } from '@/stats';
+import { readSiteImage } from '@/site-images';
 import { applyVisionQuality } from '@/vision';
 
 export const runtime = 'nodejs';
@@ -111,7 +112,15 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   }
 
   const image = parseDataUri(imageBase64);
-  const referenceImage = referenceImageBase64 ? parseDataUri(referenceImageBase64) : null;
+
+  // The selected model's server-side uploaded asset is authoritative. This prevents
+  // the browser from accidentally pairing style A with reference image B.
+  let referenceImage = referenceImageBase64 ? parseDataUri(referenceImageBase64) : null;
+  const serverReference = await readSiteImage(knownStyle?.imagePath ?? '');
+  if (serverReference) {
+    const dataUri = `data:${serverReference.mime};base64,${serverReference.buffer.toString('base64')}`;
+    referenceImage = parseDataUri(dataUri);
+  }
   if (!image) {
     return badRequest('قالب تصویر پشتیبانی نمی‌شود. لطفاً عکس JPG، PNG یا WEBP آپلود کنید.');
   }
