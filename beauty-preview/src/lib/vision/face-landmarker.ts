@@ -8,7 +8,7 @@
  * ---------------------------------------------------------------------------
  */
 
-import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import { FaceLandmarker, FilesetResolver, type NormalizedLandmark } from '@mediapipe/tasks-vision';
 
 let landmarkerPromise: Promise<FaceLandmarker> | null = null;
 
@@ -34,4 +34,19 @@ export function getFaceLandmarker(): Promise<FaceLandmarker> {
     })();
   }
   return landmarkerPromise;
+}
+
+/**
+ * تشخیص چهره و برگرداندن لندمارک‌های نرمال‌شده اولین چهره (یا null).
+ * ورودی: هر ImageSource معتبر مدیاپایپ (img، canvas، bitmap و...).
+ */
+export async function detectFaceLandmarks(
+  image: Parameters<FaceLandmarker['detect']>[0],
+): Promise<NormalizedLandmark[] | null> {
+  const landmarker = await getFaceLandmarker();
+  const results = landmarker.detect(image);
+  if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+    return results.faceLandmarks[0];
+  }
+  return null;
 }
