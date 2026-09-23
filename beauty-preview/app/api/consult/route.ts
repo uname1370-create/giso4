@@ -2,8 +2,8 @@
  * app/api/consult/route.ts
  * ---------------------------------------------------------------------------
  * اندپوینت «مشاور کارشناس ARIA» — حلقه اول زنجیره هوش مصنوعی:
- *   عکس + خدمت + استایل اولیه → تحلیل Vision (زنجیره آزاد: LLaVA اصلی، Qwen پشتیبان) → نسخه ساخت‌یافته
- * فراخوانی بینایی بدون tool (JSON خام + Regex) با سقف ۸ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
+ *   عکس → توصیف چهره با LLaVA (۶ث) → نسخه JSON با gpt-oss-20b (۶ث) → نسخه ساخت‌یافته
+ * معماری دومرحله‌ای بدون tool (JSON خام + Regex) با سقف کل ۱۱٫۵ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
  * بدون کلید Cloudflare: نسخه نمایشی (demo) برمی‌گردد تا فلو UX نخوابد.
  * ---------------------------------------------------------------------------
  */
@@ -16,18 +16,19 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
-const ENV_VISION_MODEL = (process.env.CLOUDFLARE_VISION_MODEL ?? '').trim();
 /**
- * مدل بینایی ثابت و آزاد: اگر env خالی باشد یا هنوز روی llama/meta قفل شده
- * باشد (باقی‌مانده از تنظیم قدیمی)، نادیده گرفته می‌شود تا ۵۰۱۶ برنگردد.
+ * معماری دومرحله‌ای (تأییدشده با مستندات Cloudflare):
+ *  مرحله ۱ (بینایی): LLaVA فقط یک توصیف متنی کوتاه از چهره می‌دهد (~۲ ثانیه).
+ *  مرحله ۲ (استدلال JSON): gpt-oss-20b از روی توصیف، نسخه ۳ گزینه‌ای ARIA را می‌سازد.
+ * هر دو مدل آزاد و بدون لایسنس Meta هستند. شناسه llama-3.1-8b-instruct اصلاً
+ * در کاتالوگ Cloudflare وجود ندارد، پس مرحله متنی با gpt-oss-20b بسته شد.
  */
-const VISION_MODEL =
-  !ENV_VISION_MODEL || /llama|meta/i.test(ENV_VISION_MODEL)
-    ? '@cf/llava-hf/llava-1.5-7b-hf'
-    : ENV_VISION_MODEL;
+const VISION_MODEL = '@cf/llava-hf/llava-1.5-7b-hf';
+const TEXT_MODEL = '@cf/openai/gpt-oss-20b';
 
-/** مدل بینایی پشتیبان — کل زنجیره آزاد است و به لایسنس Meta نیاز ندارد */
-const FALLBACK_VISION_MODELS: string[] = ['@cf/qwen/qwen3.8-27b'];
+/** پرامپت ساده مرحله بینایی: توصیف کوتاه چهره، متن ساده، بدون JSON */
+const VISION_DESCRIBE_PROMPT =
+  'Describe this face for a PMU beauty analysis: 1) Face shape, 2) Skin undertone and Fitzpatrick tone, 3) Eyebrow density, arch and symmetry, 4) Any eye/lip features. Keep it short (under 120 words), plain text, no JSON.';
 
 /** الگوی JSON خامی که در حالت بدون-tool از مدل پشتیبان خواسته می‌شود */
 const PRESCRIPTION_JSON_SKELETON = `{"analysis_summary_en":"...","analysis_summary_fa":"...","face_shape":"oval|round|square|oblong|heart|diamond|unknown","symmetry_score":0-100,"skin_undertone":"warm|cool|neutral","fitzpatrick":"I|II|III|IV|V|VI","safety_flags":[],"requires_in_person":false,"confidence":0-100,"recommended_option":1-3,"options":[{"id":1,"title_en":"...","client_text_fa":"...","recommended":true,"params":{}},{"id":2,...},{"id":3,...}]}`;
@@ -37,9 +38,10 @@ function shortModel(model: string): string {
   return model.replace(/^@cf\/[^/]+\//, '') || model;
 }
 
-/** سقف زمانی هر تلاش بینایی (۸ ثانیه) و سقف کل فرآیند (۹٫۵ ثانیه) — هرگز معطلی یا ۵۰۲ */
-const VISION_ATTEMPT_TIMEOUT_MS = 8000;
-const VISION_TOTAL_DEADLINE_MS = 9500;
+/** سقف زمانی: ۶ ثانیه بینایی + ۶ ثانیه متنی، سقف کل ۱۱٫۵ ثانیه — هرگز معطلی یا ۵۰۲ */
+const VISION_TIMEOUT_MS = 6000;
+const TEXT_TIMEOUT_MS = 6000;
+const TOTAL_DEADLINE_MS = 11500;
 
 /** سقف طول base64 ورودی (~۶ مگابایت عکس) */
 const MAX_BASE64_LENGTH = 8_500_000;
@@ -62,35 +64,31 @@ function accounts(): CloudflareAccount[] {
 /* پرامپت سیستم ARIA (سند زنجیره هوش مصنوعی — نسخه مصوب)                  */
 /* ------------------------------------------------------------------ */
 
-const ARIA_SYSTEM_PROMPT = `You are ARIA, the owner of an ultra-specialized VIP permanent-makeup atelier and a master face designer with 15 years of clinical PMU experience. You speak to the client through structured data only — never in free prose.
+const VISION_SYSTEM_PROMPT = `You are a precise face-description assistant for a PMU beauty atelier. Describe only what you see in the photo: short, factual, plain sentences. Never invent features you cannot see.`;
+
+const ARIA_TEXT_SYSTEM_PROMPT = `You are ARIA, the owner of an ultra-specialized VIP permanent-makeup atelier and a master face designer with 15 years of clinical PMU experience. You speak to the client through structured data only — never in free prose.
 
 INPUTS YOU RECEIVE:
-1. CUSTOMER_PHOTO — the client's real, unedited face photo (source of truth).
+1. FACE_DESCRIPTION — a factual visual description of the client's real face photo, written by a vision model (your source of truth about the face).
 2. SELECTED_SERVICE — one of: eyebrows | lips | eyeliner | removal.
 3. INITIAL_STYLE — the style/technique the client pre-selected.
-4. FACE_METRICS — optional pre-computed browser measurements (face ratios, symmetry, distances). Treat these as measured hints, not guesses. If a metric contradicts what you see, trust the PHOTO and flag the metric as unreliable.
-5. CLIENT_TASTE — the client's stated taste (daily makeup intensity, brow shape, density). Respect it when shaping option params; morphology and safety always win over taste.
+4. FACE_METRICS — optional pre-computed browser measurements. Treat as measured hints; if a metric contradicts the description, trust the DESCRIPTION and ignore the metric.
+5. CLIENT_TASTE — the client's stated taste. Respect it in option params; morphology and safety always win over taste.
 
 ANALYSIS PROTOCOL (apply in this exact order):
-A. FACE MORPHOLOGY — Classify face shape (oval | round | square | oblong | heart | diamond) using proportions + jaw/forehead reading. Apply the classical thirds (hairline-brow-nose-chin) and fifths (five eye widths) proportion check. Score overall symmetry 0-100.
-B. SERVICE-ZONE MICRO-ANALYSIS —
-- eyebrows: native density, thickness, arch position vs. golden-ratio ideal (arch apex above outer iris edge), tail endpoint vs. ala-outer-canthus line, front softness, gaps/scars, previous PMU traces.
-- lips: upper/lower volume ratio vs. 1:1.6 ideal, border crispness, commissure symmetry, melanin darkness level (0-3), dryness/cracks.
-- eyeliner: eye spacing vs. one-eye-width ideal, lid hooding level (0-3), lash density, downward/upward tilt, dark circles.
-- removal: old pigment hue (red/orange/gray/blue), saturation depth, shape distortion, scarring signs.
-C. COLORIMETRY — Determine skin undertone (warm | cool | neutral) and Fitzpatrick type (I-VI) from the photo. Select pigment family + temperature that NEUTRALIZES the undertone (warm skin → neutral-cool pigment; cool skin → warm-balanced pigment). NEVER propose carbon-black on Fitzpatrick I-II brows; NEVER propose cool pigment on warm lips.
-D. SAFETY TRIAGE (recommendation only, never a diagnosis) — Flag: active inflammation/acne/wounds in zone, suspicious moles inside zone → set requires_in_person=true and downgrade confidence. Pregnancy/keloid/medication status is unknown to you; always defer to the salon intake form.
-E. STYLE FIT — Score INITIAL_STYLE compatibility 0-100 against A-D. If below 60, you MUST still include it as option 3 (respect client wish) but mark it not_recommended with a one-line clinical reason.
+A. FACE MORPHOLOGY — From FACE_DESCRIPTION: face shape (oval | round | square | oblong | heart | diamond), thirds/fifths proportion check, symmetry 0-100.
+B. SERVICE-ZONE MICRO-ANALYSIS — eyebrows: density, thickness, arch vs. golden-ratio ideal, tail endpoint, gaps/scars; lips: volume ratio vs. 1:1.6, border, commissure symmetry, melanin 0-3; eyeliner: spacing, hooding 0-3, lash density, tilt; removal: old pigment hue/depth, distortion, scarring.
+C. COLORIMETRY — Undertone (warm | cool | neutral) + Fitzpatrick (I-VI) from the description. Pigment must NEUTRALIZE the undertone. NEVER carbon-black on Fitzpatrick I-II brows; NEVER cool pigment on warm lips.
+D. SAFETY TRIAGE (recommendation only, never a diagnosis) — inflammation/moles in zone → requires_in_person=true, lower confidence. Pregnancy/keloid/meds unknown → defer to salon intake form.
+E. STYLE FIT — Score INITIAL_STYLE 0-100. Below 60 → still include as option 3 but not_recommended with one-line clinical reason.
 
-OPTION LOGIC — Always produce exactly 3 options: option 1 = your expert recommendation (best fit); option 2 = a bolder variant inside the safe renderable range; option 3 = the client's initial wish (even if weak, with reason).
+OPTION LOGIC — Exactly 3 options: 1 = expert recommendation; 2 = bolder variant in safe range; 3 = client's initial wish.
 
 OUTPUT CONTRACT (strict):
-- Respond ONLY by calling the pmu_prescription tool with valid arguments. No prose outside the tool call.
-- Every claim must cite its evidence: "photo" | "metric:<name>" | "rule:<name>".
-- Numbers must be plausible for a real adult face; never invent anatomy.
-- Confidence = your honest 0-100 certainty. Below 70 → requires_in_person=true.
-- Persian client-facing copy (client_text_fa) must be warm, feminine, respectful, 2-3 short sentences, zero medical jargon, zero price talk.
-- analysis_summary_fa: retell the SAME analysis for the client in SIMPLE Persian (2-3 short sentences, zero jargon, zero invented numbers): one warm verdict line + how it fits INITIAL_STYLE + one gentle care note. If uncertain about any measurement, say the in-person visit will finalize it — NEVER fabricate.`;
+- Respond with ONLY a single JSON code block, no prose. Every claim cites evidence: "vision" | "metric:<name>" | "rule:<name>".
+- Numbers plausible for a real adult face; never invent anatomy. Confidence 0-100 honest; below 70 → requires_in_person=true.
+- client_text_fa: warm, feminine, respectful, 2-3 short sentences, zero jargon, zero price talk.
+- analysis_summary_fa: SAME analysis in SIMPLE Persian (2-3 short sentences, zero jargon, zero invented numbers). If uncertain, say the in-person visit will finalize it — NEVER fabricate.`;
 
 /* ------------------------------------------------------------------ */
 /* توجه: فراخوانی بینایی عمداً بدون tool است (LLaVA با tool خطا می‌دهد).   */
@@ -254,27 +252,22 @@ function buildDemoPrescription(service: string, styleKey: string): ConsultPrescr
 }
 
 /* ------------------------------------------------------------------ */
-/* فراخوانی Cloudflare (OpenAI-Compatible + tool اجباری)                   */
+/* فراخوانی Cloudflare دومرحله‌ای (OpenAI-Compatible، بدون tool)            */
 /* ------------------------------------------------------------------ */
 
-async function callCloudflareVision(
-  account: CloudflareAccount,
-  imageDataUri: string,
-  service: string,
-  initialStyle: string,
-  faceMetrics: unknown,
-  clientTaste: string,
-  model: string = VISION_MODEL,
-  timeoutMs: number = VISION_ATTEMPT_TIMEOUT_MS,
-): Promise<ConsultPrescription> {
-  const userText = [
-    `SELECTED_SERVICE: ${service}`,
-    `INITIAL_STYLE: ${initialStyle || 'client_has_no_preference'}`,
-    `CLIENT_TASTE: ${clientTaste}`,
-    `FACE_METRICS: ${faceMetrics ? JSON.stringify(faceMetrics).slice(0, 2000) : 'none'}`,
-    `Analyze CUSTOMER_PHOTO per the ARIA protocol and respond with ONLY a single JSON code block (no prose, exactly 3 options with prescription params) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
-  ].join('\n');
+type ChatMessageContent =
+  | string
+  | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
 
+/** فراخوانی مشترک Chat Completions — متن خام پاسخ را برمی‌گرداند */
+async function chatCompletion(
+  account: CloudflareAccount,
+  model: string,
+  systemPrompt: string,
+  userContent: ChatMessageContent,
+  maxTokens: number,
+  timeoutMs: number,
+): Promise<string> {
   const res = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/v1/chat/completions`,
     {
@@ -287,17 +280,11 @@ async function callCloudflareVision(
         model,
         temperature: 0.2,
         top_p: 0.9,
-        max_tokens: 1500,
+        max_tokens: maxTokens,
         seed: 42,
         messages: [
-          { role: 'system', content: ARIA_SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: userText },
-              { type: 'image_url', image_url: { url: imageDataUri } },
-            ],
-          },
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent },
         ],
       }),
       signal: AbortSignal.timeout(timeoutMs),
@@ -318,7 +305,7 @@ async function callCloudflareVision(
       payload && typeof payload === 'object'
         ? JSON.stringify(payload).slice(0, 300)
         : raw.slice(0, 300);
-    throw Object.assign(new Error(`Cloudflare vision ${shortModel(model)} HTTP ${res.status}: ${msg}`), {
+    throw Object.assign(new Error(`Cloudflare ${shortModel(model)} HTTP ${res.status}: ${msg}`), {
       status: res.status,
     });
   }
@@ -331,25 +318,83 @@ async function callCloudflareVision(
     Array.isArray(choices) && choices[0] && typeof choices[0] === 'object'
       ? (choices[0] as Record<string, unknown>).message
       : null;
-  const messageObj =
-    message && typeof message === 'object' ? (message as Record<string, unknown>) : null;
+  const content =
+    message && typeof message === 'object'
+      ? (message as Record<string, unknown>).content
+      : null;
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new Error(`Cloudflare ${shortModel(model)}: empty response`);
+  }
+  return content;
+}
 
-  const content = messageObj && typeof messageObj.content === 'string' ? messageObj.content : '';
+/** مرحله ۱: توصیف کوتاه چهره با LLaVA (متن ساده، بدون JSON) */
+async function callVisionDescribe(
+  account: CloudflareAccount,
+  imageDataUri: string,
+  service: string,
+  timeoutMs: number,
+): Promise<string> {
+  const description = await chatCompletion(
+    account,
+    VISION_MODEL,
+    VISION_SYSTEM_PROMPT,
+    [
+      { type: 'text', text: `SELECTED_SERVICE: ${service}\n${VISION_DESCRIBE_PROMPT}` },
+      { type: 'image_url', image_url: { url: imageDataUri } },
+    ],
+    300,
+    timeoutMs,
+  );
+  if (description.trim().length < 30) {
+    throw new Error(`Cloudflare ${shortModel(VISION_MODEL)}: description too short`);
+  }
+  return description.trim().slice(0, 2000);
+}
+
+/** مرحله ۲: ساخت JSON نسخه ARIA با مدل متنی از روی توصیف چهره */
+async function callTextPrescription(
+  account: CloudflareAccount,
+  faceDescription: string,
+  service: string,
+  initialStyle: string,
+  faceMetrics: unknown,
+  clientTaste: string,
+  timeoutMs: number,
+): Promise<ConsultPrescription> {
+  const userText = [
+    `FACE_DESCRIPTION: ${faceDescription}`,
+    `SELECTED_SERVICE: ${service}`,
+    `INITIAL_STYLE: ${initialStyle || 'client_has_no_preference'}`,
+    `CLIENT_TASTE: ${clientTaste}`,
+    `FACE_METRICS: ${faceMetrics ? JSON.stringify(faceMetrics).slice(0, 2000) : 'none'}`,
+    `Write the ARIA expert prescription for this face as ONLY a single JSON code block (no prose, exactly 3 options with prescription params) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
+  ].join('\n');
+
+  const content = await chatCompletion(
+    account,
+    TEXT_MODEL,
+    ARIA_TEXT_SYSTEM_PROMPT,
+    userText,
+    1500,
+    timeoutMs,
+  );
+
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error(`Cloudflare vision ${shortModel(model)}: no JSON object in response`);
+    throw new Error(`Cloudflare ${shortModel(TEXT_MODEL)}: no JSON object in response`);
   }
 
   let parsed: unknown = null;
   try {
     parsed = JSON.parse(jsonMatch[0]);
   } catch {
-    throw new Error(`Cloudflare vision ${shortModel(model)}: response is not valid JSON`);
+    throw new Error(`Cloudflare ${shortModel(TEXT_MODEL)}: response is not valid JSON`);
   }
 
   if (!isValidPrescription(parsed)) {
     throw new Error(
-      `Cloudflare vision ${shortModel(model)}: prescription failed validation (need analysis + 3 options)`,
+      `Cloudflare ${shortModel(TEXT_MODEL)}: prescription failed validation (need analysis + 3 options)`,
     );
   }
 
@@ -435,43 +480,50 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
   }
 
-  // تلاش سریع روی زنجیره مدل‌های آزاد با سقف زمانی کل؛ هر خطایی → دموی صادقانه، هرگز ۵۰۲
+  // دومرحله‌ای برای هر اکانت: توصیف بینایی (۶ث) → نسخه متنی (۶ث)؛ خطا → دموی صادقانه، هرگز ۵۰۲
   let lastError = '';
   for (let i = 0; i < configured.length; i += 1) {
     const account = configured[i];
-    for (const model of [VISION_MODEL, ...FALLBACK_VISION_MODELS]) {
-      const remaining = VISION_TOTAL_DEADLINE_MS - (Date.now() - startedAt);
-      if (remaining < 2000) break;
-      try {
-        const prescription = await callCloudflareVision(
-          account,
-          imageBase64,
-          service,
-          initialStyle,
-          body.faceMetrics,
-          clientTasteLine,
-          model,
-          Math.min(VISION_ATTEMPT_TIMEOUT_MS, remaining),
-        );
-        return NextResponse.json({
-          ok: true,
-          demo: false,
-          provider: `cloudflare-vision:${i + 1}:${shortModel(model)}:json`,
-          prescription,
-          ms: Date.now() - startedAt,
-        });
-      } catch (modelError) {
-        lastError = modelError instanceof Error ? modelError.message : String(modelError);
-        console.error(
-          `[AI-CONSULT] account ${i + 1} ${shortModel(model)} failed: ${lastError.slice(0, 300)}`,
-        );
+    const remainingBefore = TOTAL_DEADLINE_MS - (Date.now() - startedAt);
+    if (remainingBefore < 3500) break;
+    try {
+      const faceDescription = await callVisionDescribe(
+        account,
+        imageBase64,
+        service,
+        Math.min(VISION_TIMEOUT_MS, remainingBefore),
+      );
+      const remainingAfterVision = TOTAL_DEADLINE_MS - (Date.now() - startedAt);
+      if (remainingAfterVision < 2500) {
+        throw new Error('vision ok but no time left for reasoning step');
       }
+      const prescription = await callTextPrescription(
+        account,
+        faceDescription,
+        service,
+        initialStyle,
+        body.faceMetrics,
+        clientTasteLine,
+        Math.min(TEXT_TIMEOUT_MS, remainingAfterVision),
+      );
+      return NextResponse.json({
+        ok: true,
+        demo: false,
+        provider: `cloudflare-2stage:${i + 1}:${shortModel(VISION_MODEL)}+${shortModel(TEXT_MODEL)}`,
+        prescription,
+        ms: Date.now() - startedAt,
+      });
+    } catch (stageError) {
+      lastError = stageError instanceof Error ? stageError.message : String(stageError);
+      console.error(
+        `[AI-CONSULT] account ${i + 1} 2-stage failed: ${lastError.slice(0, 300)}`,
+      );
     }
   }
 
   // فال‌بک ایمن و سریع: دموی صادقانه (بنر 🎭 در UI نشان داده می‌شود)، هرگز ۵۰۲
   console.error(
-    `[AI-CONSULT] all vision attempts failed, serving demo: ${lastError.slice(0, 300)}`,
+    `[AI-CONSULT] all 2-stage attempts failed, serving demo: ${lastError.slice(0, 300)}`,
   );
   return NextResponse.json({
     ok: true,
@@ -488,7 +540,7 @@ export async function GET(): Promise<NextResponse> {
   return NextResponse.json({
     ok: true,
     model: VISION_MODEL,
-    fallbacks: FALLBACK_VISION_MODELS,
+    textModel: TEXT_MODEL,
     accountsConfigured: configured.length,
     demo: configured.length === 0,
     // عیب‌یابی امن: فقط «هست/نیست» — هیچ مقداری فاش نمی‌شود
