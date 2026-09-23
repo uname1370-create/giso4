@@ -1,4 +1,15 @@
-import { ProviderError } from './providers/http';
+import { ProviderError, timeoutSignal } from './providers/http';
+import type { BrowStyleKey } from './brow-shapes';
+
+export interface BrowSideProfile {
+  start: string;
+  arch: string;
+  tail: string;
+  thickness: string;
+  density: string;
+  growthDirection: string;
+  asymmetry: string;
+}
 
 export interface BeautyPhotoAnalysis {
   acceptable: boolean;
@@ -19,218 +30,201 @@ export interface BeautyPhotoAnalysis {
   pigmentTemperature: string;
   pigmentDepth: string;
   avoidPigments: string[];
+  leftBrow: BrowSideProfile;
+  rightBrow: BrowSideProfile;
+  browEditZone: 'existing_brow_plus_small_natural_margin';
+  source: 'local_vision_engine';
 }
 
-const DEFAULT_MODEL = '@cf/moondream/moondream3.1-9B-A2B';
+const DEFAULT_TIMEOUT_MS = 12_000;
 
-function accounts(): Array<{ token: string; accountId: string }> {
-  return [1, 2, 3]
-    .map((index) => ({
-      token: (process.env[`CLOUDFLARE_API_TOKEN_${index}`] ?? '').trim(),
-      accountId: (process.env[`CLOUDFLARE_ACCOUNT_ID_${index}`] ?? '').trim(),
-    }))
-    .filter((item) => item.token && item.accountId);
+function engineUrl(): string {
+  return (process.env.VISION_ENGINE_URL ?? 'http://127.0.0.1:8010').trim().replace(/\/$/, '');
 }
 
-function model(): string {
-  return (process.env.CLOUDFLARE_VISION_MODEL ?? '').trim() || DEFAULT_MODEL;
-}
-
-function cleanJson(text: string): string {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) return fenced[1].trim();
-  const start = text.indexOf('{');
-  const end = text.lastIndexOf('}');
-  return start >= 0 && end > start ? text.slice(start, end + 1) : text;
+function fallbackSide(): BrowSideProfile {
+  return {
+    start: 'natural',
+    arch: 'soft',
+    tail: 'natural',
+    thickness: 'medium',
+    density: 'medium',
+    growthDirection: 'natural',
+    asymmetry: 'preserve',
+  };
 }
 
 function stringValue(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
-function boolValue(value: unknown, fallback = false): boolean {
-  return typeof value === 'boolean' ? value : fallback;
-}
-
 function listValue(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').slice(0, 6) : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string').slice(0, 6)
+    : [];
 }
 
 export async function analyzeBeautyPhoto(imageDataUri: string): Promise<BeautyPhotoAnalysis> {
-  const account = accounts()[0];
-  if (!account) {
-    throw new ProviderError('Cloudflare Vision: حساب فعال پیدا نشد');
-  }
-
-  const prompt = `Analyze this exact customer face photo for a professional eyebrow microblading preview.
-
-Return ONLY valid JSON. Do not use markdown.
-
-Rules:
-- Check whether one clear face is visible.
-- Check whether both eyebrows are sufficiently visible.
-- Reject photos that are blurry, extremely dark/bright, heavily filtered, strongly angled, obstructed, or have eyebrows hidden by hair/glasses.
-- Do NOT invent precise medical or biometric facts.
-- Analyze only visible visual characteristics.
-- Treat the customer's original eyebrows as the source of truth. Do not invent a new brow shape.
-- Carefully assess visible brow density, thickness, arch character, symmetry, natural start and tail character, and the existing hair-growth direction.
-- For pigment, match the customer's actual visible brow and hair tone first, then account for visible skin undertone. Estimate family, temperature and depth from the photo; do not choose a fixed website color or HEX value.
-- Never recommend pure black by default. Avoid artificial orange/red casts unless clearly present in the customer's natural brow/hair.
-- The generated preview must preserve the customer's original brow position, facial proportions, skin appearance and natural asymmetry.
-- The goal is a realistic microblading preview, not beautifying, face reshaping, skin retouching, or inventing a new eyebrow anatomy.
-
-JSON shape:
-{
-  "acceptable": true,
-  "reason": "good_photo",
-  "message": "short Persian user-facing message",
-  "faceVisible": true,
-  "eyebrowsVisible": true,
-  "imageQuality": "good",
-  "faceShape": "oval",
-  "browDensity": "medium",
-  "browThickness": "medium",
-  "browArch": "soft",
-  "browSymmetry": "slightly_asymmetric",
-  "hairTone": "dark_brown",
-  "browTone": "medium_dark_brown",
-  "skinUndertone": "warm_neutral",
-  "pigmentFamily": "natural_brown",
-  "pigmentTemperature": "neutral_warm",
-  "pigmentDepth": "medium_dark",
-  "avoidPigments": ["pure_black", "strong_red", "orange"]
-}`;
-
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/run/${model()}`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${account.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        task: 'query',
-        image: imageDataUri,
-        question: prompt,
-        reasoning: false,
-        stream: false,
-        temperature: 0.1,
-        max_tokens: 1200,
-      }),
-      cache: 'no-store',
-    },
+  const { signal, done } = timeoutSignal(
+    Number(process.env.VISION_ANALYSIS_TIMEOUT_MS) > 1000
+      ? Number(process.env.VISION_ANALYSIS_TIMEOUT_MS)
+      : DEFAULT_TIMEOUT_MS,
   );
 
-  const raw = await response.text();
-
-  // Cloudflare normally returns JSON here, but keep the parser tolerant of
-  // SSE-style responses as well. Some Workers AI runtimes can return a
-  // successful streaming payload even when stream:false was requested.
-  let payload: unknown = null;
   try {
-    payload = raw ? JSON.parse(raw) : null;
-  } catch {
-    const events = raw
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.startsWith('data:'))
-      .map((line) => line.slice(5).trim())
-      .filter(Boolean);
-
-    const parsedEvents = events.flatMap((event) => {
-      try {
-        return [JSON.parse(event) as unknown];
-      } catch {
-        return [];
-      }
+    const response = await fetch(engineUrl() + '/v1/analyze', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ service: 'eyebrows', image: imageDataUri }),
+      signal,
+      cache: 'no-store',
     });
 
-    payload = parsedEvents.length
-      ? parsedEvents[parsedEvents.length - 1]
-      : null;
-  }
+    const raw = await response.text();
+    let payload: unknown = null;
+    try { payload = raw ? JSON.parse(raw) : null; } catch { payload = null; }
 
-  if (!response.ok) {
-    const detail =
-      payload && typeof payload === 'object' && typeof (payload as Record<string, unknown>).error === 'string'
-        ? String((payload as Record<string, unknown>).error)
-        : raw.slice(0, 800);
-    throw new ProviderError('Cloudflare Vision: تحلیل عکس ناموفق بود', detail);
-  }
+    if (!response.ok) {
+      const detail =
+        payload && typeof payload === 'object' && typeof (payload as Record<string, unknown>).detail === 'string'
+          ? String((payload as Record<string, unknown>).detail)
+          : raw.slice(0, 500);
+      throw new ProviderError('تحلیل عکس انجام نشد', detail);
+    }
 
-  const root = payload && typeof payload === 'object'
-    ? payload as Record<string, unknown>
-    : null;
-  const result = root?.result && typeof root.result === 'object'
-    ? root.result as Record<string, unknown>
-    : null;
+    if (!payload || typeof payload !== 'object') {
+      throw new ProviderError('پاسخ تحلیل عکس نامعتبر بود');
+    }
 
-  const answerCandidates = [
-    result?.answer,
-    result?.response,
-    result?.text,
-    root?.answer,
-    root?.response,
-  ];
+    const data = payload as Record<string, unknown>;
+    const acceptable = data.acceptable === true;
+    const left = data.leftBrow && typeof data.leftBrow === 'object'
+      ? data.leftBrow as Record<string, unknown>
+      : {};
+    const right = data.rightBrow && typeof data.rightBrow === 'object'
+      ? data.rightBrow as Record<string, unknown>
+      : {};
 
-  const answer = answerCandidates.find(
-    (value): value is string => typeof value === 'string' && value.trim().length > 0,
-  )?.trim() ?? '';
-
-  if (!answer) {
-    const diagnostic = raw
-      .replace(/Bearer\s+[^\s]+/gi, 'Bearer [redacted]')
-      .slice(0, 2000);
-
-    console.error('[AI-ANALYSIS] Cloudflare Vision empty answer', {
-      status: response.status,
-      contentType: response.headers.get('content-type'),
-      raw: diagnostic,
+    const makeSide = (side: Record<string, unknown>): BrowSideProfile => ({
+      start: stringValue(side.start, 'natural'),
+      arch: stringValue(side.arch, 'soft'),
+      tail: stringValue(side.tail, 'natural'),
+      thickness: stringValue(side.thickness, 'medium'),
+      density: stringValue(side.density, 'medium'),
+      growthDirection: stringValue(side.growthDirection, 'natural'),
+      asymmetry: stringValue(side.asymmetry, 'preserve'),
     });
 
+    return {
+      acceptable,
+      reason: stringValue(data.reason, acceptable ? 'good_photo' : 'photo_not_suitable'),
+      message: stringValue(
+        data.message,
+        acceptable
+          ? 'عکس برای پیش‌نمایش مناسب است.'
+          : 'لطفاً عکس واضح و روبه‌رو بفرستید و ابروها مشخص باشند.',
+      ),
+      faceVisible: data.faceVisible === true,
+      eyebrowsVisible: data.eyebrowsVisible === true,
+      imageQuality: ['good', 'acceptable', 'poor'].includes(String(data.imageQuality))
+        ? String(data.imageQuality) as BeautyPhotoAnalysis['imageQuality']
+        : 'acceptable',
+      faceShape: stringValue(data.faceShape, 'natural'),
+      browDensity: stringValue(data.browDensity, 'medium'),
+      browThickness: stringValue(data.browThickness, 'medium'),
+      browArch: stringValue(data.browArch, 'soft'),
+      browSymmetry: stringValue(data.browSymmetry, 'natural'),
+      hairTone: stringValue(data.hairTone, 'natural'),
+      browTone: stringValue(data.browTone, 'natural'),
+      skinUndertone: stringValue(data.skinUndertone, 'neutral'),
+      pigmentFamily: stringValue(data.pigmentFamily, 'natural_brown'),
+      pigmentTemperature: stringValue(data.pigmentTemperature, 'neutral'),
+      pigmentDepth: stringValue(data.pigmentDepth, 'medium'),
+      avoidPigments: listValue(data.avoidPigments),
+      leftBrow: makeSide(left),
+      rightBrow: makeSide(right),
+      browEditZone: 'existing_brow_plus_small_natural_margin',
+      source: 'local_vision_engine',
+    };
+  } catch (error) {
+    if (error instanceof ProviderError) throw error;
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ProviderError('تحلیل عکس بیش از حد طول کشید');
+    }
     throw new ProviderError(
-      'Cloudflare Vision: پاسخ تحلیل عکس خالی بود',
-      `HTTP ${response.status}; content-type=${response.headers.get('content-type') ?? 'unknown'}; body=${diagnostic}`,
+      'سرویس تحلیل عکس در دسترس نیست',
+      error instanceof Error ? error.message : String(error),
     );
+  } finally {
+    done();
   }
+}
 
-  let parsed: Record<string, unknown>;
-  try {
-    parsed = JSON.parse(cleanJson(answer)) as Record<string, unknown>;
-  } catch {
-    throw new ProviderError('Cloudflare Vision: پاسخ JSON قابل پردازش نبود', answer.slice(0, 500));
-  }
+export function buildCustomerBrowProfile(analysis: BeautyPhotoAnalysis): string {
+  return JSON.stringify({
+    source: analysis.source,
+    face: {
+      visible: analysis.faceVisible,
+      quality: analysis.imageQuality,
+      shape: analysis.faceShape,
+    },
+    customer_brow: {
+      density: analysis.browDensity,
+      thickness: analysis.browThickness,
+      arch: analysis.browArch,
+      symmetry: analysis.browSymmetry,
+      left: analysis.leftBrow,
+      right: analysis.rightBrow,
+    },
+    color: {
+      natural_hair: analysis.hairTone,
+      natural_brow: analysis.browTone,
+      skin_undertone: analysis.skinUndertone,
+      pigment_family: analysis.pigmentFamily,
+      pigment_temperature: analysis.pigmentTemperature,
+      pigment_depth: analysis.pigmentDepth,
+      avoid: analysis.avoidPigments,
+    },
+    edit_zone: analysis.browEditZone,
+    immutable: ['identity', 'face_geometry', 'skin', 'eyes', 'eyelids', 'nose', 'lips', 'hair', 'background', 'lighting'],
+  });
+}
 
-  const acceptable = boolValue(parsed.acceptable);
-  const faceVisible = boolValue(parsed.faceVisible);
-  const eyebrowsVisible = boolValue(parsed.eyebrowsVisible);
-
-  return {
-    acceptable,
-    reason: stringValue(parsed.reason, acceptable ? 'good_photo' : 'photo_not_suitable'),
-    message: stringValue(
-      parsed.message,
-      acceptable
-        ? 'عکس برای پیش‌نمایش مناسب است.'
-        : 'لطفاً عکس واضح‌تر و روبه‌رو، بدون پوشش روی ابروها ارسال کنید.',
-    ),
-    faceVisible,
-    eyebrowsVisible,
-    imageQuality: ['good', 'acceptable', 'poor'].includes(String(parsed.imageQuality))
-      ? String(parsed.imageQuality) as BeautyPhotoAnalysis['imageQuality']
-      : 'acceptable',
-    faceShape: stringValue(parsed.faceShape, 'natural'),
-    browDensity: stringValue(parsed.browDensity, 'medium'),
-    browThickness: stringValue(parsed.browThickness, 'medium'),
-    browArch: stringValue(parsed.browArch, 'soft'),
-    browSymmetry: stringValue(parsed.browSymmetry, 'natural'),
-    hairTone: stringValue(parsed.hairTone, 'natural'),
-    browTone: stringValue(parsed.browTone, 'natural'),
-    skinUndertone: stringValue(parsed.skinUndertone, 'neutral'),
-    pigmentFamily: stringValue(parsed.pigmentFamily, 'natural_brown'),
-    pigmentTemperature: stringValue(parsed.pigmentTemperature, 'neutral'),
-    pigmentDepth: stringValue(parsed.pigmentDepth, 'medium'),
-    avoidPigments: listValue(parsed.avoidPigments),
-  };
+export function buildDesignBrief(
+  analysis: BeautyPhotoAnalysis,
+  style: BrowStyleKey,
+): string {
+  return JSON.stringify({
+    contract_version: 'brow-edit-v3',
+    source_of_truth: 'customer_photo',
+    selected_style: style,
+    reference_role: 'technique_only',
+    customer_profile: JSON.parse(buildCustomerBrowProfile(analysis)),
+    style: 'see STYLE_DNA',
+    geometry: {
+      source: 'customer',
+      preserve: true,
+      position: 'preserve',
+      boundary: 'preserve',
+      arch: 'preserve',
+      tail: 'preserve',
+      growth_direction: 'preserve',
+      natural_asymmetry: 'preserve',
+    },
+    editable_region: 'customer_existing_brows_plus_small_natural_margin_only',
+    forbidden_regions: 'everything_outside_customer_brow_edit_zone',
+    pigment: {
+      source: 'customer_natural_brow_and_hair_plus_local_skin_undertone',
+      fixed_hex: false,
+    },
+    restrictions: {
+      face_edit: false,
+      skin_edit: false,
+      eye_edit: false,
+      geometry_reconstruction: false,
+      beauty_filter: false,
+      relighting: false,
+      background_edit: false,
+    },
+  });
 }
