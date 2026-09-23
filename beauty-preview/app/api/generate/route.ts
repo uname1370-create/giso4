@@ -112,15 +112,7 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   }
 
   const image = parseDataUri(imageBase64);
-
-  // The selected model's server-side uploaded asset is authoritative. This prevents
-  // the browser from accidentally pairing style A with reference image B.
   let referenceImage = referenceImageBase64 ? parseDataUri(referenceImageBase64) : null;
-  const serverReference = await readSiteImage(knownStyle?.imagePath ?? '');
-  if (serverReference) {
-    const dataUri = `data:${serverReference.mime};base64,${serverReference.buffer.toString('base64')}`;
-    referenceImage = parseDataUri(dataUri);
-  }
   if (!image) {
     return badRequest('قالب تصویر پشتیبانی نمی‌شود. لطفاً عکس JPG، PNG یا WEBP آپلود کنید.');
   }
@@ -134,6 +126,14 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   /* -------------------------------- پرامپت -------------------------------- */
   const knownStyle = EYEBROW_STYLES.find((item) => item.label === style);
   if (!knownStyle) return badRequest('مدل ابروی انتخاب‌شده معتبر نیست.');
+
+  // The selected model's server-side uploaded asset is authoritative. This prevents
+  // the browser from accidentally pairing style A with reference image B.
+  const serverReference = await readSiteImage(knownStyle.imagePath);
+  if (serverReference) {
+    const dataUri = `data:${serverReference.mime};base64,${serverReference.buffer.toString('base64')}`;
+    referenceImage = parseDataUri(dataUri);
+  }
 
   /* ----------------------------- حالت نمایشی ------------------------------ */
   // حالت نمایشی نباید به Vision یا API خارجی وابسته باشد.
