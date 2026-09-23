@@ -1,10 +1,13 @@
 /**
  * src/providers/index.ts
  * ---------------------------------------------------------------------------
- * زنجیرهٔ جایگزین پروایدرها:
+ * زنجیرهٔ جایگزین پروایدرها (ترتیب پیش‌فرض: رایگانِ سریع اول):
  *
- *   ۱) Pollinations → POLLINATIONS_API_KEY (سریع و دقیق؛ در صورت ۴۰۲ چندثانیه‌ای رد می‌شود)
- *   ۲) Cloudflare   → ۳ حساب مستقل → FLUX.2 Klein 4B (رایگان ولی ناپایدار)
+ *   ۱) Cloudflare   → ۳ حساب مستقل → FLUX.2 Klein 4B (حدود ۱۴۰ رندر رایگان در روز برای هر ۲ حساب)
+ *   ۲) Pollinations → POLLINATIONS_API_KEY → gpt-image-1-mini (دقیق‌تر، ~۰٫۰۰۸ pollen برای هر رندر)
+ *
+ * ترتیب با PROVIDER_ORDER قابل تغییر است؛ مثلاً برای اولویت کیفیت:
+ *   PROVIDER_ORDER=pollinations,cloudflare
  *
  * هر پروایدر بدون کلید رد می‌شود و در صورت خطا، پروایدر بعدی امتحان می‌شود.
  * لاگ‌های تشخیصی فقط metadata و پیام خطا را ثبت می‌کنند؛ کلید API، تصویر و
@@ -17,10 +20,28 @@ import { cloudflareProvider } from './cloudflare';
 import { pollinationsProvider } from './pollinations';
 import type { AttemptLog, Provider, ProviderInput } from './types';
 
-export const PROVIDERS: Provider[] = [
-  pollinationsProvider,
-  cloudflareProvider,
-];
+const PROVIDERS_ALL: Provider[] = [cloudflareProvider, pollinationsProvider];
+
+/**
+ * ترتیب مؤثر زنجیره از روی PROVIDER_ORDER (مثلاً "pollinations,cloudflare").
+ * شناسه‌های ناشناخته نادیده گرفته می‌شوند و جاافتاده‌ها به انتها اضافه می‌شوند.
+ */
+function providerOrder(): Provider[] {
+  const raw = (process.env.PROVIDER_ORDER ?? '').trim().toLowerCase();
+  if (!raw) return [...PROVIDERS_ALL];
+  const byId = new Map(PROVIDERS_ALL.map((p) => [p.id, p]));
+  const ordered: Provider[] = [];
+  for (const id of raw.split(',')) {
+    const provider = byId.get(id.trim());
+    if (provider && !ordered.includes(provider)) ordered.push(provider);
+  }
+  for (const provider of PROVIDERS_ALL) {
+    if (!ordered.includes(provider)) ordered.push(provider);
+  }
+  return ordered;
+}
+
+export const PROVIDERS: Provider[] = providerOrder();
 
 export type { AttemptLog, Provider, ProviderInput };
 
