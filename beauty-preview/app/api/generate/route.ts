@@ -141,16 +141,23 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
     });
   }
 
-  // Cloudflare Vision / Moondream is intentionally disabled.
-  // The image model receives the original customer photo directly and must
-  // infer the visible natural brow tone itself. No separate vision-analysis
-  // API call is made here.
+  // Moondream remains out of the generation path. The local Vision Engine is
+  // used after generation as a hard brow-region mask + pixel-preservation gate.
   const designBrief = JSON.stringify({
-    vision_analysis: 'disabled',
+    contract_version: 'brow-edit-v2',
+    selected_style: knownStyle.key,
+    selected_style_label: knownStyle.labelEn,
     source_of_truth: 'customer_photo',
-    eyebrow_position: 'preserve_existing_customer_brows',
-    pigment: 'infer_from_customer_photo',
     reference_role: 'technique_only',
+    reference_never_controls: ['face', 'skin', 'skin_color', 'eyes', 'lighting', 'brow_position'],
+    editable_region: 'existing_customer_left_and_right_eyebrows_only',
+    immutable_region: 'everything_outside_customer_eyebrow_mask',
+    brow_geometry: 'preserve_position_boundary_arch_tail_growth_direction_asymmetry',
+    pigment_source: 'customer_natural_brow_and_hair_plus_local_skin_undertone',
+    skin_edit: 'forbidden',
+    outside_mask_edit: 'forbidden',
+    postprocess: 'hard_restore_original_pixels_outside_brow_mask',
+    reject_if: ['mask_missing', 'mask_too_large', 'provider_changes_non_target_region'],
   });
 
   const prompt = buildEnglishPrompt(
