@@ -201,6 +201,7 @@ export function buildEnglishPrompt(
       `PIGMENT RULE: determine lip pigment from the CUSTOMER'S own native mucosal tone and local skin undertone. Translucent blush that melts into the native tone. Never opaque brown, gray, purple or neon. Never a fixed HEX color. ` +
       `PIXEL-SCOPE RULE: no pigment, stain, blur, smoothing, color correction, relighting or makeup may appear outside the natural lip vermilion. Do not tint the teeth. Do not change the overall white balance or exposure. ` +
       `NATURAL GEOMETRY: preserve the customer's original lip shape, border crispness, commissures, upper/lower volume ratio and natural asymmetry. Only add the selected PMU blush within that existing structure. ` +
+      `COMPLETENESS RULE: cover the FULL vermilion of BOTH the upper and the lower lip evenly, edge-to-edge and side-to-side, in one continuous natural gradient. Never a half-filled lip. Never color on only one side or one corner. Never patchy or streaky coverage. Both commissures must match in tone and density. ` +
       `FINAL APPEARANCE: the result must look like the SAME ORIGINAL REAL PHOTOGRAPH after professional lip blush treatment, not a regenerated face or beauty-filtered portrait.`
     );
   }
@@ -216,6 +217,7 @@ export function buildEnglishPrompt(
       `PIGMENT RULE: carbon-based soft black matched to the customer's undertone. Matte, smudge-proof look. Never blue, green or migrating tones. Never a fixed HEX color. ` +
       `PIXEL-SCOPE RULE: no pigment, shadow, blur, smoothing, color correction, relighting or makeup may appear outside the lash-line zone (a soft diffused gradient directly above the line is allowed ONLY for shaded styles). Do not tint the sclera. Do not create under-eye bleeding. Do not change the overall white balance or exposure. ` +
       `NATURAL GEOMETRY: preserve the customer's original eye shape, tilt, lid fold, lash direction and left/right asymmetry. Only add the selected liner technique along the existing lash line. ` +
+      `BILATERAL RULE: draw an identical line on BOTH eyes — same thickness, same length, same flick angle following each eye's natural tilt. Never liner on only one eye. Never mismatched wings. The enhancement must read as one professional treatment on a real face. ` +
       `FINAL APPEARANCE: the result must look like the SAME ORIGINAL REAL PHOTOGRAPH after professional lash-line enhancement treatment, not a regenerated face or beauty-filtered portrait.`
     );
   }

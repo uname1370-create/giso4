@@ -3,8 +3,8 @@
  * ---------------------------------------------------------------------------
  * زنجیرهٔ جایگزین پروایدرها:
  *
- *   ۱) Cloudflare   → ۳ حساب مستقل → FLUX.2 Klein 4B
- *   ۲) Pollinations → POLLINATIONS_API_KEY
+ *   ۱) Pollinations → POLLINATIONS_API_KEY (سریع و دقیق؛ در صورت ۴۰۲ چندثانیه‌ای رد می‌شود)
+ *   ۲) Cloudflare   → ۳ حساب مستقل → FLUX.2 Klein 4B (رایگان ولی ناپایدار)
  *
  * هر پروایدر بدون کلید رد می‌شود و در صورت خطا، پروایدر بعدی امتحان می‌شود.
  * لاگ‌های تشخیصی فقط metadata و پیام خطا را ثبت می‌کنند؛ کلید API، تصویر و
@@ -18,8 +18,8 @@ import { pollinationsProvider } from './pollinations';
 import type { AttemptLog, Provider, ProviderInput } from './types';
 
 export const PROVIDERS: Provider[] = [
-  cloudflareProvider,
   pollinationsProvider,
+  cloudflareProvider,
 ];
 
 export type { AttemptLog, Provider, ProviderInput };

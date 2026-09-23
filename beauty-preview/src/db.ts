@@ -47,6 +47,8 @@ export function getDb(): Database.Database {
     }
     dbInstance = new Database(DB_PATH);
     dbInstance.pragma('journal_mode = WAL');
+    // تحمل رقابت نوشتن همزمان چند کاربر (به‌جای خطای فوری database is locked)
+    dbInstance.pragma('busy_timeout = 5000');
 
     dbInstance.exec(`
       CREATE TABLE IF NOT EXISTS leads (
