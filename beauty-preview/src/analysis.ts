@@ -132,7 +132,7 @@ JSON shape:
     payload = raw ? JSON.parse(raw) : null;
   } catch {
     const events = raw
-      .split(/\\r?\\n/)
+      .split(/\r?\n/)
       .map((line) => line.trim())
       .filter((line) => line.startsWith('data:'))
       .map((line) => line.slice(5).trim())
@@ -180,7 +180,7 @@ JSON shape:
 
   if (!answer) {
     const diagnostic = raw
-      .replace(/Bearer\\s+[^\\s]+/gi, 'Bearer [redacted]')
+      .replace(/Bearer\s+[^\s]+/gi, 'Bearer [redacted]')
       .slice(0, 2000);
 
     console.error('[AI-ANALYSIS] Cloudflare Vision empty answer', {
