@@ -138,13 +138,23 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   const designBrief = buildDesignBrief(analysis, knownStyle.key);
   const styleDna = styleDnaText(knownStyle.key, preferences);
 
+  // نسخه ARIA (گزینه منتخب مرحله مشاوره) — همان منبع حقیقت تحلیل و رندر
+  const rawPrescription =
+    body && typeof body === 'object' && 'prescription' in body
+      ? (body as Record<string, unknown>).prescription
+      : null;
+  const prescriptionText =
+    rawPrescription && typeof rawPrescription === 'object'
+      ? ` ARIA_PRESCRIPTION: ${JSON.stringify(rawPrescription).slice(0, 3000)}`
+      : '';
+
   const prompt = buildEnglishPrompt(
     style,
     'infer_from_customer_photo',
     '',
     knownStyle.labelEn,
     knownStyle.key,
-    `${designBrief} STYLE_DNA: ${styleDna}`,
+    `${designBrief} STYLE_DNA: ${styleDna}${prescriptionText}`,
   );
 
   /* --------------------------- زنجیرهٔ پروایدرها --------------------------- */

@@ -16,7 +16,7 @@ export const StepIndicator: React.FC<StepIndicatorProps> = ({ currentStep, steps
       {/* تیتر مرحله در موبایل */}
       <div className="sm:hidden text-center mb-3">
         <span className="text-[11px] text-amber-400 font-bold bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-          مرحله {currentStep} از ۶: {currentStepObj?.title}
+          مرحله {currentStep} از ۷: {currentStepObj?.title}
         </span>
       </div>
 

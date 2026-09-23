@@ -3,7 +3,7 @@
 /**
  * app/page.tsx
  * ---------------------------------------------------------------------------
- * ویزارد هوشمند ۶ مرحله‌ای استودیو PMU عسل رجبی (معماری کامپوننت‌بندی شده)
+ * ویزارد هوشمند ۷ مرحله‌ای استودیو PMU عسل رجبی (معماری کامپوننت‌بندی شده)
  * ---------------------------------------------------------------------------
  */
 
@@ -30,11 +30,12 @@ import { SafetyCheckStep } from '@/components/wizard/SafetyCheckStep';
 import { PreferencesStep } from '@/components/wizard/PreferencesStep';
 import { PreviewStep } from '@/components/wizard/PreviewStep';
 import { BookingStep } from '@/components/wizard/BookingStep';
+import { ConsultStep, type ConsultPrescription } from '@/components/wizard/ConsultStep';
 import { AiChatWidget } from '@/components/AiChatWidget';
 import { type PlanTier } from '@/plan-config';
 
 type ServiceType = 'eyebrows' | 'lips' | 'eyeliner' | 'removal';
-type WizardStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type WizardStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 type GenerationStatus = 'idle' | 'loading' | 'success' | 'error';
 
 interface ClientPreferences {
@@ -61,9 +62,10 @@ const WIZARD_STEPS = [
   { id: 1, title: 'انتخاب خدمت' },
   { id: 2, title: 'آپلود تصویر' },
   { id: 3, title: 'بررسی ایمنی' },
-  { id: 4, title: 'سلیقه و انتخاب مدل' },
-  { id: 5, title: 'پیش‌نمایش هوشمند' },
-  { id: 6, title: 'رزرو نوبت' },
+  { id: 4, title: 'مشاور هوشمند' },
+  { id: 5, title: 'سلیقه و انتخاب مدل' },
+  { id: 6, title: 'پیش‌نمایش هوشمند' },
+  { id: 7, title: 'رزرو نوبت' },
 ];
 
 export default function HomePage() {
@@ -101,6 +103,11 @@ export default function HomePage() {
   const isSafetyRestricted =
     safety.pregnantOrNursing || safety.skinAllergyOrKeloid || safety.specialMedication;
 
+  // کش مشاوره هوشمند: کلید = خدمت + استایل + اثر سلفی؛ داده و گزینه منتخب کاربر
+  const [consultCacheKey, setConsultCacheKey] = useState('');
+  const [consultData, setConsultData] = useState<ConsultPrescription | null>(null);
+  const [selectedOptionId, setSelectedOptionId] = useState(0);
+
   const [preferences, setPreferences] = useState<ClientPreferences>({
     dailyMakeup: 'natural',
     browShape: 'natural',
@@ -123,6 +130,12 @@ export default function HomePage() {
   const activeTechnique = useMemo<TechniqueStyleOption | undefined>(() => {
     return availableTechniques.find((t) => t.key === selectedTechniqueKey) || availableTechniques[0];
   }, [availableTechniques, selectedTechniqueKey]);
+
+  // گزینه منتخب مشاوره هوشمند (منبع نسخه ARIA برای تولید و نمایش)
+  const selectedConsultOption = useMemo(() => {
+    if (!consultData || selectedOptionId <= 0) return null;
+    return consultData.options.find((o) => o.id === selectedOptionId) ?? null;
+  }, [consultData, selectedOptionId]);
 
   // گوش دادن به اکشن‌های چت‌بات برای تغییر زنده مراحل
   useEffect(() => {
@@ -220,6 +233,7 @@ export default function HomePage() {
             lipLook: selectedService === 'lips' ? selectedTechniqueKey : undefined,
             eyelinerLook: selectedService === 'eyeliner' ? selectedTechniqueKey : undefined,
           },
+          prescription: selectedConsultOption?.params ?? null,
         }),
       });
 
@@ -251,6 +265,7 @@ export default function HomePage() {
           s: selectedService,
           t: selectedTechniqueKey,
           p: preferences,
+          o: selectedOptionId,
         }),
       );
       setStatusMessage('');
@@ -258,7 +273,7 @@ export default function HomePage() {
       setGenStatus('error');
       setStatusMessage('خطا در برقراری ارتباط با سرور.');
     }
-  }, [imageBase64, activeTechnique, preferences, selectedService, selectedTechniqueKey]);
+  }, [imageBase64, activeTechnique, preferences, selectedService, selectedTechniqueKey, selectedConsultOption, selectedOptionId]);
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -304,7 +319,11 @@ export default function HomePage() {
     s: selectedService,
     t: selectedTechniqueKey,
     p: preferences,
+    o: selectedOptionId,
   });
+
+  // کلید کش مشاوره: خدمت + استایل + اثر انگشت سلفی (طول + ۶۴ حرف آخر base64)
+  const consultRequestKey = `${selectedService}|${selectedTechniqueKey}|${imageBase64.length}:${imageBase64.slice(-64)}`;
   const isStaleResult =
     genStatus === 'success' && !!resultImage && lastGenKey !== '' && lastGenKey !== currentGenKey;
 
@@ -360,7 +379,7 @@ export default function HomePage() {
                 onSelectService={(s) => setSelectedService(s)}
                 onBack={() => setCurrentStep(0)}
                 onNext={() => {
-                  if (selectedService === 'removal') setCurrentStep(5);
+                  if (selectedService === 'removal') setCurrentStep(6);
                   else setCurrentStep(2);
                 }}
               />
@@ -392,6 +411,27 @@ export default function HomePage() {
             )}
 
             {currentStep === 4 && (
+              <ConsultStep
+                imageBase64={imageBase64}
+                imagePreviewUrl={imagePreviewUrl}
+                selectedService={selectedService}
+                serviceTitle={currentServiceInfo.title}
+                initialStyleKey={selectedTechniqueKey}
+                initialStyleLabel={activeTechnique?.label ?? selectedTechniqueKey}
+                cacheKey={consultRequestKey}
+                cachedData={consultCacheKey === consultRequestKey ? consultData : null}
+                selectedOptionId={selectedOptionId}
+                onData={(key, data) => {
+                  setConsultCacheKey(key);
+                  setConsultData(data);
+                }}
+                onSelectOption={(id) => setSelectedOptionId(id)}
+                onBack={() => setCurrentStep(3)}
+                onNext={() => setCurrentStep(5)}
+              />
+            )}
+
+            {currentStep === 5 && (
               <PreferencesStep
                 currentServiceInfo={currentServiceInfo}
                 availableTechniques={availableTechniques}
@@ -399,7 +439,7 @@ export default function HomePage() {
                 preferences={preferences}
                 onSelectTechnique={(key) => setSelectedTechniqueKey(key)}
                 onPreferencesChange={(p) => setPreferences(p)}
-                onBack={() => setCurrentStep(3)}
+                onBack={() => setCurrentStep(4)}
                 onNext={() => {
                   // اگر انتخاب عوض شده، نتیجه قبلی دور ریخته می‌شود تا تازه ساخته شود
                   if (isStaleResult) {
@@ -407,12 +447,12 @@ export default function HomePage() {
                     setGenStatus('idle');
                     setStatusMessage('انتخاب شما تغییر کرد — پیش‌نمایش جدید بسازید ✨');
                   }
-                  setCurrentStep(5);
+                  setCurrentStep(6);
                 }}
               />
             )}
 
-            {currentStep === 5 && (
+            {currentStep === 6 && (
               <PreviewStep
                 selectedService={selectedService}
                 currentServiceInfo={currentServiceInfo}
@@ -424,13 +464,14 @@ export default function HomePage() {
                 imagePreviewUrl={imagePreviewUrl}
                 isDemo={isDemo}
                 isStale={isStaleResult}
+                prescriptionOption={selectedConsultOption}
                 onGenerate={handleGeneratePreview}
-                onBack={() => setCurrentStep(4)}
-                onNext={() => setCurrentStep(6)}
+                onBack={() => setCurrentStep(5)}
+                onNext={() => setCurrentStep(7)}
               />
             )}
 
-            {currentStep === 6 && (
+            {currentStep === 7 && (
               <BookingStep
                 currentServiceInfo={currentServiceInfo}
                 planTier={planTier}
@@ -441,7 +482,7 @@ export default function HomePage() {
                 bookingError={bookingError}
                 onBookingChange={(b) => setBooking(b)}
                 onSubmit={handleBookingSubmit}
-                onBack={() => setCurrentStep(5)}
+                onBack={() => setCurrentStep(6)}
                 onReset={() => {
                   setBookingSuccess(false);
                   setCurrentStep(0);
