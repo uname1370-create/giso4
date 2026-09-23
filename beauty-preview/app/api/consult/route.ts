@@ -20,6 +20,17 @@ const VISION_MODEL =
   (process.env.CLOUDFLARE_VISION_MODEL ?? '').trim() ||
   '@cf/meta/llama-3.2-11b-vision-instruct';
 
+/** مدل‌های بینایی پشتیبان (به ترتیب اولویت) — اگر مدل اصلی ۴۰۳ لایسنس بدهد */
+const FALLBACK_VISION_MODELS: string[] = ['@cf/qwen/qwen3.8-27b', '@cf/llava-hf/llava-1.5-7b-hf'];
+
+/** الگوی JSON خامی که در حالت بدون-tool از مدل پشتیبان خواسته می‌شود */
+const PRESCRIPTION_JSON_SKELETON = `{"analysis_summary_en":"...","analysis_summary_fa":"...","face_shape":"oval|round|square|oblong|heart|diamond|unknown","symmetry_score":0-100,"skin_undertone":"warm|cool|neutral","fitzpatrick":"I|II|III|IV|V|VI","safety_flags":[],"requires_in_person":false,"confidence":0-100,"recommended_option":1-3,"options":[{"id":1,"title_en":"...","client_text_fa":"...","recommended":true,"params":{}},{"id":2,...},{"id":3,...}]}`;
+
+/** نام کوتاه مدل برای لاگ و provider (حذف پیشوند @cf/vendor) */
+function shortModel(model: string): string {
+  return model.replace(/^@cf\/[^/]+\//, '') || model;
+}
+
 /** سقف طول base64 ورودی (~۶ مگابایت عکس) */
 const MAX_BASE64_LENGTH = 8_500_000;
 
@@ -306,6 +317,38 @@ function buildDemoPrescription(service: string, styleKey: string): ConsultPrescr
 /* فراخوانی Cloudflare (OpenAI-Compatible + tool اجباری)                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * فعال‌سازی خودکار لایسنس Meta: اگر مدل ۴۰۳ لایسنس بدهد، یک درخواست سبک
+ * حاوی کلمه agree به آدرس اجرای همان مدل می‌فرستد تا لایسنس اکانت فعال شود.
+ * نتیجه فقط لاگ می‌شود و مسیر اصلی را متوقف نمی‌کند.
+ */
+async function tryActivateMetaLicense(account: CloudflareAccount, model: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/run/${model}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${account.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: 'agree' }),
+        signal: AbortSignal.timeout(15000),
+        cache: 'no-store',
+      },
+    );
+    console.error(`[AI-CONSULT] license-agree ${shortModel(model)} -> HTTP ${res.status}`);
+    return res.ok;
+  } catch (error) {
+    console.error(
+      `[AI-CONSULT] license-agree ${shortModel(model)} failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`.slice(0, 200),
+    );
+    return false;
+  }
+}
+
 async function callCloudflareVision(
   account: CloudflareAccount,
   imageDataUri: string,
@@ -313,13 +356,18 @@ async function callCloudflareVision(
   initialStyle: string,
   faceMetrics: unknown,
   clientTaste: string,
+  model: string = VISION_MODEL,
+  useTools: boolean = true,
+  timeoutMs: number = 90000,
 ): Promise<ConsultPrescription> {
   const userText = [
     `SELECTED_SERVICE: ${service}`,
     `INITIAL_STYLE: ${initialStyle || 'client_has_no_preference'}`,
     `CLIENT_TASTE: ${clientTaste}`,
     `FACE_METRICS: ${faceMetrics ? JSON.stringify(faceMetrics).slice(0, 2000) : 'none'}`,
-    'Analyze CUSTOMER_PHOTO per the ARIA protocol and call pmu_prescription exactly once.',
+    useTools
+      ? 'Analyze CUSTOMER_PHOTO per the ARIA protocol and call pmu_prescription exactly once.'
+      : `Analyze CUSTOMER_PHOTO per the ARIA protocol and respond with ONLY a single JSON object (no markdown fences, no prose) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
   ].join('\n');
 
   const res = await fetch(
@@ -331,7 +379,7 @@ async function callCloudflareVision(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: VISION_MODEL,
+        model,
         temperature: 0.2,
         top_p: 0.9,
         max_tokens: 1500,
@@ -346,10 +394,9 @@ async function callCloudflareVision(
             ],
           },
         ],
-        tools: [PRESCRIPTION_TOOL],
-        tool_choice: 'required',
+        ...(useTools ? { tools: [PRESCRIPTION_TOOL], tool_choice: 'required' } : {}),
       }),
-      signal: AbortSignal.timeout(90000),
+      signal: AbortSignal.timeout(timeoutMs),
       cache: 'no-store',
     },
   );
@@ -367,47 +414,63 @@ async function callCloudflareVision(
       payload && typeof payload === 'object'
         ? JSON.stringify(payload).slice(0, 300)
         : raw.slice(0, 300);
-    throw new Error(`Cloudflare vision HTTP ${res.status}: ${msg}`);
+    throw Object.assign(new Error(`Cloudflare vision ${shortModel(model)} HTTP ${res.status}: ${msg}`), {
+      status: res.status,
+    });
   }
 
   const choices =
     payload && typeof payload === 'object'
       ? (payload as Record<string, unknown>).choices
       : null;
-  const toolCalls =
+  const message =
     Array.isArray(choices) && choices[0] && typeof choices[0] === 'object'
-      ? (choices[0] as Record<string, unknown>).message &&
-        typeof (choices[0] as Record<string, unknown>).message === 'object'
-        ? (
-            (choices[0] as Record<string, unknown>).message as Record<string, unknown>
-          ).tool_calls
-        : null
+      ? (choices[0] as Record<string, unknown>).message
       : null;
+  const messageObj =
+    message && typeof message === 'object' ? (message as Record<string, unknown>) : null;
 
-  const args =
-    Array.isArray(toolCalls) && toolCalls[0] && typeof toolCalls[0] === 'object'
-      ? (toolCalls[0] as Record<string, unknown>).function &&
-        typeof (toolCalls[0] as Record<string, unknown>).function === 'object'
-        ? (
-            ((toolCalls[0] as Record<string, unknown>).function as Record<string, unknown>)
-              .arguments as unknown
-          )
-        : null
-      : null;
-
-  if (typeof args !== 'string' || !args) {
-    throw new Error('Cloudflare vision: tool call pmu_prescription missing in response');
+  let args: unknown = null;
+  if (useTools) {
+    const toolCalls = messageObj ? messageObj.tool_calls : null;
+    args =
+      Array.isArray(toolCalls) && toolCalls[0] && typeof toolCalls[0] === 'object'
+        ? (toolCalls[0] as Record<string, unknown>).function &&
+          typeof (toolCalls[0] as Record<string, unknown>).function === 'object'
+          ? (
+              ((toolCalls[0] as Record<string, unknown>).function as Record<string, unknown>)
+                .arguments as unknown
+            )
+          : null
+        : null;
+    if (typeof args !== 'string' || !args) {
+      throw new Error(
+        `Cloudflare vision ${shortModel(model)}: tool call pmu_prescription missing in response`,
+      );
+    }
+  } else {
+    const content = messageObj && typeof messageObj.content === 'string' ? messageObj.content : '';
+    const cleaned = content
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```\s*$/, '')
+      .trim();
+    if (!cleaned) {
+      throw new Error(`Cloudflare vision ${shortModel(model)}: empty JSON response`);
+    }
+    args = cleaned;
   }
 
   let parsed: unknown = null;
   try {
-    parsed = JSON.parse(args);
+    parsed = JSON.parse(args as string);
   } catch {
-    throw new Error('Cloudflare vision: tool arguments are not valid JSON');
+    throw new Error(`Cloudflare vision ${shortModel(model)}: response is not valid JSON`);
   }
 
   if (!isValidPrescription(parsed)) {
-    throw new Error('Cloudflare vision: prescription failed validation (need analysis + 3 options)');
+    throw new Error(
+      `Cloudflare vision ${shortModel(model)}: prescription failed validation (need analysis + 3 options)`,
+    );
   }
 
   return ensureFaSummary(parsed);
@@ -492,27 +555,98 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
   }
 
+  const isLicense403 = (error: unknown): boolean =>
+    (error as { status?: number })?.status === 403 ||
+    (error instanceof Error && /license/i.test(error.message));
+
   let lastError = '';
   for (let i = 0; i < configured.length; i += 1) {
+    const account = configured[i];
+
+    // ۱) مدل اصلی (با tool اجباری)
     try {
       const prescription = await callCloudflareVision(
-        configured[i],
+        account,
         imageBase64,
         service,
         initialStyle,
         body.faceMetrics,
         clientTasteLine,
+        VISION_MODEL,
+        true,
+        45000,
       );
       return NextResponse.json({
         ok: true,
         demo: false,
-        provider: `cloudflare-llama-vision:${i + 1}`,
+        provider: `cloudflare-vision:${i + 1}:${shortModel(VISION_MODEL)}`,
         prescription,
         ms: Date.now() - startedAt,
       });
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
-      console.error(`[AI-CONSULT] account ${i + 1} failed: ${lastError.slice(0, 300)}`);
+      console.error(`[AI-CONSULT] account ${i + 1} primary failed: ${lastError.slice(0, 300)}`);
+
+      // ۲) اگر ۴۰۳ لایسنس: فعال‌سازی خودکار + یک تلاش مجدد
+      if (isLicense403(error)) {
+        await tryActivateMetaLicense(account, VISION_MODEL);
+        try {
+          const prescription = await callCloudflareVision(
+            account,
+            imageBase64,
+            service,
+            initialStyle,
+            body.faceMetrics,
+            clientTasteLine,
+            VISION_MODEL,
+            true,
+            35000,
+          );
+          return NextResponse.json({
+            ok: true,
+            demo: false,
+            provider: `cloudflare-vision:${i + 1}:${shortModel(VISION_MODEL)}:license-retry`,
+            prescription,
+            ms: Date.now() - startedAt,
+          });
+        } catch (retryError) {
+          lastError = retryError instanceof Error ? retryError.message : String(retryError);
+          console.error(
+            `[AI-CONSULT] account ${i + 1} license-retry failed: ${lastError.slice(0, 300)}`,
+          );
+        }
+      }
+    }
+
+    // ۳) مدل‌های پشتیبان (اول با tool، بعد بدون tool + JSON خام)
+    for (const fallback of FALLBACK_VISION_MODELS) {
+      for (const useTools of [true, false]) {
+        try {
+          const prescription = await callCloudflareVision(
+            account,
+            imageBase64,
+            service,
+            initialStyle,
+            body.faceMetrics,
+            clientTasteLine,
+            fallback,
+            useTools,
+            30000,
+          );
+          return NextResponse.json({
+            ok: true,
+            demo: false,
+            provider: `cloudflare-vision:${i + 1}:${shortModel(fallback)}${useTools ? '' : ':raw-json'}`,
+            prescription,
+            ms: Date.now() - startedAt,
+          });
+        } catch (fallbackError) {
+          lastError = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+          console.error(
+            `[AI-CONSULT] account ${i + 1} fallback ${shortModel(fallback)} tools=${useTools} failed: ${lastError.slice(0, 300)}`,
+          );
+        }
+      }
     }
   }
 
@@ -528,6 +662,7 @@ export async function GET(): Promise<NextResponse> {
   return NextResponse.json({
     ok: true,
     model: VISION_MODEL,
+    fallbacks: FALLBACK_VISION_MODELS,
     accountsConfigured: configured.length,
     demo: configured.length === 0,
     // عیب‌یابی امن: فقط «هست/نیست» — هیچ مقداری فاش نمی‌شود
