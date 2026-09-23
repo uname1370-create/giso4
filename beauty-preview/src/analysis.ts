@@ -123,27 +123,76 @@ JSON shape:
   );
 
   const raw = await response.text();
+
+  // Cloudflare normally returns JSON here, but keep the parser tolerant of
+  // SSE-style responses as well. Some Workers AI runtimes can return a
+  // successful streaming payload even when stream:false was requested.
   let payload: unknown = null;
-  try { payload = raw ? JSON.parse(raw) : null; } catch { payload = null; }
+  try {
+    payload = raw ? JSON.parse(raw) : null;
+  } catch {
+    const events = raw
+      .split(/\\r?\\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trim())
+      .filter(Boolean);
+
+    const parsedEvents = events.flatMap((event) => {
+      try {
+        return [JSON.parse(event) as unknown];
+      } catch {
+        return [];
+      }
+    });
+
+    payload = parsedEvents.length
+      ? parsedEvents[parsedEvents.length - 1]
+      : null;
+  }
 
   if (!response.ok) {
     const detail =
       payload && typeof payload === 'object' && typeof (payload as Record<string, unknown>).error === 'string'
         ? String((payload as Record<string, unknown>).error)
-        : raw.slice(0, 400);
+        : raw.slice(0, 800);
     throw new ProviderError('Cloudflare Vision: تحلیل عکس ناموفق بود', detail);
   }
 
-  const result = payload && typeof payload === 'object'
-    ? (payload as Record<string, unknown>).result
+  const root = payload && typeof payload === 'object'
+    ? payload as Record<string, unknown>
     : null;
-  const answer =
-    result && typeof result === 'object' && typeof (result as Record<string, unknown>).answer === 'string'
-      ? String((result as Record<string, unknown>).answer)
-      : '';
+  const result = root?.result && typeof root.result === 'object'
+    ? root.result as Record<string, unknown>
+    : null;
+
+  const answerCandidates = [
+    result?.answer,
+    result?.response,
+    result?.text,
+    root?.answer,
+    root?.response,
+  ];
+
+  const answer = answerCandidates.find(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0,
+  )?.trim() ?? '';
 
   if (!answer) {
-    throw new ProviderError('Cloudflare Vision: پاسخ تحلیل عکس خالی بود');
+    const diagnostic = raw
+      .replace(/Bearer\\s+[^\\s]+/gi, 'Bearer [redacted]')
+      .slice(0, 2000);
+
+    console.error('[AI-ANALYSIS] Cloudflare Vision empty answer', {
+      status: response.status,
+      contentType: response.headers.get('content-type'),
+      raw: diagnostic,
+    });
+
+    throw new ProviderError(
+      'Cloudflare Vision: پاسخ تحلیل عکس خالی بود',
+      `HTTP ${response.status}; content-type=${response.headers.get('content-type') ?? 'unknown'}; body=${diagnostic}`,
+    );
   }
 
   let parsed: Record<string, unknown>;
