@@ -2,7 +2,7 @@
  * app/api/consult/route.ts
  * ---------------------------------------------------------------------------
  * اندپوینت «مشاور کارشناس ARIA» — حلقه اول زنجیره هوش مصنوعی:
- *   عکس → توصیف چهره با LLaVA (۲۰ث) → نسخه JSON با gpt-oss-20b (۲۰ث) → نسخه ساخت‌یافته
+ *   عکس → توصیف چهره با LLaVA از مسیر REST (۲۰ث) → نسخه JSON با gpt-oss-20b (۲۰ث) → نسخه ساخت‌یافته
  * معماری دومرحله‌ای بدون tool (JSON خام + Regex) با سقف کل ۴۵ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
  * بدون کلید Cloudflare: نسخه نمایشی (demo) برمی‌گردد تا فلو UX نخوابد.
  * ---------------------------------------------------------------------------
@@ -28,7 +28,7 @@ const TEXT_MODEL = '@cf/openai/gpt-oss-20b';
 
 /** پرامپت ساده مرحله بینایی: توصیف کوتاه چهره، متن ساده، بدون JSON */
 const VISION_DESCRIBE_PROMPT =
-  'Describe this face for a PMU beauty analysis: 1) Face shape, 2) Skin undertone and Fitzpatrick tone, 3) Eyebrow density, arch and symmetry, 4) Any eye/lip features. Keep it short (under 120 words), plain text, no JSON.';
+  'Describe only what you see in this face photo for a PMU beauty analysis: 1) Face shape, 2) Skin undertone and Fitzpatrick tone, 3) Eyebrow density, arch and symmetry, 4) Any eye/lip features. Keep it short (under 120 words), plain text, no JSON. Never invent features you cannot see.';
 
 /** الگوی JSON خامی که در حالت بدون-tool از مدل پشتیبان خواسته می‌شود */
 const PRESCRIPTION_JSON_SKELETON = `{"analysis_summary_en":"...","analysis_summary_fa":"...","face_shape":"oval|round|square|oblong|heart|diamond|unknown","symmetry_score":0-100,"skin_undertone":"warm|cool|neutral","fitzpatrick":"I|II|III|IV|V|VI","safety_flags":[],"requires_in_person":false,"confidence":0-100,"recommended_option":1-3,"options":[{"id":1,"title_en":"...","client_text_fa":"...","recommended":true,"params":{}},{"id":2,...},{"id":3,...}]}`;
@@ -63,8 +63,6 @@ function accounts(): CloudflareAccount[] {
 /* ------------------------------------------------------------------ */
 /* پرامپت سیستم ARIA (سند زنجیره هوش مصنوعی — نسخه مصوب)                  */
 /* ------------------------------------------------------------------ */
-
-const VISION_SYSTEM_PROMPT = `You are a precise face-description assistant for a PMU beauty atelier. Describe only what you see in the photo: short, factual, plain sentences. Never invent features you cannot see.`;
 
 const ARIA_TEXT_SYSTEM_PROMPT = `You are ARIA, the owner of an ultra-specialized VIP permanent-makeup atelier and a master face designer with 15 years of clinical PMU experience. You speak to the client through structured data only — never in free prose.
 
@@ -314,7 +312,7 @@ async function chatCompletion(
       payload && typeof payload === 'object'
         ? JSON.stringify(payload).slice(0, 300)
         : raw.slice(0, 300);
-    throw Object.assign(new Error(`Cloudflare ${shortModel(model)} HTTP ${res.status}: ${msg}`), {
+    throw Object.assign(new Error(`Cloudflare ${tag} HTTP ${res.status}: ${msg}`), {
       status: res.status,
     });
   }
@@ -332,34 +330,98 @@ async function chatCompletion(
       ? (message as Record<string, unknown>).content
       : null;
   if (typeof content !== 'string' || !content.trim()) {
-    throw new Error(`Cloudflare ${shortModel(model)}: empty response`);
+    throw new Error(`Cloudflare ${tag}: empty response`);
   }
   console.error(`[AI-CONSULT] ${tag} ok in ${Date.now() - t0}ms (${content.length} chars)`);
   return content;
 }
 
-/** مرحله ۱: توصیف کوتاه چهره با LLaVA (متن ساده، بدون JSON) */
+/**
+ * مرحله ۱ (REST): توصیف کوتاه چهره با LLaVA.
+ * ورودی/خروجی دقیقاً مطابق اسکیمای مستندات مدل (آرایه بایت + prompt؛ پاسخ description).
+ * (مسیر Chat Completions برای این مدل محتوای خالی برمی‌گرداند، پس استفاده نشد.)
+ */
 async function callVisionDescribe(
   account: CloudflareAccount,
-  imageDataUri: string,
+  imageBase64: string,
   service: string,
   timeoutMs: number,
 ): Promise<string> {
-  const description = await chatCompletion(
-    account,
-    VISION_MODEL,
-    'vision',
-    VISION_SYSTEM_PROMPT,
-    [
-      { type: 'text', text: `SELECTED_SERVICE: ${service}\n${VISION_DESCRIBE_PROMPT}` },
-      { type: 'image_url', image_url: { url: imageDataUri } },
-    ],
-    300,
-    timeoutMs,
-  );
-  if (description.trim().length < 30) {
-    throw new Error(`Cloudflare ${shortModel(VISION_MODEL)}: description too short`);
+  const t0 = Date.now();
+  const tag = `vision ${shortModel(VISION_MODEL)}`;
+
+  // حذف پیشوند data URI و تبدیل base64 به آرایه بایت (مطابق اسکیمای ورودی مدل)
+  const clean = imageBase64.replace(/^data:image\/\w+;base64,/, '').trim();
+  const bytes = Array.from(Buffer.from(clean, 'base64'));
+  if (bytes.length < 100) {
+    throw new Error(`Cloudflare ${tag}: invalid or tiny image (${bytes.length} bytes)`);
   }
+
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/run/${VISION_MODEL}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${account.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          image: bytes,
+          prompt: `SELECTED_SERVICE: ${service}\n${VISION_DESCRIBE_PROMPT}`,
+          max_tokens: 300,
+          temperature: 0.2,
+        }),
+        signal: AbortSignal.timeout(timeoutMs),
+        cache: 'no-store',
+      },
+    );
+  } catch (networkError) {
+    const msg = networkError instanceof Error ? networkError.message : String(networkError);
+    throw new Error(`Cloudflare ${tag} failed after ${Date.now() - t0}ms: ${msg}`);
+  }
+
+  const raw = await res.text();
+  let payload: unknown = null;
+  try {
+    payload = raw ? JSON.parse(raw) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!res.ok) {
+    const msg =
+      payload && typeof payload === 'object'
+        ? JSON.stringify(payload).slice(0, 300)
+        : raw.slice(0, 300);
+    throw new Error(`Cloudflare ${tag} HTTP ${res.status}: ${msg}`);
+  }
+
+  const envelope =
+    payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : null;
+  if (envelope && envelope.success === false) {
+    const msg = Array.isArray(envelope.errors)
+      ? JSON.stringify(envelope.errors).slice(0, 300)
+      : 'unknown error';
+    throw new Error(`Cloudflare ${tag}: ${msg}`);
+  }
+  const result =
+    envelope && typeof envelope.result === 'object' && envelope.result !== null
+      ? (envelope.result as Record<string, unknown>)
+      : null;
+  const description =
+    result && typeof result.description === 'string'
+      ? result.description
+      : result && typeof result.response === 'string'
+        ? result.response
+        : '';
+  if (description.trim().length < 30) {
+    throw new Error(`Cloudflare ${tag}: description too short or missing (${raw.slice(0, 200)})`);
+  }
+  console.error(
+    `[AI-CONSULT] ${tag} ok in ${Date.now() - t0}ms (${Math.round(bytes.length / 1024)}KB image, ${description.trim().length} chars)`,
+  );
   return description.trim().slice(0, 2000);
 }
 
