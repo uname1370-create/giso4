@@ -11,6 +11,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   buildDemoOverlaySvg,
+  buildDemoLipsSvg,
+  buildDemoLinerSvg,
   svgToDataUri,
   type BrowStyleKey,
 } from '@/brow-shapes';
@@ -207,6 +209,8 @@ export default function HomePage() {
   }, [selectedService]);
 
   const handleGeneratePreview = useCallback(async () => {
+    // ریمو پیش‌نمایش تصویری ندارد (کارت ارزیابی بالینی) — هرگز نباید به تولید برسد
+    if (selectedService === 'removal') return;
     if (!imageBase64) {
       setUploadError('تصویر چهره یافت نشد. لطفاً ابتدا عکس را بارگذاری نمایید.');
       setCurrentStep(3);
@@ -223,6 +227,8 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageBase64,
+          service: selectedService,
+          styleKey: selectedTechniqueKey,
           style: activeTechnique?.label || 'طبیعی',
           colorName: 'طبیعی چهره',
           colorHex: '#3D2817',
@@ -246,10 +252,11 @@ export default function HomePage() {
       if (data.demo) {
         setIsDemo(true);
         const demoSvg = svgToDataUri(
-          buildDemoOverlaySvg(
-            selectedService === 'eyebrows' ? (selectedTechniqueKey as BrowStyleKey) : 'hairstroke',
-            '#78522A',
-          ),
+          selectedService === 'lips'
+            ? buildDemoLipsSvg('#B65A6B')
+            : selectedService === 'eyeliner'
+              ? buildDemoLinerSvg('#2C2C2C')
+              : buildDemoOverlaySvg(selectedTechniqueKey as BrowStyleKey, '#78522A'),
         );
         setResultImage(demoSvg);
       } else {

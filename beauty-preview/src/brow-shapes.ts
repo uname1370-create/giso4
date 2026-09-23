@@ -389,3 +389,46 @@ export function buildDemoOverlaySvg(style: BrowStyleKey, color: string): string 
   <use href="#brow-shape" transform="translate(${totalWidth} 0) scale(-1 1)" />
 </svg>`;
 }
+
+/** اندازهٔ اورلی نمایشی لب */
+export const DEMO_LIPS_SIZE = { width: 400, height: 170 } as const;
+/** اندازهٔ اورلی نمایشی خط چشم (دو چشم) */
+export const DEMO_LINER_SIZE = { width: 900, height: 120 } as const;
+
+/** اورلی نمایشی لب: تینت رز ملایم با گرادیان محو (جایگاه واقعی در PreviewStep) */
+export function buildDemoLipsSvg(color: string): string {
+  const gradId = 'grad-demo-lips';
+  const softId = 'soft-demo-lips';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${DEMO_LIPS_SIZE.width} ${DEMO_LIPS_SIZE.height}" width="${DEMO_LIPS_SIZE.width}" height="${DEMO_LIPS_SIZE.height}">
+  <defs>
+    <radialGradient id="${gradId}" cx="0.5" cy="0.5" r="0.55">
+      <stop offset="0%" stop-color="${color}" stop-opacity="0.75" />
+      <stop offset="70%" stop-color="${color}" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="${color}" stop-opacity="0.08" />
+    </radialGradient>
+    <filter id="${softId}" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" />
+    </filter>
+  </defs>
+  <g filter="url(#${softId})">
+    <path d="M40 95 Q110 45 200 78 Q290 45 360 95 Q290 145 200 138 Q110 145 40 95 Z" fill="url(#${gradId})" />
+  </g>
+  <path d="M60 92 Q130 60 200 82 Q270 60 340 92" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" opacity="0.5" />
+</svg>`;
+}
+
+/** اورلی نمایشی خط چشم: دو خط بن‌مژه محو در امتداد ریشه مژه‌ها */
+export function buildDemoLinerSvg(color: string): string {
+  const softId = 'soft-demo-liner';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${DEMO_LINER_SIZE.width} ${DEMO_LINER_SIZE.height}" width="${DEMO_LINER_SIZE.width}" height="${DEMO_LINER_SIZE.height}">
+  <defs>
+    <filter id="${softId}" x="-10%" y="-60%" width="120%" height="220%">
+      <feGaussianBlur stdDeviation="1.6" />
+    </filter>
+  </defs>
+  <g filter="url(#${softId})" fill="none" stroke="${color}" stroke-linecap="round">
+    <path d="M60 78 Q200 58 330 74" stroke-width="7" opacity="0.85" />
+    <path d="M570 74 Q700 58 840 78" stroke-width="7" opacity="0.85" />
+  </g>
+</svg>`;
+}

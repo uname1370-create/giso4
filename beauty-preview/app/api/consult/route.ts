@@ -412,13 +412,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     browShape: tasteOf(rawTaste.browShape, ['natural', 'defined']),
     density: tasteOf(rawTaste.density, ['fluffy', 'dense']),
   };
-  const tasteText = [
+  // سلیقه مرتبط با هر خدمت فرق می‌کند (فرم ابرو برای لب بی‌معناست؛ ریمو سلیقه نمی‌گیرد)
+  const tasteBits = [
     taste.dailyMakeup ? `daily makeup ${taste.dailyMakeup}` : '',
-    taste.browShape ? `brow shape ${taste.browShape}` : '',
-    taste.density ? `density ${taste.density}` : '',
-  ]
-    .filter(Boolean)
-    .join('; ');
+    service === 'eyebrows' && taste.browShape ? `brow shape ${taste.browShape}` : '',
+    (service === 'eyebrows' || service === 'lips') && taste.density
+      ? `density ${taste.density}`
+      : '',
+  ].filter(Boolean);
+  const tasteText = service === 'removal' ? '' : tasteBits.join('; ');
   const clientTasteLine = tasteText
     ? `${tasteText} — respect this taste in option params (density/depth), never override safety or morphology.`
     : 'no taste stated';
@@ -438,12 +440,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   // بدون کلید: نسخه نمایشی تا فلو UX نخوابد
   if (configured.length === 0) {
     const prescription = buildDemoPrescription(service, initialStyle);
-    // بازتاب سلیقه در نسخه نمایشی (مسیر واقعی در پرامپت LLM اعمال می‌شود)
+    // بازتاب سلیقه در نسخه نمایشی، فقط کلیدهای مرتبط با هر خدمت
+    // (مسیر واقعی در پرامپت LLM اعمال می‌شود)
     for (const opt of prescription.options) {
-      if (taste.dailyMakeup === 'bold') opt.params.pigment_depth = 'rich';
-      else if (taste.dailyMakeup === 'natural') opt.params.pigment_depth = 'sheer';
-      if (taste.density === 'dense') opt.params.stroke_density = 0.8;
-      else if (taste.density === 'fluffy') opt.params.stroke_density = 0.45;
+      if (service === 'eyebrows' || service === 'lips') {
+        if (taste.dailyMakeup === 'bold') opt.params.pigment_depth = 'rich';
+        else if (taste.dailyMakeup === 'natural') opt.params.pigment_depth = 'sheer';
+      }
+      if (service === 'eyebrows') {
+        if (taste.density === 'dense') opt.params.stroke_density = 0.8;
+        else if (taste.density === 'fluffy') opt.params.stroke_density = 0.45;
+      }
     }
     return NextResponse.json({
       ok: true,

@@ -317,7 +317,13 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({
                     <img
                       src={effectiveResultImage}
                       alt="اورلی دمو"
-                      className="absolute top-[28%] left-1/2 -translate-x-1/2 w-[65%] pointer-events-none drop-shadow-md"
+                      className={`absolute left-1/2 -translate-x-1/2 pointer-events-none drop-shadow-md ${
+                        selectedService === 'lips'
+                          ? 'top-[64%] w-[36%]'
+                          : selectedService === 'eyeliner'
+                            ? 'top-[33%] w-[58%]'
+                            : 'top-[28%] w-[65%]'
+                      }`}
                     />
                   </div>
                 ) : (

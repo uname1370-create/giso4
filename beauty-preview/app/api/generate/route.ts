@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { EYEBROW_STYLES, buildEnglishPrompt } from '@/options';
+import { SERVICE_TECHNIQUES } from '@/techniques';
 import { analyzeBeautyPhoto, buildDesignBrief } from '@/analysis';
 import { styleDnaText, type UserSubjectivePreferences } from '@/style-dna';
 import { generateWithFallback, configuredProviders } from '@/providers';
@@ -20,11 +21,70 @@ const MAX_BASE64_LENGTH = Math.ceil((MAX_BYTES * 4) / 3) + 1024 * 1024;
 
 interface GenerateBody {
   imageBase64?: unknown;
+  service?: unknown;
+  styleKey?: unknown;
   style?: unknown;
   colorName?: unknown;
   colorHex?: unknown;
   referenceImageBase64?: unknown;
+  prescription?: unknown;
   preferences?: UserSubjectivePreferences;
+}
+
+type GenerateService = 'eyebrows' | 'lips' | 'eyeliner' | 'removal';
+
+interface ResolvedStyle {
+  service: GenerateService;
+  key: string;
+  labelEn: string;
+  /** مسیر تصویر مرجع داخل public؛ ریمو مرجع ندارد */
+  imagePath: string | null;
+}
+
+/**
+ * نگاشت (خدمت + کلید استایل) به سبک قابل‌اجرا — چندخدمتی.
+ * اولویت با کلید استایل است؛ تطبیق لیبل فارسی فقط برای سازگاری عقبرو.
+ */
+function resolveStyle(
+  serviceRaw: unknown,
+  styleKeyRaw: unknown,
+  labelRaw: string,
+): ResolvedStyle | null {
+  const service = typeof serviceRaw === 'string' ? serviceRaw.trim() : '';
+  if (service !== 'eyebrows' && service !== 'lips' && service !== 'eyeliner' && service !== 'removal') {
+    return null;
+  }
+  if (service === 'removal') {
+    return { service, key: 'removal', labelEn: 'PMU removal, faded natural skin', imagePath: null };
+  }
+
+  const key = typeof styleKeyRaw === 'string' ? styleKeyRaw.trim() : '';
+  if (service === 'eyebrows') {
+    const byKey = EYEBROW_STYLES.find((item) => item.key === key);
+    if (byKey) return { service, key: byKey.key, labelEn: byKey.labelEn, imagePath: byKey.imagePath };
+  } else {
+    const found = SERVICE_TECHNIQUES[service].find((item) => item.key === key);
+    if (found) return { service, key: found.key, labelEn: found.labelEn, imagePath: found.sampleImage };
+  }
+
+  // سازگاری عقبرو: کلاینت‌های قدیمی فقط لیبل فارسی می‌فرستادند
+  const label = labelRaw.trim();
+  if (label && service === 'eyebrows') {
+    const legacy = EYEBROW_STYLES.find((item) => item.label === label);
+    if (legacy) {
+      return { service, key: legacy.key, labelEn: legacy.labelEn, imagePath: legacy.imagePath };
+    }
+    const tech = SERVICE_TECHNIQUES.eyebrows.find((item) => item.label === label);
+    if (tech) {
+      const brow = EYEBROW_STYLES.find((item) => item.key === tech.key);
+      if (brow) return { service, key: brow.key, labelEn: brow.labelEn, imagePath: brow.imagePath };
+    }
+  }
+  if (label && (service === 'lips' || service === 'eyeliner')) {
+    const found = SERVICE_TECHNIQUES[service].find((item) => item.label === label);
+    if (found) return { service, key: found.key, labelEn: found.labelEn, imagePath: found.sampleImage };
+  }
+  return null;
 }
 
 /** ثبت رویداد «پیش‌نمایش» برای پنل مدیریت. */
@@ -85,13 +145,14 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   }
 
   const imageBase64 = typeof body.imageBase64 === 'string' ? body.imageBase64 : '';
+  const service = typeof body.service === 'string' ? body.service.trim() : '';
+  const styleKey = typeof body.styleKey === 'string' ? body.styleKey.trim() : '';
   const style = typeof body.style === 'string' ? body.style.trim() : '';
   const referenceImageBase64 =
     typeof body.referenceImageBase64 === 'string' ? body.referenceImageBase64.trim() : '';
   const preferences = body.preferences && typeof body.preferences === 'object' ? body.preferences : undefined;
 
   /* ------------------------------ اعتبارسنجی ------------------------------ */
-  if (!style) return badRequest('لطفاً ابتدا مدل ابرو را انتخاب کنید.');
   if (!imageBase64) return badRequest('لطفاً عکس چهره خود را آپلود کنید.');
   if (imageBase64.length > MAX_BASE64_LENGTH) {
     return badRequest('حجم تصویر بیش از حد مجاز است. حداکثر حجم آپلود ۵ مگابایت است.');
@@ -106,17 +167,19 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
     return badRequest('حجم تصویر بیش از ۵ مگابایت است.');
   }
   if (referenceImage && referenceImage.bytes.length > 2 * 1024 * 1024) {
-    return badRequest('تصویر مرجع مدل ابرو بیش از حد بزرگ است.');
+    return badRequest('تصویر مرجع بیش از حد بزرگ است.');
   }
 
   /* -------------------------------- پرامپت -------------------------------- */
-  const knownStyle = EYEBROW_STYLES.find((item) => item.label === style);
-  if (!knownStyle) return badRequest('مدل ابروی انتخاب‌شده معتبر نیست.');
+  const knownStyle = resolveStyle(service, styleKey, style);
+  if (!knownStyle) return badRequest('خدمت یا مدل انتخاب‌شده معتبر نیست.');
 
-  const serverReference = await readSiteImage(knownStyle.imagePath);
-  if (serverReference) {
-    const dataUri = `data:${serverReference.mime};base64,${serverReference.buffer.toString('base64')}`;
-    referenceImage = parseDataUri(dataUri);
+  if (knownStyle.imagePath) {
+    const serverReference = await readSiteImage(knownStyle.imagePath);
+    if (serverReference) {
+      const dataUri = `data:${serverReference.mime};base64,${serverReference.buffer.toString('base64')}`;
+      referenceImage = parseDataUri(dataUri);
+    }
   }
 
   /* ----------------------------- حالت نمایشی ------------------------------ */
@@ -135,26 +198,24 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
 
   /* تحلیل هوشمند پرامپت */
   const analysis = await analyzeBeautyPhoto(image.dataUri);
-  const designBrief = buildDesignBrief(analysis, knownStyle.key);
-  const styleDna = styleDnaText(knownStyle.key, preferences);
+  const designBrief = buildDesignBrief(analysis, knownStyle.key, knownStyle.service);
+  const styleDna = styleDnaText(knownStyle.key, preferences, knownStyle.service);
 
   // نسخه ARIA (گزینه منتخب مرحله مشاوره) — همان منبع حقیقت تحلیل و رندر
-  const rawPrescription =
-    body && typeof body === 'object' && 'prescription' in body
-      ? (body as Record<string, unknown>).prescription
-      : null;
+  const rawPrescription = body.prescription ?? null;
   const prescriptionText =
     rawPrescription && typeof rawPrescription === 'object'
       ? ` ARIA_PRESCRIPTION: ${JSON.stringify(rawPrescription).slice(0, 3000)}`
       : '';
 
   const prompt = buildEnglishPrompt(
-    style,
+    style || knownStyle.labelEn,
     'infer_from_customer_photo',
     '',
     knownStyle.labelEn,
     knownStyle.key,
     `${designBrief} STYLE_DNA: ${styleDna}${prescriptionText}`,
+    knownStyle.service,
   );
 
   /* --------------------------- زنجیرهٔ پروایدرها --------------------------- */

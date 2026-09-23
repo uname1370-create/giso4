@@ -1,5 +1,3 @@
-import type { BrowStyleKey } from './brow-shapes';
-
 export interface BrowSideProfile {
   start: string;
   arch: string;
@@ -108,10 +106,146 @@ export function buildCustomerBrowProfile(analysis: BeautyPhotoAnalysis): string 
   });
 }
 
+/** نواحی غیرقابل‌تغییر پایه؛ برای لب، خود لب از فهرست حذف می‌شود */
+const BASE_IMMUTABLE = ['identity', 'face_geometry', 'skin', 'eyes', 'eyelids', 'nose', 'lips', 'hair', 'background', 'lighting'];
+
+/** پروفایل عمومی چهره+رنگ برای خدمات غیرابرو (هندسه ناحیه از روی عکس استنتاج می‌شود) */
+function buildCustomerZoneProfile(analysis: BeautyPhotoAnalysis, service: string): string {
+  return JSON.stringify({
+    source: analysis.source,
+    face: {
+      visible: analysis.faceVisible,
+      quality: analysis.imageQuality,
+      shape: analysis.faceShape,
+    },
+    zone: {
+      service,
+      geometry_source: 'customer_photo',
+      preserve_native_anatomy: true,
+    },
+    color: {
+      skin_undertone: analysis.skinUndertone,
+      pigment_family: analysis.pigmentFamily,
+      pigment_temperature: analysis.pigmentTemperature,
+      pigment_depth: analysis.pigmentDepth,
+      avoid: analysis.avoidPigments,
+    },
+    edit_zone: `${service}_zone_only`,
+    immutable: service === 'lips' ? BASE_IMMUTABLE.filter((item) => item !== 'lips') : BASE_IMMUTABLE,
+  });
+}
+
 export function buildDesignBrief(
   analysis: BeautyPhotoAnalysis,
-  style: BrowStyleKey,
+  style: string,
+  service: string = 'eyebrows',
 ): string {
+  if (service === 'lips') {
+    return JSON.stringify({
+      contract_version: 'lip-edit-v1',
+      source_of_truth: 'customer_photo',
+      selected_style: style,
+      reference_role: 'technique_only',
+      customer_profile: JSON.parse(buildCustomerZoneProfile(analysis, service)),
+      style: 'see STYLE_DNA',
+      geometry: {
+        source: 'customer',
+        preserve: true,
+        position: 'preserve',
+        vermilion_boundary: 'preserve',
+        border: 'preserve',
+        commissures: 'preserve',
+        volume_ratio: 'preserve',
+        natural_asymmetry: 'preserve',
+      },
+      editable_region: 'customer_lip_vermilion_only',
+      forbidden_regions: 'teeth_tongue_inner_mouth_chin_nose_and_everything_outside_lips',
+      pigment: {
+        source: 'customer_native_mucosal_tone_plus_local_skin_undertone',
+        fixed_hex: false,
+      },
+      restrictions: {
+        face_edit: false,
+        skin_edit: false,
+        eye_edit: false,
+        geometry_reconstruction: false,
+        beauty_filter: false,
+        relighting: false,
+        background_edit: false,
+      },
+    });
+  }
+
+  if (service === 'eyeliner') {
+    return JSON.stringify({
+      contract_version: 'liner-edit-v1',
+      source_of_truth: 'customer_photo',
+      selected_style: style,
+      reference_role: 'technique_only',
+      customer_profile: JSON.parse(buildCustomerZoneProfile(analysis, service)),
+      style: 'see STYLE_DNA',
+      geometry: {
+        source: 'customer',
+        preserve: true,
+        position: 'preserve',
+        eye_shape: 'preserve',
+        tilt: 'preserve',
+        lid_fold: 'preserve',
+        lash_direction: 'preserve',
+        natural_asymmetry: 'preserve',
+      },
+      editable_region: 'upper_lash_line_zone_only',
+      forbidden_regions: 'eyeball_iris_sclera_waterline_lower_lid_brows_and_all_other_regions',
+      pigment: {
+        source: 'carbon_black_matched_to_customer_undertone',
+        fixed_hex: false,
+      },
+      restrictions: {
+        face_edit: false,
+        skin_edit: false,
+        eye_edit: false,
+        geometry_reconstruction: false,
+        beauty_filter: false,
+        relighting: false,
+        background_edit: false,
+      },
+    });
+  }
+
+  if (service === 'removal') {
+    return JSON.stringify({
+      contract_version: 'removal-fade-v1',
+      source_of_truth: 'customer_photo',
+      selected_style: style,
+      reference_role: 'none_no_reference',
+      customer_profile: JSON.parse(buildCustomerZoneProfile(analysis, service)),
+      style: 'see STYLE_DNA',
+      geometry: {
+        source: 'customer',
+        preserve: true,
+        position: 'preserve',
+        native_hair: 'preserve',
+        skin_texture: 'preserve',
+      },
+      editable_region: 'artificial_pigment_traces_only',
+      forbidden_regions: 'all_native_anatomy',
+      pigment: {
+        source: 'none_fade_to_native_skin',
+        fixed_hex: false,
+      },
+      restrictions: {
+        face_edit: false,
+        skin_edit: false,
+        eye_edit: false,
+        geometry_reconstruction: false,
+        beauty_filter: false,
+        relighting: false,
+        background_edit: false,
+        new_pigment: false,
+      },
+    });
+  }
+
   return JSON.stringify({
     contract_version: 'brow-edit-v3',
     source_of_truth: 'customer_photo',

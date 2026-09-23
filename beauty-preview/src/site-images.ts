@@ -150,6 +150,19 @@ export async function resolveSiteImage(
     return { filePath, mime: MIME_BY_EXTENSION.png };
   }
 
+  // ---- تصاویر مرجع لب و خط چشم (فقط نام‌های ثابت تکنیک‌ها از src/techniques.ts، فقط PNG) ----
+  if (folder === 'lips' || folder === 'eyeliner') {
+    const allowed =
+      folder === 'lips'
+        ? ['natural_blush.png', 'nude_pink.png', 'full_color.png', 'dark_neutralization.png']
+        : ['lash_line_enhancement.png', 'classic_liner.png', 'smokey_shade.png'];
+    if (!allowed.includes(name)) return null;
+
+    const filePath = path.resolve(root, folder, name);
+    if (!filePath.startsWith(root + path.sep)) return null;
+    return { filePath, mime: MIME_BY_EXTENSION.png };
+  }
+
   // ---- تصویر هیرو ----
   if (folder === HERO_IMAGE_FOLDER.replace(/^\//, '')) {
     const lower = name.toLowerCase();

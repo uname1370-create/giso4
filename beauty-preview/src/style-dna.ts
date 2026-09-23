@@ -223,34 +223,86 @@ export const STYLE_DNA: Record<string, StyleDNA> = {
       'pigment fallout look',
     ],
   },
+
+  // ریمو (محو پیگمنت قدیمی — بدون پیگمنت جدید)
+  removal: {
+    key: 'removal',
+    technique:
+      'gradual enzymatic PMU pigment fading toward clean natural skin, healed realistic result, zero new pigment',
+    density: 'fully faded old pigment, native skin and hair fully visible',
+    texture:
+      'natural skin texture with visible pores, no bleaching halo, no scar sheen, realistic healed finish',
+    forbidden: [
+      'new pigment',
+      'dark outline',
+      'bleached white patch',
+      'scar gloss',
+      'color inversion',
+      'fresh tattoo look',
+    ],
+  },
 };
 
 export function styleDnaFor(key: string): StyleDNA {
   return STYLE_DNA[key] ?? STYLE_DNA['hairstroke'];
 }
 
-export function styleDnaText(key: string, preferences?: UserSubjectivePreferences): string {
+export function styleDnaText(
+  key: string,
+  preferences?: UserSubjectivePreferences,
+  service: string = 'eyebrows',
+): string {
   const s = styleDnaFor(key);
   const additions: string[] = [];
 
-  if (preferences?.dailyMakeup === 'bold') {
-    additions.push('defined arch, dense pigment saturation, crisp clean edge');
-  } else if (preferences?.dailyMakeup === 'natural') {
-    additions.push('sparse front, very soft strokes, no harsh lines, ultra-natural breathable finish, visible skin pores');
-  } else if (preferences?.dailyMakeup === 'soft') {
-    additions.push('delicate soft daywear tint, medium gradient transitions, seamless skin melt');
-  }
+  if (service === 'lips') {
+    if (preferences?.dailyMakeup === 'bold') {
+      additions.push('dense pigment saturation, crisp clean vermilion edge');
+    } else if (preferences?.dailyMakeup === 'natural') {
+      additions.push('sheer watercolor tint, ultra-natural breathable finish, visible lip texture');
+    } else if (preferences?.dailyMakeup === 'soft') {
+      additions.push('delicate soft daywear tint, seamless melt into native tone');
+    }
 
-  if (preferences?.browShape === 'defined') {
-    additions.push('structured clean border within natural margin, neat elegant arch');
-  } else if (preferences?.browShape === 'natural') {
-    additions.push('preserve natural irregular contour, follow exact native geometry, organic asymmetry');
-  }
+    if (preferences?.density === 'dense') {
+      additions.push('full luxurious velvet volume');
+    } else if (preferences?.density === 'fluffy') {
+      additions.push('airy sheer wash, light translucent glow');
+    }
+  } else if (service === 'eyeliner') {
+    if (preferences?.dailyMakeup === 'bold') {
+      additions.push('denser carbon fill at lash roots, defined elegant flick');
+    } else if (preferences?.dailyMakeup === 'natural') {
+      additions.push('invisible tightline, ultra-natural depth only');
+    } else if (preferences?.dailyMakeup === 'soft') {
+      additions.push('soft diffused edge, gentle daywear definition');
+    }
 
-  if (preferences?.density === 'dense') {
-    additions.push('higher density with subtle under-shading, full luxurious volume');
-  } else if (preferences?.density === 'fluffy') {
-    additions.push('airy feather spacing between micro strokes, light and separated keratin texture with visible skin gaps');
+    if (preferences?.density === 'dense') {
+      additions.push('denser lash-base fill, richer black');
+    } else if (preferences?.density === 'fluffy') {
+      additions.push('light sparse micro pigment, barely-there line');
+    }
+  } else if (service !== 'removal') {
+    if (preferences?.dailyMakeup === 'bold') {
+      additions.push('defined arch, dense pigment saturation, crisp clean edge');
+    } else if (preferences?.dailyMakeup === 'natural') {
+      additions.push('sparse front, very soft strokes, no harsh lines, ultra-natural breathable finish, visible skin pores');
+    } else if (preferences?.dailyMakeup === 'soft') {
+      additions.push('delicate soft daywear tint, medium gradient transitions, seamless skin melt');
+    }
+
+    if (preferences?.browShape === 'defined') {
+      additions.push('structured clean border within natural margin, neat elegant arch');
+    } else if (preferences?.browShape === 'natural') {
+      additions.push('preserve natural irregular contour, follow exact native geometry, organic asymmetry');
+    }
+
+    if (preferences?.density === 'dense') {
+      additions.push('higher density with subtle under-shading, full luxurious volume');
+    } else if (preferences?.density === 'fluffy') {
+      additions.push('airy feather spacing between micro strokes, light and separated keratin texture with visible skin gaps');
+    }
   }
 
   if (preferences?.lipLook) {
