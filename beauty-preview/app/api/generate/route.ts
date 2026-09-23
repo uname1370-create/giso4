@@ -60,7 +60,6 @@ interface GenerateFailure {
   ok: false;
   error: string;
   attempts: AttemptLog[];
-  analysis?: BeautyPhotoAnalysis;
 }
 
 function badRequest(error: string): NextResponse<GenerateFailure> {
@@ -123,6 +122,10 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
     return badRequest('تصویر مرجع مدل ابرو بیش از حد بزرگ است.');
   }
 
+  /* -------------------------------- پرامپت -------------------------------- */
+  const knownStyle = EYEBROW_STYLES.find((item) => item.label === style);
+  if (!knownStyle) return badRequest('مدل ابروی انتخاب‌شده معتبر نیست.');
+
   /* ----------------------------- حالت نمایشی ------------------------------ */
   // حالت نمایشی نباید به Vision یا API خارجی وابسته باشد.
   if (isDemoActive()) {
@@ -137,10 +140,6 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
       ms: 0,
     });
   }
-
-  /* -------------------------------- پرامپت -------------------------------- */
-  const knownStyle = EYEBROW_STYLES.find((item) => item.label === style);
-  if (!knownStyle) return badRequest('مدل ابروی انتخاب‌شده معتبر نیست.');
 
   // Cloudflare Vision / Moondream is intentionally disabled.
   // The image model receives the original customer photo directly and must
@@ -180,7 +179,6 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
       demo: false,
       attempts: result.attempts,
       ms: result.ms,
-      analysis,
     });
   } catch (error) {
     const attempts = (error as { attempts?: AttemptLog[] })?.attempts ?? [];
