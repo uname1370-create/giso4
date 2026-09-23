@@ -3,8 +3,8 @@ import { ProviderError, timeoutSignal } from './providers/http';
 const DEFAULT_TIMEOUT_MS = 45_000;
 
 function enabled(): boolean {
-  const raw = (process.env.VISION_ENGINE_ENABLED ?? '').trim().toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'on';
+  const raw = (process.env.VISION_ENGINE_ENABLED ?? 'true').trim().toLowerCase();
+  return raw !== '0' && raw !== 'false' && raw !== 'off';
 }
 
 function url(): string {
