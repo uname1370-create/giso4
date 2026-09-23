@@ -61,6 +61,16 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({
   const isGold = planTier === 'gold';
   const watermarkEnabled = planTier === 'bronze';
 
+  // بزرگنمایی هوشمند: نقطه پیش‌فرض زوم روی ناحیه هدف هر خدمت
+  const [zoom, setZoom] = useState(1);
+  const ZOOM_ORIGIN: Record<string, string> = {
+    eyebrows: '50% 26%',
+    lips: '50% 74%',
+    eyeliner: '50% 40%',
+    removal: '50% 50%',
+  };
+  const zoomOrigin = ZOOM_ORIGIN[selectedService] ?? '50% 50%';
+
   // هر زمان تصویر خروجی جنریت شد، ترکیب کلاینتی Hard Composite را بی‌درنگ اجرا می‌کنیم
   React.useEffect(() => {
     if (!resultImage || !imagePreviewUrl || isDemo) {
@@ -229,6 +239,40 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({
               <span>{isFullscreen ? 'خروج ✕' : 'تمام‌صفحه 🔍'}</span>
             </button>
 
+            {/* کنترل‌های بزرگنمایی هوشمند روی ناحیه هدف */}
+            <div className="absolute bottom-2.5 right-2.5 z-20 flex items-center gap-1.5">
+              <button
+                onClick={() => setZoom((z) => Math.max(1, +(z - 0.5).toFixed(1)))}
+                className="px-2.5 py-1.5 rounded-xl bg-neutral-950/80 backdrop-blur-md border border-neutral-700 hover:border-amber-400 text-neutral-300 hover:text-amber-300 text-xs font-bold transition-all cursor-pointer shadow-lg"
+                title="کوچک‌نمایی"
+              >
+                −
+              </button>
+              <span className="px-2 py-1.5 rounded-xl bg-neutral-950/80 backdrop-blur-md border border-neutral-700 text-amber-300 text-[10px] font-mono font-bold shadow-lg min-w-[3rem] text-center">
+                {zoom.toFixed(1)}×
+              </span>
+              <button
+                onClick={() => setZoom((z) => Math.min(3, +(z + 0.5).toFixed(1)))}
+                className="px-2.5 py-1.5 rounded-xl bg-neutral-950/80 backdrop-blur-md border border-neutral-700 hover:border-amber-400 text-neutral-300 hover:text-amber-300 text-xs font-bold transition-all cursor-pointer shadow-lg"
+                title="بزرگنمایی روی ناحیه هدف"
+              >
+                +
+              </button>
+              {zoom > 1 && (
+                <button
+                  onClick={() => setZoom(1)}
+                  className="px-2.5 py-1.5 rounded-xl bg-amber-500/80 backdrop-blur-md border border-amber-400 text-neutral-950 text-xs font-bold transition-all cursor-pointer shadow-lg"
+                  title="بازنشانی زوم"
+                >
+                  ⟲
+                </button>
+              )}
+            </div>
+
+            <div
+              className="w-full h-full transition-transform duration-300 ease-out"
+              style={{ transform: `scale(${zoom})`, transformOrigin: zoomOrigin }}
+            >
             <ReactCompareSlider
               className="w-full h-full"
               itemOne={
@@ -274,6 +318,7 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({
                 />
               }
             />
+            </div>
           </div>
         ) : (
           <div className="p-8 text-center">
