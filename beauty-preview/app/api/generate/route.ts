@@ -11,6 +11,8 @@
 import { NextResponse } from 'next/server';
 
 import { EYEBROW_STYLES, buildEnglishPrompt } from '@/options';
+import { analyzeBeautyPhoto, buildDesignBrief } from '@/analysis';
+import { styleDnaText } from '@/style-dna';
 import { generateWithFallback, configuredProviders } from '@/providers';
 import { parseDataUri } from '@/providers/http';
 import type { AttemptLog } from '@/providers/types';
@@ -150,24 +152,26 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
     });
   }
 
-  // Moondream remains out of the generation path. The local Vision Engine is
-  // used after generation as a hard brow-region mask + pixel-preservation gate.
-  const designBrief = JSON.stringify({
-    contract_version: 'brow-edit-v2',
-    selected_style: knownStyle.key,
-    selected_style_label: knownStyle.labelEn,
-    source_of_truth: 'customer_photo',
-    reference_role: 'technique_only',
-    reference_never_controls: ['face', 'skin', 'skin_color', 'eyes', 'lighting', 'brow_position'],
-    editable_region: 'existing_customer_left_and_right_eyebrows_only',
-    immutable_region: 'everything_outside_customer_eyebrow_mask',
-    brow_geometry: 'preserve_position_boundary_arch_tail_growth_direction_asymmetry',
-    pigment_source: 'customer_natural_brow_and_hair_plus_local_skin_undertone',
-    skin_edit: 'forbidden',
-    outside_mask_edit: 'forbidden',
-    postprocess: 'hard_restore_original_pixels_outside_brow_mask',
-    reject_if: ['mask_missing', 'mask_too_large', 'provider_changes_non_target_region'],
-  });
+  // Analyze the actual customer photo before generation. This is local MediaPipe/OpenCV
+  // analysis, not Moondream, so the generation path does not depend on remote vision.
+  let analysis;
+  try {
+    analysis = await analyzeBeautyPhoto(image.dataUri);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'تحلیل عکس انجام نشد';
+    console.error('[AI-ANALYSIS] FAILED', message);
+    return NextResponse.json(
+      { ok: false, error: message, attempts: [] },
+      { status: 422 },
+    );
+  }
+
+  if (!analysis.acceptable || !analysis.faceVisible || !analysis.eyebrowsVisible) {
+    return badRequest(analysis.message);
+  }
+
+  const designBrief = buildDesignBrief(analysis, knownStyle.key);
+  const styleDna = styleDnaText(knownStyle.key);
 
   const prompt = buildEnglishPrompt(
     style,
@@ -175,7 +179,7 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
     '',
     knownStyle.labelEn,
     knownStyle.key,
-    designBrief,
+    `${designBrief} STYLE_DNA: ${styleDna}`,
   );
 
   /* --------------------------- زنجیرهٔ پروایدرها --------------------------- */
