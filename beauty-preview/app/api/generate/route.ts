@@ -11,7 +11,6 @@
 import { NextResponse } from 'next/server';
 
 import { EYEBROW_STYLES, buildEnglishPrompt } from '@/options';
-import { analyzeBeautyPhoto, type BeautyPhotoAnalysis } from '@/analysis';
 import { generateWithFallback, configuredProviders } from '@/providers';
 import { parseDataUri } from '@/providers/http';
 import type { AttemptLog } from '@/providers/types';
@@ -55,7 +54,6 @@ interface GenerateSuccess {
   demo: boolean;
   attempts: AttemptLog[];
   ms: number;
-  analysis?: BeautyPhotoAnalysis;
 }
 
 interface GenerateFailure {
@@ -144,56 +142,21 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
   const knownStyle = EYEBROW_STYLES.find((item) => item.label === style);
   if (!knownStyle) return badRequest('مدل ابروی انتخاب‌شده معتبر نیست.');
 
-  let analysis: BeautyPhotoAnalysis | null = null;
-  try {
-    analysis = await analyzeBeautyPhoto(image.dataUri);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'تحلیل عکس در دسترس نیست';
-    const detail = error instanceof Error && 'detail' in error
-      ? String((error as { detail?: unknown }).detail ?? '')
-      : '';
-    console.error(`[AI-ANALYSIS] FAILED | ${message}${detail ? ` | ${detail}` : ''}`);
-    return NextResponse.json(
-      { ok: false, error: 'تحلیل هوشمند عکس انجام نشد. لطفاً دوباره تلاش کنید.', attempts: [] },
-      { status: 502 },
-    );
-  }
-
-  if (!analysis.acceptable || !analysis.faceVisible || !analysis.eyebrowsVisible) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: analysis.message || 'عکس برای پیش‌نمایش مناسب نیست. لطفاً عکس واضح و روبه‌رو ارسال کنید.',
-        attempts: [],
-        analysis,
-      },
-      { status: 422 },
-    );
-  }
-
+  // Cloudflare Vision / Moondream is intentionally disabled.
+  // The image model receives the original customer photo directly and must
+  // infer the visible natural brow tone itself. No separate vision-analysis
+  // API call is made here.
   const designBrief = JSON.stringify({
-    photo_quality: analysis.imageQuality,
-    face_shape: analysis.faceShape,
-    current_brow: {
-      density: analysis.browDensity,
-      thickness: analysis.browThickness,
-      arch: analysis.browArch,
-      symmetry: analysis.browSymmetry,
-    },
-    natural_color: {
-      hair_tone: analysis.hairTone,
-      brow_tone: analysis.browTone,
-      skin_undertone: analysis.skinUndertone,
-      pigment_family: analysis.pigmentFamily,
-      pigment_temperature: analysis.pigmentTemperature,
-      pigment_depth: analysis.pigmentDepth,
-      avoid: analysis.avoidPigments,
-    },
+    vision_analysis: 'disabled',
+    source_of_truth: 'customer_photo',
+    eyebrow_position: 'preserve_existing_customer_brows',
+    pigment: 'infer_from_customer_photo',
+    reference_role: 'technique_only',
   });
 
   const prompt = buildEnglishPrompt(
     style,
-    analysis.pigmentFamily,
+    'infer_from_customer_photo',
     '',
     knownStyle.labelEn,
     knownStyle.key,
