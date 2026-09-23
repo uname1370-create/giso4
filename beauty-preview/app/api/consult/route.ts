@@ -2,8 +2,8 @@
  * app/api/consult/route.ts
  * ---------------------------------------------------------------------------
  * اندپوینت «مشاور کارشناس ARIA» — حلقه اول زنجیره هوش مصنوعی:
- *   عکس → توصیف چهره با LLaVA (۶ث) → نسخه JSON با gpt-oss-20b (۶ث) → نسخه ساخت‌یافته
- * معماری دومرحله‌ای بدون tool (JSON خام + Regex) با سقف کل ۱۱٫۵ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
+ *   عکس → توصیف چهره با LLaVA (۲۰ث) → نسخه JSON با gpt-oss-20b (۲۰ث) → نسخه ساخت‌یافته
+ * معماری دومرحله‌ای بدون tool (JSON خام + Regex) با سقف کل ۴۵ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
  * بدون کلید Cloudflare: نسخه نمایشی (demo) برمی‌گردد تا فلو UX نخوابد.
  * ---------------------------------------------------------------------------
  */
@@ -38,10 +38,10 @@ function shortModel(model: string): string {
   return model.replace(/^@cf\/[^/]+\//, '') || model;
 }
 
-/** سقف زمانی: ۶ ثانیه بینایی + ۶ ثانیه متنی، سقف کل ۱۱٫۵ ثانیه — هرگز معطلی یا ۵۰۲ */
-const VISION_TIMEOUT_MS = 6000;
-const TEXT_TIMEOUT_MS = 6000;
-const TOTAL_DEADLINE_MS = 11500;
+/** سقف زمانی واقع‌بینانه: cold-start سمت Cloudflare تا ~۳۰ ثانیه طول می‌کشد؛ هرگز ۵۰۲ */
+const VISION_TIMEOUT_MS = 20000;
+const TEXT_TIMEOUT_MS = 20000;
+const TOTAL_DEADLINE_MS = 45000;
 
 /** سقف طول base64 ورودی (~۶ مگابایت عکس) */
 const MAX_BASE64_LENGTH = 8_500_000;
@@ -263,12 +263,17 @@ type ChatMessageContent =
 async function chatCompletion(
   account: CloudflareAccount,
   model: string,
+  label: string,
   systemPrompt: string,
   userContent: ChatMessageContent,
   maxTokens: number,
   timeoutMs: number,
 ): Promise<string> {
-  const res = await fetch(
+  const t0 = Date.now();
+  const tag = `${label} ${shortModel(model)}`;
+  let res: Response;
+  try {
+    res = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/v1/chat/completions`,
     {
       method: 'POST',
@@ -289,8 +294,12 @@ async function chatCompletion(
       }),
       signal: AbortSignal.timeout(timeoutMs),
       cache: 'no-store',
-    },
-  );
+      },
+    );
+  } catch (networkError) {
+    const msg = networkError instanceof Error ? networkError.message : String(networkError);
+    throw new Error(`Cloudflare ${tag} failed after ${Date.now() - t0}ms: ${msg}`);
+  }
 
   const raw = await res.text();
   let payload: unknown = null;
@@ -325,6 +334,7 @@ async function chatCompletion(
   if (typeof content !== 'string' || !content.trim()) {
     throw new Error(`Cloudflare ${shortModel(model)}: empty response`);
   }
+  console.error(`[AI-CONSULT] ${tag} ok in ${Date.now() - t0}ms (${content.length} chars)`);
   return content;
 }
 
@@ -338,6 +348,7 @@ async function callVisionDescribe(
   const description = await chatCompletion(
     account,
     VISION_MODEL,
+    'vision',
     VISION_SYSTEM_PROMPT,
     [
       { type: 'text', text: `SELECTED_SERVICE: ${service}\n${VISION_DESCRIBE_PROMPT}` },
@@ -374,6 +385,7 @@ async function callTextPrescription(
   const content = await chatCompletion(
     account,
     TEXT_MODEL,
+    'reasoning',
     ARIA_TEXT_SYSTEM_PROMPT,
     userText,
     1500,
@@ -485,7 +497,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   for (let i = 0; i < configured.length; i += 1) {
     const account = configured[i];
     const remainingBefore = TOTAL_DEADLINE_MS - (Date.now() - startedAt);
-    if (remainingBefore < 3500) break;
+    if (remainingBefore < 8000) break;
     try {
       const faceDescription = await callVisionDescribe(
         account,
@@ -494,7 +506,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         Math.min(VISION_TIMEOUT_MS, remainingBefore),
       );
       const remainingAfterVision = TOTAL_DEADLINE_MS - (Date.now() - startedAt);
-      if (remainingAfterVision < 2500) {
+      if (remainingAfterVision < 5000) {
         throw new Error('vision ok but no time left for reasoning step');
       }
       const prescription = await callTextPrescription(
@@ -506,12 +518,14 @@ export async function POST(request: Request): Promise<NextResponse> {
         clientTasteLine,
         Math.min(TEXT_TIMEOUT_MS, remainingAfterVision),
       );
+      const okMs = Date.now() - startedAt;
+      console.error(`[AI-CONSULT] account ${i + 1} 2-stage ok in ${okMs}ms (vision+reasoning)`);
       return NextResponse.json({
         ok: true,
         demo: false,
         provider: `cloudflare-2stage:${i + 1}:${shortModel(VISION_MODEL)}+${shortModel(TEXT_MODEL)}`,
         prescription,
-        ms: Date.now() - startedAt,
+        ms: okMs,
       });
     } catch (stageError) {
       lastError = stageError instanceof Error ? stageError.message : String(stageError);
@@ -541,6 +555,7 @@ export async function GET(): Promise<NextResponse> {
     ok: true,
     model: VISION_MODEL,
     textModel: TEXT_MODEL,
+    budgets: { visionMs: VISION_TIMEOUT_MS, textMs: TEXT_TIMEOUT_MS, totalMs: TOTAL_DEADLINE_MS },
     accountsConfigured: configured.length,
     demo: configured.length === 0,
     // عیب‌یابی امن: فقط «هست/نیست» — هیچ مقداری فاش نمی‌شود
