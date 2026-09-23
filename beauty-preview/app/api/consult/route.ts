@@ -3,7 +3,7 @@
  * ---------------------------------------------------------------------------
  * اندپوینت «مشاور کارشناس ARIA» — حلقه اول زنجیره هوش مصنوعی:
  *   عکس + خدمت + استایل اولیه → تحلیل Vision (زنجیره آزاد: LLaVA اصلی، Qwen پشتیبان) → نسخه ساخت‌یافته
- * خروجی JSON از طریق tool اجباری (pmu_prescription) یا حالت JSON خام؛ هر دو اعتبارسنجی می‌شوند.
+ * فراخوانی بینایی بدون tool (JSON خام + Regex) با سقف ۸ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
  * بدون کلید Cloudflare: نسخه نمایشی (demo) برمی‌گردد تا فلو UX نخوابد.
  * ---------------------------------------------------------------------------
  */
@@ -16,9 +16,15 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
+const ENV_VISION_MODEL = (process.env.CLOUDFLARE_VISION_MODEL ?? '').trim();
+/**
+ * مدل بینایی ثابت و آزاد: اگر env خالی باشد یا هنوز روی llama/meta قفل شده
+ * باشد (باقی‌مانده از تنظیم قدیمی)، نادیده گرفته می‌شود تا ۵۰۱۶ برنگردد.
+ */
 const VISION_MODEL =
-  (process.env.CLOUDFLARE_VISION_MODEL ?? '').trim() ||
-  '@cf/llava-hf/llava-1.5-7b-hf';
+  !ENV_VISION_MODEL || /llama|meta/i.test(ENV_VISION_MODEL)
+    ? '@cf/llava-hf/llava-1.5-7b-hf'
+    : ENV_VISION_MODEL;
 
 /** مدل بینایی پشتیبان — کل زنجیره آزاد است و به لایسنس Meta نیاز ندارد */
 const FALLBACK_VISION_MODELS: string[] = ['@cf/qwen/qwen3.8-27b'];
@@ -31,13 +37,9 @@ function shortModel(model: string): string {
   return model.replace(/^@cf\/[^/]+\//, '') || model;
 }
 
-/**
- * ترتیب حالت تلاش برای هر مدل: LLaVA مدل کوچکی است و tool-call قابل‌اعتماد
- * ندارد، پس اول JSON خام؛ مدل‌های بزرگ‌تر اول tool اجباری، بعد JSON خام.
- */
-function modelModes(model: string): boolean[] {
-  return /llava/i.test(model) ? [false, true] : [true, false];
-}
+/** سقف زمانی هر تلاش بینایی (۸ ثانیه) و سقف کل فرآیند (۹٫۵ ثانیه) — هرگز معطلی یا ۵۰۲ */
+const VISION_ATTEMPT_TIMEOUT_MS = 8000;
+const VISION_TOTAL_DEADLINE_MS = 9500;
 
 /** سقف طول base64 ورودی (~۶ مگابایت عکس) */
 const MAX_BASE64_LENGTH = 8_500_000;
@@ -91,79 +93,9 @@ OUTPUT CONTRACT (strict):
 - analysis_summary_fa: retell the SAME analysis for the client in SIMPLE Persian (2-3 short sentences, zero jargon, zero invented numbers): one warm verdict line + how it fits INITIAL_STYLE + one gentle care note. If uncertain about any measurement, say the in-person visit will finalize it — NEVER fabricate.`;
 
 /* ------------------------------------------------------------------ */
-/* اسکیمای tool اجباری pmu_prescription                                   */
+/* توجه: فراخوانی بینایی عمداً بدون tool است (LLaVA با tool خطا می‌دهد).   */
+/* خروجی JSON خام با Regex استخراج و با isValidPrescription اعتبارسنجی می‌شود. */
 /* ------------------------------------------------------------------ */
-
-const PRESCRIPTION_TOOL = {
-  type: 'function',
-  function: {
-    name: 'pmu_prescription',
-    description:
-      'Structured PMU expert prescription: face analysis plus exactly 3 client options with hidden render parameters.',
-    parameters: {
-      type: 'object',
-      properties: {
-        analysis_summary_en: {
-          type: 'string',
-          description: 'Compact expert analysis (2-4 sentences) with evidence citations.',
-        },
-        analysis_summary_fa: {
-          type: 'string',
-          description:
-            'The same analysis retold for the client in SIMPLE Persian (2-3 short sentences, zero jargon, zero invented numbers).',
-        },
-        face_shape: {
-          type: 'string',
-          enum: ['oval', 'round', 'square', 'oblong', 'heart', 'diamond', 'unknown'],
-        },
-        symmetry_score: { type: 'number', description: 'Overall facial symmetry 0-100.' },
-        skin_undertone: { type: 'string', enum: ['warm', 'cool', 'neutral'] },
-        fitzpatrick: { type: 'string', enum: ['I', 'II', 'III', 'IV', 'V', 'VI'] },
-        safety_flags: { type: 'array', items: { type: 'string' } },
-        requires_in_person: { type: 'boolean' },
-        confidence: { type: 'number', description: 'Honest certainty 0-100.' },
-        recommended_option: { type: 'integer', enum: [1, 2, 3] },
-        options: {
-          type: 'array',
-          minItems: 3,
-          maxItems: 3,
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'integer', enum: [1, 2, 3] },
-              title_en: { type: 'string' },
-              client_text_fa: {
-                type: 'string',
-                description: 'Warm Persian copy shown to the client (2-3 sentences).',
-              },
-              recommended: { type: 'boolean' },
-              not_recommended_reason: { type: 'string' },
-              params: {
-                type: 'object',
-                description:
-                  'Hidden render prescription passed to the image model (arch/thickness/density/pigment per service).',
-                additionalProperties: true,
-              },
-            },
-            required: ['id', 'title_en', 'client_text_fa', 'recommended', 'params'],
-          },
-        },
-      },
-      required: [
-        'analysis_summary_en',
-        'face_shape',
-        'symmetry_score',
-        'skin_undertone',
-        'fitzpatrick',
-        'safety_flags',
-        'requires_in_person',
-        'confidence',
-        'recommended_option',
-        'options',
-      ],
-    },
-  },
-} as const;
 
 /* ------------------------------------------------------------------ */
 /* تایپ‌ها                                                               */
@@ -333,17 +265,14 @@ async function callCloudflareVision(
   faceMetrics: unknown,
   clientTaste: string,
   model: string = VISION_MODEL,
-  useTools: boolean = true,
-  timeoutMs: number = 90000,
+  timeoutMs: number = VISION_ATTEMPT_TIMEOUT_MS,
 ): Promise<ConsultPrescription> {
   const userText = [
     `SELECTED_SERVICE: ${service}`,
     `INITIAL_STYLE: ${initialStyle || 'client_has_no_preference'}`,
     `CLIENT_TASTE: ${clientTaste}`,
     `FACE_METRICS: ${faceMetrics ? JSON.stringify(faceMetrics).slice(0, 2000) : 'none'}`,
-    useTools
-      ? 'Analyze CUSTOMER_PHOTO per the ARIA protocol and call pmu_prescription exactly once.'
-      : `Analyze CUSTOMER_PHOTO per the ARIA protocol and respond with ONLY a single JSON object (no markdown fences, no prose, exactly 3 options with prescription params) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
+    `Analyze CUSTOMER_PHOTO per the ARIA protocol and respond with ONLY a single JSON code block (no prose, exactly 3 options with prescription params) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
   ].join('\n');
 
   const res = await fetch(
@@ -370,7 +299,6 @@ async function callCloudflareVision(
             ],
           },
         ],
-        ...(useTools ? { tools: [PRESCRIPTION_TOOL], tool_choice: 'required' } : {}),
       }),
       signal: AbortSignal.timeout(timeoutMs),
       cache: 'no-store',
@@ -406,39 +334,15 @@ async function callCloudflareVision(
   const messageObj =
     message && typeof message === 'object' ? (message as Record<string, unknown>) : null;
 
-  let args: unknown = null;
-  if (useTools) {
-    const toolCalls = messageObj ? messageObj.tool_calls : null;
-    args =
-      Array.isArray(toolCalls) && toolCalls[0] && typeof toolCalls[0] === 'object'
-        ? (toolCalls[0] as Record<string, unknown>).function &&
-          typeof (toolCalls[0] as Record<string, unknown>).function === 'object'
-          ? (
-              ((toolCalls[0] as Record<string, unknown>).function as Record<string, unknown>)
-                .arguments as unknown
-            )
-          : null
-        : null;
-    if (typeof args !== 'string' || !args) {
-      throw new Error(
-        `Cloudflare vision ${shortModel(model)}: tool call pmu_prescription missing in response`,
-      );
-    }
-  } else {
-    const content = messageObj && typeof messageObj.content === 'string' ? messageObj.content : '';
-    const cleaned = content
-      .replace(/^```(?:json)?\s*/i, '')
-      .replace(/\s*```\s*$/, '')
-      .trim();
-    if (!cleaned) {
-      throw new Error(`Cloudflare vision ${shortModel(model)}: empty JSON response`);
-    }
-    args = cleaned;
+  const content = messageObj && typeof messageObj.content === 'string' ? messageObj.content : '';
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error(`Cloudflare vision ${shortModel(model)}: no JSON object in response`);
   }
 
   let parsed: unknown = null;
   try {
-    parsed = JSON.parse(args as string);
+    parsed = JSON.parse(jsonMatch[0]);
   } catch {
     throw new Error(`Cloudflare vision ${shortModel(model)}: response is not valid JSON`);
   }
@@ -531,47 +435,51 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
   }
 
+  // تلاش سریع روی زنجیره مدل‌های آزاد با سقف زمانی کل؛ هر خطایی → دموی صادقانه، هرگز ۵۰۲
   let lastError = '';
   for (let i = 0; i < configured.length; i += 1) {
     const account = configured[i];
-
-    // زنجیره مدل‌های آزاد (بدون لایسنس Meta): اصلی → پشتیبان؛
-    // هر مدل با ترتیب حالت مخصوص خودش (LLaVA اول JSON خام، بقیه اول tool).
     for (const model of [VISION_MODEL, ...FALLBACK_VISION_MODELS]) {
-      for (const useTools of modelModes(model)) {
-        try {
-          const prescription = await callCloudflareVision(
-            account,
-            imageBase64,
-            service,
-            initialStyle,
-            body.faceMetrics,
-            clientTasteLine,
-            model,
-            useTools,
-            30000,
-          );
-          return NextResponse.json({
-            ok: true,
-            demo: false,
-            provider: `cloudflare-vision:${i + 1}:${shortModel(model)}${useTools ? '' : ':raw-json'}`,
-            prescription,
-            ms: Date.now() - startedAt,
-          });
-        } catch (modelError) {
-          lastError = modelError instanceof Error ? modelError.message : String(modelError);
-          console.error(
-            `[AI-CONSULT] account ${i + 1} ${shortModel(model)} tools=${useTools} failed: ${lastError.slice(0, 300)}`,
-          );
-        }
+      const remaining = VISION_TOTAL_DEADLINE_MS - (Date.now() - startedAt);
+      if (remaining < 2000) break;
+      try {
+        const prescription = await callCloudflareVision(
+          account,
+          imageBase64,
+          service,
+          initialStyle,
+          body.faceMetrics,
+          clientTasteLine,
+          model,
+          Math.min(VISION_ATTEMPT_TIMEOUT_MS, remaining),
+        );
+        return NextResponse.json({
+          ok: true,
+          demo: false,
+          provider: `cloudflare-vision:${i + 1}:${shortModel(model)}:json`,
+          prescription,
+          ms: Date.now() - startedAt,
+        });
+      } catch (modelError) {
+        lastError = modelError instanceof Error ? modelError.message : String(modelError);
+        console.error(
+          `[AI-CONSULT] account ${i + 1} ${shortModel(model)} failed: ${lastError.slice(0, 300)}`,
+        );
       }
     }
   }
 
-  return NextResponse.json(
-    { ok: false, error: `سرویس تحلیل پاسخ نداد — ${lastError}`.slice(0, 500) },
-    { status: 502 },
+  // فال‌بک ایمن و سریع: دموی صادقانه (بنر 🎭 در UI نشان داده می‌شود)، هرگز ۵۰۲
+  console.error(
+    `[AI-CONSULT] all vision attempts failed, serving demo: ${lastError.slice(0, 300)}`,
   );
+  return NextResponse.json({
+    ok: true,
+    demo: true,
+    provider: 'demo-fallback',
+    prescription: buildDemoPrescription(service, initialStyle),
+    ms: Date.now() - startedAt,
+  });
 }
 
 export async function GET(): Promise<NextResponse> {
