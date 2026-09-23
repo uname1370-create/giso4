@@ -33,6 +33,7 @@ interface PreviewStepProps {
   resultImage: string;
   imagePreviewUrl: string;
   isDemo: boolean;
+  isStale?: boolean;
   onGenerate: () => void;
   onBack: () => void;
   onNext: () => void;
@@ -49,6 +50,7 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({
   resultImage,
   imagePreviewUrl,
   isDemo,
+  isStale = false,
   onGenerate,
   onBack,
   onNext,
@@ -170,6 +172,19 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({
         <p className="text-xs text-neutral-400">
           تکنیک انتخابی: <strong className="text-amber-300">{activeTechnique?.label}</strong>
         </p>
+        {isStale && effectiveResultImage && (
+          <div className="mt-4 p-3.5 rounded-xl bg-amber-950/60 border border-amber-500/50 max-w-lg mx-auto">
+            <p className="text-xs text-amber-200 font-bold mb-2">
+              ⚠️ انتخاب شما تغییر کرده — این پیش‌نمایش مربوط به مدل قبلی است
+            </p>
+            <button
+              onClick={onGenerate}
+              className="px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs shadow-md shadow-amber-500/20 cursor-pointer"
+            >
+              🔄 ساخت مجدد با انتخاب جدید
+            </button>
+          </div>
+        )}
       </div>
 
       <div

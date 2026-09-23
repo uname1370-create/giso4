@@ -29,6 +29,7 @@ export const ServiceSelectStep: React.FC<ServiceSelectStepProps> = ({
       desc: 'طراحی مویی و کرکی، شیدینگ پودری و فیبروز متقارن',
       badge: 'پرطرفدارترین',
       icon: '✨',
+      bgImage: '/services/eyebrows.jpg',
       requiredTier: 'bronze' as PlanTier,
     },
     {
@@ -37,6 +38,7 @@ export const ServiceSelectStep: React.FC<ServiceSelectStepProps> = ({
       desc: 'شادابی طبیعی، رفع تیرگی و حجم‌دهی بصری بدون کادر خطی',
       badge: 'تکنیک روز',
       icon: '💋',
+      bgImage: '/services/lips.jpg',
       requiredTier: 'silver' as PlanTier,
     },
     {
@@ -45,6 +47,7 @@ export const ServiceSelectStep: React.FC<ServiceSelectStepProps> = ({
       desc: 'تیره‌سازی عمق نگاه و خط مژه با پیگمنت کربن مشکی خالص',
       badge: 'ماندگاری ۳ تا ۵ سال',
       icon: '👁️',
+      bgImage: '/services/eyeliner.jpg',
       requiredTier: 'silver' as PlanTier,
     },
     {
@@ -53,6 +56,7 @@ export const ServiceSelectStep: React.FC<ServiceSelectStepProps> = ({
       desc: 'خروج ایمن پیگمنت‌های قرمز یا اکسید شده بدون آسیب به پوست',
       badge: 'مشاوره حضوری',
       icon: '🫧',
+      bgImage: '/services/removal.jpg',
       requiredTier: 'gold' as PlanTier,
     },
   ];
@@ -120,6 +124,18 @@ export const ServiceSelectStep: React.FC<ServiceSelectStepProps> = ({
                   : 'bg-neutral-950/80 border-neutral-800/60 opacity-60 hover:opacity-80'
               }`}
             >
+              {/* بکگراند تصویری تمام‌کارت + گرادیان خوانایی متن */}
+              <img
+                src={service.bgImage}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-neutral-950/20 pointer-events-none" />
+
               {!allowed && (
                 <div className="absolute top-2.5 start-2.5 z-10 px-2 py-0.5 rounded-full bg-neutral-950/90 border border-amber-500/40 text-[9px] sm:text-[10px] text-amber-300 font-bold flex items-center gap-1 shadow-md">
                   <span>🔒</span>
@@ -129,6 +145,7 @@ export const ServiceSelectStep: React.FC<ServiceSelectStepProps> = ({
                 </div>
               )}
 
+              <div className="relative z-[5] flex flex-col justify-end min-h-[170px]">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-2xl">{service.icon}</span>
                 {allowed && (
@@ -143,6 +160,7 @@ export const ServiceSelectStep: React.FC<ServiceSelectStepProps> = ({
                 <span>مدت زمان: {SERVICES_CONTENT[service.id]?.duration}</span>
                 <span className="text-neutral-600">•</span>
                 <span>ماندگاری: {SERVICES_CONTENT[service.id]?.durability}</span>
+              </div>
               </div>
             </div>
           );

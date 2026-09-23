@@ -141,6 +141,8 @@ export default function HomePage() {
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [resultImage, setResultImage] = useState<string>('');
   const [isDemo, setIsDemo] = useState(false);
+  // کلید انتخاب‌هایی که آخرین پیش‌نمایش با آن ساخته شد (تشخیص کهنگی نتیجه)
+  const [lastGenKey, setLastGenKey] = useState<string>('');
 
   const [booking, setBooking] = useState<BookingFormData>({
     fullName: '',
@@ -244,6 +246,13 @@ export default function HomePage() {
       }
 
       setGenStatus('success');
+      setLastGenKey(
+        JSON.stringify({
+          s: selectedService,
+          t: selectedTechniqueKey,
+          p: preferences,
+        }),
+      );
       setStatusMessage('');
     } catch {
       setGenStatus('error');
@@ -289,6 +298,15 @@ export default function HomePage() {
       setBookingSubmitting(false);
     }
   };
+
+  // کلید انتخاب فعلی؛ اگر با کلید آخرین تولید فرق کند، نتیجه کهنه است
+  const currentGenKey = JSON.stringify({
+    s: selectedService,
+    t: selectedTechniqueKey,
+    p: preferences,
+  });
+  const isStaleResult =
+    genStatus === 'success' && !!resultImage && lastGenKey !== '' && lastGenKey !== currentGenKey;
 
   const currentServiceInfo: ServiceInfo = SERVICES_CONTENT[selectedService];
 
@@ -382,7 +400,15 @@ export default function HomePage() {
                 onSelectTechnique={(key) => setSelectedTechniqueKey(key)}
                 onPreferencesChange={(p) => setPreferences(p)}
                 onBack={() => setCurrentStep(3)}
-                onNext={() => setCurrentStep(5)}
+                onNext={() => {
+                  // اگر انتخاب عوض شده، نتیجه قبلی دور ریخته می‌شود تا تازه ساخته شود
+                  if (isStaleResult) {
+                    setResultImage('');
+                    setGenStatus('idle');
+                    setStatusMessage('انتخاب شما تغییر کرد — پیش‌نمایش جدید بسازید ✨');
+                  }
+                  setCurrentStep(5);
+                }}
               />
             )}
 
@@ -397,6 +423,7 @@ export default function HomePage() {
                 resultImage={resultImage}
                 imagePreviewUrl={imagePreviewUrl}
                 isDemo={isDemo}
+                isStale={isStaleResult}
                 onGenerate={handleGeneratePreview}
                 onBack={() => setCurrentStep(4)}
                 onNext={() => setCurrentStep(6)}
