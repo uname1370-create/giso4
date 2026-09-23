@@ -116,51 +116,57 @@ export const ServiceSelectStep: React.FC<ServiceSelectStepProps> = ({
             <div
               key={service.id}
               onClick={() => handleCardClick(service.id)}
-              className={`p-5 rounded-2xl border cursor-pointer transition-all relative overflow-hidden ${
+              className={`rounded-2xl border cursor-pointer transition-all relative overflow-hidden flex flex-col sm:flex-row ${
                 isSelected
-                  ? 'bg-amber-500/15 border-amber-400 shadow-lg shadow-amber-500/10 scale-[1.01]'
+                  ? 'bg-neutral-900 border-amber-400 shadow-lg shadow-amber-500/10 scale-[1.01]'
                   : allowed
-                  ? 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-700'
-                  : 'bg-neutral-950/80 border-neutral-800/60 opacity-60 hover:opacity-80'
+                  ? 'bg-neutral-900/60 border-neutral-800 hover:border-neutral-600'
+                  : 'bg-neutral-950/80 border-neutral-800/60 opacity-70 hover:opacity-90'
               }`}
             >
-              {/* بکگراند تصویری تمام‌کارت + گرادیان خوانایی متن */}
-              <img
-                src={service.bgImage}
-                alt=""
-                aria-hidden
-                className="absolute inset-0 w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-neutral-950/20 pointer-events-none" />
-
-              {!allowed && (
-                <div className="absolute top-2.5 start-2.5 z-10 px-2 py-0.5 rounded-full bg-neutral-950/90 border border-amber-500/40 text-[9px] sm:text-[10px] text-amber-300 font-bold flex items-center gap-1 shadow-md">
-                  <span>🔒</span>
-                  <span>
-                    {service.requiredTier === 'gold' ? 'ویژه پلن طلایی' : 'ویژه نقره‌ای/طلایی'}
-                  </span>
+              {/* متن خدمت (سمت راست) */}
+              <div className="order-2 sm:order-1 flex-1 p-5 flex flex-col justify-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {allowed ? (
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+                      {service.badge}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-neutral-800 text-neutral-400 font-medium">
+                      🔒 {service.requiredTier === 'gold' ? 'ویژه پلن طلایی' : 'ویژه نقره‌ای/طلایی'}
+                    </span>
+                  )}
+                  {isSelected && (
+                    <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold">
+                      ✓ انتخاب شد
+                    </span>
+                  )}
                 </div>
-              )}
+                <h3 className="text-sm sm:text-base font-bold text-neutral-100">{service.title}</h3>
+                <p className="text-xs text-neutral-400 leading-relaxed">{service.desc}</p>
+                <div className="text-[10px] sm:text-[11px] text-emerald-400 flex flex-wrap items-center gap-1 pt-1">
+                  <span>مدت زمان: {SERVICES_CONTENT[service.id]?.duration}</span>
+                  <span className="text-neutral-600">•</span>
+                  <span>ماندگاری: {SERVICES_CONTENT[service.id]?.durability}</span>
+                </div>
+              </div>
 
-              <div className="relative z-[5] flex flex-col justify-end min-h-[170px]">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-2xl">{service.icon}</span>
-                {allowed && (
-                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
-                    {service.badge}
-                  </span>
+              {/* عکس خدمت (سمت چپ) */}
+              <div className="order-1 sm:order-2 relative sm:w-40 md:w-44 shrink-0 h-36 sm:h-auto sm:min-h-[196px]">
+                <img
+                  src={service.bgImage}
+                  alt={service.title}
+                  className={`absolute inset-0 w-full h-full object-cover ${
+                    allowed ? '' : 'grayscale'
+                  }`}
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-neutral-900/70 via-transparent to-transparent sm:bg-gradient-to-r sm:from-transparent sm:via-transparent sm:to-neutral-900 pointer-events-none" />
+                {isSelected && (
+                  <div className="absolute inset-0 ring-1 ring-inset ring-amber-400/60 pointer-events-none" />
                 )}
-              </div>
-              <h3 className="text-sm sm:text-base font-bold text-neutral-100 mb-1">{service.title}</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed mb-3">{service.desc}</p>
-              <div className="text-[10px] sm:text-[11px] text-emerald-400 flex flex-wrap items-center gap-1">
-                <span>مدت زمان: {SERVICES_CONTENT[service.id]?.duration}</span>
-                <span className="text-neutral-600">•</span>
-                <span>ماندگاری: {SERVICES_CONTENT[service.id]?.durability}</span>
-              </div>
               </div>
             </div>
           );
