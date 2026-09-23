@@ -126,6 +126,25 @@ export const pollinationsProvider: Provider = {
       if (url) return url;
       throw new ProviderError('Pollinations: پاسخ بدون تصویر بود');
     } catch (primaryError) {
+      const status =
+        primaryError && typeof primaryError === 'object'
+          ? (primaryError as { status?: unknown }).status
+          : undefined;
+      const statusCode = typeof status === 'number' ? status : undefined;
+      // خطای 4xx (به‌جز 429) با تلاش مجدد درست نمی‌شود — فوری شکست بخور تا کاربر معطل نشود.
+      // (۴۰۲ یعنی موجودی Pollen کافی نیست؛ پیام API شامل موجودی و لینک شارژ است.)
+      if (
+        statusCode !== undefined &&
+        statusCode >= 400 &&
+        statusCode < 500 &&
+        statusCode !== 429
+      ) {
+        const msg = primaryError instanceof Error ? primaryError.message : String(primaryError);
+        throw new ProviderError(
+          `Pollinations ناموفق بود (HTTP ${statusCode})`,
+          msg.slice(0, 400),
+        );
+      }
       try {
         return await editWithFormData(apiKey, input);
       } catch (fallbackError) {

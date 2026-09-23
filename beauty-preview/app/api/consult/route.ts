@@ -3,7 +3,7 @@
  * ---------------------------------------------------------------------------
  * اندپوینت «مشاور کارشناس ARIA» — حلقه اول زنجیره هوش مصنوعی:
  *   عکس + خدمت + استایل اولیه → تحلیل Pollinations Vision (JSON) → نسخه ساخت‌یافته
- * تک‌مرحله‌ای بدون tool (JSON خام + Regex) با سقف ۱۰ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
+ * تک‌مرحله‌ای بدون tool (JSON خام + Regex) با سقف ۳۰ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
  * کلید از POLLINATIONS_API_KEY (enter.pollinations.ai/keys)؛ بدون کلید، دموی صادقانه.
  * ---------------------------------------------------------------------------
  */
@@ -25,8 +25,8 @@ const POLLINATIONS_BASE_URL = 'https://gen.pollinations.ai/v1';
 const POLLINATIONS_MODEL =
   (process.env.POLLINATIONS_VISION_MODEL ?? '').trim() || 'openai/gpt-5.4-nano';
 
-/** سقف زمانی تحلیل: ۱۰ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲ */
-const POLLINATIONS_TIMEOUT_MS = 10000;
+/** سقف زمانی تحلیل: ۳۰ ثانیه (ابرو ۷٫۵ ثانیه برد؛ لب/خط چشم خروجی بلندتری دارند)؛ خطا → دموی صادقانه، هرگز ۵۰۲ */
+const POLLINATIONS_TIMEOUT_MS = 30000;
 
 /** کلید سروری Pollinations (sk_...) — طبق مستندات، همه درخواست‌های تولید به کلید نیاز دارند */
 function pollinationsKey(): string {
