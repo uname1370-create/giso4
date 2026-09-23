@@ -524,10 +524,27 @@ export async function POST(request: Request): Promise<NextResponse> {
 
 export async function GET(): Promise<NextResponse> {
   const configured = accounts();
+  const presence = (name: string): boolean => (process.env[name] ?? '').trim().length > 0;
   return NextResponse.json({
     ok: true,
     model: VISION_MODEL,
     accountsConfigured: configured.length,
     demo: configured.length === 0,
+    // عیب‌یابی امن: فقط «هست/نیست» — هیچ مقداری فاش نمی‌شود
+    env: {
+      demoMode: (process.env.DEMO_MODE ?? '').trim() || '(unset→auto)',
+      account1: {
+        token: presence('CLOUDFLARE_API_TOKEN_1'),
+        accountId: presence('CLOUDFLARE_ACCOUNT_ID_1'),
+      },
+      account2: {
+        token: presence('CLOUDFLARE_API_TOKEN_2'),
+        accountId: presence('CLOUDFLARE_ACCOUNT_ID_2'),
+      },
+      account3: {
+        token: presence('CLOUDFLARE_API_TOKEN_3'),
+        accountId: presence('CLOUDFLARE_ACCOUNT_ID_3'),
+      },
+    },
   });
 }
