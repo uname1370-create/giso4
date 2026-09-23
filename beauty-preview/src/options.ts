@@ -163,13 +163,13 @@ export function buildWhatsAppLink(styleLabel: string, colorName: string): string
 export function styleDesignSpec(styleKey: BrowStyleKey): string {
   switch (styleKey) {
     case 'hairstroke':
-      return 'Natural Hairstroke: ultra-fine individual hair strokes only, follow the customer’s existing brow growth direction and natural brow boundary, sparse soft front, medium-low natural density, soft arch, tapered tail, preserve natural gaps and asymmetry, NO powder fill, NO skin tint, NO shadow, NO halo.';
+      return 'STYLE CONTRACT: Natural Hairstroke. Transfer ONLY fine individual hair-stroke technique from reference. Preserve the customer brow boundary, position, arch, tail, growth direction, gaps and asymmetry. Sparse soft front, medium-low natural density, tapered tail. NO powder fill, NO skin tint, NO shadow, NO halo.';
     case 'feather':
-      return 'Feather Brow: airy separated feather strokes only, follow the customer’s existing growth direction, soft light front, visible individual hair texture, natural irregularity, softly tapered tail, preserve natural gaps, NO solid pigment area, NO skin tint, NO shadow, NO halo.';
+      return 'STYLE CONTRACT: Feather Brow. Transfer ONLY airy separated feather-stroke technique from reference. Preserve the customer brow boundary, position, arch, tail, growth direction, gaps and asymmetry. Soft light front, visible individual hair texture, natural irregularity, tapered tail. NO solid pigment area, NO skin tint, NO shadow, NO halo.';
     case 'ombre':
-      return 'Ombre Powder: soft translucent powder shading ONLY INSIDE THE CUSTOMER’S EXISTING EYEBROW REGION, lightest at the front and gradually deeper through the brow body and tail, velvety diffused brow texture, soft brow edges, NO pigment on skin below or above the brow, NO eyelid shadow, NO makeup halo, NO facial retouching.';
+      return 'STYLE CONTRACT: Ombre Powder. Transfer ONLY translucent powder technique from reference. Apply it strictly inside the customer\'s existing brow region, lightest at front and gradually deeper through body/tail. Preserve customer brow position, boundary, arch, tail and asymmetry. NO pigment above/below brow, NO eyelid shadow, NO makeup halo, NO facial retouching.';
     case 'combination':
-      return 'Combination: fine natural hairstrokes at the front plus soft translucent powder shading ONLY INSIDE THE EXISTING EYEBROW REGION, blended transition, medium natural density, preserve natural gaps and asymmetry, NO pigment outside the brow, NO under-brow shadow, NO eyelid makeup, NEVER blocky.';
+      return 'STYLE CONTRACT: Combination. Transfer ONLY the combination technique from reference: fine natural hairstrokes at the front plus soft translucent powder shading inside the customer\'s existing brow region. Preserve customer brow position, boundary, arch, tail, growth direction, gaps and asymmetry. NO pigment outside brow, NO under-brow shadow, NO eyelid makeup, NEVER blocky.';
   }
 }
 
@@ -184,19 +184,18 @@ export function buildEnglishPrompt(
 ): string {
   const styleText = styleLabelEn ? `${styleLabel} (${styleLabelEn})` : styleLabel;
   const spec = styleKey ? styleDesignSpec(styleKey) : '';
-  const brief = designBrief ? ` Customer-specific Design Brief: ${designBrief}` : '';
+  const brief = designBrief ? ` Customer-specific Design Contract: ${designBrief}` : '';
+
   return (
-    `IMAGE 0 IS THE ORIGINAL CUSTOMER PHOTO. IMAGE 1 IS ONLY THE SELECTED EYEBROW DESIGN REFERENCE. ` +
-    `Edit ONLY the existing eyebrow regions of image 0. Transfer the eyebrow technique, stroke pattern, density, arch character and finish from image 1 onto the customer's existing brows. ` +
-    `Do not copy any face, skin, eyes, lighting or identity from image 1. ` +
-    `Selected technique: ${styleText}. ${spec} ${brief} ` +
-    `Pigment must be inferred from the customer's visible natural eyebrow and hair tone and harmonized with skin undertone. Use a realistic pigment family, temperature and depth; never use a fixed HEX color, pure black, or an arbitrary red/orange/brown tint. ` +
-    `Apply pigment only within the existing natural eyebrow hair region. Do not tint surrounding skin. ` +
-    `The selected reference image defines technique and finish only; never copy its brow placement, face, skin, color cast, lighting or anatomy. ` +
-    `Preserve the person's identity and original facial geometry exactly. ` +
-    `Do not change eyes, eyelids, eyelashes, nose, lips, cheeks, forehead, skin texture, skin tone, hair, ears, face shape, lighting, camera angle, background, clothing, or image composition. ` +
-    `Do not add makeup outside the eyebrow regions. No under-brow shadow, no brown/gray halo, no pigment on eyelids or forehead, no beauty filter, no skin smoothing. Do not reshape the face. Do not regenerate the portrait. ` +
-    `Keep both brows anchored to the customer's original brow position, bone structure, growth direction and natural asymmetry. Change only the eyebrow design. ` +
-    `The result must look like the same real photograph after professional microblading, with only the eyebrow technique changed.`
+    `EDITING TASK — NOT A NEW PORTRAIT. IMAGE 0 IS THE CUSTOMER SOURCE-OF-TRUTH PHOTO. IMAGE 1 IS THE SELECTED STYLE REFERENCE ONLY. ` +
+    `The selected style is ${styleText}. The reference image is NOT a face template and NOT a color/skin template. It is ONLY a technique reference for the selected eyebrow style. ` +
+    `STRICT SCOPE: modify ONLY the two existing eyebrow regions visible on the customer photo. Do not create a new brow position. Do not move the brows. Do not enlarge the brows beyond their natural customer boundaries. ` +
+    `PRESERVE EXACTLY: customer identity, facial geometry, skin hue, skin brightness, skin texture, eyes, eyelids, eyelashes, nose, lips, cheeks, forehead, ears, hair, face shape, lighting, camera angle, background, clothing and composition. ` +
+    `REFERENCE ISOLATION: never copy the reference person's face, skin, skin color, eye area, brow placement, lighting, color cast, anatomy or background. Transfer only the selected technique, stroke behavior, density character and finish. ` +
+    `${spec} ${brief} ` +
+    `PIGMENT RULE: determine eyebrow pigment from the CUSTOMER'S own natural eyebrow/hair appearance and local skin undertone. The reference can describe technique, but must NOT recolor the customer's face. Never use a fixed HEX color, pure black, or an arbitrary red/orange/brown cast. ` +
+    `PIXEL-SCOPE RULE: no pigment, shadow, blur, smoothing, color correction, relighting or makeup may appear outside the existing eyebrow regions. Do not tint the skin around or under the brow. Do not change the overall white balance or exposure. ` +
+    `NATURAL GEOMETRY: preserve the customer's original brow position, left/right asymmetry, arch character, tail endpoint, front start point and natural growth direction. Only add/modify the selected PMU technique within that existing structure. ` +
+    `FINAL APPEARANCE: the result must look like the SAME ORIGINAL REAL PHOTOGRAPH after professional eyebrow treatment, not a regenerated face or beauty-filtered portrait.`
   );
 }
