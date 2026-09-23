@@ -249,9 +249,16 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({
               قبل | طبیعی
             </div>
             <div className="absolute top-2.5 left-2.5 z-20 px-2.5 py-1 rounded-full bg-amber-500/30 backdrop-blur-md border border-amber-400/50 text-[9px] sm:text-[10px] text-amber-200 font-bold shadow-lg pointer-events-none flex items-center gap-1">
-              <span>بعد | پیش‌نمایش</span>
+              <span>{isDemo ? 'بعد | نمایشی 🎭' : 'بعد | پیش‌نمایش'}</span>
               <span className="text-xs">✨</span>
             </div>
+            {isDemo && (
+              <div className="absolute bottom-0 inset-x-0 z-20 px-3 py-2 bg-neutral-950/85 backdrop-blur-md border-t border-amber-400/40 text-center pointer-events-none">
+                <p className="text-[10px] sm:text-[11px] text-amber-300 font-bold leading-relaxed">
+                  🎭 حالت نمایشی — موتور هوش مصنوعی وصل نیست؛ موقعیت طرح تقریبی است و خروجی واقعی محسوب نمی‌شود
+                </p>
+              </div>
+            )}
 
             {/* دکمه زوم / تمام‌صفحه */}
             <button
