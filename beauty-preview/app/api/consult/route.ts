@@ -68,7 +68,8 @@ OUTPUT CONTRACT (strict):
 - Every claim must cite its evidence: "photo" | "metric:<name>" | "rule:<name>".
 - Numbers must be plausible for a real adult face; never invent anatomy.
 - Confidence = your honest 0-100 certainty. Below 70 → requires_in_person=true.
-- Persian client-facing copy (client_text_fa) must be warm, feminine, respectful, 2-3 short sentences, zero medical jargon, zero price talk.`;
+- Persian client-facing copy (client_text_fa) must be warm, feminine, respectful, 2-3 short sentences, zero medical jargon, zero price talk.
+- analysis_summary_fa: retell the SAME analysis for the client in SIMPLE Persian (2-3 short sentences, zero jargon, zero invented numbers): one warm verdict line + how it fits INITIAL_STYLE + one gentle care note. If uncertain about any measurement, say the in-person visit will finalize it — NEVER fabricate.`;
 
 /* ------------------------------------------------------------------ */
 /* اسکیمای tool اجباری pmu_prescription                                   */
@@ -86,6 +87,11 @@ const PRESCRIPTION_TOOL = {
         analysis_summary_en: {
           type: 'string',
           description: 'Compact expert analysis (2-4 sentences) with evidence citations.',
+        },
+        analysis_summary_fa: {
+          type: 'string',
+          description:
+            'The same analysis retold for the client in SIMPLE Persian (2-3 short sentences, zero jargon, zero invented numbers).',
         },
         face_shape: {
           type: 'string',
@@ -163,6 +169,7 @@ export interface ConsultOption {
 
 export interface ConsultPrescription {
   analysis_summary_en: string;
+  analysis_summary_fa: string;
   face_shape: string;
   symmetry_score: number;
   skin_undertone: string;
@@ -183,6 +190,28 @@ function isValidPrescription(value: unknown): value is ConsultPrescription {
     p.options.length === 3 &&
     typeof p.recommended_option === 'number'
   );
+}
+
+/**
+ * تضمین خلاصه فارسی: اگر مدل نفرستاده باشد، از متن گزینه پیشنهادی
+ * (حداکثر ۲ جمله اول) استفاده می‌شود — بدون جعل هیچ عددی.
+ */
+function ensureFaSummary(p: ConsultPrescription): ConsultPrescription {
+  const fa = typeof p.analysis_summary_fa === 'string' ? p.analysis_summary_fa.trim() : '';
+  if (fa) return p;
+  const rec = p.options.find((o) => o.id === p.recommended_option) ?? p.options[0];
+  const text = rec?.client_text_fa ?? '';
+  const two = text
+    .split(/(?<=[.!?؟])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' ');
+  return {
+    ...p,
+    analysis_summary_fa:
+      two || 'تحلیل چهره انجام شد؛ لطفاً یکی از گزینه‌های پیشنهادی را انتخاب کنید.',
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -236,19 +265,21 @@ function buildDemoPrescription(service: string, styleKey: string): ConsultPrescr
 
   return {
     analysis_summary_en: `Demo analysis for ${serviceTitle}: balanced facial thirds, good symmetry, neutral-warm undertone (rule:golden-ratio, photo). Client wish "${pickedLabel}" is compatible.`,
-    face_shape: 'oval',
-    symmetry_score: 86,
-    skin_undertone: 'neutral',
-    fitzpatrick: 'III',
+    analysis_summary_fa:
+      'حالت نمایشی فعال است و موتور تحلیل هوشمند هنوز متصل نیست؛ پس عدد دقیقی از چهره اندازه‌گیری نشده. گزینه‌های پیشنهادی زیر را ببینید و یکی را انتخاب کنید.',
+    face_shape: 'unknown',
+    symmetry_score: 0,
+    skin_undertone: 'نامشخص',
+    fitzpatrick: 'نامشخص',
     safety_flags: [],
     requires_in_person: false,
-    confidence: 62,
+    confidence: 0,
     recommended_option: 1,
     options: [
       {
         id: 1,
         title_en: `Expert recommendation: ${pickedLabel}`,
-        client_text_fa: `عزیزم، فرم صورتت بیضی و متقارنه و مدل «${pickedLabel}» دقیقاً همون چیزیه که چهره‌ت رو متعادل و شیک نشون میده. پیشنهاد من همینه؛ هم طبیعیه هم موندگاری عالی داره. ✨`,
+        client_text_fa: `عزیزم، مدل «${pickedLabel}» یکی از پرطرفدارترین انتخاب‌هاست؛ هم طبیعی دیده می‌شه هم موندگاری خوبی داره. چون در حالت نمایشی هستیم، با اتصال موتور هوشمند پیشنهاد دقیق مخصوص چهره‌ت رو می‌گیری. ✨`,
         recommended: true,
         params,
       },
@@ -256,14 +287,14 @@ function buildDemoPrescription(service: string, styleKey: string): ConsultPrescr
         id: 2,
         title_en: 'Bolder variant inside safe range',
         client_text_fa:
-          'اگه دنبال جلوه پررنگ‌تری هستی، می‌تونیم همون مدل رو با تراکم و عمق بیشتر اجرا کنیم؛ جسورانه ولی هنوز کاملاً امن و متناسب با صورتت.',
+          'اگه دنبال جلوه پررنگ‌تری هستی، می‌تونیم همون مدل رو با تراکم و عمق بیشتر اجرا کنیم؛ جسورانه ولی داخل محدوده امن.',
         recommended: false,
         params: { ...params, bold_variant: true },
       },
       {
         id: 3,
         title_en: 'Client initial wish',
-        client_text_fa: `مدل اولیه‌ای که خودت انتخاب کردی («${pickedLabel}») هم قابل اجراست و ما دقیقاً همون رو برات پیش‌نمایش می‌کنیم تا با خیال راحت مقایسه کنی.`,
+        client_text_fa: `مدل اولیه‌ای که خودت انتخاب کردی («${pickedLabel}») رو هم دقیقاً همون‌طور برات پیش‌نمایش می‌کنیم تا با خیال راحت مقایسه کنی.`,
         recommended: false,
         params,
       },
@@ -379,7 +410,7 @@ async function callCloudflareVision(
     throw new Error('Cloudflare vision: prescription failed validation (need analysis + 3 options)');
   }
 
-  return parsed;
+  return ensureFaSummary(parsed);
 }
 
 /* ------------------------------------------------------------------ */

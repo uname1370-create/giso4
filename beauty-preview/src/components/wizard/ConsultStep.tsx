@@ -22,6 +22,7 @@ export interface ConsultOption {
 
 export interface ConsultPrescription {
   analysis_summary_en: string;
+  analysis_summary_fa: string;
   face_shape: string;
   symmetry_score: number;
   skin_undertone: string;
@@ -65,6 +66,15 @@ const UNDERTONE_FA: Record<string, string> = {
   warm: 'گرم',
   cool: 'سرد',
   neutral: 'خنثی',
+};
+
+const FITZPATRICK_FA: Record<string, string> = {
+  I: 'خیلی روشن',
+  II: 'روشن',
+  III: 'گندمی روشن',
+  IV: 'گندمی',
+  V: 'سبزه',
+  VI: 'تیره',
 };
 
 const OPTION_META: Record<number, { label: string; icon: string }> = {
@@ -290,6 +300,16 @@ export const ConsultStep: React.FC<ConsultStepProps> = ({
           </div>
         </div>
 
+        {/* اگر اندازه‌گیری واقعی نداریم (حالت نمایشی یا تحلیل نامشخص)، هیچ عددی نشان نده */}
+        {isDemo || (data.face_shape === 'unknown' && data.confidence === 0) ? (
+          <div className="p-4 rounded-xl bg-neutral-950/70 border border-neutral-800 text-center">
+            <p className="text-xs font-bold text-neutral-200 mb-1.5">حالت نمایشی 🎭</p>
+            <p className="text-[11px] text-neutral-400 leading-relaxed">
+              {data.analysis_summary_fa}
+            </p>
+          </div>
+        ) : (
+          <>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
           <div className="p-3 rounded-xl bg-neutral-950/70 border border-neutral-800 text-center">
             <p className="text-[10px] text-neutral-500 mb-1">فرم صورت</p>
@@ -305,8 +325,8 @@ export const ConsultStep: React.FC<ConsultStepProps> = ({
           </div>
           <div className="p-3 rounded-xl bg-neutral-950/70 border border-neutral-800 text-center">
             <p className="text-[10px] text-neutral-500 mb-1">تایپ پوستی</p>
-            <p className="text-sm font-bold text-amber-300 font-mono" dir="ltr">
-              {data.fitzpatrick}
+            <p className="text-sm font-bold text-amber-300">
+              {FITZPATRICK_FA[data.fitzpatrick] ?? data.fitzpatrick}
             </p>
           </div>
           <div className="p-3 rounded-xl bg-neutral-950/70 border border-neutral-800 text-center">
@@ -318,9 +338,9 @@ export const ConsultStep: React.FC<ConsultStepProps> = ({
         </div>
 
         <div className="p-3.5 rounded-xl bg-neutral-950/70 border border-neutral-800 mb-3">
-          <p className="text-[10px] text-neutral-500 mb-1.5">گزارش فنی (EN)</p>
-          <p className="text-[11px] text-neutral-300 leading-relaxed" dir="ltr">
-            {data.analysis_summary_en}
+          <p className="text-[10px] text-neutral-500 mb-1.5">خلاصه تحلیل ✨</p>
+          <p className="text-[11px] text-neutral-300 leading-relaxed">
+            {data.analysis_summary_fa}
           </p>
         </div>
 
@@ -336,6 +356,8 @@ export const ConsultStep: React.FC<ConsultStepProps> = ({
             {data.confidence}%
           </span>
         </div>
+          </>
+        )}
 
         {(data.safety_flags.length > 0 || data.requires_in_person) && (
           <div className="mt-3 p-3 rounded-xl bg-red-950/50 border border-red-500/40 text-[11px] text-red-300 leading-relaxed">
