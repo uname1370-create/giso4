@@ -2,8 +2,8 @@
  * app/api/consult/route.ts
  * ---------------------------------------------------------------------------
  * اندپوینت «مشاور کارشناس ARIA» — حلقه اول زنجیره هوش مصنوعی:
- *   عکس + خدمت + استایل اولیه → تحلیل Vision (Llama 3.2 11B) → نسخه ساخت‌یافته
- * خروجی JSON فقط از طریق tool اجباری (pmu_prescription) پذیرفته می‌شود.
+ *   عکس + خدمت + استایل اولیه → تحلیل Vision (زنجیره آزاد: LLaVA اصلی، Qwen پشتیبان) → نسخه ساخت‌یافته
+ * خروجی JSON از طریق tool اجباری (pmu_prescription) یا حالت JSON خام؛ هر دو اعتبارسنجی می‌شوند.
  * بدون کلید Cloudflare: نسخه نمایشی (demo) برمی‌گردد تا فلو UX نخوابد.
  * ---------------------------------------------------------------------------
  */
@@ -18,10 +18,10 @@ export const maxDuration = 120;
 
 const VISION_MODEL =
   (process.env.CLOUDFLARE_VISION_MODEL ?? '').trim() ||
-  '@cf/meta/llama-3.2-11b-vision-instruct';
+  '@cf/llava-hf/llava-1.5-7b-hf';
 
-/** مدل‌های بینایی پشتیبان (به ترتیب اولویت) — اگر مدل اصلی ۴۰۳ لایسنس بدهد */
-const FALLBACK_VISION_MODELS: string[] = ['@cf/qwen/qwen3.8-27b', '@cf/llava-hf/llava-1.5-7b-hf'];
+/** مدل بینایی پشتیبان — کل زنجیره آزاد است و به لایسنس Meta نیاز ندارد */
+const FALLBACK_VISION_MODELS: string[] = ['@cf/qwen/qwen3.8-27b'];
 
 /** الگوی JSON خامی که در حالت بدون-tool از مدل پشتیبان خواسته می‌شود */
 const PRESCRIPTION_JSON_SKELETON = `{"analysis_summary_en":"...","analysis_summary_fa":"...","face_shape":"oval|round|square|oblong|heart|diamond|unknown","symmetry_score":0-100,"skin_undertone":"warm|cool|neutral","fitzpatrick":"I|II|III|IV|V|VI","safety_flags":[],"requires_in_person":false,"confidence":0-100,"recommended_option":1-3,"options":[{"id":1,"title_en":"...","client_text_fa":"...","recommended":true,"params":{}},{"id":2,...},{"id":3,...}]}`;
@@ -29,6 +29,14 @@ const PRESCRIPTION_JSON_SKELETON = `{"analysis_summary_en":"...","analysis_summa
 /** نام کوتاه مدل برای لاگ و provider (حذف پیشوند @cf/vendor) */
 function shortModel(model: string): string {
   return model.replace(/^@cf\/[^/]+\//, '') || model;
+}
+
+/**
+ * ترتیب حالت تلاش برای هر مدل: LLaVA مدل کوچکی است و tool-call قابل‌اعتماد
+ * ندارد، پس اول JSON خام؛ مدل‌های بزرگ‌تر اول tool اجباری، بعد JSON خام.
+ */
+function modelModes(model: string): boolean[] {
+  return /llava/i.test(model) ? [false, true] : [true, false];
 }
 
 /** سقف طول base64 ورودی (~۶ مگابایت عکس) */
@@ -317,38 +325,6 @@ function buildDemoPrescription(service: string, styleKey: string): ConsultPrescr
 /* فراخوانی Cloudflare (OpenAI-Compatible + tool اجباری)                   */
 /* ------------------------------------------------------------------ */
 
-/**
- * فعال‌سازی خودکار لایسنس Meta: اگر مدل ۴۰۳ لایسنس بدهد، یک درخواست سبک
- * حاوی کلمه agree به آدرس اجرای همان مدل می‌فرستد تا لایسنس اکانت فعال شود.
- * نتیجه فقط لاگ می‌شود و مسیر اصلی را متوقف نمی‌کند.
- */
-async function tryActivateMetaLicense(account: CloudflareAccount, model: string): Promise<boolean> {
-  try {
-    const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/run/${model}`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${account.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: 'agree' }),
-        signal: AbortSignal.timeout(15000),
-        cache: 'no-store',
-      },
-    );
-    console.error(`[AI-CONSULT] license-agree ${shortModel(model)} -> HTTP ${res.status}`);
-    return res.ok;
-  } catch (error) {
-    console.error(
-      `[AI-CONSULT] license-agree ${shortModel(model)} failed: ${
-        error instanceof Error ? error.message : String(error)
-      }`.slice(0, 200),
-    );
-    return false;
-  }
-}
-
 async function callCloudflareVision(
   account: CloudflareAccount,
   imageDataUri: string,
@@ -367,7 +343,7 @@ async function callCloudflareVision(
     `FACE_METRICS: ${faceMetrics ? JSON.stringify(faceMetrics).slice(0, 2000) : 'none'}`,
     useTools
       ? 'Analyze CUSTOMER_PHOTO per the ARIA protocol and call pmu_prescription exactly once.'
-      : `Analyze CUSTOMER_PHOTO per the ARIA protocol and respond with ONLY a single JSON object (no markdown fences, no prose) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
+      : `Analyze CUSTOMER_PHOTO per the ARIA protocol and respond with ONLY a single JSON object (no markdown fences, no prose, exactly 3 options with prescription params) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
   ].join('\n');
 
   const res = await fetch(
@@ -555,41 +531,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
   }
 
-  const isLicense403 = (error: unknown): boolean =>
-    (error as { status?: number })?.status === 403 ||
-    (error instanceof Error && /license/i.test(error.message));
-
   let lastError = '';
   for (let i = 0; i < configured.length; i += 1) {
     const account = configured[i];
 
-    // ۱) مدل اصلی (با tool اجباری)
-    try {
-      const prescription = await callCloudflareVision(
-        account,
-        imageBase64,
-        service,
-        initialStyle,
-        body.faceMetrics,
-        clientTasteLine,
-        VISION_MODEL,
-        true,
-        45000,
-      );
-      return NextResponse.json({
-        ok: true,
-        demo: false,
-        provider: `cloudflare-vision:${i + 1}:${shortModel(VISION_MODEL)}`,
-        prescription,
-        ms: Date.now() - startedAt,
-      });
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      console.error(`[AI-CONSULT] account ${i + 1} primary failed: ${lastError.slice(0, 300)}`);
-
-      // ۲) اگر ۴۰۳ لایسنس: فعال‌سازی خودکار + یک تلاش مجدد
-      if (isLicense403(error)) {
-        await tryActivateMetaLicense(account, VISION_MODEL);
+    // زنجیره مدل‌های آزاد (بدون لایسنس Meta): اصلی → پشتیبان؛
+    // هر مدل با ترتیب حالت مخصوص خودش (LLaVA اول JSON خام، بقیه اول tool).
+    for (const model of [VISION_MODEL, ...FALLBACK_VISION_MODELS]) {
+      for (const useTools of modelModes(model)) {
         try {
           const prescription = await callCloudflareVision(
             account,
@@ -598,52 +547,21 @@ export async function POST(request: Request): Promise<NextResponse> {
             initialStyle,
             body.faceMetrics,
             clientTasteLine,
-            VISION_MODEL,
-            true,
-            35000,
-          );
-          return NextResponse.json({
-            ok: true,
-            demo: false,
-            provider: `cloudflare-vision:${i + 1}:${shortModel(VISION_MODEL)}:license-retry`,
-            prescription,
-            ms: Date.now() - startedAt,
-          });
-        } catch (retryError) {
-          lastError = retryError instanceof Error ? retryError.message : String(retryError);
-          console.error(
-            `[AI-CONSULT] account ${i + 1} license-retry failed: ${lastError.slice(0, 300)}`,
-          );
-        }
-      }
-    }
-
-    // ۳) مدل‌های پشتیبان (اول با tool، بعد بدون tool + JSON خام)
-    for (const fallback of FALLBACK_VISION_MODELS) {
-      for (const useTools of [true, false]) {
-        try {
-          const prescription = await callCloudflareVision(
-            account,
-            imageBase64,
-            service,
-            initialStyle,
-            body.faceMetrics,
-            clientTasteLine,
-            fallback,
+            model,
             useTools,
             30000,
           );
           return NextResponse.json({
             ok: true,
             demo: false,
-            provider: `cloudflare-vision:${i + 1}:${shortModel(fallback)}${useTools ? '' : ':raw-json'}`,
+            provider: `cloudflare-vision:${i + 1}:${shortModel(model)}${useTools ? '' : ':raw-json'}`,
             prescription,
             ms: Date.now() - startedAt,
           });
-        } catch (fallbackError) {
-          lastError = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+        } catch (modelError) {
+          lastError = modelError instanceof Error ? modelError.message : String(modelError);
           console.error(
-            `[AI-CONSULT] account ${i + 1} fallback ${shortModel(fallback)} tools=${useTools} failed: ${lastError.slice(0, 300)}`,
+            `[AI-CONSULT] account ${i + 1} ${shortModel(model)} tools=${useTools} failed: ${lastError.slice(0, 300)}`,
           );
         }
       }
