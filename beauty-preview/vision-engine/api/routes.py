@@ -3,7 +3,7 @@ import binascii
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from face.landmarks import align_edited_to_original, build_target_mask
+from face.landmarks import align_edited_to_original, analyze_brow_photo, build_target_mask
 from processing.composite import composite_target
 from processing.validation import validate_non_target_preservation, validate_provider_isolation
 
@@ -25,6 +25,35 @@ class ProcessResponse(BaseModel):
     warnings: list[str]
 
 
+class AnalyzeRequest(BaseModel):
+    service: str = Field(min_length=1, max_length=32)
+    image: str = Field(min_length=16)
+
+
+class AnalyzeResponse(BaseModel):
+    acceptable: bool
+    reason: str
+    message: str
+    faceVisible: bool
+    eyebrowsVisible: bool
+    imageQuality: str
+    faceShape: str
+    browDensity: str
+    browThickness: str
+    browArch: str
+    browSymmetry: str
+    hairTone: str
+    browTone: str
+    skinUndertone: str
+    pigmentFamily: str
+    pigmentTemperature: str
+    pigmentDepth: str
+    avoidPigments: list[str]
+    leftBrow: dict
+    rightBrow: dict
+    browEditZone: str
+
+
 def decode_data_uri(value: str) -> bytes:
     if "," not in value:
         raise ValueError("invalid data URI")
@@ -39,6 +68,25 @@ def decode_data_uri(value: str) -> bytes:
 
 def encode_png(data: bytes) -> str:
     return "data:image/png;base64," + base64.b64encode(data).decode("ascii")
+
+
+
+@router.post("/analyze", response_model=AnalyzeResponse)
+def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
+    service = req.service.strip().lower()
+    if service != "eyebrows":
+        raise HTTPException(status_code=400, detail="Only the active eyebrows service is enabled.")
+    try:
+        image = decode_data_uri(req.image)
+        result = analyze_brow_photo(image)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"vision analysis failed: {type(exc).__name__}",
+        ) from exc
+    return AnalyzeResponse(**result)
 
 
 @router.post("/process", response_model=ProcessResponse)
