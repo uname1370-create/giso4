@@ -5,7 +5,7 @@
  *
  * سازگار با فرمت OpenAI:
  *   POST https://gen.pollinations.ai/v1/images/edits
- *   model: kontext   (FLUX.1 Kontext — ورودی تصویری)
+ *   model: openai/gpt-image-1-mini (ویرایش دقیق با دستورپذیری بالا برای لب/خط چشم، ~۰٫۰۰۸ pollen)
  *   کلید API با فرمت sk_XXXXXXXX از enter.pollinations.ai
  *
  * مسیر اصلی با SDK رسمی OpenAI (multipart) و مسیر پشتیبان با fetch و
@@ -25,7 +25,7 @@ import {
 import type { Provider, ProviderInput } from './types';
 
 const DEFAULT_BASE_URL = 'https://gen.pollinations.ai/v1';
-const DEFAULT_MODEL = 'kontext';
+const DEFAULT_MODEL = 'openai/gpt-image-1-mini';
 
 /** آدرس پایه (قابل تغییر با POLLINATIONS_BASE_URL) */
 function baseUrl(): string {
@@ -144,6 +144,21 @@ export const pollinationsProvider: Provider = {
           `Pollinations ناموفق بود (HTTP ${statusCode})`,
           msg.slice(0, 400),
         );
+      }
+      // 429 یعنی محدودیت نرخ لحظه‌ای: همان درخواست را بعد از مکث کوتاه تکرار کن
+      // (طبق مستندات، نتیجه کش‌شده همان تولید برمی‌گردد، نه تولید دوباره و هزینه دوباره)
+      if (statusCode === 429) {
+        let waitMs = 3000;
+        try {
+          const headers = (primaryError as { headers?: { get?: (n: string) => string | null } })
+            ?.headers;
+          const ra = Number(headers?.get?.('retry-after'));
+          if (Number.isFinite(ra) && ra > 0) waitMs = Math.min(ra * 1000, 10000);
+        } catch {
+          // همان ۳ ثانیه پیش‌فرض
+        }
+        console.error(`[AI-PROVIDER] pollinations 429 — retrying same request after ${waitMs}ms`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
       try {
         return await editWithFormData(apiKey, input);
