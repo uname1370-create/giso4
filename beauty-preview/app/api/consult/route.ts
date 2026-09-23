@@ -2,9 +2,9 @@
  * app/api/consult/route.ts
  * ---------------------------------------------------------------------------
  * اندپوینت «مشاور کارشناس ARIA» — حلقه اول زنجیره هوش مصنوعی:
- *   عکس → توصیف چهره با LLaVA از مسیر REST (۲۰ث) → نسخه JSON با gpt-oss-20b (۲۰ث) → نسخه ساخت‌یافته
- * معماری دومرحله‌ای بدون tool (JSON خام + Regex) با سقف کل ۴۵ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
- * بدون کلید Cloudflare: نسخه نمایشی (demo) برمی‌گردد تا فلو UX نخوابد.
+ *   عکس + خدمت + استایل اولیه → تحلیل Pollinations Vision (JSON) → نسخه ساخت‌یافته
+ * تک‌مرحله‌ای بدون tool (JSON خام + Regex) با سقف ۱۰ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
+ * کلید از POLLINATIONS_API_KEY (enter.pollinations.ai/keys)؛ بدون کلید، دموی صادقانه.
  * ---------------------------------------------------------------------------
  */
 
@@ -17,73 +17,52 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 /**
- * معماری دومرحله‌ای (تأییدشده با مستندات Cloudflare):
- *  مرحله ۱ (بینایی): LLaVA فقط یک توصیف متنی کوتاه از چهره می‌دهد (~۲ ثانیه).
- *  مرحله ۲ (استدلال JSON): gpt-oss-20b از روی توصیف، نسخه ۳ گزینه‌ای ARIA را می‌سازد.
- * هر دو مدل آزاد و بدون لایسنس Meta هستند. شناسه llama-3.1-8b-instruct اصلاً
- * در کاتالوگ Cloudflare وجود ندارد، پس مرحله متنی با gpt-oss-20b بسته شد.
+ * پروایدر تحلیل: Pollinations AI (تأییدشده با مستندات رسمی gen.pollinations.ai/docs).
+ * تک‌فراخوانی Vision+JSON: عکس + پرامپت ARIA → نسخه ۳ گزینه‌ای.
+ * مدل پیش‌فرض openai/gpt-5.4-nano (بینایی + JSON + استدلال، سالم و ارزان، ~۰٫۰۰۱ pollen برای هر تحلیل).
  */
-const VISION_MODEL = '@cf/llava-hf/llava-1.5-7b-hf';
-const TEXT_MODEL = '@cf/openai/gpt-oss-20b';
+const POLLINATIONS_BASE_URL = 'https://gen.pollinations.ai/v1';
+const POLLINATIONS_MODEL =
+  (process.env.POLLINATIONS_VISION_MODEL ?? '').trim() || 'openai/gpt-5.4-nano';
 
-/** پرامپت ساده مرحله بینایی: توصیف کوتاه چهره، متن ساده، بدون JSON */
-const VISION_DESCRIBE_PROMPT =
-  'Describe only what you see in this face photo for a PMU beauty analysis: 1) Face shape, 2) Skin undertone and Fitzpatrick tone, 3) Eyebrow density, arch and symmetry, 4) Any eye/lip features. Keep it short (under 120 words), plain text, no JSON. Never invent features you cannot see.';
+/** سقف زمانی تحلیل: ۱۰ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲ */
+const POLLINATIONS_TIMEOUT_MS = 10000;
+
+/** کلید سروری Pollinations (sk_...) — طبق مستندات، همه درخواست‌های تولید به کلید نیاز دارند */
+function pollinationsKey(): string {
+  return (process.env.POLLINATIONS_API_KEY ?? '').trim();
+}
 
 /** الگوی JSON خامی که در حالت بدون-tool از مدل پشتیبان خواسته می‌شود */
 const PRESCRIPTION_JSON_SKELETON = `{"analysis_summary_en":"...","analysis_summary_fa":"...","face_shape":"oval|round|square|oblong|heart|diamond|unknown","symmetry_score":0-100,"skin_undertone":"warm|cool|neutral","fitzpatrick":"I|II|III|IV|V|VI","safety_flags":[],"requires_in_person":false,"confidence":0-100,"recommended_option":1-3,"options":[{"id":1,"title_en":"...","client_text_fa":"...","recommended":true,"params":{}},{"id":2,...},{"id":3,...}]}`;
 
-/** نام کوتاه مدل برای لاگ و provider (حذف پیشوند @cf/vendor) */
-function shortModel(model: string): string {
-  return model.replace(/^@cf\/[^/]+\//, '') || model;
-}
-
-/** سقف زمانی واقع‌بینانه: cold-start سمت Cloudflare تا ~۳۰ ثانیه طول می‌کشد؛ هرگز ۵۰۲ */
-const VISION_TIMEOUT_MS = 20000;
-const TEXT_TIMEOUT_MS = 20000;
-const TOTAL_DEADLINE_MS = 45000;
-
 /** سقف طول base64 ورودی (~۶ مگابایت عکس) */
 const MAX_BASE64_LENGTH = 8_500_000;
-
-type CloudflareAccount = {
-  token: string;
-  accountId: string;
-};
-
-function accounts(): CloudflareAccount[] {
-  return [1, 2, 3]
-    .map((index) => ({
-      token: (process.env[`CLOUDFLARE_API_TOKEN_${index}`] ?? '').trim(),
-      accountId: (process.env[`CLOUDFLARE_ACCOUNT_ID_${index}`] ?? '').trim(),
-    }))
-    .filter((account) => account.token && account.accountId);
-}
 
 /* ------------------------------------------------------------------ */
 /* پرامپت سیستم ARIA (سند زنجیره هوش مصنوعی — نسخه مصوب)                  */
 /* ------------------------------------------------------------------ */
 
-const ARIA_TEXT_SYSTEM_PROMPT = `You are ARIA, the owner of an ultra-specialized VIP permanent-makeup atelier and a master face designer with 15 years of clinical PMU experience. You speak to the client through structured data only — never in free prose.
+const ARIA_VISION_SYSTEM_PROMPT = `You are ARIA, the owner of an ultra-specialized VIP permanent-makeup atelier and a master face designer with 15 years of clinical PMU experience. You speak to the client through structured data only — never in free prose.
 
 INPUTS YOU RECEIVE:
-1. FACE_DESCRIPTION — a factual visual description of the client's real face photo, written by a vision model (your source of truth about the face).
+1. CUSTOMER_PHOTO — the client's real, unedited face photo (source of truth).
 2. SELECTED_SERVICE — one of: eyebrows | lips | eyeliner | removal.
 3. INITIAL_STYLE — the style/technique the client pre-selected.
-4. FACE_METRICS — optional pre-computed browser measurements. Treat as measured hints; if a metric contradicts the description, trust the DESCRIPTION and ignore the metric.
+4. FACE_METRICS — optional pre-computed browser measurements. Treat as measured hints; if a metric contradicts what you see, trust the PHOTO and ignore the metric.
 5. CLIENT_TASTE — the client's stated taste. Respect it in option params; morphology and safety always win over taste.
 
 ANALYSIS PROTOCOL (apply in this exact order):
-A. FACE MORPHOLOGY — From FACE_DESCRIPTION: face shape (oval | round | square | oblong | heart | diamond), thirds/fifths proportion check, symmetry 0-100.
+A. FACE MORPHOLOGY — From the photo: face shape (oval | round | square | oblong | heart | diamond), thirds/fifths proportion check, symmetry 0-100.
 B. SERVICE-ZONE MICRO-ANALYSIS — eyebrows: density, thickness, arch vs. golden-ratio ideal, tail endpoint, gaps/scars; lips: volume ratio vs. 1:1.6, border, commissure symmetry, melanin 0-3; eyeliner: spacing, hooding 0-3, lash density, tilt; removal: old pigment hue/depth, distortion, scarring.
-C. COLORIMETRY — Undertone (warm | cool | neutral) + Fitzpatrick (I-VI) from the description. Pigment must NEUTRALIZE the undertone. NEVER carbon-black on Fitzpatrick I-II brows; NEVER cool pigment on warm lips.
+C. COLORIMETRY — Undertone (warm | cool | neutral) + Fitzpatrick (I-VI) from the photo. Pigment must NEUTRALIZE the undertone. NEVER carbon-black on Fitzpatrick I-II brows; NEVER cool pigment on warm lips.
 D. SAFETY TRIAGE (recommendation only, never a diagnosis) — inflammation/moles in zone → requires_in_person=true, lower confidence. Pregnancy/keloid/meds unknown → defer to salon intake form.
 E. STYLE FIT — Score INITIAL_STYLE 0-100. Below 60 → still include as option 3 but not_recommended with one-line clinical reason.
 
 OPTION LOGIC — Exactly 3 options: 1 = expert recommendation; 2 = bolder variant in safe range; 3 = client's initial wish.
 
 OUTPUT CONTRACT (strict):
-- Respond with ONLY a single JSON code block, no prose. Every claim cites evidence: "vision" | "metric:<name>" | "rule:<name>".
+- Respond with ONLY a single JSON object, no prose. Every claim cites evidence: "photo" | "metric:<name>" | "rule:<name>".
 - Numbers plausible for a real adult face; never invent anatomy. Confidence 0-100 honest; below 70 → requires_in_person=true.
 - client_text_fa: warm, feminine, respectful, 2-3 short sentences, zero jargon, zero price talk.
 - analysis_summary_fa: SAME analysis in SIMPLE Persian (2-3 short sentences, zero jargon, zero invented numbers). If uncertain, say the in-person visit will finalize it — NEVER fabricate.`;
@@ -250,53 +229,62 @@ function buildDemoPrescription(service: string, styleKey: string): ConsultPrescr
 }
 
 /* ------------------------------------------------------------------ */
-/* فراخوانی Cloudflare دومرحله‌ای (OpenAI-Compatible، بدون tool)            */
+/* فراخوانی Pollinations Vision (OpenAI-Compatible، بدون tool)              */
 /* ------------------------------------------------------------------ */
 
-type ChatMessageContent =
-  | string
-  | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
-
-/** فراخوانی مشترک Chat Completions — متن خام پاسخ را برمی‌گرداند */
-async function chatCompletion(
-  account: CloudflareAccount,
-  model: string,
-  label: string,
-  systemPrompt: string,
-  userContent: ChatMessageContent,
-  maxTokens: number,
-  timeoutMs: number,
-): Promise<string> {
+/** تنها فراخوانی AI: تحلیل بینایی Pollinations (عکس + ARIA → JSON نسخه) */
+async function callPollinationsVision(
+  imageBase64: string,
+  service: string,
+  initialStyle: string,
+  faceMetrics: unknown,
+  clientTaste: string,
+): Promise<ConsultPrescription> {
   const t0 = Date.now();
-  const tag = `${label} ${shortModel(model)}`;
+  const userText = [
+    `SELECTED_SERVICE: ${service}`,
+    `INITIAL_STYLE: ${initialStyle || 'client_has_no_preference'}`,
+    `CLIENT_TASTE: ${clientTaste}`,
+    `FACE_METRICS: ${faceMetrics ? JSON.stringify(faceMetrics).slice(0, 2000) : 'none'}`,
+    `Analyze CUSTOMER_PHOTO per the ARIA protocol and respond with ONLY a single JSON object (no prose, exactly 3 options with prescription params) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
+  ].join('\n');
+
+  const imageUrl = imageBase64.startsWith('data:')
+    ? imageBase64
+    : `data:image/jpeg;base64,${imageBase64}`;
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const key = pollinationsKey();
+  if (key) headers.Authorization = `Bearer ${key}`;
+
   let res: Response;
   try {
-    res = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/v1/chat/completions`,
-    {
+    res = await fetch(`${POLLINATIONS_BASE_URL}/chat/completions`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${account.token}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
-        model,
+        model: POLLINATIONS_MODEL,
         temperature: 0.2,
         top_p: 0.9,
-        max_tokens: maxTokens,
-        seed: 42,
+        max_tokens: 1500,
+        response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userContent },
+          { role: 'system', content: ARIA_VISION_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userText },
+              { type: 'image_url', image_url: { url: imageUrl } },
+            ],
+          },
         ],
       }),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(POLLINATIONS_TIMEOUT_MS),
       cache: 'no-store',
-      },
-    );
+    });
   } catch (networkError) {
     const msg = networkError instanceof Error ? networkError.message : String(networkError);
-    throw new Error(`Cloudflare ${tag} failed after ${Date.now() - t0}ms: ${msg}`);
+    throw new Error(`Pollinations failed after ${Date.now() - t0}ms: ${msg}`);
   }
 
   const raw = await res.text();
@@ -308,13 +296,16 @@ async function chatCompletion(
   }
 
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        'Pollinations: missing or invalid POLLINATIONS_API_KEY — get one at enter.pollinations.ai/keys',
+      );
+    }
     const msg =
       payload && typeof payload === 'object'
         ? JSON.stringify(payload).slice(0, 300)
         : raw.slice(0, 300);
-    throw Object.assign(new Error(`Cloudflare ${tag} HTTP ${res.status}: ${msg}`), {
-      status: res.status,
-    });
+    throw new Error(`Pollinations HTTP ${res.status}: ${msg}`);
   }
 
   const choices =
@@ -330,148 +321,28 @@ async function chatCompletion(
       ? (message as Record<string, unknown>).content
       : null;
   if (typeof content !== 'string' || !content.trim()) {
-    throw new Error(`Cloudflare ${tag}: empty response`);
+    throw new Error('Pollinations: empty response');
   }
-  console.error(`[AI-CONSULT] ${tag} ok in ${Date.now() - t0}ms (${content.length} chars)`);
-  return content;
-}
-
-/**
- * مرحله ۱ (REST): توصیف کوتاه چهره با LLaVA.
- * ورودی/خروجی دقیقاً مطابق اسکیمای مستندات مدل (آرایه بایت + prompt؛ پاسخ description).
- * (مسیر Chat Completions برای این مدل محتوای خالی برمی‌گرداند، پس استفاده نشد.)
- */
-async function callVisionDescribe(
-  account: CloudflareAccount,
-  imageBase64: string,
-  service: string,
-  timeoutMs: number,
-): Promise<string> {
-  const t0 = Date.now();
-  const tag = `vision ${shortModel(VISION_MODEL)}`;
-
-  // حذف پیشوند data URI و تبدیل base64 به آرایه بایت (مطابق اسکیمای ورودی مدل)
-  const clean = imageBase64.replace(/^data:image\/\w+;base64,/, '').trim();
-  const bytes = Array.from(Buffer.from(clean, 'base64'));
-  if (bytes.length < 100) {
-    throw new Error(`Cloudflare ${tag}: invalid or tiny image (${bytes.length} bytes)`);
-  }
-
-  let res: Response;
-  try {
-    res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/run/${VISION_MODEL}`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${account.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: bytes,
-          prompt: `SELECTED_SERVICE: ${service}\n${VISION_DESCRIBE_PROMPT}`,
-          max_tokens: 300,
-          temperature: 0.2,
-        }),
-        signal: AbortSignal.timeout(timeoutMs),
-        cache: 'no-store',
-      },
-    );
-  } catch (networkError) {
-    const msg = networkError instanceof Error ? networkError.message : String(networkError);
-    throw new Error(`Cloudflare ${tag} failed after ${Date.now() - t0}ms: ${msg}`);
-  }
-
-  const raw = await res.text();
-  let payload: unknown = null;
-  try {
-    payload = raw ? JSON.parse(raw) : null;
-  } catch {
-    payload = null;
-  }
-
-  if (!res.ok) {
-    const msg =
-      payload && typeof payload === 'object'
-        ? JSON.stringify(payload).slice(0, 300)
-        : raw.slice(0, 300);
-    throw new Error(`Cloudflare ${tag} HTTP ${res.status}: ${msg}`);
-  }
-
-  const envelope =
-    payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : null;
-  if (envelope && envelope.success === false) {
-    const msg = Array.isArray(envelope.errors)
-      ? JSON.stringify(envelope.errors).slice(0, 300)
-      : 'unknown error';
-    throw new Error(`Cloudflare ${tag}: ${msg}`);
-  }
-  const result =
-    envelope && typeof envelope.result === 'object' && envelope.result !== null
-      ? (envelope.result as Record<string, unknown>)
-      : null;
-  const description =
-    result && typeof result.description === 'string'
-      ? result.description
-      : result && typeof result.response === 'string'
-        ? result.response
-        : '';
-  if (description.trim().length < 30) {
-    throw new Error(`Cloudflare ${tag}: description too short or missing (${raw.slice(0, 200)})`);
-  }
-  console.error(
-    `[AI-CONSULT] ${tag} ok in ${Date.now() - t0}ms (${Math.round(bytes.length / 1024)}KB image, ${description.trim().length} chars)`,
-  );
-  return description.trim().slice(0, 2000);
-}
-
-/** مرحله ۲: ساخت JSON نسخه ARIA با مدل متنی از روی توصیف چهره */
-async function callTextPrescription(
-  account: CloudflareAccount,
-  faceDescription: string,
-  service: string,
-  initialStyle: string,
-  faceMetrics: unknown,
-  clientTaste: string,
-  timeoutMs: number,
-): Promise<ConsultPrescription> {
-  const userText = [
-    `FACE_DESCRIPTION: ${faceDescription}`,
-    `SELECTED_SERVICE: ${service}`,
-    `INITIAL_STYLE: ${initialStyle || 'client_has_no_preference'}`,
-    `CLIENT_TASTE: ${clientTaste}`,
-    `FACE_METRICS: ${faceMetrics ? JSON.stringify(faceMetrics).slice(0, 2000) : 'none'}`,
-    `Write the ARIA expert prescription for this face as ONLY a single JSON code block (no prose, exactly 3 options with prescription params) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
-  ].join('\n');
-
-  const content = await chatCompletion(
-    account,
-    TEXT_MODEL,
-    'reasoning',
-    ARIA_TEXT_SYSTEM_PROMPT,
-    userText,
-    1500,
-    timeoutMs,
-  );
 
   const jsonMatch = content.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error(`Cloudflare ${shortModel(TEXT_MODEL)}: no JSON object in response`);
+    throw new Error('Pollinations: no JSON object in response');
   }
 
   let parsed: unknown = null;
   try {
     parsed = JSON.parse(jsonMatch[0]);
   } catch {
-    throw new Error(`Cloudflare ${shortModel(TEXT_MODEL)}: response is not valid JSON`);
+    throw new Error('Pollinations: response is not valid JSON');
   }
 
   if (!isValidPrescription(parsed)) {
-    throw new Error(
-      `Cloudflare ${shortModel(TEXT_MODEL)}: prescription failed validation (need analysis + 3 options)`,
-    );
+    throw new Error('Pollinations: prescription failed validation (need analysis + 3 options)');
   }
 
+  console.error(
+    `[AI-CONSULT] pollinations vision ok in ${Date.now() - t0}ms (${content.length} chars)`,
+  );
   return ensureFaSummary(parsed);
 }
 
@@ -528,113 +399,63 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: 'خدمت انتخاب‌شده معتبر نیست.' }, { status: 400 });
   }
 
-  const configured = accounts();
-
-  // بدون کلید: نسخه نمایشی تا فلو UX نخوابد
-  if (configured.length === 0) {
-    const prescription = buildDemoPrescription(service, initialStyle);
-    // بازتاب سلیقه در نسخه نمایشی، فقط کلیدهای مرتبط با هر خدمت
-    // (مسیر واقعی در پرامپت LLM اعمال می‌شود)
-    for (const opt of prescription.options) {
-      if (service === 'eyebrows' || service === 'lips') {
-        if (taste.dailyMakeup === 'bold') opt.params.pigment_depth = 'rich';
-        else if (taste.dailyMakeup === 'natural') opt.params.pigment_depth = 'sheer';
-      }
-      if (service === 'eyebrows') {
-        if (taste.density === 'dense') opt.params.stroke_density = 0.8;
-        else if (taste.density === 'fluffy') opt.params.stroke_density = 0.45;
-      }
-    }
+  // تنها مسیر AI: Pollinations (۱۰ ثانیه)؛ خطا → دموی صادقانه، هرگز ۵۰۲
+  try {
+    const prescription = await callPollinationsVision(
+      imageBase64,
+      service,
+      initialStyle,
+      body.faceMetrics,
+      clientTasteLine,
+    );
+    const okMs = Date.now() - startedAt;
+    console.error(`[AI-CONSULT] pollinations ok in ${okMs}ms (${POLLINATIONS_MODEL})`);
     return NextResponse.json({
       ok: true,
-      demo: true,
-      provider: 'demo',
+      demo: false,
+      provider: `pollinations:${POLLINATIONS_MODEL}`,
       prescription,
-      ms: Date.now() - startedAt,
+      ms: okMs,
     });
+  } catch (aiError) {
+    const msg = aiError instanceof Error ? aiError.message : String(aiError);
+    console.error(`[AI-CONSULT] pollinations failed, serving demo: ${msg.slice(0, 300)}`);
   }
 
-  // دومرحله‌ای برای هر اکانت: توصیف بینایی (۶ث) → نسخه متنی (۶ث)؛ خطا → دموی صادقانه، هرگز ۵۰۲
-  let lastError = '';
-  for (let i = 0; i < configured.length; i += 1) {
-    const account = configured[i];
-    const remainingBefore = TOTAL_DEADLINE_MS - (Date.now() - startedAt);
-    if (remainingBefore < 8000) break;
-    try {
-      const faceDescription = await callVisionDescribe(
-        account,
-        imageBase64,
-        service,
-        Math.min(VISION_TIMEOUT_MS, remainingBefore),
-      );
-      const remainingAfterVision = TOTAL_DEADLINE_MS - (Date.now() - startedAt);
-      if (remainingAfterVision < 5000) {
-        throw new Error('vision ok but no time left for reasoning step');
-      }
-      const prescription = await callTextPrescription(
-        account,
-        faceDescription,
-        service,
-        initialStyle,
-        body.faceMetrics,
-        clientTasteLine,
-        Math.min(TEXT_TIMEOUT_MS, remainingAfterVision),
-      );
-      const okMs = Date.now() - startedAt;
-      console.error(`[AI-CONSULT] account ${i + 1} 2-stage ok in ${okMs}ms (vision+reasoning)`);
-      return NextResponse.json({
-        ok: true,
-        demo: false,
-        provider: `cloudflare-2stage:${i + 1}:${shortModel(VISION_MODEL)}+${shortModel(TEXT_MODEL)}`,
-        prescription,
-        ms: okMs,
-      });
-    } catch (stageError) {
-      lastError = stageError instanceof Error ? stageError.message : String(stageError);
-      console.error(
-        `[AI-CONSULT] account ${i + 1} 2-stage failed: ${lastError.slice(0, 300)}`,
-      );
+  // فال‌بک ایمن: دموی صادقانه با بازتاب سلیقه (بنر 🎭 در UI نشان داده می‌شود)
+  const prescription = buildDemoPrescription(service, initialStyle);
+  for (const opt of prescription.options) {
+    if (service === 'eyebrows' || service === 'lips') {
+      if (taste.dailyMakeup === 'bold') opt.params.pigment_depth = 'rich';
+      else if (taste.dailyMakeup === 'natural') opt.params.pigment_depth = 'sheer';
+    }
+    if (service === 'eyebrows') {
+      if (taste.density === 'dense') opt.params.stroke_density = 0.8;
+      else if (taste.density === 'fluffy') opt.params.stroke_density = 0.45;
     }
   }
-
-  // فال‌بک ایمن و سریع: دموی صادقانه (بنر 🎭 در UI نشان داده می‌شود)، هرگز ۵۰۲
-  console.error(
-    `[AI-CONSULT] all 2-stage attempts failed, serving demo: ${lastError.slice(0, 300)}`,
-  );
   return NextResponse.json({
     ok: true,
     demo: true,
     provider: 'demo-fallback',
-    prescription: buildDemoPrescription(service, initialStyle),
+    prescription,
     ms: Date.now() - startedAt,
   });
 }
 
 export async function GET(): Promise<NextResponse> {
-  const configured = accounts();
-  const presence = (name: string): boolean => (process.env[name] ?? '').trim().length > 0;
+  const keyConfigured = pollinationsKey().length > 0;
   return NextResponse.json({
     ok: true,
-    model: VISION_MODEL,
-    textModel: TEXT_MODEL,
-    budgets: { visionMs: VISION_TIMEOUT_MS, textMs: TEXT_TIMEOUT_MS, totalMs: TOTAL_DEADLINE_MS },
-    accountsConfigured: configured.length,
-    demo: configured.length === 0,
-    // عیب‌یابی امن: فقط «هست/نیست» — هیچ مقداری فاش نمی‌شود
-    env: {
-      demoMode: (process.env.DEMO_MODE ?? '').trim() || '(unset→auto)',
-      account1: {
-        token: presence('CLOUDFLARE_API_TOKEN_1'),
-        accountId: presence('CLOUDFLARE_ACCOUNT_ID_1'),
-      },
-      account2: {
-        token: presence('CLOUDFLARE_API_TOKEN_2'),
-        accountId: presence('CLOUDFLARE_ACCOUNT_ID_2'),
-      },
-      account3: {
-        token: presence('CLOUDFLARE_API_TOKEN_3'),
-        accountId: presence('CLOUDFLARE_ACCOUNT_ID_3'),
-      },
-    },
+    provider: 'pollinations',
+    endpoint: `${POLLINATIONS_BASE_URL}/chat/completions`,
+    model: POLLINATIONS_MODEL,
+    timeoutMs: POLLINATIONS_TIMEOUT_MS,
+    // عیب‌یابی امن: فقط «هست/نیست» — مقدار کلید هرگز فاش نمی‌شود
+    keyConfigured,
+    demo: !keyConfigured,
+    note: keyConfigured
+      ? 'AI analysis via Pollinations.'
+      : 'Set POLLINATIONS_API_KEY (from enter.pollinations.ai/keys) to enable real AI analysis.',
   });
 }
