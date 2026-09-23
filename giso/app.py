@@ -611,6 +611,9 @@ def create_app():
     # نوبتهای آنلاین مراکز زیبایی: ماژول مستقل (همان auth/db) — رزرو، پنل مالک و «نوبت‌های من»
     from giso.beauty_centers.reservations.routes import reservations_bp
     app.register_blueprint(reservations_bp)
+    # آینه جادویی گیسو (ماژول Native پیش‌نمایش چهره و زیبایی)
+    from giso.buti_ai import buti_ai_bp
+    app.register_blueprint(buti_ai_bp)
 
     # ═══ فاز 4: پنل ادمین ماژولار ═══
     from giso.panel import panel_bp
