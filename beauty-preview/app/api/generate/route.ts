@@ -9,6 +9,7 @@ import { parseDataUri } from '@/providers/http';
 import type { AttemptLog } from '@/providers/types';
 import { recordEvent } from '@/stats';
 import { readSiteImage } from '@/site-images';
+import { compressGeneratedImage } from '@/image-compress';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -228,6 +229,17 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
     });
 
     trackPreview(knownStyle?.key ?? style);
+
+    // فشرده‌سازی بدون افت محسوس (fail-open: خطا → همان تصویر اصلی مدل)
+    let resultUrl = result.image;
+    const compressed = await compressGeneratedImage(result.image);
+    if (compressed) {
+      resultUrl = compressed.dataUri;
+      console.error(
+        `[AI-GENERATE] COMPRESS | saved=${compressed.savedPct}% | ${compressed.beforeKb}KB -> ${compressed.afterKb}KB`,
+      );
+    }
+
     console.error(
       `[AI-GENERATE] SUCCESS | provider=${result.provider.id} | duration=${Date.now() - requestStartedAt}ms`,
     );
@@ -236,7 +248,7 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
       ok: true,
       provider: result.provider.id,
       providerLabel: result.provider.label,
-      resultUrl: result.image,
+      resultUrl,
       demo: false,
       attempts: result.attempts,
       ms: result.ms,
