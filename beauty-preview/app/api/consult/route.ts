@@ -2,9 +2,9 @@
  * app/api/consult/route.ts
  * ---------------------------------------------------------------------------
  * اندپوینت «مشاور کارشناس ARIA» — حلقه اول زنجیره هوش مصنوعی:
- *   عکس + خدمت + استایل اولیه → تحلیل Pollinations Vision (JSON) → نسخه ساخت‌یافته
- * تک‌مرحله‌ای بدون tool (JSON خام + Regex) با سقف ۳۰ ثانیه؛ خطا → دموی صادقانه، هرگز ۵۰۲.
- * کلید از POLLINATIONS_API_KEY (enter.pollinations.ai/keys)؛ بدون کلید، دموی صادقانه.
+ *   عکس + خدمت + استایل اولیه → تحلیل بینایی (JSON) → نسخه ساخت‌یافته
+ * زنجیره ترکیبی (ارزان اول): Cloudflare Vision (رایگان) → Pollinations (پولی/اثبات‌شده) → دموی صادقانه.
+ * راستی‌آزمایی jev (fail-open) روی خروجی موفق؛ خطا → دموی صادقانه، هرگز ۵۰۲.
  * ---------------------------------------------------------------------------
  */
 
@@ -17,20 +17,46 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
 /**
- * پروایدر تحلیل: Pollinations AI (تأییدشده با مستندات رسمی gen.pollinations.ai/docs).
- * تک‌فراخوانی Vision+JSON: عکس + پرامپت ARIA → نسخه ۳ گزینه‌ای.
- * مدل پیش‌فرض openai/gpt-5.4-nano (بینایی + JSON + استدلال، سالم و ارزان، ~۰٫۰۰۱ pollen برای هر تحلیل).
+ * زنجیره تحلیل (تأییدشده با مستندات رسمی):
+ *  ۱) Cloudflare @cf/meta/llama-3.2-11b-vision-instruct — $0.0485/$0.676 به‌ازای 1M توکن
+ *     ≈ ‎۰٫۰۰۱۲$ برای هر تحلیل، رایگان تا ~۹۵ تحلیل در روز برای هر حساب (سهمیه ۱۰هزار نورون).
+ *  ۲) Pollinations openai/gpt-5.4-nano — ~۰٫۰۰۱ pollen برای هر تحلیل (پولی از اولین فراخوانی).
+ * ترتیب = ارزان اول؛ با CLOUDFLARE_VISION_MODEL/POLLINATIONS_VISION_MODEL قابل تغییر است.
  */
 const POLLINATIONS_BASE_URL = 'https://gen.pollinations.ai/v1';
 const POLLINATIONS_MODEL =
   (process.env.POLLINATIONS_VISION_MODEL ?? '').trim() || 'openai/gpt-5.4-nano';
+const CLOUDFLARE_VISION_MODEL =
+  (process.env.CLOUDFLARE_VISION_MODEL ?? '').trim() ||
+  '@cf/meta/llama-3.2-11b-vision-instruct';
 
-/** سقف زمانی تحلیل: ۳۰ ثانیه (ابرو ۷٫۵ ثانیه برد؛ لب/خط چشم خروجی بلندتری دارند)؛ خطا → دموی صادقانه، هرگز ۵۰۲ */
-const POLLINATIONS_TIMEOUT_MS = 30000;
+/** سقف هر تلاش تحلیل: ۱۵ ثانیه (تحلیل سالم زیر ۱۰ ثانیه؛ بیشتر یعنی صف/اختلال) */
+const CONSULT_TIMEOUT_MS = (() => {
+  const raw = Number(process.env.CONSULT_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 1000 ? raw : 15_000;
+})();
+
+/** راستی‌آزمایی jev از همان توکن کلادفلر استفاده می‌کند (ثبت‌نام جدید لازم نیست) */
+const JEV_MODEL = 'typesafe/jev';
+const JEV_TIMEOUT_MS = 10_000;
 
 /** کلید سروری Pollinations (sk_...) — طبق مستندات، همه درخواست‌های تولید به کلید نیاز دارند */
 function pollinationsKey(): string {
   return (process.env.POLLINATIONS_API_KEY ?? '').trim();
+}
+
+/** حساب اول کلادفلر (مشترک بین تحلیل بینایی و jev) */
+function cloudflareAccount(): { token: string; accountId: string } | null {
+  const token = (process.env.CLOUDFLARE_API_TOKEN_1 ?? '').trim();
+  const accountId = (process.env.CLOUDFLARE_ACCOUNT_ID_1 ?? '').trim();
+  return token && accountId ? { token, accountId } : null;
+}
+
+/** jev پیش‌فرض روشن است (fail-open)؛ با JEV_VERIFY=off خاموش می‌شود */
+function jevEnabled(): boolean {
+  const raw = (process.env.JEV_VERIFY ?? 'on').trim().toLowerCase();
+  if (raw === 'off' || raw === '0' || raw === 'false') return false;
+  return cloudflareAccount() !== null;
 }
 
 /** الگوی JSON خامی که در حالت بدون-tool از مدل پشتیبان خواسته می‌شود */
@@ -68,7 +94,7 @@ OUTPUT CONTRACT (strict):
 - analysis_summary_fa: SAME analysis in SIMPLE Persian (2-3 short sentences, zero jargon, zero invented numbers). If uncertain, say the in-person visit will finalize it — NEVER fabricate.`;
 
 /* ------------------------------------------------------------------ */
-/* توجه: فراخوانی بینایی عمداً بدون tool است (LLaVA با tool خطا می‌دهد).   */
+/* توجه: فراخوانی بینایی عمداً بدون tool است.                              */
 /* خروجی JSON خام با Regex استخراج و با isValidPrescription اعتبارسنجی می‌شود. */
 /* ------------------------------------------------------------------ */
 
@@ -107,6 +133,13 @@ export interface ConsultPrescription {
   options: ConsultOption[];
 }
 
+interface ConsultAttempt {
+  provider: string;
+  ok: boolean;
+  ms: number;
+  error?: string;
+}
+
 function isValidPrescription(value: unknown): value is ConsultPrescription {
   if (!value || typeof value !== 'object') return false;
   const p = value as Record<string, unknown>;
@@ -138,6 +171,29 @@ function ensureFaSummary(p: ConsultPrescription): ConsultPrescription {
     analysis_summary_fa:
       two || 'تحلیل چهره انجام شد؛ لطفاً یکی از گزینه‌های پیشنهادی را انتخاب کنید.',
   };
+}
+
+/**
+ * استخراج مشترک نسخه از متن خام هر دو پروایدر (Regex + اعتبارسنجی).
+ */
+function extractPrescription(content: string, who: string): ConsultPrescription {
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error(`${who}: no JSON object in response`);
+  }
+
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(jsonMatch[0]);
+  } catch {
+    throw new Error(`${who}: response is not valid JSON`);
+  }
+
+  if (!isValidPrescription(parsed)) {
+    throw new Error(`${who}: prescription failed validation (need analysis + 3 options)`);
+  }
+
+  return ensureFaSummary(parsed);
 }
 
 /* ------------------------------------------------------------------ */
@@ -229,10 +285,123 @@ function buildDemoPrescription(service: string, styleKey: string): ConsultPrescr
 }
 
 /* ------------------------------------------------------------------ */
-/* فراخوانی Pollinations Vision (OpenAI-Compatible، بدون tool)              */
+/* فراخوانی Cloudflare Vision (مسیر اول — رایگان)                           */
 /* ------------------------------------------------------------------ */
 
-/** تنها فراخوانی AI: تحلیل بینایی Pollinations (عکس + ARIA → JSON نسخه) */
+/** متن کاربر مشترک هر دو پروایدر (همان ورودی ARIA) */
+function buildUserText(
+  service: string,
+  initialStyle: string,
+  faceMetrics: unknown,
+  clientTaste: string,
+): string {
+  return [
+    `SELECTED_SERVICE: ${service}`,
+    `INITIAL_STYLE: ${initialStyle || 'client_has_no_preference'}`,
+    `CLIENT_TASTE: ${clientTaste}`,
+    `FACE_METRICS: ${faceMetrics ? JSON.stringify(faceMetrics).slice(0, 2000) : 'none'}`,
+    `Analyze CUSTOMER_PHOTO per the ARIA protocol and respond with ONLY a single JSON object (no prose, exactly 3 options with prescription params) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
+  ].join('\n');
+}
+
+function toImageDataUri(imageBase64: string): string {
+  return imageBase64.startsWith('data:')
+    ? imageBase64
+    : `data:image/jpeg;base64,${imageBase64}`;
+}
+
+/** تحلیل بینایی کلادفلر: messages با عکس (طبق مستندات، image جدا deprecated است) */
+async function callCloudflareVision(
+  imageBase64: string,
+  service: string,
+  initialStyle: string,
+  faceMetrics: unknown,
+  clientTaste: string,
+): Promise<ConsultPrescription> {
+  const account = cloudflareAccount();
+  if (!account) {
+    throw new Error('Cloudflare: CLOUDFLARE_API_TOKEN_1/ACCOUNT_ID_1 تنظیم نشده است');
+  }
+  const t0 = Date.now();
+
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/run/${CLOUDFLARE_VISION_MODEL}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${account.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: ARIA_VISION_SYSTEM_PROMPT },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: buildUserText(service, initialStyle, faceMetrics, clientTaste),
+                },
+                { type: 'image_url', image_url: { url: toImageDataUri(imageBase64) } },
+              ],
+            },
+          ],
+          max_tokens: 1500,
+          temperature: 0.2,
+          top_p: 0.9,
+        }),
+        signal: AbortSignal.timeout(CONSULT_TIMEOUT_MS),
+        cache: 'no-store',
+      },
+    );
+  } catch (networkError) {
+    const msg = networkError instanceof Error ? networkError.message : String(networkError);
+    throw new Error(`Cloudflare vision failed after ${Date.now() - t0}ms: ${msg}`);
+  }
+
+  const raw = await res.text();
+  let payload: unknown = null;
+  try {
+    payload = raw ? JSON.parse(raw) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!res.ok) {
+    const msg =
+      payload && typeof payload === 'object'
+        ? JSON.stringify(payload).slice(0, 300)
+        : raw.slice(0, 300);
+    throw new Error(`Cloudflare vision HTTP ${res.status}: ${msg}`);
+  }
+
+  const result =
+    payload && typeof payload === 'object'
+      ? (payload as Record<string, unknown>).result
+      : null;
+  const content =
+    typeof result === 'string'
+      ? result
+      : result && typeof result === 'object'
+        ? (result as Record<string, unknown>).response
+        : null;
+  if (typeof content !== 'string' || !content.trim()) {
+    throw new Error('Cloudflare vision: empty response');
+  }
+
+  console.error(
+    `[AI-CONSULT] cloudflare vision ok in ${Date.now() - t0}ms (${content.length} chars)`,
+  );
+  return extractPrescription(content, 'Cloudflare vision');
+}
+
+/* ------------------------------------------------------------------ */
+/* فراخوانی Pollinations Vision (مسیر دوم — پولی/اثبات‌شده)                  */
+/* ------------------------------------------------------------------ */
+
+/** تحلیل بینایی Pollinations (عکس + ARIA → JSON نسخه) */
 async function callPollinationsVision(
   imageBase64: string,
   service: string,
@@ -241,17 +410,8 @@ async function callPollinationsVision(
   clientTaste: string,
 ): Promise<ConsultPrescription> {
   const t0 = Date.now();
-  const userText = [
-    `SELECTED_SERVICE: ${service}`,
-    `INITIAL_STYLE: ${initialStyle || 'client_has_no_preference'}`,
-    `CLIENT_TASTE: ${clientTaste}`,
-    `FACE_METRICS: ${faceMetrics ? JSON.stringify(faceMetrics).slice(0, 2000) : 'none'}`,
-    `Analyze CUSTOMER_PHOTO per the ARIA protocol and respond with ONLY a single JSON object (no prose, exactly 3 options with prescription params) matching exactly: ${PRESCRIPTION_JSON_SKELETON}`,
-  ].join('\n');
-
-  const imageUrl = imageBase64.startsWith('data:')
-    ? imageBase64
-    : `data:image/jpeg;base64,${imageBase64}`;
+  const userText = buildUserText(service, initialStyle, faceMetrics, clientTaste);
+  const imageUrl = toImageDataUri(imageBase64);
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const key = pollinationsKey();
@@ -279,7 +439,7 @@ async function callPollinationsVision(
           },
         ],
       }),
-      signal: AbortSignal.timeout(POLLINATIONS_TIMEOUT_MS),
+      signal: AbortSignal.timeout(CONSULT_TIMEOUT_MS),
       cache: 'no-store',
     });
   } catch (networkError) {
@@ -324,26 +484,81 @@ async function callPollinationsVision(
     throw new Error('Pollinations: empty response');
   }
 
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error('Pollinations: no JSON object in response');
-  }
-
-  let parsed: unknown = null;
-  try {
-    parsed = JSON.parse(jsonMatch[0]);
-  } catch {
-    throw new Error('Pollinations: response is not valid JSON');
-  }
-
-  if (!isValidPrescription(parsed)) {
-    throw new Error('Pollinations: prescription failed validation (need analysis + 3 options)');
-  }
-
   console.error(
     `[AI-CONSULT] pollinations vision ok in ${Date.now() - t0}ms (${content.length} chars)`,
   );
-  return ensureFaSummary(parsed);
+  return extractPrescription(content, 'Pollinations');
+}
+
+/* ------------------------------------------------------------------ */
+/* راستی‌آزمایی jev (TypeSafe روی کلادفلر — fail-open، هرگز مسدودکننده نیست)  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * داوری متن نسخه با ۳ سؤال اتمیک: انسجام (Score)، سه‌تایی‌بودن گزینه‌ها (Noul)،
+ * مستندبودن ادعاها (Noul). خطا/تایم‌اوت → null (مشاوره خراب نمی‌شود).
+ */
+async function verifyWithJev(
+  prescription: ConsultPrescription,
+): Promise<Record<string, unknown> | null> {
+  const account = cloudflareAccount();
+  if (!account) return null;
+  const t0 = Date.now();
+  try {
+    const state = JSON.stringify(prescription).slice(0, 6000);
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${account.accountId}/ai/run`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${account.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: JEV_MODEL,
+          input: {
+            state,
+            questions: {
+              coherent: {
+                type: 'score',
+                instructions:
+                  'How coherent and internally consistent is this PMU consultation (does the analysis match the 3 options)?',
+                criteria: ['Incoherent or contradictory', 'Mostly coherent', 'Fully coherent'],
+              },
+              three_options: {
+                type: 'noul',
+                instructions:
+                  'Does this consultation contain exactly 3 distinct options with prescription params?',
+              },
+              grounded: {
+                type: 'noul',
+                instructions:
+                  'Does every claim cite evidence (photo/metric/rule) with no invented anatomy numbers?',
+              },
+            },
+          },
+        }),
+        signal: AbortSignal.timeout(JEV_TIMEOUT_MS),
+        cache: 'no-store',
+      },
+    );
+    if (!res.ok) {
+      console.error(`[AI-CONSULT] jev verify skipped (HTTP ${res.status})`);
+      return null;
+    }
+    const payload = (await res.json()) as Record<string, unknown>;
+    const result = payload.result as Record<string, unknown> | undefined;
+    const answers =
+      (result?.answers as Record<string, unknown> | undefined) ??
+      (payload.answers as Record<string, unknown> | undefined) ??
+      null;
+    if (!answers) return null;
+    console.error(`[AI-CONSULT] jev verify ok in ${Date.now() - t0}ms`);
+    return answers;
+  } catch {
+    // fail-open: jev هرگز مشاوره را خراب نمی‌کند
+    return null;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -399,63 +614,137 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: 'خدمت انتخاب‌شده معتبر نیست.' }, { status: 400 });
   }
 
-  // تنها مسیر AI: Pollinations (۱۰ ثانیه)؛ خطا → دموی صادقانه، هرگز ۵۰۲
-  try {
-    const prescription = await callPollinationsVision(
-      imageBase64,
-      service,
-      initialStyle,
-      body.faceMetrics,
-      clientTasteLine,
-    );
-    const okMs = Date.now() - startedAt;
-    console.error(`[AI-CONSULT] pollinations ok in ${okMs}ms (${POLLINATIONS_MODEL})`);
-    return NextResponse.json({
-      ok: true,
-      demo: false,
-      provider: `pollinations:${POLLINATIONS_MODEL}`,
-      prescription,
-      ms: okMs,
-    });
-  } catch (aiError) {
-    const msg = aiError instanceof Error ? aiError.message : String(aiError);
-    console.error(`[AI-CONSULT] pollinations failed, serving demo: ${msg.slice(0, 300)}`);
+  /* -------------------- زنجیره ترکیبی: ارزان اول -------------------- */
+  const attempts: ConsultAttempt[] = [];
+  let prescription: ConsultPrescription | null = null;
+  let providerLabel = '';
+
+  // مسیر ۱: Cloudflare Vision (رایگان تا ~۹۵ تحلیل/روز/حساب)
+  if (cloudflareAccount()) {
+    const t0 = Date.now();
+    try {
+      prescription = await callCloudflareVision(
+        imageBase64,
+        service,
+        initialStyle,
+        body.faceMetrics,
+        clientTasteLine,
+      );
+      providerLabel = `cloudflare:${CLOUDFLARE_VISION_MODEL}`;
+      attempts.push({ provider: 'cloudflare', ok: true, ms: Date.now() - t0 });
+      console.error(`[AI-CONSULT] cloudflare ok in ${Date.now() - startedAt}ms`);
+    } catch (cfError) {
+      const msg = cfError instanceof Error ? cfError.message : String(cfError);
+      attempts.push({
+        provider: 'cloudflare',
+        ok: false,
+        ms: Date.now() - t0,
+        error: msg.slice(0, 200),
+      });
+      console.error(`[AI-CONSULT] cloudflare failed: ${msg.slice(0, 300)}`);
+    }
+  } else {
+    console.error('[AI-CONSULT] cloudflare skipped (no CLOUDFLARE_API_TOKEN_1)');
   }
 
-  // فال‌بک ایمن: دموی صادقانه با بازتاب سلیقه (بنر 🎭 در UI نشان داده می‌شود)
-  const prescription = buildDemoPrescription(service, initialStyle);
-  for (const opt of prescription.options) {
-    if (service === 'eyebrows' || service === 'lips') {
-      if (taste.dailyMakeup === 'bold') opt.params.pigment_depth = 'rich';
-      else if (taste.dailyMakeup === 'natural') opt.params.pigment_depth = 'sheer';
+  // مسیر ۲: Pollinations Vision (پولی/اثبات‌شده)
+  if (!prescription && pollinationsKey()) {
+    const t0 = Date.now();
+    try {
+      prescription = await callPollinationsVision(
+        imageBase64,
+        service,
+        initialStyle,
+        body.faceMetrics,
+        clientTasteLine,
+      );
+      providerLabel = `pollinations:${POLLINATIONS_MODEL}`;
+      attempts.push({ provider: 'pollinations', ok: true, ms: Date.now() - t0 });
+      console.error(
+        `[AI-CONSULT] pollinations ok in ${Date.now() - startedAt}ms (${POLLINATIONS_MODEL})`,
+      );
+    } catch (aiError) {
+      const msg = aiError instanceof Error ? aiError.message : String(aiError);
+      attempts.push({
+        provider: 'pollinations',
+        ok: false,
+        ms: Date.now() - t0,
+        error: msg.slice(0, 200),
+      });
+      console.error(`[AI-CONSULT] pollinations failed: ${msg.slice(0, 300)}`);
     }
-    if (service === 'eyebrows') {
-      if (taste.density === 'dense') opt.params.stroke_density = 0.8;
-      else if (taste.density === 'fluffy') opt.params.stroke_density = 0.45;
-    }
+  } else if (!prescription) {
+    console.error('[AI-CONSULT] pollinations skipped (no POLLINATIONS_API_KEY)');
   }
+
+  // مسیر ۳: دموی صادقانه با بازتاب سلیقه (بنر 🎭 در UI نشان داده می‌شود)
+  if (!prescription) {
+    const demo = buildDemoPrescription(service, initialStyle);
+    for (const opt of demo.options) {
+      if (service === 'eyebrows' || service === 'lips') {
+        if (taste.dailyMakeup === 'bold') opt.params.pigment_depth = 'rich';
+        else if (taste.dailyMakeup === 'natural') opt.params.pigment_depth = 'sheer';
+      }
+      if (service === 'eyebrows') {
+        if (taste.density === 'dense') opt.params.stroke_density = 0.8;
+        else if (taste.density === 'fluffy') opt.params.stroke_density = 0.45;
+      }
+    }
+    return NextResponse.json({
+      ok: true,
+      demo: true,
+      provider: 'demo-fallback',
+      prescription: demo,
+      ms: Date.now() - startedAt,
+      attempts,
+      verification: null,
+    });
+  }
+
+  // راستی‌آزمایی jev روی خروجی موفق (fail-open؛ ~۱ ثانیه)
+  let verification: Record<string, unknown> | null = null;
+  if (jevEnabled()) {
+    verification = await verifyWithJev(prescription);
+  }
+
   return NextResponse.json({
     ok: true,
-    demo: true,
-    provider: 'demo-fallback',
+    demo: false,
+    provider: providerLabel,
     prescription,
     ms: Date.now() - startedAt,
+    attempts,
+    verification,
   });
 }
 
 export async function GET(): Promise<NextResponse> {
-  const keyConfigured = pollinationsKey().length > 0;
+  const pollKeyConfigured = pollinationsKey().length > 0;
+  const cfConfigured = cloudflareAccount() !== null;
   return NextResponse.json({
     ok: true,
-    provider: 'pollinations',
-    endpoint: `${POLLINATIONS_BASE_URL}/chat/completions`,
-    model: POLLINATIONS_MODEL,
-    timeoutMs: POLLINATIONS_TIMEOUT_MS,
-    // عیب‌یابی امن: فقط «هست/نیست» — مقدار کلید هرگز فاش نمی‌شود
-    keyConfigured,
-    demo: !keyConfigured,
-    note: keyConfigured
-      ? 'AI analysis via Pollinations.'
-      : 'Set POLLINATIONS_API_KEY (from enter.pollinations.ai/keys) to enable real AI analysis.',
+    provider: 'cloudflare,pollinations',
+    chain: ['cloudflare', 'pollinations', 'demo-fallback'],
+    cloudflare: {
+      endpoint: '/ai/run',
+      model: CLOUDFLARE_VISION_MODEL,
+      keyConfigured: cfConfigured,
+    },
+    pollinations: {
+      endpoint: `${POLLINATIONS_BASE_URL}/chat/completions`,
+      model: POLLINATIONS_MODEL,
+      // عیب‌یابی امن: فقط «هست/نیست» — مقدار کلید هرگز فاش نمی‌شود
+      keyConfigured: pollKeyConfigured,
+    },
+    jev: {
+      model: JEV_MODEL,
+      enabled: jevEnabled(),
+    },
+    timeoutMs: CONSULT_TIMEOUT_MS,
+    demo: !cfConfigured && !pollKeyConfigured,
+    note:
+      cfConfigured || pollKeyConfigured
+        ? 'AI analysis via Cloudflare (free tier first) + Pollinations fallback, jev verification when enabled.'
+        : 'Set CLOUDFLARE_API_TOKEN_1/ACCOUNT_ID_1 or POLLINATIONS_API_KEY to enable real AI analysis.',
   });
 }
