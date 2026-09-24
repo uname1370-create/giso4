@@ -249,6 +249,28 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
       .map((attempt) => `${attempt.provider}=${attempt.error}`)
       .join(' | ');
 
+    // Graceful Fallback: اگر همهٔ تلاش‌ها به‌خاطر سهمیه/۴۰۲/تایم‌اوت مردند،
+    // به‌جای ۵۰۲ حالت نمایشی برگردان تا کاربر معطل و بی‌پاسخ نماند.
+    const quotaPattern =
+      /402|429|quota|neuron|pollen|payment|balance|insufficient|exceed|daily|allocation|rate[\s-]?limit|timeout|timed out|abort|ETIMEDOUT|زمان انتظار/i;
+    const failed = attempts.filter((attempt) => !attempt.ok);
+    const allQuota =
+      failed.length > 0 && failed.every((attempt) => quotaPattern.test(attempt.error ?? ''));
+    if (allQuota) {
+      trackPreview(knownStyle?.key ?? style);
+      console.error(
+        `[AI-GENERATE] QUOTA_FALLBACK_DEMO | duration=${Date.now() - requestStartedAt}ms | ${failedSummary || message}`,
+      );
+      return NextResponse.json({
+        ok: true,
+        provider: 'demo',
+        providerLabel: 'حالت نمایشی (اتمام سهمیه)',
+        demo: true,
+        attempts,
+        ms: Date.now() - requestStartedAt,
+      });
+    }
+
     console.error(
       `[AI-GENERATE] FAILED | status=502 | duration=${Date.now() - requestStartedAt}ms | ${failedSummary || message}`,
     );

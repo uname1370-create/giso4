@@ -1,6 +1,6 @@
 /**
  * Provider — Cloudflare Workers AI
- * Model: @cf/black-forest-labs/flux-2-dev (قفل انحصاری رندر نهایی؛ با CLOUDFLARE_MODEL قابل تغییر)
+ * Model: @cf/black-forest-labs/flux-2-klein-4b (پیش‌فرض سریع و کم‌مصرف؛ مدل dev با CLOUDFLARE_MODEL)
  * Uses up to 3 independent Cloudflare accounts in order.
  */
 
@@ -11,9 +11,9 @@ import {
 } from './http';
 import type { Provider, ProviderInput } from './types';
 
-const DEFAULT_MODEL = '@cf/black-forest-labs/flux-2-dev';
-/** مهلت هر حساب کلادفلر: مدل dev چندمرحله‌ای است و تا ~۲ دقیقه زمان سالم می‌برد. */
-const DEFAULT_TIMEOUT_MS = 120_000;
+const DEFAULT_MODEL = '@cf/black-forest-labs/flux-2-klein-4b';
+/** مهلت هر حساب کلادفلر: ۱۵ ثانیه — رندر سالم klein سریع است؛ بیشتر یعنی صف/اختلال. */
+const DEFAULT_TIMEOUT_MS = 15_000;
 const MAX_OUTPUT_SIDE = 1536;
 const MIN_OUTPUT_SIDE = 256;
 
@@ -28,7 +28,7 @@ function model(): string {
 
 /**
  * مهلت مؤثر کلادفلر: ورودی timeoutMs (تست سلامت) بر همه مقدم است،
- * بعد CLOUDFLARE_TIMEOUT_MS، وگرنه ۱۲۰ ثانیه (مدل dev کندتر از klein است).
+ * بعد CLOUDFLARE_TIMEOUT_MS، وگرنه ۱۵ ثانیه (fail-fast به‌جای معطلی چنددقیقه‌ای).
  */
 function cloudflareTimeoutMs(input?: { timeoutMs?: number }): number {
   const custom = Number(input?.timeoutMs);
@@ -116,7 +116,7 @@ function outputSize(bytes: Uint8Array): { width: number; height: number } {
 
 export const cloudflareProvider: Provider = {
   id: 'cloudflare',
-  label: 'Cloudflare — FLUX.2 Dev',
+  label: 'Cloudflare — FLUX.2 Klein 4B',
   envKey: 'CLOUDFLARE_API_TOKEN_1',
   isConfigured: () => accounts().length > 0,
 

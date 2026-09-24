@@ -63,8 +63,8 @@ export function timeoutSignal(ms: number): { signal: AbortSignal; done: () => vo
 
 export function providerTimeoutMs(): number {
   const raw = Number(process.env.PROVIDER_TIMEOUT_MS);
-  // پیش‌فرض ۶۰ ثانیه: رندر سالم ۱۵ تا ۴۵ ثانیه طول می‌کشد؛ بیشتر از این یعنی صف/اختلال
-  return Number.isFinite(raw) && raw > 1000 ? raw : 60_000;
+  // پیش‌فرض ۱۵ ثانیه (fail-fast): به‌جای معطلی چنددقیقه‌ای، سریع به پروایدر بعدی یا حالت نمایشی می‌رویم
+  return Number.isFinite(raw) && raw > 1000 ? raw : 15_000;
 }
 
 /**
