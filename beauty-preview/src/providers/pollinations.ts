@@ -111,13 +111,19 @@ export const pollinationsProvider: Provider = {
     const apiKey = (process.env.POLLINATIONS_API_KEY ?? '').trim();
     if (!apiKey) throw new ProviderError('Pollinations: کلید API تنظیم نشده است');
 
-    const { prompt, image } = input;
+    const { prompt, image, referenceImage } = input;
 
     try {
       const file = await toFile(image.bytes, `face.${image.extension}`, { type: image.mime });
+      // رفرنس تکنیک به‌عنوان تصویر دوم تا مدل سبک انتخابی را هم ببیند (۰=چهره، ۱=رفرنس)
+      const refFile = referenceImage
+        ? await toFile(referenceImage.bytes, `style-ref.${referenceImage.extension}`, {
+            type: referenceImage.mime,
+          })
+        : null;
       const response = await client(apiKey, timeoutFor(input)).images.edit({
         model: model(),
-        image: file,
+        image: refFile ? [file, refFile] : file,
         prompt,
         size: '1024x1024',
       });

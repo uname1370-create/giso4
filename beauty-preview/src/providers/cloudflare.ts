@@ -46,14 +46,100 @@ function accounts(): CloudflareAccount[] {
     .filter((account) => account.token && account.accountId);
 }
 
+/** سقف رسمی ورودی مدل klein: همهٔ تصاویر ورودی باید کوچک‌تر از ۵۱۲×۵۱۲ باشند. */
+const MAX_INPUT_SIDE = 512;
+
 /**
- * ایجاد یک برش ماکرو متمرکز (Macro Crop ۲۵۶x۲۵۶) از بافت تارهای مو یا رنگدانه مرجع.
- * در محیط Node.js سرور، این کار با تفکیک بایت‌ها یا هدایت پرامپت تقویت می‌شود تا مدل
- * هیچ تداخل چهره‌ای از شخص مرجع نگیرد.
+ * تبعیت از پرامپت (پیش‌فرض ۵؛ با CLOUDFLARE_GUIDANCE قابل تنظیم).
+ * طبق مستندات کلادفلر، guidance بالاتر یعنی تبعیت بیشتر از پرامپت —
+ * دقیقاً همان چیزی که تمایز مدل‌ها به آن نیاز دارد.
  */
-function prepareMacroReferencePayload(bytes: Uint8Array): Uint8Array {
-  // چنانچه تصویر مرجع وجود داشته باشد، به عنوان swatch ارسال می‌شود
-  return bytes;
+function guidance(): string {
+  const raw = Number(process.env.CLOUDFLARE_GUIDANCE);
+  if (Number.isFinite(raw) && raw > 0 && raw <= 20) return String(raw);
+  return '5';
+}
+
+type SharpChain = {
+  metadata: () => Promise<{ width?: number; height?: number }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  resize: (width: number, height: number, opts: Record<string, unknown>) => any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  extract: (region: { left: number; top: number; width: number; height: number }) => any;
+  jpeg: (opts: Record<string, unknown>) => { toBuffer: () => Promise<Buffer> };
+};
+
+type SharpFn = (input: Buffer) => SharpChain;
+
+/** لود واقعاً اختیاری sharp (همان الگوی fail-open در src/image-compress.ts) */
+function loadSharp(): SharpFn | null {
+  try {
+    // eslint-disable-next-line no-eval
+    const nodeRequire = eval('require') as (id: string) => unknown;
+    return nodeRequire('sharp') as SharpFn;
+  } catch {
+    return null;
+  }
+}
+
+interface FittedInput {
+  bytes: Buffer;
+  mime: string;
+  extension: string;
+}
+
+/**
+ * آماده‌سازی ورودی طبق سقف رسمی klein (کوچک‌تر از ۵۱۲×۵۱۲):
+ * - عکس مشتری (photo): کوچک‌سازی ضلع بزرگ به ۵۱۲ با حفظ نسبت تصویر.
+ * - رفرنس تکنیک (macro): کراپ مربع مرکزی + خروجی ۵۱۲×۵۱۲ — ماکروی واقعی
+ *   ناحیهٔ تکنیک تا مدل به‌جای کل صحنه، بافت تار/پیگمنت را ببیند.
+ * بدون sharp یا در هر خطایی → همان بایت اصلی برگردانده می‌شود (fail-open).
+ */
+/** اکسپورت برای تست تشخیصی (همان منطق مصرفی در مسیر تولید) */
+export async function fitInputImage(
+  bytes: Buffer,
+  mime: string,
+  extension: string,
+  mode: 'photo' | 'macro',
+): Promise<FittedInput> {
+  const original: FittedInput = { bytes, mime, extension };
+  try {
+    const sharp = loadSharp();
+    if (!sharp) return original;
+    const meta = await sharp(bytes).metadata();
+    const width = meta.width ?? 0;
+    const height = meta.height ?? 0;
+    if (!width || !height) return original;
+
+    if (mode === 'macro') {
+      const side = Math.min(width, height);
+      const out: Buffer = await sharp(bytes)
+        .extract({
+          left: Math.floor((width - side) / 2),
+          top: Math.floor((height - side) / 2),
+          width: side,
+          height: side,
+        })
+        .resize(MAX_INPUT_SIDE, MAX_INPUT_SIDE, { fit: 'fill' })
+        .jpeg({ quality: 92 })
+        .toBuffer();
+      return { bytes: out, mime: 'image/jpeg', extension: 'jpg' };
+    }
+
+    if (Math.max(width, height) <= MAX_INPUT_SIDE) return original;
+    const out: Buffer = await sharp(bytes)
+      .resize(MAX_INPUT_SIDE, MAX_INPUT_SIDE, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 92 })
+      .toBuffer();
+    return { bytes: out, mime: 'image/jpeg', extension: 'jpg' };
+  } catch (error) {
+    console.error(
+      `[AI-PROVIDER] cloudflare input-fit skipped: ${
+        error instanceof Error ? error.message : String(error)
+      }`.slice(0, 160),
+    );
+    return original;
+  }
 }
 
 /**
@@ -137,24 +223,38 @@ export const cloudflareProvider: Provider = {
         const size = outputSize(new Uint8Array(input.image.bytes));
         const form = new FormData();
 
-        // تقویت دستور تفکیک نقش (Style-Only Weighting)
-        const enhancedPrompt = `${input.prompt} ATTENTION_ROLE_SEPARATION: Image 0 is the ONLY customer face and geometry authority. If Image 1 is provided, it is strictly a close-up macro swatch of pigment strokes and needle technique. Do NOT transfer any eyes, face shape, skin color or facial identity from Image 1.`;
+        // یادآوری کوتاه نقش تصاویر (جزئیات کامل در خود پرامپت هست — تکرار نمی‌کنیم)
+        const enhancedPrompt = `${input.prompt} ROLE: IMAGE 0 is the customer-face authority; IMAGE 1 (if any) is a technique swatch only — never copy its face or skin.`;
+
+        // ورودی‌ها در سقف رسمی ۵۱۲ پیکسل آماده می‌شوند (رقیق‌سازی کمتر + آپلود سریع‌تر)
+        const fittedPhoto = await fitInputImage(
+          Buffer.from(input.image.bytes),
+          input.image.mime,
+          input.image.extension,
+          'photo',
+        );
 
         form.append('prompt', enhancedPrompt);
+        form.append('guidance', guidance());
         form.append('width', String(size.width));
         form.append('height', String(size.height));
         form.append(
           'input_image_0',
-          new Blob([new Uint8Array(input.image.bytes)], { type: input.image.mime }),
-          `customer-face.${input.image.extension}`,
+          new Blob([new Uint8Array(fittedPhoto.bytes)], { type: fittedPhoto.mime }),
+          `customer-face.${fittedPhoto.extension}`,
         );
 
         if (input.referenceImage) {
-          const macroBytes = new Uint8Array(input.referenceImage.bytes);
+          const fittedRef = await fitInputImage(
+            Buffer.from(input.referenceImage.bytes),
+            input.referenceImage.mime,
+            input.referenceImage.extension,
+            'macro',
+          );
           form.append(
             'input_image_1',
-            new Blob([macroBytes.buffer as ArrayBuffer], { type: input.referenceImage.mime }),
-            `technique-macro-swatch.${input.referenceImage.extension}`,
+            new Blob([new Uint8Array(fittedRef.bytes)], { type: fittedRef.mime }),
+            `technique-macro.${fittedRef.extension}`,
           );
         }
 

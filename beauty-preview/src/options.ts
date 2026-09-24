@@ -159,9 +159,15 @@ export function buildWhatsAppLink(serviceTitle: string, modelLabel: string): str
   )}`;
 }
 
-/** مشخصات فنی هر تکنیک ابرو؛ نام مدل به‌تنهایی برای FLUX کافی نیست. */
+/**
+ * قرارداد فنی هر تکنیک — مهم‌ترین جملهٔ تمایز مدل‌ها.
+ * قانون: هر قرارداد باید (۱) تکنیک دقیق، (۲) ناحیهٔ مجاز، (۳) فرقش با
+ * مدل‌های هم‌خانواده (NOT ...) و (۴) یک دم کوتاه حفاظتی داشته باشد.
+ * نام مدل به‌تنهایی برای FLUX کافی نیست.
+ */
 export function styleDesignSpec(styleKey: string): string {
   switch (styleKey) {
+    // ---- ابرو ----
     case 'hairstroke':
       return 'STYLE CONTRACT: Natural Hairstroke. Transfer ONLY fine individual hair-stroke technique from reference. Preserve the customer brow boundary, position, arch, tail, growth direction, gaps and asymmetry. Sparse soft front, medium-low natural density, tapered tail. NO powder fill, NO skin tint, NO shadow, NO halo.';
     case 'feather':
@@ -170,13 +176,37 @@ export function styleDesignSpec(styleKey: string): string {
       return 'STYLE CONTRACT: Ombre Powder. Transfer ONLY translucent powder technique from reference. Apply it strictly inside the customer\'s existing brow region, lightest at front and gradually deeper through body/tail. Preserve customer brow position, boundary, arch, tail and asymmetry. NO pigment above/below brow, NO eyelid shadow, NO makeup halo, NO facial retouching.';
     case 'combination':
       return 'STYLE CONTRACT: Combination. Transfer ONLY the combination technique from reference: fine natural hairstrokes at the front plus soft translucent powder shading inside the customer\'s existing brow region. Preserve customer brow position, boundary, arch, tail, growth direction, gaps and asymmetry. NO pigment outside brow, NO under-brow shadow, NO eyelid makeup, NEVER blocky.';
+    // ---- لب ----
+    case 'natural_blush':
+      return 'STYLE CONTRACT: Sheer Watercolor Blush. A translucent watercolor wash inside the vermilion only — native lip texture stays visible, no visible border line, dewy hydrated sheen. The LIGHTEST lip coverage: sheer glow, NOT a defined contour, NOT full color. Preserve customer lip shape, border, commissures, volume ratio and asymmetry. NO overlining, NO opaque lipstick, NO teeth tint, NO skin stain.';
+    case 'nude_pink':
+      return 'STYLE CONTRACT: Nude Pink Contour. Soft nude-pink blush with a gently DEFINED contour edge (seamless fading, not a hard line) inside the vermilion. More shape definition than a watercolor wash but still translucent daywear: elegant nude-pink melted into the native mucosa. Preserve customer lip shape, commissures, volume ratio and asymmetry. NO hard liner, NO neon or dark shades, NO overlining, NO teeth tint.';
+    case 'full_color':
+      return 'STYLE CONTRACT: Full Velvet Lip. Rich saturated velvet blush, full even coverage edge-to-edge with a soft velvety edge — the DENSEST lip style: luminous uniform pigment, yet real lip texture and creases stay visible. Preserve customer lip shape, border, commissures, volume ratio and asymmetry. NO smudged borders, NO asymmetric outline, NO outside stain, NO plastic gloss.';
+    case 'dark_neutralization':
+      return 'STYLE CONTRACT: Dark Lip Neutralization. A corrective warm peach-coral sheer layer that NEUTRALIZES dark and purple melanin patches into one even warm tone — corrective first, beautifying second. Completely even tone, dewy velvet finish, native texture visible. Preserve customer lip shape, border, commissures and asymmetry. NO purple or gray leftovers, NO opaque orange mask, NO patchiness, NO overlined border.';
+    // ---- خط چشم ----
+    case 'lash_line_enhancement':
+      return 'STYLE CONTRACT: Lash Line Enhancement (invisible tightline). Ultra-fine pigment embedded BETWEEN the lash roots only — no visible line above the lashes, just deeper natural eye definition. The most subtle liner: an invisible-makeup look. Preserve eye shape, tilt, lid fold, lash direction and asymmetry; identical on BOTH eyes. NO visible wing, NO eyeshadow halo, NO blue or green bleed, NO wobbly line.';
+    case 'classic_liner':
+      return 'STYLE CONTRACT: Classic Eyeliner. A crisp clean VISIBLE line hugging the lash roots with a delicate tapered flick at the outer corner — clearly more defined than an invisible tightline: sharp smooth edge, opaque jet-black tapering into a sheer wing. Preserve eye shape, tilt, lid fold and asymmetry; identical on BOTH eyes. NO smudge, NO drooping tail, NO blocky thickness, NO jagged edges.';
+    case 'smokey_shade':
+      return 'STYLE CONTRACT: Smokey Stardust Liner. A crisp lash-base line PLUS a soft diffused powder gradient fading upward into the lid (a shaded wing, not a hard flick) — the ONLY liner with above-line shading. Pixelated micro-gradient, skin pores visible through it. Preserve eye shape, tilt, lid fold and asymmetry; identical on BOTH eyes. NO raccoon effect, NO under-eye bleed, NO muddy gray patch, NO harsh lines.';
+    // ---- ریمو ----
+    case 'removal':
+      return 'STYLE CONTRACT: PMU Removal Fade. FADE the existing artificial pigment only — reveal the native skin and hair; add NOTHING. Old reddish, orangey, grayish or bluish casts neutralize into the surrounding skin tone. Realistic healed finish with visible pores. Preserve every native feature exactly. NO new pigment, NO bleached patches, NO scar gloss, NO color inversion.';
     default:
-      // خدمات غیرابرو قرارداد جداگانه ندارند — جزئیات تکنیک از STYLE_DNA می‌آید
       return '';
   }
 }
 
-/** پیام انگلیسی ارسالی به مدل ویرایش تصویر — چندخدمتی (ابرو/لب/خط چشم/ریمو) */
+/** پیام انگلیسی ارسالی به مدل ویرایش تصویر — چندخدمتی (ابرو/لب/خط چشم/ریمو)
+ *
+ * ترتیب عمدی است و نباید جابه‌جا شود:
+ *   ۱) قرارداد سبک (متمایزکنندهٔ مدل‌ها) — اول، چون مدل به ابتدای پرامپت بیشترین وزن را می‌دهد
+ *   ۲) شواهد سبک (brief + STYLE_DNA + نسخه ARIA)
+ *   ۳) یک بلوک حفاظتی فشرده (به‌جای ۵ تکرار «تغییر نده» که سیگنال سبک را خفه می‌کرد)
+ */
 export function buildEnglishPrompt(
   styleLabel: string,
   colorName: string,
@@ -188,64 +218,35 @@ export function buildEnglishPrompt(
 ): string {
   const styleText = styleLabelEn ? `${styleLabel} (${styleLabelEn})` : styleLabel;
   const spec = styleKey ? styleDesignSpec(styleKey) : '';
-  const brief = designBrief ? ` Customer-specific Design Contract: ${designBrief}` : '';
+  const brief = designBrief ? `STYLE EVIDENCE: ${designBrief}` : '';
 
   if (service === 'lips') {
     return (
-      `EDITING TASK — NOT A NEW PORTRAIT. IMAGE 0 IS THE CUSTOMER SOURCE-OF-TRUTH PHOTO. IMAGE 1 IS THE SELECTED STYLE REFERENCE ONLY. ` +
-      `The selected style is ${styleText}. The reference image is NOT a face template and NOT a color/skin template. It is ONLY a technique reference for the selected lip style. ` +
-      `STRICT SCOPE: modify ONLY the lip vermilion region (upper and lower lips within their natural border) visible on the customer photo. Do not overline beyond the natural vermilion edge. Do not paint the teeth, tongue, inner mouth, chin, nose or surrounding skin. ` +
-      `PRESERVE EXACTLY: customer identity, facial geometry, skin hue, skin brightness, skin texture, eyes, eyelids, eyelashes, eyebrows, nose, teeth, tongue, chin, cheeks, forehead, ears, hair, face shape, lighting, camera angle, background, clothing and composition. ` +
-      `REFERENCE ISOLATION: never copy the reference person's face, lip shape, skin, lighting, color cast, anatomy or background. Transfer only the selected technique, tint behavior, density character and finish. ` +
+      `STYLE EDITING TASK — apply «${styleText}» onto IMAGE 0 (the customer photo). IMAGE 1 is the selected style reference ONLY. ` +
       `${spec} ${brief} ` +
-      `PIGMENT RULE: determine lip pigment from the CUSTOMER'S own native mucosal tone and local skin undertone. Translucent blush that melts into the native tone. Never opaque brown, gray, purple or neon. Never a fixed HEX color. ` +
-      `PIXEL-SCOPE RULE: no pigment, stain, blur, smoothing, color correction, relighting or makeup may appear outside the natural lip vermilion. Do not tint the teeth. Do not change the overall white balance or exposure. ` +
-      `NATURAL GEOMETRY: preserve the customer's original lip shape, border crispness, commissures, upper/lower volume ratio and natural asymmetry. Only add the selected PMU blush within that existing structure. ` +
-      `COMPLETENESS RULE: cover the FULL vermilion of BOTH the upper and the lower lip evenly, edge-to-edge and side-to-side, in one continuous natural gradient. Never a half-filled lip. Never color on only one side or one corner. Never patchy or streaky coverage. Both commissures must match in tone and density. ` +
-      `FINAL APPEARANCE: the result must look like the SAME ORIGINAL REAL PHOTOGRAPH after professional lip blush treatment, not a regenerated face or beauty-filtered portrait.`
+      `SCOPE: edit ONLY the lip vermilion of IMAGE 0 within its natural border; no overlining, no paint on teeth, tongue, inner mouth, chin, nose or skin. IMAGE 1 is technique-only: never copy its face, lip shape, skin, lighting or background — transfer only tint behavior, density and finish. Pigment = translucent blush melting into the CUSTOMER'S native mucosal tone (never opaque brown, gray, purple or neon, never a fixed HEX). Cover the FULL vermilion of BOTH lips evenly, edge-to-edge, with matching commissures; never patchy or half-filled. No blur, smoothing, relighting or beauty filtering anywhere. FINAL: the SAME original photograph after lip blush, not a new face.`
     );
   }
 
   if (service === 'eyeliner') {
     return (
-      `EDITING TASK — NOT A NEW PORTRAIT. IMAGE 0 IS THE CUSTOMER SOURCE-OF-TRUTH PHOTO. IMAGE 1 IS THE SELECTED STYLE REFERENCE ONLY. ` +
-      `The selected style is ${styleText}. The reference image is NOT a face template and NOT a color/skin template. It is ONLY a technique reference for the selected eyeliner style. ` +
-      `STRICT SCOPE: modify ONLY the upper lash-line zone (lash roots plus up to 1mm above, and an optional short flick within 3mm of the outer canthus following the natural eye tilt). Never touch the eyeball, iris, pupil, sclera, waterline, lower lid or eyebrows. ` +
-      `PRESERVE EXACTLY: customer identity, facial geometry, skin hue, skin brightness, skin texture, eyes, iris, pupil, sclera, eyelashes direction, eyebrows, nose, lips, cheeks, forehead, ears, hair, face shape, lighting, camera angle, background, clothing and composition. ` +
-      `REFERENCE ISOLATION: never copy the reference person's face, eye shape, skin, lighting, color cast, anatomy or background. Transfer only the selected technique, line behavior, density character and finish. ` +
+      `STYLE EDITING TASK — apply «${styleText}» onto IMAGE 0 (the customer photo). IMAGE 1 is the selected style reference ONLY. ` +
       `${spec} ${brief} ` +
-      `PIGMENT RULE: carbon-based soft black matched to the customer's undertone. Matte, smudge-proof look. Never blue, green or migrating tones. Never a fixed HEX color. ` +
-      `PIXEL-SCOPE RULE: no pigment, shadow, blur, smoothing, color correction, relighting or makeup may appear outside the lash-line zone (a soft diffused gradient directly above the line is allowed ONLY for shaded styles). Do not tint the sclera. Do not create under-eye bleeding. Do not change the overall white balance or exposure. ` +
-      `NATURAL GEOMETRY: preserve the customer's original eye shape, tilt, lid fold, lash direction and left/right asymmetry. Only add the selected liner technique along the existing lash line. ` +
-      `BILATERAL RULE: draw an identical line on BOTH eyes — same thickness, same length, same flick angle following each eye's natural tilt. Never liner on only one eye. Never mismatched wings. The enhancement must read as one professional treatment on a real face. ` +
-      `FINAL APPEARANCE: the result must look like the SAME ORIGINAL REAL PHOTOGRAPH after professional lash-line enhancement treatment, not a regenerated face or beauty-filtered portrait.`
+      `SCOPE: edit ONLY the upper lash-line zone of IMAGE 0 (lash roots + up to 1mm above; an optional short flick within 3mm of the outer canthus following the natural tilt). Never touch the eyeball, iris, sclera, waterline, lower lid or brows. IMAGE 1 is technique-only: never copy its face, eye shape, skin or lighting — transfer only line behavior, density and finish. Carbon soft-black matched to the CUSTOMER'S undertone, matte (never blue, green or migrating, never a fixed HEX). Identical liner on BOTH eyes — same thickness, length and flick; no sclera tint, no under-eye bleed. No blur, smoothing, relighting or beauty filtering. FINAL: the SAME original photograph after lash-line treatment, not a new face.`
     );
   }
 
   if (service === 'removal') {
     return (
-      `EDITING TASK — NOT A NEW PORTRAIT. THE CUSTOMER PHOTO IS THE SOURCE-OF-TRUTH. ` +
-      `The requested treatment is ${styleText}: gradual fading of old artificial PMU pigment toward clean natural skin. There is NO reference image; infer everything from the customer photo. ` +
-      `STRICT SCOPE: fade ONLY the existing artificial pigment traces (old brow, lip or liner tattoo). Reveal the natural skin and native hair underneath. Do not add any new pigment, strokes, blush or liner anywhere. ` +
-      `PRESERVE EXACTLY: customer identity, facial geometry, skin hue, skin brightness, skin texture, eyes, eyelids, eyelashes, eyebrow shape, nose, lips, cheeks, forehead, ears, hair, face shape, lighting, camera angle, background, clothing and composition. ` +
+      `STYLE EDITING TASK — apply «${styleText}» onto the customer photo. There is NO reference image; infer everything from the customer photo: gradual fading of old artificial PMU pigment toward clean natural skin. ` +
       `${spec} ${brief} ` +
-      `PIGMENT RULE: neutralize the old artificial hue (reddish, orangey, grayish or bluish casts) into the surrounding natural skin tone. No bleached white patches, no scar gloss, no inverted colors. ` +
-      `PIXEL-SCOPE RULE: no blur, smoothing, color correction, relighting, beauty filtering or makeup may appear anywhere. Only the artificial pigment itself fades; all native anatomy stays pixel-identical. ` +
-      `NATURAL GEOMETRY: preserve every native feature exactly; only remove what is clearly artificial tattoo pigment. ` +
-      `FINAL APPEARANCE: the result must look like the SAME ORIGINAL REAL PHOTOGRAPH after fully healed PMU removal session(s): clean natural skin with realistic pores, not a regenerated face.`
+      `SCOPE: fade ONLY the existing artificial pigment traces (old brow, lip or liner tattoo); reveal the natural skin and native hair; add NO new pigment, strokes, blush or liner anywhere. Neutralize old hue casts (reddish, orangey, grayish, bluish) into the surrounding skin tone; no bleached patches, no scar gloss, no inversion. No blur, smoothing, relighting or beauty filtering anywhere; all native anatomy stays pixel-identical. FINAL: the SAME original photograph after healed removal session(s), not a new face.`
     );
   }
 
   return (
-    `EDITING TASK — NOT A NEW PORTRAIT. IMAGE 0 IS THE CUSTOMER SOURCE-OF-TRUTH PHOTO. IMAGE 1 IS THE SELECTED STYLE REFERENCE ONLY. ` +
-    `The selected style is ${styleText}. The reference image is NOT a face template and NOT a color/skin template. It is ONLY a technique reference for the selected eyebrow style. ` +
-    `STRICT SCOPE: modify ONLY the two existing eyebrow regions visible on the customer photo. Do not create a new brow position. Do not move the brows. Do not enlarge the brows beyond their natural customer boundaries. ` +
-    `PRESERVE EXACTLY: customer identity, facial geometry, skin hue, skin brightness, skin texture, eyes, eyelids, eyelashes, nose, lips, cheeks, forehead, ears, hair, face shape, lighting, camera angle, background, clothing and composition. ` +
-    `REFERENCE ISOLATION: never copy the reference person's face, skin, skin color, eye area, brow placement, lighting, color cast, anatomy or background. Transfer only the selected technique, stroke behavior, density character and finish. ` +
+    `STYLE EDITING TASK — apply «${styleText}» onto IMAGE 0 (the customer photo). IMAGE 1 is the selected style reference ONLY. ` +
     `${spec} ${brief} ` +
-    `PIGMENT RULE: determine eyebrow pigment from the CUSTOMER'S own natural eyebrow/hair appearance and local skin undertone. The reference can describe technique, but must NOT recolor the customer's face. Never use a fixed HEX color, pure black, or an arbitrary red/orange/brown cast. ` +
-    `PIXEL-SCOPE RULE: no pigment, shadow, blur, smoothing, color correction, relighting or makeup may appear outside the existing eyebrow regions. Do not tint the skin around or under the brow. Do not change the overall white balance or exposure. ` +
-    `NATURAL GEOMETRY: preserve the customer's original brow position, left/right asymmetry, arch character, tail endpoint, front start point and natural growth direction. Only add/modify the selected PMU technique within that existing structure. ` +
-    `FINAL APPEARANCE: the result must look like the SAME ORIGINAL REAL PHOTOGRAPH after professional eyebrow treatment, not a regenerated face or beauty-filtered portrait.`
+    `SCOPE: edit ONLY the two existing eyebrow regions of IMAGE 0; never move, reposition or enlarge them. IMAGE 1 is technique-only: never copy its face, skin, brow placement, lighting, color cast or background — transfer only stroke and shading technique, density and finish. Pigment from the CUSTOMER'S own brow and hair appearance plus local undertone (never a fixed HEX, never pure black, never an arbitrary cast). No pigment, shadow, blur, smoothing, relighting or makeup outside the brows; no white-balance or exposure shift. Keep native position, arch, tail, growth direction, gaps and asymmetry. FINAL: the SAME original photograph after professional brow treatment, not a new face.`
   );
 }

@@ -209,13 +209,15 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
       ? ` ARIA_PRESCRIPTION: ${JSON.stringify(rawPrescription).slice(0, 3000)}`
       : '';
 
+  // ترتیب شواهد: DNA سبک اول (متمایزکننده)، بعد بریف فشرده، بعد نسخه ARIA
+  const evidence = `STYLE_DNA: ${styleDna} ${designBrief}${prescriptionText}`;
   const prompt = buildEnglishPrompt(
     style || knownStyle.labelEn,
     'infer_from_customer_photo',
     '',
     knownStyle.labelEn,
     knownStyle.key,
-    `${designBrief} STYLE_DNA: ${styleDna}${prescriptionText}`,
+    evidence,
     knownStyle.service,
   );
 

@@ -135,148 +135,58 @@ function buildCustomerZoneProfile(analysis: BeautyPhotoAnalysis, service: string
   });
 }
 
+/**
+ * بریف فشردهٔ طراحی — عمداً کوتاه نگه داشته شده است.
+ * فهرست‌های بلند preserve/forbidden/geometry که در همهٔ مدل‌ها یکسان بودند و
+ * سیگنال سبک را رقیق می‌کردند حذف شدند (همان حرف یک‌بار در بلوک SCOPE قالب
+ * پرامپت گفته می‌شود). این بریف فقط «کدام سبک + کدام ناحیه + رنگ مشتری» را می‌گوید.
+ */
 export function buildDesignBrief(
   analysis: BeautyPhotoAnalysis,
   style: string,
   service: string = 'eyebrows',
 ): string {
-  if (service === 'lips') {
-    return JSON.stringify({
-      contract_version: 'lip-edit-v1',
-      source_of_truth: 'customer_photo',
-      selected_style: style,
-      reference_role: 'technique_only',
-      customer_profile: JSON.parse(buildCustomerZoneProfile(analysis, service)),
-      style: 'see STYLE_DNA',
-      geometry: {
-        source: 'customer',
-        preserve: true,
-        position: 'preserve',
-        vermilion_boundary: 'preserve',
-        border: 'preserve',
-        commissures: 'preserve',
-        volume_ratio: 'preserve',
-        natural_asymmetry: 'preserve',
-      },
-      editable_region: 'customer_lip_vermilion_only',
-      forbidden_regions: 'teeth_tongue_inner_mouth_chin_nose_and_everything_outside_lips',
-      pigment: {
-        source: 'customer_native_mucosal_tone_plus_local_skin_undertone',
-        fixed_hex: false,
-      },
-      restrictions: {
-        face_edit: false,
-        skin_edit: false,
-        eye_edit: false,
-        geometry_reconstruction: false,
-        beauty_filter: false,
-        relighting: false,
-        background_edit: false,
-      },
-    });
-  }
-
-  if (service === 'eyeliner') {
-    return JSON.stringify({
-      contract_version: 'liner-edit-v1',
-      source_of_truth: 'customer_photo',
-      selected_style: style,
-      reference_role: 'technique_only',
-      customer_profile: JSON.parse(buildCustomerZoneProfile(analysis, service)),
-      style: 'see STYLE_DNA',
-      geometry: {
-        source: 'customer',
-        preserve: true,
-        position: 'preserve',
-        eye_shape: 'preserve',
-        tilt: 'preserve',
-        lid_fold: 'preserve',
-        lash_direction: 'preserve',
-        natural_asymmetry: 'preserve',
-      },
-      editable_region: 'upper_lash_line_zone_only',
-      forbidden_regions: 'eyeball_iris_sclera_waterline_lower_lid_brows_and_all_other_regions',
-      pigment: {
-        source: 'carbon_black_matched_to_customer_undertone',
-        fixed_hex: false,
-      },
-      restrictions: {
-        face_edit: false,
-        skin_edit: false,
-        eye_edit: false,
-        geometry_reconstruction: false,
-        beauty_filter: false,
-        relighting: false,
-        background_edit: false,
-      },
-    });
-  }
-
-  if (service === 'removal') {
-    return JSON.stringify({
-      contract_version: 'removal-fade-v1',
-      source_of_truth: 'customer_photo',
-      selected_style: style,
-      reference_role: 'none_no_reference',
-      customer_profile: JSON.parse(buildCustomerZoneProfile(analysis, service)),
-      style: 'see STYLE_DNA',
-      geometry: {
-        source: 'customer',
-        preserve: true,
-        position: 'preserve',
-        native_hair: 'preserve',
-        skin_texture: 'preserve',
-      },
-      editable_region: 'artificial_pigment_traces_only',
-      forbidden_regions: 'all_native_anatomy',
-      pigment: {
-        source: 'none_fade_to_native_skin',
-        fixed_hex: false,
-      },
-      restrictions: {
-        face_edit: false,
-        skin_edit: false,
-        eye_edit: false,
-        geometry_reconstruction: false,
-        beauty_filter: false,
-        relighting: false,
-        background_edit: false,
-        new_pigment: false,
-      },
-    });
-  }
+  const perService: Record<string, { contract: string; referenceRole: string; editableRegion: string }> = {
+    lips: {
+      contract: 'lip-edit-v2',
+      referenceRole: 'technique_only',
+      editableRegion: 'customer_lip_vermilion_only',
+    },
+    eyeliner: {
+      contract: 'liner-edit-v2',
+      referenceRole: 'technique_only',
+      editableRegion: 'upper_lash_line_zone_only',
+    },
+    removal: {
+      contract: 'removal-fade-v2',
+      referenceRole: 'none_no_reference',
+      editableRegion: 'artificial_pigment_traces_only',
+    },
+    eyebrows: {
+      contract: 'brow-edit-v4',
+      referenceRole: 'technique_only',
+      editableRegion: 'customer_existing_brows_only',
+    },
+  };
+  const preset = perService[service] ?? perService.eyebrows;
 
   return JSON.stringify({
-    contract_version: 'brow-edit-v3',
+    contract_version: preset.contract,
     source_of_truth: 'customer_photo',
     selected_style: style,
-    reference_role: 'technique_only',
-    customer_profile: JSON.parse(buildCustomerBrowProfile(analysis)),
+    reference_role: preset.referenceRole,
+    customer: {
+      face_shape: analysis.faceShape,
+      image_quality: analysis.imageQuality,
+      skin_undertone: analysis.skinUndertone,
+      pigment_family: analysis.pigmentFamily,
+      pigment_temperature: analysis.pigmentTemperature,
+      pigment_depth: analysis.pigmentDepth,
+      avoid_pigments: analysis.avoidPigments,
+    },
     style: 'see STYLE_DNA',
-    geometry: {
-      source: 'customer',
-      preserve: true,
-      position: 'preserve',
-      boundary: 'preserve',
-      arch: 'preserve',
-      tail: 'preserve',
-      growth_direction: 'preserve',
-      natural_asymmetry: 'preserve',
-    },
-    editable_region: 'customer_existing_brows_plus_small_natural_margin_only',
-    forbidden_regions: 'everything_outside_customer_brow_edit_zone',
-    pigment: {
-      source: 'customer_natural_brow_and_hair_plus_local_skin_undertone',
-      fixed_hex: false,
-    },
-    restrictions: {
-      face_edit: false,
-      skin_edit: false,
-      eye_edit: false,
-      geometry_reconstruction: false,
-      beauty_filter: false,
-      relighting: false,
-      background_edit: false,
-    },
+    editable_region: preset.editableRegion,
+    // NOTE: بلوک restrictions حذف شد — همان حرف در SCOPE قالب پرامپت گفته می‌شود
+    // و تکرار JSON آن فقط ۲۰۰+ کاراکتر یکسان به همهٔ مدل‌ها اضافه می‌کرد.
   });
 }

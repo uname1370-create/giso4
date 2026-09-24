@@ -315,8 +315,8 @@ export function styleDnaText(
   const customDna = additions.length > 0 ? `user_preferences=[${additions.join(', ')}]` : '';
   const mergedForbidden = Array.from(new Set([...GLOBAL_NEGATIVE_CONSTRAINTS, ...s.forbidden]));
 
+  // ترتیب عمدی: هویت سبک اول (متمایزکننده)، محدودیت‌های سلبی بعد
   return [
-    `STRICT_NEGATIVE_CONSTRAINTS: AVOID AT ALL COSTS [${GLOBAL_NEGATIVE_CONSTRAINTS.join(', ')}]`,
     `STYLE_DNA key=${s.key}`,
     `technique=${s.technique}`,
     s.front ? `front=${s.front}` : '',
@@ -325,6 +325,7 @@ export function styleDnaText(
     s.density ? `density=${s.density}` : '',
     s.texture ? `texture=${s.texture}` : '',
     customDna,
+    `STRICT_NEGATIVE_CONSTRAINTS: AVOID AT ALL COSTS [${GLOBAL_NEGATIVE_CONSTRAINTS.join(', ')}]`,
     `forbidden=${mergedForbidden.join(', ')}`,
   ]
     .filter(Boolean)
