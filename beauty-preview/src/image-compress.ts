@@ -42,8 +42,14 @@ export async function compressGeneratedImage(dataUri: string): Promise<CompressR
     const input = Buffer.from(match[2], 'base64');
     if (input.length === 0) return null;
 
-    // import پویا تا نبودن sharp (نصب ناقص) هرگز رندر را خراب نکند
-    const { default: sharp } = await import('sharp');
+    // لود تنبلِ واقعاً اختیاری: اسم ماژول داخل eval پنهان شده تا باندلر
+    // (webpack/turbopack) در زمان کامپایل دنبال sharp نگردد. نبودن یا خراب‌بودن
+    // نصب sharp فقط یعنی «بدون فشرده‌سازی» — هرگز خطای کامپایل/رندر نمی‌دهد.
+    // eslint-disable-next-line no-eval
+    const nodeRequire = eval('require') as (id: string) => unknown;
+    const sharp = nodeRequire('sharp') as (input: Buffer) => {
+      jpeg: (opts: Record<string, unknown>) => { toBuffer: () => Promise<Buffer> };
+    };
     const out: Buffer = await sharp(input)
       .jpeg({ quality: jpegQuality(), mozjpeg: true })
       .toBuffer();
