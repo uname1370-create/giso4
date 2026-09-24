@@ -1,18 +1,19 @@
 /**
  * Provider — Cloudflare Workers AI
- * Model: @cf/black-forest-labs/flux-2-klein-4b
+ * Model: @cf/black-forest-labs/flux-2-dev (قفل انحصاری رندر نهایی؛ با CLOUDFLARE_MODEL قابل تغییر)
  * Uses up to 3 independent Cloudflare accounts in order.
  */
 
 import {
   ProviderError,
   extractApiError,
-  timeoutFor,
   timeoutSignal,
 } from './http';
 import type { Provider, ProviderInput } from './types';
 
-const DEFAULT_MODEL = '@cf/black-forest-labs/flux-2-klein-4b';
+const DEFAULT_MODEL = '@cf/black-forest-labs/flux-2-dev';
+/** مهلت هر حساب کلادفلر: مدل dev چندمرحله‌ای است و تا ~۲ دقیقه زمان سالم می‌برد. */
+const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_OUTPUT_SIDE = 1536;
 const MIN_OUTPUT_SIDE = 256;
 
@@ -23,6 +24,17 @@ type CloudflareAccount = {
 
 function model(): string {
   return (process.env.CLOUDFLARE_MODEL ?? '').trim() || DEFAULT_MODEL;
+}
+
+/**
+ * مهلت مؤثر کلادفلر: ورودی timeoutMs (تست سلامت) بر همه مقدم است،
+ * بعد CLOUDFLARE_TIMEOUT_MS، وگرنه ۱۲۰ ثانیه (مدل dev کندتر از klein است).
+ */
+function cloudflareTimeoutMs(input?: { timeoutMs?: number }): number {
+  const custom = Number(input?.timeoutMs);
+  if (Number.isFinite(custom) && custom > 1000) return custom;
+  const raw = Number(process.env.CLOUDFLARE_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 1000 ? raw : DEFAULT_TIMEOUT_MS;
 }
 
 function accounts(): CloudflareAccount[] {
@@ -104,7 +116,7 @@ function outputSize(bytes: Uint8Array): { width: number; height: number } {
 
 export const cloudflareProvider: Provider = {
   id: 'cloudflare',
-  label: 'Cloudflare — FLUX.2 Klein 4B',
+  label: 'Cloudflare — FLUX.2 Dev',
   envKey: 'CLOUDFLARE_API_TOKEN_1',
   isConfigured: () => accounts().length > 0,
 
@@ -119,7 +131,7 @@ export const cloudflareProvider: Provider = {
     for (let index = 0; index < configuredAccounts.length; index += 1) {
       const account = configuredAccounts[index];
       const accountNumber = index + 1;
-      const { signal, done } = timeoutSignal(timeoutFor(input));
+      const { signal, done } = timeoutSignal(cloudflareTimeoutMs(input));
 
       try {
         const size = outputSize(new Uint8Array(input.image.bytes));

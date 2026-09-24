@@ -1,10 +1,10 @@
 /**
  * src/providers/index.ts
  * ---------------------------------------------------------------------------
- * زنجیرهٔ جایگزین پروایدرها (ترتیب پیش‌فرض: رایگانِ سریع اول):
+ * زنجیرهٔ جایگزین پروایدرها (مسیر اصلی انحصاری: Cloudflare):
  *
- *   ۱) Cloudflare   → ۳ حساب مستقل → FLUX.2 Klein 4B (حدود ۱۴۰ رندر رایگان در روز برای هر ۲ حساب)
- *   ۲) Pollinations → POLLINATIONS_API_KEY → gpt-image-1-mini (دقیق‌تر، ~۰٫۰۰۸ pollen برای هر رندر)
+ *   ۱) Cloudflare   → ۳ حساب مستقل → FLUX.2 Dev (فوق‌دقیق؛ سهمیه رایگان ~۱ تا ۳ رندر در روز)
+ *   ۲) Pollinations → POLLINATIONS_API_KEY → gpt-image-1-mini (تور ایمنی، ~۰٫۰۰۸ pollen برای هر رندر)
  *
  * ترتیب با PROVIDER_ORDER قابل تغییر است؛ مثلاً برای اولویت کیفیت:
  *   PROVIDER_ORDER=pollinations,cloudflare
