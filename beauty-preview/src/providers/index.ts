@@ -1,16 +1,11 @@
 /**
  * src/providers/index.ts
  * ---------------------------------------------------------------------------
- * زنجیرهٔ جایگزین پروایدرها (مسیر اصلی: Cloudflare سریع و کم‌مصرف):
+ * زنجیرهٔ رندر (تک‌پروایدر: Cloudflare سریع و کم‌مصرف):
  *
- *   ۱) Cloudflare   → ۳ حساب مستقل → FLUX.2 Klein 4B (سریع؛ ~۱۴۰ رندر رایگان در روز)
- *   ۲) Pollinations → POLLINATIONS_API_KEY → gpt-image-1-mini (تور ایمنی، ~۰٫۰۰۸ pollen برای هر رندر)
+ *   Cloudflare → ۳ حساب مستقل → FLUX.2 Klein 4B (سریع؛ ~۱۴۰ رندر رایگان در روز)
  * شکست کامل سهمیه‌ای → پاسخ demo:true (به‌جای ۵۰۲) — مهلت هر تلاش ۱۵ ثانیه
  *
- * ترتیب با PROVIDER_ORDER قابل تغییر است؛ مثلاً برای اولویت کیفیت:
- *   PROVIDER_ORDER=pollinations,cloudflare
- *
- * هر پروایدر بدون کلید رد می‌شود و در صورت خطا، پروایدر بعدی امتحان می‌شود.
  * لاگ‌های تشخیصی فقط metadata و پیام خطا را ثبت می‌کنند؛ کلید API، تصویر و
  * محتوای base64 هرگز لاگ نمی‌شوند.
  * ---------------------------------------------------------------------------
@@ -18,13 +13,12 @@
 
 import { ProviderError, materializeImage } from './http';
 import { cloudflareProvider } from './cloudflare';
-import { pollinationsProvider } from './pollinations';
 import type { AttemptLog, Provider, ProviderInput } from './types';
 
-const PROVIDERS_ALL: Provider[] = [cloudflareProvider, pollinationsProvider];
+const PROVIDERS_ALL: Provider[] = [cloudflareProvider];
 
 /**
- * ترتیب مؤثر زنجیره از روی PROVIDER_ORDER (مثلاً "pollinations,cloudflare").
+ * ترتیب مؤثر زنجیره از روی PROVIDER_ORDER (شناسه‌های ناشناخته نادیده گرفته می‌شوند).
  * شناسه‌های ناشناخته نادیده گرفته می‌شوند و جاافتاده‌ها به انتها اضافه می‌شوند.
  */
 function providerOrder(): Provider[] {

@@ -11,8 +11,6 @@ export interface ProviderInput {
   image: ParsedImage;
   /** تصویر مرجع سبک انتخاب‌شده؛ باید توسط کلاینت به حداکثر 512px کاهش یافته باشد. */
   referenceImage?: ParsedImage;
-  /** تحلیل ساختاریافتهٔ عکس و رنگ طبیعی مشتری. */
-  designBrief?: string;
   /** مهلت اختیاری این درخواست (میلی‌ثانیه) — برای تست سلامت کلیدها */
   timeoutMs?: number;
 }

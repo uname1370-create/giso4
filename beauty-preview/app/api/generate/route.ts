@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 
 import { EYEBROW_STYLES, buildEnglishPrompt } from '@/options';
 import { SERVICE_TECHNIQUES } from '@/techniques';
-import { analyzeBeautyPhoto, buildDesignBrief } from '@/analysis';
 import { styleDnaText, type UserSubjectivePreferences } from '@/style-dna';
 import { generateWithFallback, configuredProviders } from '@/providers';
 import { parseDataUri } from '@/providers/http';
@@ -28,7 +27,6 @@ interface GenerateBody {
   colorName?: unknown;
   colorHex?: unknown;
   referenceImageBase64?: unknown;
-  prescription?: unknown;
   preferences?: UserSubjectivePreferences;
 }
 
@@ -197,20 +195,9 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
     });
   }
 
-  /* تحلیل هوشمند پرامپت */
-  const analysis = await analyzeBeautyPhoto(image.dataUri);
-  const designBrief = buildDesignBrief(analysis, knownStyle.key, knownStyle.service);
+  /* شواهد سبک: DNA تکنیک انتخابی + سلیقه کاربر (مسیر مستقیم، بدون لایه تحلیل میانی) */
   const styleDna = styleDnaText(knownStyle.key, preferences, knownStyle.service);
-
-  // نسخه ARIA (گزینه منتخب مرحله مشاوره) — همان منبع حقیقت تحلیل و رندر
-  const rawPrescription = body.prescription ?? null;
-  const prescriptionText =
-    rawPrescription && typeof rawPrescription === 'object'
-      ? ` ARIA_PRESCRIPTION: ${JSON.stringify(rawPrescription).slice(0, 3000)}`
-      : '';
-
-  // ترتیب شواهد: DNA سبک اول (متمایزکننده)، بعد بریف فشرده، بعد نسخه ARIA
-  const evidence = `STYLE_DNA: ${styleDna} ${designBrief}${prescriptionText}`;
+  const evidence = `STYLE_DNA: ${styleDna}`;
   const prompt = buildEnglishPrompt(
     style || knownStyle.labelEn,
     'infer_from_customer_photo',
@@ -227,7 +214,6 @@ export async function POST(request: Request): Promise<NextResponse<GenerateSucce
       prompt,
       image,
       referenceImage: referenceImage ?? undefined,
-      designBrief,
     });
 
     trackPreview(knownStyle?.key ?? style);

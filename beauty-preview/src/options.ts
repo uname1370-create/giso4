@@ -204,7 +204,7 @@ export function styleDesignSpec(styleKey: string): string {
  *
  * ترتیب عمدی است و نباید جابه‌جا شود:
  *   ۱) قرارداد سبک (متمایزکنندهٔ مدل‌ها) — اول، چون مدل به ابتدای پرامپت بیشترین وزن را می‌دهد
- *   ۲) شواهد سبک (brief + STYLE_DNA + نسخه ARIA)
+ *   ۲) شواهد سبک (STYLE_DNA تکنیک انتخابی + سلیقه کاربر)
  *   ۳) یک بلوک حفاظتی فشرده (به‌جای ۵ تکرار «تغییر نده» که سیگنال سبک را خفه می‌کرد)
  */
 export function buildEnglishPrompt(
@@ -213,12 +213,12 @@ export function buildEnglishPrompt(
   colorHex: string,
   styleLabelEn?: string,
   styleKey?: string,
-  designBrief?: string,
+  evidence?: string,
   service: string = 'eyebrows',
 ): string {
   const styleText = styleLabelEn ? `${styleLabel} (${styleLabelEn})` : styleLabel;
   const spec = styleKey ? styleDesignSpec(styleKey) : '';
-  const brief = designBrief ? `STYLE EVIDENCE: ${designBrief}` : '';
+  const brief = evidence ? `STYLE EVIDENCE: ${evidence}` : '';
 
   if (service === 'lips') {
     return (

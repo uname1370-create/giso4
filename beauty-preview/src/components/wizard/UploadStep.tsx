@@ -6,7 +6,6 @@ interface UploadStepProps {
   currentServiceInfo: ServiceInfo;
   imagePreviewUrl: string;
   uploadError: string;
-  educationalWarning: string;
   onFileSelect: (file: File) => void;
   onBack: () => void;
   onNext: () => void;
@@ -16,7 +15,6 @@ export const UploadStep: React.FC<UploadStepProps> = ({
   currentServiceInfo,
   imagePreviewUrl,
   uploadError,
-  educationalWarning,
   onFileSelect,
   onBack,
   onNext,
@@ -79,13 +77,6 @@ export const UploadStep: React.FC<UploadStepProps> = ({
       {uploadError && (
         <div className="mt-4 p-3 rounded-lg bg-red-950/60 border border-red-800 text-red-300 text-xs">
           {uploadError}
-        </div>
-      )}
-
-      {educationalWarning && (
-        <div className="mt-4 p-3.5 rounded-xl bg-amber-950/50 border border-amber-600/70 text-amber-200 text-xs flex items-center gap-2">
-          <span className="text-amber-400 font-bold">💡 راهنمایی:</span>
-          <span>{educationalWarning}</span>
         </div>
       )}
 

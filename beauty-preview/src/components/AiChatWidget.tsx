@@ -198,7 +198,7 @@ export const AiChatWidget: React.FC<AiChatWidgetProps> = ({
             <button
               onClick={() => {
                 void handleSend('می‌خوام نوبت بگیرم');
-                triggerWizardStep(6); // هدایت مستقیم ویزارد به Step 6 (فرم رزرو نوبت)
+                triggerWizardStep(5); // هدایت مستقیم ویزارد به Step 5 (فرم رزرو نوبت)
               }}
               className="px-2.5 py-1 rounded-full bg-neutral-800 text-neutral-300 hover:bg-neutral-700 whitespace-nowrap cursor-pointer transition-all"
             >

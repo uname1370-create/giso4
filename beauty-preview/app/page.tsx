@@ -3,7 +3,8 @@
 /**
  * app/page.tsx
  * ---------------------------------------------------------------------------
- * ویزارد هوشمند ۶ مرحله‌ای استودیو PMU عسل رجبی (معماری کامپوننت‌بندی شده)
+ * ویزارد هوشمند ۵ مرحله‌ای استودیو PMU عسل رجبی (معماری کامپوننت‌بندی شده)
+ * مسیر مستقیم: خانه ←→ خدمت ←→ سلیقه و مدل ←→ آپلود ←→ پیش‌نمایش ←→ رزرو
  * ---------------------------------------------------------------------------
  */
 
@@ -31,12 +32,11 @@ import { UploadStep } from '@/components/wizard/UploadStep';
 import { PreferencesStep } from '@/components/wizard/PreferencesStep';
 import { PreviewStep } from '@/components/wizard/PreviewStep';
 import { BookingStep } from '@/components/wizard/BookingStep';
-import { ConsultStep, type ConsultPrescription } from '@/components/wizard/ConsultStep';
 import { AiChatWidget } from '@/components/AiChatWidget';
 import { type PlanTier } from '@/plan-config';
 
 type ServiceType = 'eyebrows' | 'lips' | 'eyeliner' | 'removal';
-type WizardStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type WizardStep = 0 | 1 | 2 | 3 | 4 | 5;
 type GenerationStatus = 'idle' | 'loading' | 'success' | 'error';
 
 interface ClientPreferences {
@@ -63,9 +63,8 @@ const WIZARD_STEPS = [
   { id: 1, title: 'انتخاب خدمت' },
   { id: 2, title: 'سلیقه و انتخاب مدل' },
   { id: 3, title: 'آپلود تصویر' },
-  { id: 4, title: 'مشاور هوشمند' },
-  { id: 5, title: 'پیش‌نمایش هوشمند' },
-  { id: 6, title: 'رزرو نوبت' },
+  { id: 4, title: 'پیش‌نمایش هوشمند' },
+  { id: 5, title: 'رزرو نوبت' },
 ];
 
 export default function HomePage() {
@@ -92,8 +91,6 @@ export default function HomePage() {
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string>('');
   const [uploadError, setUploadError] = useState<string>('');
 
-  const [educationalWarning, setEducationalWarning] = useState<string>('');
-
   const [safety, setSafety] = useState<MedicalSafetyCheck>({
     pregnantOrNursing: false,
     skinAllergyOrKeloid: false,
@@ -102,11 +99,6 @@ export default function HomePage() {
 
   const isSafetyRestricted =
     safety.pregnantOrNursing || safety.skinAllergyOrKeloid || safety.specialMedication;
-
-  // کش مشاوره هوشمند: کلید = خدمت + استایل + اثر سلفی؛ داده و گزینه منتخب کاربر
-  const [consultCacheKey, setConsultCacheKey] = useState('');
-  const [consultData, setConsultData] = useState<ConsultPrescription | null>(null);
-  const [selectedOptionId, setSelectedOptionId] = useState(0);
 
   const [preferences, setPreferences] = useState<ClientPreferences>({
     dailyMakeup: 'natural',
@@ -130,12 +122,6 @@ export default function HomePage() {
   const activeTechnique = useMemo<TechniqueStyleOption | undefined>(() => {
     return availableTechniques.find((t) => t.key === selectedTechniqueKey) || availableTechniques[0];
   }, [availableTechniques, selectedTechniqueKey]);
-
-  // گزینه منتخب مشاوره هوشمند (منبع نسخه ARIA برای تولید و نمایش)
-  const selectedConsultOption = useMemo(() => {
-    if (!consultData || selectedOptionId <= 0) return null;
-    return consultData.options.find((o) => o.id === selectedOptionId) ?? null;
-  }, [consultData, selectedOptionId]);
 
   // گوش دادن به اکشن‌های چت‌بات برای تغییر زنده مراحل
   useEffect(() => {
@@ -169,7 +155,6 @@ export default function HomePage() {
 
   const handleFileSelection = useCallback((file: File) => {
     setUploadError('');
-    setEducationalWarning('');
 
     if (!ACCEPTED_MIME_TYPES.includes(file.type as (typeof ACCEPTED_MIME_TYPES)[number])) {
       setUploadError('فرمت تصویر پشتیبانی نمی‌شود. لطفاً فایل JPG، PNG یا WEBP انتخاب نمایید.');
@@ -185,28 +170,14 @@ export default function HomePage() {
     setImagePreviewUrl(objectUrl);
 
     const reader = new FileReader();
-    reader.onload = async () => {
+    reader.onload = () => {
       const b64 = typeof reader.result === 'string' ? reader.result : '';
       setImageBase64(b64);
-
-      try {
-        const res = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: b64 }),
-        });
-        const data = await res.json();
-        if (data.ok && data.analysis && data.analysis.warningMessage) {
-          setEducationalWarning(data.analysis.warningMessage);
-        }
-      } catch {
-        // فلو متوقف نمی‌شود
-      }
-
-      setCurrentStep(selectedService === 'removal' ? 5 : 4);
+      // مسیر مستقیم به پیش‌نمایش (مرحله ۴) — بدون مرحله تحلیل میانی
+      setCurrentStep(4);
     };
     reader.readAsDataURL(file);
-  }, [selectedService]);
+  }, []);
 
   const handleGeneratePreview = useCallback(async () => {
     // ریمو پیش‌نمایش تصویری ندارد (کارت ارزیابی بالینی) — هرگز نباید به تولید برسد
@@ -237,7 +208,6 @@ export default function HomePage() {
             lipLook: selectedService === 'lips' ? selectedTechniqueKey : undefined,
             eyelinerLook: selectedService === 'eyeliner' ? selectedTechniqueKey : undefined,
           },
-          prescription: selectedConsultOption?.params ?? null,
         }),
       });
 
@@ -270,7 +240,6 @@ export default function HomePage() {
           s: selectedService,
           t: selectedTechniqueKey,
           p: preferences,
-          o: selectedOptionId,
         }),
       );
       setStatusMessage('');
@@ -278,7 +247,7 @@ export default function HomePage() {
       setGenStatus('error');
       setStatusMessage('خطا در برقراری ارتباط با سرور.');
     }
-  }, [imageBase64, activeTechnique, preferences, selectedService, selectedTechniqueKey, selectedConsultOption, selectedOptionId]);
+  }, [imageBase64, activeTechnique, preferences, selectedService, selectedTechniqueKey]);
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -324,12 +293,8 @@ export default function HomePage() {
     s: selectedService,
     t: selectedTechniqueKey,
     p: preferences,
-    o: selectedOptionId,
   });
 
-  // کلید کش مشاوره: خدمت + استایل + سلیقه + اثر انگشت سلفی
-  const tasteSignature = `${preferences.dailyMakeup}:${preferences.browShape}:${preferences.density}`;
-  const consultRequestKey = `${selectedService}|${selectedTechniqueKey}|${tasteSignature}|${imageBase64.length}:${imageBase64.slice(-64)}`;
   const isStaleResult =
     genStatus === 'success' && !!resultImage && lastGenKey !== '' && lastGenKey !== currentGenKey;
 
@@ -384,7 +349,7 @@ export default function HomePage() {
                 onSelectService={(s) => setSelectedService(s)}
                 onBack={() => setCurrentStep(0)}
                 onNext={() => {
-                  if (selectedService === 'removal') setCurrentStep(5);
+                  if (selectedService === 'removal') setCurrentStep(4);
                   else setCurrentStep(2);
                 }}
               />
@@ -416,36 +381,13 @@ export default function HomePage() {
                 currentServiceInfo={currentServiceInfo}
                 imagePreviewUrl={imagePreviewUrl}
                 uploadError={uploadError}
-                educationalWarning={educationalWarning}
                 onFileSelect={handleFileSelection}
                 onBack={() => setCurrentStep(selectedService === 'removal' ? 1 : 2)}
-                onNext={() => setCurrentStep(selectedService === 'removal' ? 5 : 4)}
+                onNext={() => setCurrentStep(4)}
               />
             )}
 
             {currentStep === 4 && (
-              <ConsultStep
-                imageBase64={imageBase64}
-                imagePreviewUrl={imagePreviewUrl}
-                selectedService={selectedService}
-                serviceTitle={currentServiceInfo.title}
-                initialStyleKey={selectedTechniqueKey}
-                initialStyleLabel={activeTechnique?.label ?? selectedTechniqueKey}
-                preferences={preferences}
-                cacheKey={consultRequestKey}
-                cachedData={consultCacheKey === consultRequestKey ? consultData : null}
-                selectedOptionId={selectedOptionId}
-                onData={(key, data) => {
-                  setConsultCacheKey(key);
-                  setConsultData(data);
-                }}
-                onSelectOption={(id) => setSelectedOptionId(id)}
-                onBack={() => setCurrentStep(3)}
-                onNext={() => setCurrentStep(5)}
-              />
-            )}
-
-            {currentStep === 5 && (
               <PreviewStep
                 selectedService={selectedService}
                 currentServiceInfo={currentServiceInfo}
@@ -457,14 +399,13 @@ export default function HomePage() {
                 imagePreviewUrl={imagePreviewUrl}
                 isDemo={isDemo}
                 isStale={isStaleResult}
-                prescriptionOption={selectedConsultOption}
                 onGenerate={handleGeneratePreview}
-                onBack={() => setCurrentStep(selectedService === 'removal' ? 1 : 4)}
-                onNext={() => setCurrentStep(6)}
+                onBack={() => setCurrentStep(selectedService === 'removal' ? 1 : 3)}
+                onNext={() => setCurrentStep(5)}
               />
             )}
 
-            {currentStep === 6 && (
+            {currentStep === 5 && (
               <BookingStep
                 currentServiceInfo={currentServiceInfo}
                 planTier={planTier}
@@ -478,7 +419,7 @@ export default function HomePage() {
                 safety={safety}
                 isSafetyRestricted={isSafetyRestricted}
                 onSafetyChange={(newSafety) => setSafety(newSafety)}
-                onBack={() => setCurrentStep(5)}
+                onBack={() => setCurrentStep(4)}
                 onReset={() => {
                   setBookingSuccess(false);
                   setCurrentStep(0);

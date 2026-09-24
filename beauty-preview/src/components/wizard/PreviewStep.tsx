@@ -34,7 +34,6 @@ interface PreviewStepProps {
   imagePreviewUrl: string;
   isDemo: boolean;
   isStale?: boolean;
-  prescriptionOption?: { id: number; title_en: string } | null;
   onGenerate: () => void;
   onBack: () => void;
   onNext: () => void;
@@ -52,7 +51,6 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({
   imagePreviewUrl,
   isDemo,
   isStale = false,
-  prescriptionOption = null,
   onGenerate,
   onBack,
   onNext,
@@ -174,11 +172,6 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({
         <p className="text-xs text-neutral-400">
           تکنیک انتخابی: <strong className="text-amber-300">{activeTechnique?.label}</strong>
         </p>
-        {prescriptionOption && (
-          <p className="mt-2 inline-block text-[11px] font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-500/40 rounded-full px-3 py-1">
-            ✨ نسخه ARIA: گزینه {prescriptionOption.id}
-          </p>
-        )}
         {isStale && effectiveResultImage && (
           <div className="mt-4 p-3.5 rounded-xl bg-amber-950/60 border border-amber-500/50 max-w-lg mx-auto">
             <p className="text-xs text-amber-200 font-bold mb-2">
