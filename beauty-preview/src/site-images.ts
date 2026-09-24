@@ -3,11 +3,11 @@
  * ---------------------------------------------------------------------------
  * مدیریت تصاویر آپلودشده از پنل مدیریت (/admin):
  *
- *   تصاویر ابروها — فقط PNG، حداکثر ۵ مگابایت، با نام‌های ثابت:
- *       public/eyebrows/natural-hairstroke.png   ← هایر استروک طبیعی
- *       public/eyebrows/feather.png              ← فدر براو
- *       public/eyebrows/ombre-powder.png         ← اومبره پودری
- *       public/eyebrows/combination.png          ← کامبینیشن
+ *   تصاویر ابروها — فقط JPG، حداکثر ۵ مگابایت، با نام‌های ثابت:
+ *       public/eyebrows/natural-hairstroke.jpg   ← هایر استروک طبیعی
+ *       public/eyebrows/feather.jpg              ← فدر براو
+ *       public/eyebrows/ombre-powder.jpg         ← اومبره پودری
+ *       public/eyebrows/combination.jpg          ← کامبینیشن
  *
  *   تصویر هیرو — JPG/PNG/WEBP، حداکثر ۱۰ مگابایت:
  *       public/hero/hero.jpg  یا  hero.png  یا  hero.webp
@@ -82,11 +82,11 @@ export function detectImageExtension(buffer: Buffer): HeroExtension | null {
 export interface BrowTarget {
   /** کلید داخلی مدل */
   key: string;
-  /** نام فایل روی دیسک، مثل feather.png */
+  /** نام فایل روی دیسک، مثل feather.jpg */
   fileName: string;
   /** نام فارسی مدل */
   label: string;
-  /** مسیر فایل داخل public، مثل /eyebrows/feather.png */
+  /** مسیر فایل داخل public، مثل /eyebrows/feather.jpg */
   publicPath: string;
 }
 
@@ -110,7 +110,7 @@ export function findBrowTarget(value: string | null | undefined): BrowTarget | n
         target.label === value.trim() ||
         target.label.toLowerCase() === needle ||
         target.fileName.toLowerCase() === needle ||
-        target.fileName.replace(/\.png$/, '').toLowerCase() === needle,
+        target.fileName.replace(/\.(png|jpe?g|webp)$/, '').toLowerCase() === needle,
     ) ?? null
   );
 }
@@ -122,7 +122,7 @@ export function findBrowTarget(value: string | null | undefined): BrowTarget | n
 /**
  * تبدیل مسیر درخواستی (بدون پیشوند /api/site-image) به مسیر فایل روی دیسک.
  *
- *   eyebrows/feather.png  → <public>/eyebrows/feather.png
+ *   eyebrows/feather.jpg  → <public>/eyebrows/feather.jpg
  *   hero/hero             → <public>/hero/hero.jpg|png|webp (اولین فایلی که وجود دارد)
  *   hero/hero.jpg         → <public>/hero/hero.jpg
  *
@@ -140,27 +140,29 @@ export async function resolveSiteImage(
   const [folder, name] = parts;
   const root = path.resolve(PUBLIC_DIR);
 
-  // ---- تصویر ابرو: فقط نام‌های ثابت و فقط PNG ----
+  // ---- تصویر ابرو: فقط نام‌های ثابت و فقط JPG ----
   if (folder === BROW_IMAGE_FOLDER.replace(/^\//, '')) {
     const target = BROW_TARGETS.find((item) => item.fileName === name);
     if (!target) return null;
 
     const filePath = path.resolve(root, folder, target.fileName);
     if (!filePath.startsWith(root + path.sep)) return null;
-    return { filePath, mime: MIME_BY_EXTENSION.png };
+    const ext = target.fileName.split('.').pop() ?? 'jpg';
+    return { filePath, mime: MIME_BY_EXTENSION[ext] ?? 'image/jpeg' };
   }
 
-  // ---- تصاویر مرجع لب و خط چشم (فقط نام‌های ثابت تکنیک‌ها از src/techniques.ts، فقط PNG) ----
+  // ---- تصاویر مرجع لب و خط چشم (فقط نام‌های ثابت تکنیک‌ها از src/techniques.ts، فقط JPG) ----
   if (folder === 'lips' || folder === 'eyeliner') {
     const allowed =
       folder === 'lips'
-        ? ['natural_blush.png', 'nude_pink.png', 'full_color.png', 'dark_neutralization.png']
-        : ['lash_line_enhancement.png', 'classic_liner.png', 'smokey_shade.png'];
+        ? ['natural_blush.jpg', 'nude_pink.jpg', 'full_color.jpg', 'dark_neutralization.jpg']
+        : ['lash_line_enhancement.jpg', 'classic_liner.jpg', 'smokey_shade.jpg'];
     if (!allowed.includes(name)) return null;
 
     const filePath = path.resolve(root, folder, name);
     if (!filePath.startsWith(root + path.sep)) return null;
-    return { filePath, mime: MIME_BY_EXTENSION.png };
+    const ext = name.split('.').pop() ?? 'jpg';
+    return { filePath, mime: MIME_BY_EXTENSION[ext] ?? 'image/jpeg' };
   }
 
   // ---- تصویر هیرو ----
@@ -232,14 +234,14 @@ export interface SavedImage {
   mime: string;
 }
 
-/** ذخیرهٔ تصویر ابرو (فقط PNG، حداکثر ۵ مگابایت) */
+/** ذخیرهٔ تصویر ابرو (فقط JPG، حداکثر ۵ مگابایت) */
 export async function saveBrowImage(target: BrowTarget, file: File): Promise<SavedImage> {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   if (buffer.length === 0) throw new Error('فایل خالی است.');
   if (buffer.length > MAX_BROW_BYTES) throw new Error('حجم تصویر بیش از ۵ مگابایت است.');
-  if (detectImageExtension(buffer) !== 'png') {
-    throw new Error('برای تصویر ابرو فقط فایل PNG پذیرفته می‌شود.');
+  if (detectImageExtension(buffer) !== 'jpg') {
+    throw new Error('برای تصویر ابرو فقط فایل JPG پذیرفته می‌شود.');
   }
 
   const directory = path.join(PUBLIC_DIR, BROW_IMAGE_FOLDER.replace(/^\//, ''));
@@ -251,7 +253,7 @@ export async function saveBrowImage(target: BrowTarget, file: File): Promise<Sav
     publicPath: target.publicPath,
     fileName: target.fileName,
     bytes: buffer.length,
-    mime: 'image/png',
+    mime: 'image/jpeg',
   };
 }
 

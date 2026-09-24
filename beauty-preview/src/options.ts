@@ -19,10 +19,10 @@ export interface EyebrowStyle {
   /**
    * مسیر فایل تصویر واقعی این مدل داخل پوشهٔ public.
    * مدیر از پنل (/admin → تصاویر ابرو) همین فایل را آپلود می‌کند:
-   *   /eyebrows/natural-hairstroke.png
-   *   /eyebrows/feather.png
-   *   /eyebrows/ombre-powder.png
-   *   /eyebrows/combination.png
+   *   /eyebrows/natural-hairstroke.jpg
+   *   /eyebrows/feather.jpg
+   *   /eyebrows/ombre-powder.jpg
+   *   /eyebrows/combination.jpg
    */
   imagePath: string;
   /**
@@ -63,36 +63,36 @@ export const HERO_IMAGE_URL = `${SITE_IMAGE_ROUTE}${HERO_IMAGE_FOLDER}/${HERO_IM
 export const EYEBROW_STYLES: EyebrowStyle[] = [
   {
     key: 'hairstroke',
-    imagePath: `${BROW_IMAGE_FOLDER}/natural-hairstroke.png`,
-    imageUrl: `${SITE_IMAGE_ROUTE}${BROW_IMAGE_FOLDER}/natural-hairstroke.png`,
-    imageFileName: 'natural-hairstroke.png',
+    imagePath: `${BROW_IMAGE_FOLDER}/natural-hairstroke.jpg`,
+    imageUrl: `${SITE_IMAGE_ROUTE}${BROW_IMAGE_FOLDER}/natural-hairstroke.jpg`,
+    imageFileName: 'natural-hairstroke.jpg',
     labelEn: 'Natural Hairstroke',
     label: 'هایر استروک طبیعی',
     hint: 'ضربه‌های مو‌مانند و بسیار طبیعی',
   },
   {
     key: 'feather',
-    imagePath: `${BROW_IMAGE_FOLDER}/feather.png`,
-    imageUrl: `${SITE_IMAGE_ROUTE}${BROW_IMAGE_FOLDER}/feather.png`,
-    imageFileName: 'feather.png',
+    imagePath: `${BROW_IMAGE_FOLDER}/feather.jpg`,
+    imageUrl: `${SITE_IMAGE_ROUTE}${BROW_IMAGE_FOLDER}/feather.jpg`,
+    imageFileName: 'feather.jpg',
     labelEn: 'Feather Brow',
     label: 'فدر براو',
     hint: 'ابتدای محو و پرمانند، دم نازک',
   },
   {
     key: 'ombre',
-    imagePath: `${BROW_IMAGE_FOLDER}/ombre-powder.png`,
-    imageUrl: `${SITE_IMAGE_ROUTE}${BROW_IMAGE_FOLDER}/ombre-powder.png`,
-    imageFileName: 'ombre-powder.png',
+    imagePath: `${BROW_IMAGE_FOLDER}/ombre-powder.jpg`,
+    imageUrl: `${SITE_IMAGE_ROUTE}${BROW_IMAGE_FOLDER}/ombre-powder.jpg`,
+    imageFileName: 'ombre-powder.jpg',
     labelEn: 'Ombre Powder',
     label: 'اومبره پودری',
     hint: 'پودری و مخملی، بدون خط',
   },
   {
     key: 'combination',
-    imagePath: `${BROW_IMAGE_FOLDER}/combination.png`,
-    imageUrl: `${SITE_IMAGE_ROUTE}${BROW_IMAGE_FOLDER}/combination.png`,
-    imageFileName: 'combination.png',
+    imagePath: `${BROW_IMAGE_FOLDER}/combination.jpg`,
+    imageUrl: `${SITE_IMAGE_ROUTE}${BROW_IMAGE_FOLDER}/combination.jpg`,
+    imageFileName: 'combination.jpg',
     labelEn: 'Combination',
     label: 'کامبینیشن',
     hint: 'ترکیب تار مو و سایهٔ پودری',

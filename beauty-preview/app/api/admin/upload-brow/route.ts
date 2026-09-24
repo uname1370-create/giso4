@@ -5,8 +5,8 @@
  *
  *   POST   multipart/form-data:  file  +  styleName
  *          styleName می‌تواند کلید مدل (feather)، نام فارسی (فدر براو) یا نام
- *          فایل (feather.png) باشد. فقط PNG، حداکثر ۵ مگابایت.
- *          فایل با نام ثابت ذخیره می‌شود: public/eyebrows/<file>.png
+ *          فایل (feather.jpg) باشد. فقط JPG، حداکثر ۵ مگابایت.
+ *          فایل با نام ثابت ذخیره می‌شود: public/eyebrows/<file>.jpg
  *
  *   DELETE ?style=feather   ← حذف تصویر و برگشت به SVG خودکار
  *

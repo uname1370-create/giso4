@@ -717,7 +717,7 @@ export default function AdminDashboardPage() {
                         </button>
                       )}
                       <span className="text-[10px] text-neutral-500 font-mono" dir="ltr">
-                        /{referenceService}/{technique.key}.png
+                        /{referenceService}/{technique.key}.jpg
                       </span>
                     </div>
                   </div>

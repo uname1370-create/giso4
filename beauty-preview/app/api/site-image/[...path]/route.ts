@@ -3,8 +3,8 @@
  * ---------------------------------------------------------------------------
  * سرو کردن تصاویر آپلودشده از پنل مدیریت:
  *
- *     GET /api/site-image/eyebrows/feather.png       ← تصویر مدل ابرو
- *     GET /api/site-image/eyebrows/ombre-powder.png
+ *     GET /api/site-image/eyebrows/feather.jpg       ← تصویر مدل ابرو
+ *     GET /api/site-image/eyebrows/ombre-powder.jpg
  *     GET /api/site-image/hero/hero                  ← تصویر هیرو (هر فرمتی که آپلود شده)
  *     GET /api/site-image/hero/hero.jpg
  *
