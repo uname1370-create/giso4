@@ -1,0 +1,2228 @@
+{
+  "bot_edu/ai_brain.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505743,
+    "ast_hash": "337337e59e1e5a73089403014190c217",
+    "semantic_hash": "337337e59e1e5a73089403014190c217"
+  },
+  "bot_edu/ai_mentor/__init__.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.35058,
+    "ast_hash": "e7ecc699ede815f188f1347243456e15",
+    "semantic_hash": "e7ecc699ede815f188f1347243456e15"
+  },
+  "bot_edu/ai_mentor/agents/__init__.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505826,
+    "ast_hash": "e195cb6fe78a9968ec5dfc0bced19e86",
+    "semantic_hash": "e195cb6fe78a9968ec5dfc0bced19e86"
+  },
+  "bot_edu/ai_mentor/agents/career_interview.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350584,
+    "ast_hash": "1c3141b5262ee3c56fad6bf7588f49b2",
+    "semantic_hash": "1c3141b5262ee3c56fad6bf7588f49b2"
+  },
+  "bot_edu/ai_mentor/agents/learning_mentor.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505855,
+    "ast_hash": "10093b6d42c6abc7dd2292ec456e586d",
+    "semantic_hash": "10093b6d42c6abc7dd2292ec456e586d"
+  },
+  "bot_edu/ai_mentor/agents/roadmap_builder.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505867,
+    "ast_hash": "342dd6558a5a9ce7610b7960689fda74",
+    "semantic_hash": "342dd6558a5a9ce7610b7960689fda74"
+  },
+  "bot_edu/ai_mentor/ai_admin.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505878,
+    "ast_hash": "5d2b8262b8bdc91651df403fc1ee2db0",
+    "semantic_hash": "5d2b8262b8bdc91651df403fc1ee2db0"
+  },
+  "bot_edu/ai_mentor/ai_core.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505893,
+    "ast_hash": "3fad48932d981fa1ee85a2190944a597",
+    "semantic_hash": "3fad48932d981fa1ee85a2190944a597"
+  },
+  "bot_edu/ai_mentor/ai_db.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505905,
+    "ast_hash": "220e8d63be72c7677365c9119b473c44",
+    "semantic_hash": "220e8d63be72c7677365c9119b473c44"
+  },
+  "bot_edu/ai_mentor/ai_handlers.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505914,
+    "ast_hash": "77347a0ad5d3a985537940d2f2d6907a",
+    "semantic_hash": "77347a0ad5d3a985537940d2f2d6907a"
+  },
+  "bot_edu/ai_mentor/ai_market.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505929,
+    "ast_hash": "9f4ad85544a53a1fd256f73cce0e81a9",
+    "semantic_hash": "9f4ad85544a53a1fd256f73cce0e81a9"
+  },
+  "bot_edu/ai_mentor/ai_prompts.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505943,
+    "ast_hash": "b9b5c2893e292ae3d95dbef54a984f36",
+    "semantic_hash": "b9b5c2893e292ae3d95dbef54a984f36"
+  },
+  "bot_edu/ai_mentor/ai_ui.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505952,
+    "ast_hash": "532b90865c04f0dbea116448f802956d",
+    "semantic_hash": "532b90865c04f0dbea116448f802956d"
+  },
+  "bot_edu/ai_mentor/core.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505967,
+    "ast_hash": "0f87b61dec19c2e7c2951d09f4917293",
+    "semantic_hash": "0f87b61dec19c2e7c2951d09f4917293"
+  },
+  "bot_edu/bot.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505979,
+    "ast_hash": "dfb30fc29220f3d1a48eeb55a76a2ee7",
+    "semantic_hash": "dfb30fc29220f3d1a48eeb55a76a2ee7"
+  },
+  "bot_edu/config.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3505988,
+    "ast_hash": "ad988b29656b55cbac9eaa12a292a972",
+    "semantic_hash": "ad988b29656b55cbac9eaa12a292a972"
+  },
+  "bot_edu/core.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506002,
+    "ast_hash": "77fdf130800c04b9618fcb582416099e",
+    "semantic_hash": "77fdf130800c04b9618fcb582416099e"
+  },
+  "bot_edu/db.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506014,
+    "ast_hash": "a0270b1c6d2ce024c798cd62d81ea76f",
+    "semantic_hash": "a0270b1c6d2ce024c798cd62d81ea76f"
+  },
+  "bot_edu/giso_admin.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506029,
+    "ast_hash": "9026307214f95f41bc6f3a2584e64477",
+    "semantic_hash": "9026307214f95f41bc6f3a2584e64477"
+  },
+  "bot_edu/giso_handlers.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350604,
+    "ast_hash": "b80b9cd6c21a7114de9416811c30f6f9",
+    "semantic_hash": "b80b9cd6c21a7114de9416811c30f6f9"
+  },
+  "bot_edu/handlers.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350605,
+    "ast_hash": "0aeb7b657ae2f21efa5292424ac5c223",
+    "semantic_hash": "0aeb7b657ae2f21efa5292424ac5c223"
+  },
+  "bot_edu/handlers_admin.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506064,
+    "ast_hash": "a563f00b1223054a550681906790eba0",
+    "semantic_hash": "a563f00b1223054a550681906790eba0"
+  },
+  "bot_edu/handlers_ai.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506079,
+    "ast_hash": "d9c1aefb8eebc21949477afbace29e18",
+    "semantic_hash": "d9c1aefb8eebc21949477afbace29e18"
+  },
+  "bot_edu/handlers_messaging.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350609,
+    "ast_hash": "74f066647f6223ec0b92ed7445ac0ada",
+    "semantic_hash": "74f066647f6223ec0b92ed7445ac0ada"
+  },
+  "bot_edu/mentor_service.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506105,
+    "ast_hash": "33d566efa2d5ebbf18636c0f128afee5",
+    "semantic_hash": "33d566efa2d5ebbf18636c0f128afee5"
+  },
+  "bot_edu/panel_service.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506117,
+    "ast_hash": "6bf29ebfb1ca5c653030df951a9a2574",
+    "semantic_hash": "6bf29ebfb1ca5c653030df951a9a2574"
+  },
+  "bot_edu/phoneutil.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506134,
+    "ast_hash": "c31df4027645fe8dc437962a3e022887",
+    "semantic_hash": "c31df4027645fe8dc437962a3e022887"
+  },
+  "bot_edu/platform_runtime.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506143,
+    "ast_hash": "3e4099b971e2b0a3893dbd19d98e99ee",
+    "semantic_hash": "3e4099b971e2b0a3893dbd19d98e99ee"
+  },
+  "bot_edu/proxy_manager.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506155,
+    "ast_hash": "d33eb8c3f73e0d784f40360e61a8cf78",
+    "semantic_hash": "d33eb8c3f73e0d784f40360e61a8cf78"
+  },
+  "bot_edu/services/__init__.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350617,
+    "ast_hash": "75a10a7d86e5f0189488742c512fc9d0",
+    "semantic_hash": "75a10a7d86e5f0189488742c512fc9d0"
+  },
+  "bot_edu/services/admin_service.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506181,
+    "ast_hash": "733339d6a3d3abd5fa497f1a63982f3e",
+    "semantic_hash": "733339d6a3d3abd5fa497f1a63982f3e"
+  },
+  "bot_edu/services/env_service.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506196,
+    "ast_hash": "f3fb9fcee5f112b245108c2e8d635128",
+    "semantic_hash": "f3fb9fcee5f112b245108c2e8d635128"
+  },
+  "bot_edu/services/mentor_service.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506207,
+    "ast_hash": "4b4bb341ffcf8255bfdd28e23f7e6a19",
+    "semantic_hash": "4b4bb341ffcf8255bfdd28e23f7e6a19"
+  },
+  "bot_edu/services/panel_service.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350622,
+    "ast_hash": "90a8f7ef2bb81f8206e87ae717a14e94",
+    "semantic_hash": "90a8f7ef2bb81f8206e87ae717a14e94"
+  },
+  "bot_edu/services/user_service.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506231,
+    "ast_hash": "119f57a8db42016761e6c22d316696d8",
+    "semantic_hash": "119f57a8db42016761e6c22d316696d8"
+  },
+  "bot_edu/sync_giso_admins.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506246,
+    "ast_hash": "60404609140bcbc6a582c961a3bdc739",
+    "semantic_hash": "60404609140bcbc6a582c961a3bdc739"
+  },
+  "bot_edu/ui.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506258,
+    "ast_hash": "83f1c062b2135bad76d7a98605edac9c",
+    "semantic_hash": "83f1c062b2135bad76d7a98605edac9c"
+  },
+  "deploy/cloudflare-gemini-worker.js": {
+    "mtime": 1789429456.0,
+    "seen": 1790449407.3506267,
+    "ast_hash": "216c55ba049af07eb37130ff725336d4",
+    "semantic_hash": "216c55ba049af07eb37130ff725336d4"
+  },
+  "deploy/pg_backup.sh": {
+    "mtime": 1789429456.0,
+    "seen": 1790449407.3506281,
+    "ast_hash": "6a3ed3f8d6274bea8edc3d0f40d3fd7d",
+    "semantic_hash": "6a3ed3f8d6274bea8edc3d0f40d3fd7d"
+  },
+  "env_loader.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506293,
+    "ast_hash": "ba4e29acba1d0e42f313e2e10141e823",
+    "semantic_hash": "ba4e29acba1d0e42f313e2e10141e823"
+  },
+  "giso/account_password_vault.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506308,
+    "ast_hash": "6d3b2194eec0fc41a93af06793798eaa",
+    "semantic_hash": "6d3b2194eec0fc41a93af06793798eaa"
+  },
+  "giso/admin_access_schema.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350632,
+    "ast_hash": "dbe2dbd86f596a46c712c74aa783406e",
+    "semantic_hash": "dbe2dbd86f596a46c712c74aa783406e"
+  },
+  "giso/ai_brain.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506331,
+    "ast_hash": "f15a72b70ab7cf9e34a3ecd30b557931",
+    "semantic_hash": "f15a72b70ab7cf9e34a3ecd30b557931"
+  },
+  "giso/ai_config.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506355,
+    "ast_hash": "ccc90985f67987fabd86f0146d9e7fec",
+    "semantic_hash": "ccc90985f67987fabd86f0146d9e7fec"
+  },
+  "giso/ai_credits.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506367,
+    "ast_hash": "df7f364e13c329a307884c8a86857e39",
+    "semantic_hash": "df7f364e13c329a307884c8a86857e39"
+  },
+  "giso/ai_discovery.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506382,
+    "ast_hash": "b9b0fda951d6ffb3003df7dee77927e8",
+    "semantic_hash": "b9b0fda951d6ffb3003df7dee77927e8"
+  },
+  "giso/ai_health.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350639,
+    "ast_hash": "25a71d010fcd4ffa98b0eb59a7710832",
+    "semantic_hash": "25a71d010fcd4ffa98b0eb59a7710832"
+  },
+  "giso/ai_models_registry.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506403,
+    "ast_hash": "d99d8eda40b99489fe00f93cf4924ab9",
+    "semantic_hash": "d99d8eda40b99489fe00f93cf4924ab9"
+  },
+  "giso/ai_runtime.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506415,
+    "ast_hash": "e387e03ae85b6d1b42baa2cfe68d13e9",
+    "semantic_hash": "e387e03ae85b6d1b42baa2cfe68d13e9"
+  },
+  "giso/ai_runtime_policy.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506427,
+    "ast_hash": "8556e04365ad9bbdeca3913fae88fcc5",
+    "semantic_hash": "8556e04365ad9bbdeca3913fae88fcc5"
+  },
+  "giso/analysis.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506448,
+    "ast_hash": "81e4caba6ed0b64cc94f8f2d1ae5982b",
+    "semantic_hash": "81e4caba6ed0b64cc94f8f2d1ae5982b"
+  },
+  "giso/analysis_final_override.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506463,
+    "ast_hash": "9bb019ffb321cdb23ca8d32dfaa4f463",
+    "semantic_hash": "9bb019ffb321cdb23ca8d32dfaa4f463"
+  },
+  "giso/analysis_labels.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350649,
+    "ast_hash": "f36784c594fbf41cf226cb084c825a0b",
+    "semantic_hash": "f36784c594fbf41cf226cb084c825a0b"
+  },
+  "giso/analysis_report.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350651,
+    "ast_hash": "31943369b9b2308e0d0c2de036b16d54",
+    "semantic_hash": "31943369b9b2308e0d0c2de036b16d54"
+  },
+  "giso/app.py": {
+    "mtime": 1790448198.873762,
+    "seen": 1790449407.3506534,
+    "ast_hash": "03c7c7ba6ac34fe8020de179781ce5a7",
+    "semantic_hash": "03c7c7ba6ac34fe8020de179781ce5a7"
+  },
+  "giso/async_compat.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506553,
+    "ast_hash": "e566d0b6dba4c3cd897f767c7bbbf1c9",
+    "semantic_hash": "e566d0b6dba4c3cd897f767c7bbbf1c9"
+  },
+  "giso/base.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350658,
+    "ast_hash": "77271c57b63f189986c06433d0d919c4",
+    "semantic_hash": "77271c57b63f189986c06433d0d919c4"
+  },
+  "giso/beauty_centers/__init__.py": {
+    "mtime": 1789444958.0,
+    "seen": 1790449407.3506594,
+    "ast_hash": "eef62264a7fc1e5193db9d9bf355173e",
+    "semantic_hash": "eef62264a7fc1e5193db9d9bf355173e"
+  },
+  "giso/beauty_centers/ai_prompt.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506606,
+    "ast_hash": "766535bbbe016f9bc6da657b8da8c705",
+    "semantic_hash": "766535bbbe016f9bc6da657b8da8c705"
+  },
+  "giso/beauty_centers/bot_handlers.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350662,
+    "ast_hash": "56b9ac67c9bcb1adc7e98ba80f445772",
+    "semantic_hash": "56b9ac67c9bcb1adc7e98ba80f445772"
+  },
+  "giso/beauty_centers/panel_admin.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506632,
+    "ast_hash": "b9c95e56fb7179ae1ac92905fcf6ae30",
+    "semantic_hash": "b9c95e56fb7179ae1ac92905fcf6ae30"
+  },
+  "giso/beauty_centers/pricing/__init__.py": {
+    "mtime": 1789434160.0,
+    "seen": 1790449407.3506644,
+    "ast_hash": "950295916b9b4ecd25d016ff5fa0ef64",
+    "semantic_hash": "950295916b9b4ecd25d016ff5fa0ef64"
+  },
+  "giso/beauty_centers/pricing/routes.py": {
+    "mtime": 1789444980.0,
+    "seen": 1790449407.3506656,
+    "ast_hash": "dd1a7b6717c1b9b7e80085a47754b995",
+    "semantic_hash": "dd1a7b6717c1b9b7e80085a47754b995"
+  },
+  "giso/beauty_centers/pricing/schema.py": {
+    "mtime": 1789444954.0,
+    "seen": 1790449407.3506668,
+    "ast_hash": "18dd610286a88024d0dd6cbe466eddde",
+    "semantic_hash": "18dd610286a88024d0dd6cbe466eddde"
+  },
+  "giso/beauty_centers/pricing/services.py": {
+    "mtime": 1789444962.0,
+    "seen": 1790449407.3506677,
+    "ast_hash": "4b6b320ceb276fdacfb446fa55ff5c11",
+    "semantic_hash": "4b6b320ceb276fdacfb446fa55ff5c11"
+  },
+  "giso/beauty_centers/reservations/__init__.py": {
+    "mtime": 1789446256.0,
+    "seen": 1790449407.350669,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "giso/beauty_centers/reservations/bot_handlers.py": {
+    "mtime": 1789451902.0,
+    "seen": 1790449407.35067,
+    "ast_hash": "3c9363401e79c44f14028e693f749e65",
+    "semantic_hash": "3c9363401e79c44f14028e693f749e65"
+  },
+  "giso/beauty_centers/reservations/notifications.py": {
+    "mtime": 1789523826.0,
+    "seen": 1790449407.3506713,
+    "ast_hash": "06765d6bb139006f0b450c4b0b47ce48",
+    "semantic_hash": "06765d6bb139006f0b450c4b0b47ce48"
+  },
+  "giso/beauty_centers/reservations/routes.py": {
+    "mtime": 1789493380.0,
+    "seen": 1790449407.3506725,
+    "ast_hash": "ac139ca4748209317090c435c375a4b5",
+    "semantic_hash": "ac139ca4748209317090c435c375a4b5"
+  },
+  "giso/beauty_centers/reservations/schema.py": {
+    "mtime": 1789446992.0,
+    "seen": 1790449407.3506737,
+    "ast_hash": "f0de7eabe21af6728b619528eb360b77",
+    "semantic_hash": "f0de7eabe21af6728b619528eb360b77"
+  },
+  "giso/beauty_centers/reservations/services.py": {
+    "mtime": 1789467524.0,
+    "seen": 1790449407.3506749,
+    "ast_hash": "f14c5eee0ed89ecef6327d6ae737aaff",
+    "semantic_hash": "f14c5eee0ed89ecef6327d6ae737aaff"
+  },
+  "giso/beauty_centers/routes.py": {
+    "mtime": 1789458470.0,
+    "seen": 1790449407.350676,
+    "ast_hash": "e5b65c7af7b277c96e68407a0f68ba8c",
+    "semantic_hash": "e5b65c7af7b277c96e68407a0f68ba8c"
+  },
+  "giso/beauty_centers/schema.py": {
+    "mtime": 1789444956.0,
+    "seen": 1790449407.3506773,
+    "ast_hash": "4c6b092f309c719269565948aa7a6dc8",
+    "semantic_hash": "4c6b092f309c719269565948aa7a6dc8"
+  },
+  "giso/beauty_centers/services.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506782,
+    "ast_hash": "71d6d37d96338fb196929acc3606445c",
+    "semantic_hash": "71d6d37d96338fb196929acc3606445c"
+  },
+  "giso/beauty_centers/static/beauty_centers.js": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506796,
+    "ast_hash": "0b5d762a8368982c02fce50df39b2f63",
+    "semantic_hash": "0b5d762a8368982c02fce50df39b2f63"
+  },
+  "giso/bot.py": {
+    "mtime": 1789452986.0,
+    "seen": 1790449407.3506808,
+    "ast_hash": "8fd362c5708971fb8c29a818f244ba7c",
+    "semantic_hash": "8fd362c5708971fb8c29a818f244ba7c"
+  },
+  "giso/bot_admin_utils.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350682,
+    "ast_hash": "8eee23b36a833be1067f8a8ecfeca8f3",
+    "semantic_hash": "8eee23b36a833be1067f8a8ecfeca8f3"
+  },
+  "giso/bot_backup.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506832,
+    "ast_hash": "4fe9de19500d00641afe422413c4eb33",
+    "semantic_hash": "4fe9de19500d00641afe422413c4eb33"
+  },
+  "giso/bot_balepay.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506844,
+    "ast_hash": "62d5bcaa21c4cd5a274d23263b57d17c",
+    "semantic_hash": "62d5bcaa21c4cd5a274d23263b57d17c"
+  },
+  "giso/bot_chats_admin.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506856,
+    "ast_hash": "66a2fde64e4b3b8e1e01d73d4e21f9c4",
+    "semantic_hash": "66a2fde64e4b3b8e1e01d73d4e21f9c4"
+  },
+  "giso/bot_hair_admin.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350687,
+    "ast_hash": "a5b3d6ff206167106361da9af3d22139",
+    "semantic_hash": "a5b3d6ff206167106361da9af3d22139"
+  },
+  "giso/bot_helpers.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506882,
+    "ast_hash": "99a6100eaa4e10c2168395a72bc431c1",
+    "semantic_hash": "99a6100eaa4e10c2168395a72bc431c1"
+  },
+  "giso/bot_market_admin.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506896,
+    "ast_hash": "b1162bb82c6a83c663e775729e06efa4",
+    "semantic_hash": "b1162bb82c6a83c663e775729e06efa4"
+  },
+  "giso/bot_permissions.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506906,
+    "ast_hash": "071e28e428e69f953d5a264d5064b178",
+    "semantic_hash": "071e28e428e69f953d5a264d5064b178"
+  },
+  "giso/bot_reports.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506918,
+    "ast_hash": "5f27e68ea58c48c9975f1819541249c6",
+    "semantic_hash": "5f27e68ea58c48c9975f1819541249c6"
+  },
+  "giso/bot_states.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506932,
+    "ast_hash": "82900276332146b82409b10d333521ec",
+    "semantic_hash": "82900276332146b82409b10d333521ec"
+  },
+  "giso/bot_user_actions.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506954,
+    "ast_hash": "e05e41d8e0f93e0a822f7e68de3dcd33",
+    "semantic_hash": "e05e41d8e0f93e0a822f7e68de3dcd33"
+  },
+  "giso/bot_watch.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506968,
+    "ast_hash": "fe48ddaf9e2b0e9f37ccc0baea8a9d4f",
+    "semantic_hash": "fe48ddaf9e2b0e9f37ccc0baea8a9d4f"
+  },
+  "giso/broadcasts.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3506978,
+    "ast_hash": "deb3743f540676fcc306292310c2afbb",
+    "semantic_hash": "deb3743f540676fcc306292310c2afbb"
+  },
+  "giso/broadcasts_center/__init__.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350699,
+    "ast_hash": "ad42b06f51daff2b86d15905c20466d0",
+    "semantic_hash": "ad42b06f51daff2b86d15905c20466d0"
+  },
+  "giso/broadcasts_center/core.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3507001,
+    "ast_hash": "ebebe8e4160de4deb9fe367f14fda812",
+    "semantic_hash": "ebebe8e4160de4deb9fe367f14fda812"
+  },
+  "giso/broadcasts_center/routes.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3507013,
+    "ast_hash": "d1501295b5ca51afff28a8cb1b4c11d3",
+    "semantic_hash": "d1501295b5ca51afff28a8cb1b4c11d3"
+  },
+  "giso/broadcasts_center/worker.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3507025,
+    "ast_hash": "addb7bc899c3f8a3064b2357d27fc3cf",
+    "semantic_hash": "addb7bc899c3f8a3064b2357d27fc3cf"
+  },
+  "giso/bug_reports.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350704,
+    "ast_hash": "fea7fa1d55eed32be753d5e727126121",
+    "semantic_hash": "fea7fa1d55eed32be753d5e727126121"
+  },
+  "giso/buti_ai/__init__.py": {
+    "mtime": 1790448198.8747618,
+    "seen": 1790449407.3507051,
+    "ast_hash": "5e1f660abdd3b8b8d26057a074030c41",
+    "semantic_hash": "5e1f660abdd3b8b8d26057a074030c41"
+  },
+  "giso/buti_ai/routes.py": {
+    "mtime": 1790448198.8747618,
+    "seen": 1790449407.3507063,
+    "ast_hash": "ef2a946db242fb5c6f81c2b6adbfada7",
+    "semantic_hash": "ef2a946db242fb5c6f81c2b6adbfada7"
+  },
+  "giso/buti_ai/schema.py": {
+    "mtime": 1790448198.8747618,
+    "seen": 1790449407.3507078,
+    "ast_hash": "10f7484b0b3bc8bb67f6f7d3886f026d",
+    "semantic_hash": "10f7484b0b3bc8bb67f6f7d3886f026d"
+  },
+  "giso/buti_ai/services.py": {
+    "mtime": 1790448198.8747618,
+    "seen": 1790449407.3507087,
+    "ast_hash": "127e38cd58300b2b32c993aca366ff81",
+    "semantic_hash": "127e38cd58300b2b32c993aca366ff81"
+  },
+  "giso/channel_importer.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.35071,
+    "ast_hash": "9d5b7e2bee857ac32412cd6d007daf28",
+    "semantic_hash": "9d5b7e2bee857ac32412cd6d007daf28"
+  },
+  "giso/config.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3507113,
+    "ast_hash": "824432d24f28431fb11770b6ef5439ae",
+    "semantic_hash": "824432d24f28431fb11770b6ef5439ae"
+  },
+  "giso/consultant_cards.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3507125,
+    "ast_hash": "d2aaee494e8380c61d1ad3514646a4c1",
+    "semantic_hash": "d2aaee494e8380c61d1ad3514646a4c1"
+  },
+  "giso/consultant_chat_service.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.3507135,
+    "ast_hash": "bea7022c5c376d4599b155d5472c7a07",
+    "semantic_hash": "bea7022c5c376d4599b155d5472c7a07"
+  },
+  "giso/consultant_context.py": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350715,
+    "ast_hash": "9b447c00a48b88c6ec1d2720705972d3",
+    "semantic_hash": "9b447c00a48b88c6ec1d2720705972d3"
+  },
+  "giso/data/giso-config.json": {
+    "mtime": 1789431158.0,
+    "seen": 1790449407.350716,
+    "ast_hash": "e14b0726e7ea50837cf4725a933fe4f1",
+    "semantic_hash": "e14b0726e7ea50837cf4725a933fe4f1"
+  },
+  "giso/data/manifest.json": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350717,
+    "ast_hash": "52b87e91a09bd436f61235f6a83ee884",
+    "semantic_hash": "52b87e91a09bd436f61235f6a83ee884"
+  },
+  "giso/db_core.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507185,
+    "ast_hash": "bc121f6aae12d7f909e6d109f49be134",
+    "semantic_hash": "bc121f6aae12d7f909e6d109f49be134"
+  },
+  "giso/db_engine.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507195,
+    "ast_hash": "e94348c124e30f6e02f1f6004dfc2772",
+    "semantic_hash": "e94348c124e30f6e02f1f6004dfc2772"
+  },
+  "giso/db_pg_tools.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350721,
+    "ast_hash": "8b9cc612e0c6bd6556616f1aca96fb77",
+    "semantic_hash": "8b9cc612e0c6bd6556616f1aca96fb77"
+  },
+  "giso/enrichment_final_report.py": {
+    "mtime": 1789429456.0,
+    "seen": 1790449407.350722,
+    "ast_hash": "9112b99afabe4c46bee03a2ea13198b1",
+    "semantic_hash": "9112b99afabe4c46bee03a2ea13198b1"
+  },
+  "giso/enrichment_full.py": {
+    "mtime": 1789429456.0,
+    "seen": 1790449407.350723,
+    "ast_hash": "e45f18baeb3dd9ccc5083deffb0bcf06",
+    "semantic_hash": "e45f18baeb3dd9ccc5083deffb0bcf06"
+  },
+  "giso/gemini_proxy_manager.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507245,
+    "ast_hash": "319de0bffa25a784b058f2e850542ca5",
+    "semantic_hash": "319de0bffa25a784b058f2e850542ca5"
+  },
+  "giso/hair_sale.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507257,
+    "ast_hash": "28945ac8179a3a2001efd94f979aff46",
+    "semantic_hash": "28945ac8179a3a2001efd94f979aff46"
+  },
+  "giso/login_history.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507266,
+    "ast_hash": "250101f9f40b9c715dbbe8d615473521",
+    "semantic_hash": "250101f9f40b9c715dbbe8d615473521"
+  },
+  "giso/marketing.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350728,
+    "ast_hash": "a458177eb455530ef1b712be86daad65",
+    "semantic_hash": "a458177eb455530ef1b712be86daad65"
+  },
+  "giso/marketplace/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350729,
+    "ast_hash": "2f85589f42c9f7eb9a6e5f553a935027",
+    "semantic_hash": "2f85589f42c9f7eb9a6e5f553a935027"
+  },
+  "giso/marketplace/device.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507302,
+    "ast_hash": "2a0e4811a2b2b51330ab77a8a6c2b476",
+    "semantic_hash": "2a0e4811a2b2b51330ab77a8a6c2b476"
+  },
+  "giso/marketplace/routes.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507316,
+    "ast_hash": "b7fc5450b58c809a61d089fd145c65dc",
+    "semantic_hash": "b7fc5450b58c809a61d089fd145c65dc"
+  },
+  "giso/marketplace/schema.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507326,
+    "ast_hash": "d6443af4ec9ad10a3c31e8bc0ec30be9",
+    "semantic_hash": "d6443af4ec9ad10a3c31e8bc0ec30be9"
+  },
+  "giso/marketplace/services.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507338,
+    "ast_hash": "84886a8dd046ed3833569b7b5db3766a",
+    "semantic_hash": "84886a8dd046ed3833569b7b5db3766a"
+  },
+  "giso/marketplace/settings.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507352,
+    "ast_hash": "06537fe33856209c99c6a3e16313ecc4",
+    "semantic_hash": "06537fe33856209c99c6a3e16313ecc4"
+  },
+  "giso/models.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507364,
+    "ast_hash": "016b09607e3f454ebac8a65c850217b6",
+    "semantic_hash": "016b09607e3f454ebac8a65c850217b6"
+  },
+  "giso/money.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507373,
+    "ast_hash": "b908959061b02d74de4ea9d8e6885007",
+    "semantic_hash": "b908959061b02d74de4ea9d8e6885007"
+  },
+  "giso/monitoring_ai.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507388,
+    "ast_hash": "3b13fe142a90aab39f2dc5040913db14",
+    "semantic_hash": "3b13fe142a90aab39f2dc5040913db14"
+  },
+  "giso/monitoring_errors.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507397,
+    "ast_hash": "7d55dad8fea17ac4076d7c88ea5c1257",
+    "semantic_hash": "7d55dad8fea17ac4076d7c88ea5c1257"
+  },
+  "giso/monitoring_events.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350741,
+    "ast_hash": "6327768141ac526e571ff1de2f236c44",
+    "semantic_hash": "6327768141ac526e571ff1de2f236c44"
+  },
+  "giso/monitoring_fa.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350742,
+    "ast_hash": "6169be254fd93ea9c406e971349f135a",
+    "semantic_hash": "6169be254fd93ea9c406e971349f135a"
+  },
+  "giso/monitoring_insights.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507433,
+    "ast_hash": "21a53d1d6f93f07b9759ba8378d3a8a3",
+    "semantic_hash": "21a53d1d6f93f07b9759ba8378d3a8a3"
+  },
+  "giso/monitoring_reset.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507445,
+    "ast_hash": "4306f883ea3e4ab4f61c4825ee7b6cc1",
+    "semantic_hash": "4306f883ea3e4ab4f61c4825ee7b6cc1"
+  },
+  "giso/monitoring_settings.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507457,
+    "ast_hash": "ef257632adfdfb1f3177905b57382249",
+    "semantic_hash": "ef257632adfdfb1f3177905b57382249"
+  },
+  "giso/panel/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507469,
+    "ast_hash": "1b0889aa9fbfb9998d2d0bbcb298dbb7",
+    "semantic_hash": "1b0889aa9fbfb9998d2d0bbcb298dbb7"
+  },
+  "giso/panel/authz.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350748,
+    "ast_hash": "4520aaae609700b0029be3490706ea5e",
+    "semantic_hash": "4520aaae609700b0029be3490706ea5e"
+  },
+  "giso/panel/modules/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507493,
+    "ast_hash": "b9d39a4d3685c9724c202b3b70c55251",
+    "semantic_hash": "b9d39a4d3685c9724c202b3b70c55251"
+  },
+  "giso/panel/modules/admins.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507504,
+    "ast_hash": "9dfc1485f60c59ae67a247ab3d963315",
+    "semantic_hash": "9dfc1485f60c59ae67a247ab3d963315"
+  },
+  "giso/panel/modules/ai.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507514,
+    "ast_hash": "69ad757f33e6f106269e1e39f496292b",
+    "semantic_hash": "69ad757f33e6f106269e1e39f496292b"
+  },
+  "giso/panel/modules/analyses.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507528,
+    "ast_hash": "4f70eb3ea1e9f2dac1a700efee367bac",
+    "semantic_hash": "4f70eb3ea1e9f2dac1a700efee367bac"
+  },
+  "giso/panel/modules/backup/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507538,
+    "ast_hash": "b64aa991189a0731cd5ecbea1ae3aa94",
+    "semantic_hash": "b64aa991189a0731cd5ecbea1ae3aa94"
+  },
+  "giso/panel/modules/backup/core.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350755,
+    "ast_hash": "98e8f73a406d05f58abfb1cd40d2fb87",
+    "semantic_hash": "98e8f73a406d05f58abfb1cd40d2fb87"
+  },
+  "giso/panel/modules/backup/helpers.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507562,
+    "ast_hash": "bbd805c3e0b70d6c8626f2a588f3f5d0",
+    "semantic_hash": "bbd805c3e0b70d6c8626f2a588f3f5d0"
+  },
+  "giso/panel/modules/channel.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507571,
+    "ast_hash": "e52fd4446798228865bfb124ac4b80c1",
+    "semantic_hash": "e52fd4446798228865bfb124ac4b80c1"
+  },
+  "giso/panel/modules/consults.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507583,
+    "ast_hash": "4e277f989843a4f1f621a6ad1252d165",
+    "semantic_hash": "4e277f989843a4f1f621a6ad1252d165"
+  },
+  "giso/panel/modules/dashboard.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507597,
+    "ast_hash": "e08135effafdca024bccf2a79bde1faa",
+    "semantic_hash": "e08135effafdca024bccf2a79bde1faa"
+  },
+  "giso/panel/modules/finance_overview.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507607,
+    "ast_hash": "82c5afb98e7e28ab4cfdf14c5169a684",
+    "semantic_hash": "82c5afb98e7e28ab4cfdf14c5169a684"
+  },
+  "giso/panel/modules/hair_sale.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350762,
+    "ast_hash": "7a0c91cec207a6363d4e33113b775c6f",
+    "semantic_hash": "7a0c91cec207a6363d4e33113b775c6f"
+  },
+  "giso/panel/modules/marketplace.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350763,
+    "ast_hash": "0d36cf70d997b92268511caa6f95a9e4",
+    "semantic_hash": "0d36cf70d997b92268511caa6f95a9e4"
+  },
+  "giso/panel/modules/monitoring.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507643,
+    "ast_hash": "cd3b03adfadd4f772e38e6e13741f3ce",
+    "semantic_hash": "cd3b03adfadd4f772e38e6e13741f3ce"
+  },
+  "giso/panel/modules/notifications/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507652,
+    "ast_hash": "9604373f77cacd091d3a4e4b26bd691f",
+    "semantic_hash": "9604373f77cacd091d3a4e4b26bd691f"
+  },
+  "giso/panel/modules/notifications/core.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507664,
+    "ast_hash": "b1bcc0b45e097142e7a7011e1fc8091a",
+    "semantic_hash": "b1bcc0b45e097142e7a7011e1fc8091a"
+  },
+  "giso/panel/modules/notifications/helpers.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507676,
+    "ast_hash": "3ac6d603d89b4d1f61e1bcdd1f947dba",
+    "semantic_hash": "3ac6d603d89b4d1f61e1bcdd1f947dba"
+  },
+  "giso/panel/modules/products.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507686,
+    "ast_hash": "444ddf2330470b9b06f0eb86d9bd8cf6",
+    "semantic_hash": "444ddf2330470b9b06f0eb86d9bd8cf6"
+  },
+  "giso/panel/modules/ratelimit.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.35077,
+    "ast_hash": "f2485dd41e5b3a81ac2101815160ed21",
+    "semantic_hash": "f2485dd41e5b3a81ac2101815160ed21"
+  },
+  "giso/panel/modules/reports.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350771,
+    "ast_hash": "96070541b4045080928b4f15c3876aff",
+    "semantic_hash": "96070541b4045080928b4f15c3876aff"
+  },
+  "giso/panel/modules/reviews.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507721,
+    "ast_hash": "a5c233d96a2e2fdcaad56c65f98be150",
+    "semantic_hash": "a5c233d96a2e2fdcaad56c65f98be150"
+  },
+  "giso/panel/modules/settings.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507733,
+    "ast_hash": "b612a7040d83e9156544df0e35ad3dc2",
+    "semantic_hash": "b612a7040d83e9156544df0e35ad3dc2"
+  },
+  "giso/panel/modules/shop_orders.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507745,
+    "ast_hash": "0c9eb2d0fea37347bc2359a64a15282a",
+    "semantic_hash": "0c9eb2d0fea37347bc2359a64a15282a"
+  },
+  "giso/panel/modules/super_assistant.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507755,
+    "ast_hash": "33c50beaaea54d764481fd0d61775b6d",
+    "semantic_hash": "33c50beaaea54d764481fd0d61775b6d"
+  },
+  "giso/panel/modules/users.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507767,
+    "ast_hash": "5fe0d5c810a459fc60822d4336136cdf",
+    "semantic_hash": "5fe0d5c810a459fc60822d4336136cdf"
+  },
+  "giso/panel/modules/wallet.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507779,
+    "ast_hash": "d8c5c2af59eb7f8570b3fa7da1d411e2",
+    "semantic_hash": "d8c5c2af59eb7f8570b3fa7da1d411e2"
+  },
+  "giso/panel/permissions.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350779,
+    "ast_hash": "0f7835befab0b3d344476dc47d736eb1",
+    "semantic_hash": "0f7835befab0b3d344476dc47d736eb1"
+  },
+  "giso/panel/routes.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507802,
+    "ast_hash": "9077f4a76b29051a812647c951e68bf3",
+    "semantic_hash": "9077f4a76b29051a812647c951e68bf3"
+  },
+  "giso/panel/static/js/panel.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507814,
+    "ast_hash": "4017eee8f78ee8fb231700c6f95749aa",
+    "semantic_hash": "4017eee8f78ee8fb231700c6f95749aa"
+  },
+  "giso/panel_user/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507824,
+    "ast_hash": "8f9a0913ad4691b104b4a414bb4b31fb",
+    "semantic_hash": "8f9a0913ad4691b104b4a414bb4b31fb"
+  },
+  "giso/panel_user/modules/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507838,
+    "ast_hash": "b302d2f96425c23df7732453729f9561",
+    "semantic_hash": "b302d2f96425c23df7732453729f9561"
+  },
+  "giso/panel_user/modules/_base.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507848,
+    "ast_hash": "eb10c060807b5e45e2733e2fa7bc06d4",
+    "semantic_hash": "eb10c060807b5e45e2733e2fa7bc06d4"
+  },
+  "giso/panel_user/modules/analyses.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350786,
+    "ast_hash": "5473e37e21b05aed57d37d8e19043af4",
+    "semantic_hash": "5473e37e21b05aed57d37d8e19043af4"
+  },
+  "giso/panel_user/modules/chats.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507872,
+    "ast_hash": "53fc41dcac955a92165cc6286505f54e",
+    "semantic_hash": "53fc41dcac955a92165cc6286505f54e"
+  },
+  "giso/panel_user/modules/hair_sale.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507884,
+    "ast_hash": "a8bf2f8f90d175f8a06e331775a447c6",
+    "semantic_hash": "a8bf2f8f90d175f8a06e331775a447c6"
+  },
+  "giso/panel_user/modules/marketplace.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507895,
+    "ast_hash": "17a2f79de014c9341c4a630c00e8ebb7",
+    "semantic_hash": "17a2f79de014c9341c4a630c00e8ebb7"
+  },
+  "giso/panel_user/modules/notifies.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507907,
+    "ast_hash": "07aa24fa411d0c13bd5f53ce902bb6f3",
+    "semantic_hash": "07aa24fa411d0c13bd5f53ce902bb6f3"
+  },
+  "giso/panel_user/modules/orders.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350792,
+    "ast_hash": "22990add40db24a8868a5c7f1703ad5f",
+    "semantic_hash": "22990add40db24a8868a5c7f1703ad5f"
+  },
+  "giso/panel_user/modules/overview.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507931,
+    "ast_hash": "ce5fd564c5faad484a851db42f87310e",
+    "semantic_hash": "ce5fd564c5faad484a851db42f87310e"
+  },
+  "giso/panel_user/modules/profile.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507943,
+    "ast_hash": "77951f160d22cf22369751e9b1cc4783",
+    "semantic_hash": "77951f160d22cf22369751e9b1cc4783"
+  },
+  "giso/panel_user/modules/reviews.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350797,
+    "ast_hash": "b61fda0562bd1ed89a259bda7f352aaf",
+    "semantic_hash": "b61fda0562bd1ed89a259bda7f352aaf"
+  },
+  "giso/panel_user/modules/wallet.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3507984,
+    "ast_hash": "8553759bef1ccf7a1262bede9a3bf372",
+    "semantic_hash": "8553759bef1ccf7a1262bede9a3bf372"
+  },
+  "giso/panel_user/permissions.py": {
+    "mtime": 1789524322.0,
+    "seen": 1790449407.3507993,
+    "ast_hash": "b5ed3dc441d98f07766726d0a1517fea",
+    "semantic_hash": "b5ed3dc441d98f07766726d0a1517fea"
+  },
+  "giso/panel_user/routes.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508008,
+    "ast_hash": "8e815b5fe714d223f612b1cb44c8d3f3",
+    "semantic_hash": "8e815b5fe714d223f612b1cb44c8d3f3"
+  },
+  "giso/panel_user/static/js/ai_assistant.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350802,
+    "ast_hash": "70988703ae813f685cab7ad5dbd8e201",
+    "semantic_hash": "70988703ae813f685cab7ad5dbd8e201"
+  },
+  "giso/panel_user/static/js/panel_tour.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350803,
+    "ast_hash": "60dc2a62cdb057b279632c3c80f711da",
+    "semantic_hash": "60dc2a62cdb057b279632c3c80f711da"
+  },
+  "giso/panel_user/static/js/panel_user.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508039,
+    "ast_hash": "37030cc2bf3e239b166a26c538a76721",
+    "semantic_hash": "37030cc2bf3e239b166a26c538a76721"
+  },
+  "giso/perf.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508053,
+    "ast_hash": "6578bd2799c8b793b6f9b9d2352442b9",
+    "semantic_hash": "6578bd2799c8b793b6f9b9d2352442b9"
+  },
+  "giso/phones.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508062,
+    "ast_hash": "8cbbec3393101b63ffcb1a031c8d3b89",
+    "semantic_hash": "8cbbec3393101b63ffcb1a031c8d3b89"
+  },
+  "giso/prompt_management.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508077,
+    "ast_hash": "8244f740b3f04641ee9af250ebc9adbc",
+    "semantic_hash": "8244f740b3f04641ee9af250ebc9adbc"
+  },
+  "giso/rank_daily.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508089,
+    "ast_hash": "4b9c240ce1bc589be8da0fd013295d60",
+    "semantic_hash": "4b9c240ce1bc589be8da0fd013295d60"
+  },
+  "giso/recommendation_service.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.35081,
+    "ast_hash": "0969ffd1418543f1dda912b1d1d2894d",
+    "semantic_hash": "0969ffd1418543f1dda912b1d1d2894d"
+  },
+  "giso/recovery.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508112,
+    "ast_hash": "4d16fb1a4bd85b4a8e2d1673f8bff735",
+    "semantic_hash": "4d16fb1a4bd85b4a8e2d1673f8bff735"
+  },
+  "giso/referrals.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508124,
+    "ast_hash": "ae2f3f980742a068e7fdfb728076fac9",
+    "semantic_hash": "ae2f3f980742a068e7fdfb728076fac9"
+  },
+  "giso/security.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508134,
+    "ast_hash": "fda72ecf0799ff213b1d0519903eb8a7",
+    "semantic_hash": "fda72ecf0799ff213b1d0519903eb8a7"
+  },
+  "giso/security_alerts.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508148,
+    "ast_hash": "5841e78b90595b54a816831e12f7843d",
+    "semantic_hash": "5841e78b90595b54a816831e12f7843d"
+  },
+  "giso/seo_jobs.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508158,
+    "ast_hash": "e0246c4dde032a4c5af678fcd4b4ead4",
+    "semantic_hash": "e0246c4dde032a4c5af678fcd4b4ead4"
+  },
+  "giso/seo_meta.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350817,
+    "ast_hash": "fe3a3db39a8993b02af07f669ffbf711",
+    "semantic_hash": "fe3a3db39a8993b02af07f669ffbf711"
+  },
+  "giso/seo_sitemap.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508182,
+    "ast_hash": "7cabc66ca2fb31f4c7e397af5cb1587b",
+    "semantic_hash": "7cabc66ca2fb31f4c7e397af5cb1587b"
+  },
+  "giso/shop.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508193,
+    "ast_hash": "3c00cd9d5fd9d8f83fe04feb450239ea",
+    "semantic_hash": "3c00cd9d5fd9d8f83fe04feb450239ea"
+  },
+  "giso/shop/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508203,
+    "ast_hash": "7841314ef6cd535718b737818a94c523",
+    "semantic_hash": "7841314ef6cd535718b737818a94c523"
+  },
+  "giso/shop/bot/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508217,
+    "ast_hash": "7ee18ffef6f5f2eac1b30acc78538d9b",
+    "semantic_hash": "7ee18ffef6f5f2eac1b30acc78538d9b"
+  },
+  "giso/shop/bot/admin_menu.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350823,
+    "ast_hash": "85c93a1471188748c062fb526230f52d",
+    "semantic_hash": "85c93a1471188748c062fb526230f52d"
+  },
+  "giso/shop/bot/handlers.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508239,
+    "ast_hash": "0a169eb659fcf7946f8235064a432acc",
+    "semantic_hash": "0a169eb659fcf7946f8235064a432acc"
+  },
+  "giso/shop/bot/super_menu.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508253,
+    "ast_hash": "2b0d7a3450e3f6e221fe5e5686a845ba",
+    "semantic_hash": "2b0d7a3450e3f6e221fe5e5686a845ba"
+  },
+  "giso/shop/bot/user_menu.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508263,
+    "ast_hash": "1dc9dd65818d1a51b2df7e44f0b9d189",
+    "semantic_hash": "1dc9dd65818d1a51b2df7e44f0b9d189"
+  },
+  "giso/shop/logic/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508275,
+    "ast_hash": "600e790aff3a459f61637277b4fff358",
+    "semantic_hash": "600e790aff3a459f61637277b4fff358"
+  },
+  "giso/shop/logic/cart.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350829,
+    "ast_hash": "69a8d8d1b119fcc53a326e8ff0218327",
+    "semantic_hash": "69a8d8d1b119fcc53a326e8ff0218327"
+  },
+  "giso/shop/logic/channel_bridge.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.35083,
+    "ast_hash": "e0f5695588c0a080a2f86e4bbef5db96",
+    "semantic_hash": "e0f5695588c0a080a2f86e4bbef5db96"
+  },
+  "giso/shop/logic/checkout.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350831,
+    "ast_hash": "db546a101706a0e17af3b3fd43b0b1f6",
+    "semantic_hash": "db546a101706a0e17af3b3fd43b0b1f6"
+  },
+  "giso/shop/logic/discount.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508322,
+    "ast_hash": "69a33fed9efe2b6564624929af904988",
+    "semantic_hash": "69a33fed9efe2b6564624929af904988"
+  },
+  "giso/shop/logic/enricher.py": {
+    "mtime": 1789429456.0,
+    "seen": 1790449407.3508334,
+    "ast_hash": "a14e5ab6a92a3b4e3024789a4d756f33",
+    "semantic_hash": "a14e5ab6a92a3b4e3024789a4d756f33"
+  },
+  "giso/shop/logic/inventory.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508344,
+    "ast_hash": "d5bbf3067a098c7418490b6cb3dbab62",
+    "semantic_hash": "d5bbf3067a098c7418490b6cb3dbab62"
+  },
+  "giso/shop/logic/invoices.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508358,
+    "ast_hash": "99cd4fd9b46f14e5bb1825d40e28ee29",
+    "semantic_hash": "99cd4fd9b46f14e5bb1825d40e28ee29"
+  },
+  "giso/shop/logic/orders.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508368,
+    "ast_hash": "42238d44a758a2a12dd5f26953bef7f2",
+    "semantic_hash": "42238d44a758a2a12dd5f26953bef7f2"
+  },
+  "giso/shop/logic/suggestions.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508377,
+    "ast_hash": "d6d1b123f4aa60e129cc337bcb80ec1d",
+    "semantic_hash": "d6d1b123f4aa60e129cc337bcb80ec1d"
+  },
+  "giso/shop/panel/__init__.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508391,
+    "ast_hash": "ad317ec9b3c0ea6c06f7da72a1185182",
+    "semantic_hash": "ad317ec9b3c0ea6c06f7da72a1185182"
+  },
+  "giso/shop/panel/_shared.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.35084,
+    "ast_hash": "ab0f6034943086e66417762d7c9c7255",
+    "semantic_hash": "ab0f6034943086e66417762d7c9c7255"
+  },
+  "giso/shop/panel/admin.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508413,
+    "ast_hash": "10dd8dc5ca5b220e2545b1469e0285ea",
+    "semantic_hash": "10dd8dc5ca5b220e2545b1469e0285ea"
+  },
+  "giso/shop/panel/super.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508425,
+    "ast_hash": "283948bc46674d5716295c553dfeb003",
+    "semantic_hash": "283948bc46674d5716295c553dfeb003"
+  },
+  "giso/shop/panel/user.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508437,
+    "ast_hash": "72cc305e9316b7227e493db2ddcb1a2f",
+    "semantic_hash": "72cc305e9316b7227e493db2ddcb1a2f"
+  },
+  "giso/shop/routes.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508449,
+    "ast_hash": "f0c0b99ad9bb8ca3869a9d4f0c3a6d6b",
+    "semantic_hash": "f0c0b99ad9bb8ca3869a9d4f0c3a6d6b"
+  },
+  "giso/shop/static/js/shop.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350846,
+    "ast_hash": "175b02b7287eba6482e1074573248aef",
+    "semantic_hash": "175b02b7287eba6482e1074573248aef"
+  },
+  "giso/site_jobs.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508472,
+    "ast_hash": "493cdcbc04200d86edf880bbd9ed4d10",
+    "semantic_hash": "493cdcbc04200d86edf880bbd9ed4d10"
+  },
+  "giso/special_assistant.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508482,
+    "ast_hash": "5ab628283ba863b3aebfbb435f8bc08d",
+    "semantic_hash": "5ab628283ba863b3aebfbb435f8bc08d"
+  },
+  "giso/static/js/ai_widget.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508494,
+    "ast_hash": "6c408f284c0f68156d3058cc5a6bcc38",
+    "semantic_hash": "6c408f284c0f68156d3058cc5a6bcc38"
+  },
+  "giso/static/js/chat_submit.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508506,
+    "ast_hash": "e64835772e16b5f5f6f6305cff0d4e46",
+    "semantic_hash": "e64835772e16b5f5f6f6305cff0d4e46"
+  },
+  "giso/static/js/consultant.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508515,
+    "ast_hash": "1e4f8e4bd0d5122e1193e0ba5035bec6",
+    "semantic_hash": "1e4f8e4bd0d5122e1193e0ba5035bec6"
+  },
+  "giso/static/js/fa_display.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350853,
+    "ast_hash": "ca3d926bc4f30fdf6a936436ab96e5cd",
+    "semantic_hash": "ca3d926bc4f30fdf6a936436ab96e5cd"
+  },
+  "giso/static/js/giso_idle.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350854,
+    "ast_hash": "26171aff7c225de462b88442c84e1eae",
+    "semantic_hash": "26171aff7c225de462b88442c84e1eae"
+  },
+  "giso/static/js/giso_notifications.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508549,
+    "ast_hash": "0881036c4a4ab720abec5f1763566e9b",
+    "semantic_hash": "0881036c4a4ab720abec5f1763566e9b"
+  },
+  "giso/static/js/hair_sale_steps.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508563,
+    "ast_hash": "460ed7acc5e63463e3e8138aa2c47e99",
+    "semantic_hash": "460ed7acc5e63463e3e8138aa2c47e99"
+  },
+  "giso/static/js/main.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508575,
+    "ast_hash": "779507d1fa3858d2b49758f33c225d22",
+    "semantic_hash": "779507d1fa3858d2b49758f33c225d22"
+  },
+  "giso/static/js/marketplace_ui.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508584,
+    "ast_hash": "a50fa92d629121d237da9f7fdca9cc7b",
+    "semantic_hash": "a50fa92d629121d237da9f7fdca9cc7b"
+  },
+  "giso/static/js/money_fa.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508599,
+    "ast_hash": "ee8b3158267d890c8a39642b198ef56c",
+    "semantic_hash": "ee8b3158267d890c8a39642b198ef56c"
+  },
+  "giso/static/js/password_meter.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350861,
+    "ast_hash": "629f5623211d71d32430eb5f859a4a90",
+    "semantic_hash": "629f5623211d71d32430eb5f859a4a90"
+  },
+  "giso/static/js/pwa_install.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.350862,
+    "ast_hash": "cb5ab1fdd95275846dd6a9a7a377bcf5",
+    "semantic_hash": "cb5ab1fdd95275846dd6a9a7a377bcf5"
+  },
+  "giso/static/js/ux_events.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508635,
+    "ast_hash": "697951c936ffdc836d5c28b04934e60b",
+    "semantic_hash": "697951c936ffdc836d5c28b04934e60b"
+  },
+  "giso/static/js/vendor/chart.umd.min.js": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508644,
+    "ast_hash": "6afba16fb9f5f302f43a2ab3285bfe52",
+    "semantic_hash": "6afba16fb9f5f302f43a2ab3285bfe52"
+  },
+  "giso/static/manifest.json": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508656,
+    "ast_hash": "3502faa78f68e80ea79424b37a3a70ec",
+    "semantic_hash": "3502faa78f68e80ea79424b37a3a70ec"
+  },
+  "giso/stepup.py": {
+    "mtime": 1789431160.0,
+    "seen": 1790449407.3508668,
+    "ast_hash": "e03346443d8d840f6d8b3c5bdebd4208",
+    "semantic_hash": "e03346443d8d840f6d8b3c5bdebd4208"
+  },
+  "giso/tests/e2e_check.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350868,
+    "ast_hash": "c376f14bfa06dda86f0dd63431a4f0b0",
+    "semantic_hash": "c376f14bfa06dda86f0dd63431a4f0b0"
+  },
+  "giso/tests/test_admin_ai_panel.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350869,
+    "ast_hash": "e9e0175cf5636595dccb16b4ead9f948",
+    "semantic_hash": "e9e0175cf5636595dccb16b4ead9f948"
+  },
+  "giso/tests/test_admin_kb_no_start.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508704,
+    "ast_hash": "399c9ae290746d54de77a5f955ea05e7",
+    "semantic_hash": "399c9ae290746d54de77a5f955ea05e7"
+  },
+  "giso/tests/test_admin_panel_verify.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508716,
+    "ast_hash": "82bdb85a3199ba1e11d07834f3466303",
+    "semantic_hash": "82bdb85a3199ba1e11d07834f3466303"
+  },
+  "giso/tests/test_admin_phrase_normalization.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508725,
+    "ast_hash": "dd7ed21db5625e0631414d683d98b22d",
+    "semantic_hash": "dd7ed21db5625e0631414d683d98b22d"
+  },
+  "giso/tests/test_ai_clean_registry.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350874,
+    "ast_hash": "14cdd139fdd10bcd23d906e54575485c",
+    "semantic_hash": "14cdd139fdd10bcd23d906e54575485c"
+  },
+  "giso/tests/test_ai_discovery.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508751,
+    "ast_hash": "7c19d6eb9d17f196a6f4c8c2fb846766",
+    "semantic_hash": "7c19d6eb9d17f196a6f4c8c2fb846766"
+  },
+  "giso/tests/test_ai_provider_ssrf.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508763,
+    "ast_hash": "fa4054d92ed4257cb18bc206e569e56b",
+    "semantic_hash": "fa4054d92ed4257cb18bc206e569e56b"
+  },
+  "giso/tests/test_ai_runtime.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508775,
+    "ast_hash": "c712d91b550f1a994b518e618a514711",
+    "semantic_hash": "c712d91b550f1a994b518e618a514711"
+  },
+  "giso/tests/test_ai_widget.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508787,
+    "ast_hash": "c5b8718cf2a267e4622392a4b91dc644",
+    "semantic_hash": "c5b8718cf2a267e4622392a4b91dc644"
+  },
+  "giso/tests/test_analysis_report_module.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508797,
+    "ast_hash": "54f5cff34aa20c07cc907b29b1eb35fd",
+    "semantic_hash": "54f5cff34aa20c07cc907b29b1eb35fd"
+  },
+  "giso/tests/test_backnav_no_start.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350881,
+    "ast_hash": "85f26bd5324b2c34cb509e9b028e049f",
+    "semantic_hash": "85f26bd5324b2c34cb509e9b028e049f"
+  },
+  "giso/tests/test_beauty_center_score_promotion.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350882,
+    "ast_hash": "09298753dac51b3e00ab0610cc8c89c3",
+    "semantic_hash": "09298753dac51b3e00ab0610cc8c89c3"
+  },
+  "giso/tests/test_beauty_centers_mvp.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508832,
+    "ast_hash": "c705e1214f339ca7b1cc4c6118405f55",
+    "semantic_hash": "c705e1214f339ca7b1cc4c6118405f55"
+  },
+  "giso/tests/test_beauty_centers_stage10_analysis_integration.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508844,
+    "ast_hash": "c341594268d2159c2829c4ed93d5fca8",
+    "semantic_hash": "c341594268d2159c2829c4ed93d5fca8"
+  },
+  "giso/tests/test_beauty_centers_stage11_ai_prompt.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508856,
+    "ast_hash": "f5b226734ffd86c8cd123c99ca7da935",
+    "semantic_hash": "f5b226734ffd86c8cd123c99ca7da935"
+  },
+  "giso/tests/test_beauty_centers_stage12_site_menu.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508868,
+    "ast_hash": "7c931f536c254872b42ae04da0c7b0e4",
+    "semantic_hash": "7c931f536c254872b42ae04da0c7b0e4"
+  },
+  "giso/tests/test_beauty_centers_stage13_home_card.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350888,
+    "ast_hash": "9b91e4bc7585839d2c43d8e55abb79d6",
+    "semantic_hash": "9b91e4bc7585839d2c43d8e55abb79d6"
+  },
+  "giso/tests/test_beauty_centers_stage14_seo.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508892,
+    "ast_hash": "b2b10ea1be6031156a1845848e2ad220",
+    "semantic_hash": "b2b10ea1be6031156a1845848e2ad220"
+  },
+  "giso/tests/test_beauty_centers_stage15_upload_security.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508902,
+    "ast_hash": "1e0d025e3a1e6428d34901f05249c85f",
+    "semantic_hash": "1e0d025e3a1e6428d34901f05249c85f"
+  },
+  "giso/tests/test_beauty_centers_stage16_system.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508916,
+    "ast_hash": "34595a8b270da9dd2a7332bf94dee199",
+    "semantic_hash": "34595a8b270da9dd2a7332bf94dee199"
+  },
+  "giso/tests/test_beauty_centers_stage1_categories.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508928,
+    "ast_hash": "a4c21e8c4ae74ad44659e57c53175b01",
+    "semantic_hash": "a4c21e8c4ae74ad44659e57c53175b01"
+  },
+  "giso/tests/test_beauty_centers_stage2_pricing.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508937,
+    "ast_hash": "7d7717e19b8aea7e9248a31b9963b7ff",
+    "semantic_hash": "7d7717e19b8aea7e9248a31b9963b7ff"
+  },
+  "giso/tests/test_beauty_centers_stage3_cards.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350895,
+    "ast_hash": "dae4e46156e52a1f4b61181900e46b15",
+    "semantic_hash": "dae4e46156e52a1f4b61181900e46b15"
+  },
+  "giso/tests/test_beauty_centers_stage4_detail.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508961,
+    "ast_hash": "7cdc2665c077f0960ee607f0edf51a7b",
+    "semantic_hash": "7cdc2665c077f0960ee607f0edf51a7b"
+  },
+  "giso/tests/test_beauty_centers_stage5_owner_tabs.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508973,
+    "ast_hash": "d27a68938e2b1af0fd0aebee56b5317d",
+    "semantic_hash": "d27a68938e2b1af0fd0aebee56b5317d"
+  },
+  "giso/tests/test_beauty_centers_stage6_chat.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3508987,
+    "ast_hash": "a9d7bc3dae7a5a16f56a04becf686033",
+    "semantic_hash": "a9d7bc3dae7a5a16f56a04becf686033"
+  },
+  "giso/tests/test_beauty_centers_stage7_notifications.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509,
+    "ast_hash": "c03324b38ff74912f6efb22985594685",
+    "semantic_hash": "c03324b38ff74912f6efb22985594685"
+  },
+  "giso/tests/test_beauty_centers_stage8_admin_bot.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350901,
+    "ast_hash": "cdfc2fbe20ad431c700c88b39685594c",
+    "semantic_hash": "cdfc2fbe20ad431c700c88b39685594c"
+  },
+  "giso/tests/test_beauty_centers_stage9_owner_bot.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509023,
+    "ast_hash": "fcf9157a8567c5e6ad17d40c30ff5456",
+    "semantic_hash": "fcf9157a8567c5e6ad17d40c30ff5456"
+  },
+  "giso/tests/test_bot_admin_analysis.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509033,
+    "ast_hash": "0758de260fc374c6d8f68bb71b32f6a9",
+    "semantic_hash": "0758de260fc374c6d8f68bb71b32f6a9"
+  },
+  "giso/tests/test_bot_analysis_panel.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509045,
+    "ast_hash": "187479783768aeae6e949fa880801197",
+    "semantic_hash": "187479783768aeae6e949fa880801197"
+  },
+  "giso/tests/test_bot_fix_group_a.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509057,
+    "ast_hash": "85b6abd235181fe89d92600363fb0bd6",
+    "semantic_hash": "85b6abd235181fe89d92600363fb0bd6"
+  },
+  "giso/tests/test_bot_group_b.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509068,
+    "ast_hash": "5e9a35e5df9dbbbe07b9c94d5c1b52e8",
+    "semantic_hash": "5e9a35e5df9dbbbe07b9c94d5c1b52e8"
+  },
+  "giso/tests/test_bot_group_c.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509078,
+    "ast_hash": "8fc004e830254910a54965f530ad197f",
+    "semantic_hash": "8fc004e830254910a54965f530ad197f"
+  },
+  "giso/tests/test_bot_hair_phase_fix.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509092,
+    "ast_hash": "3316025a3115d03061423aee823fef46",
+    "semantic_hash": "3316025a3115d03061423aee823fef46"
+  },
+  "giso/tests/test_bot_permission_fix.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509102,
+    "ast_hash": "cc49552c9dcec6bb6e7a9e11d47e050b",
+    "semantic_hash": "cc49552c9dcec6bb6e7a9e11d47e050b"
+  },
+  "giso/tests/test_bot_phase5final.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509114,
+    "ast_hash": "5add16cac4b08de6f95efbe1d7cb666a",
+    "semantic_hash": "5add16cac4b08de6f95efbe1d7cb666a"
+  },
+  "giso/tests/test_bot_runtime_regressions.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509128,
+    "ast_hash": "12c5771704f53f4c9002b176e181c6e3",
+    "semantic_hash": "12c5771704f53f4c9002b176e181c6e3"
+  },
+  "giso/tests/test_broadcasts_center.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509138,
+    "ast_hash": "52a0a8c3d7966a56b2cb46e59718da15",
+    "semantic_hash": "52a0a8c3d7966a56b2cb46e59718da15"
+  },
+  "giso/tests/test_bug_bounty_workflow.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350915,
+    "ast_hash": "50e9ee59cd0b94703a3a4d21d5ee3e0b",
+    "semantic_hash": "50e9ee59cd0b94703a3a4d21d5ee3e0b"
+  },
+  "giso/tests/test_button_collision.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509161,
+    "ast_hash": "82896db5d17dd35abd12e46f9d5d8083",
+    "semantic_hash": "82896db5d17dd35abd12e46f9d5d8083"
+  },
+  "giso/tests/test_center_detail_and_glass_nav.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509173,
+    "ast_hash": "f958ac9837298e33bec9c5d44306a394",
+    "semantic_hash": "f958ac9837298e33bec9c5d44306a394"
+  },
+  "giso/tests/test_checkpoint_backup.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509183,
+    "ast_hash": "da09e51ff63ce5f18ba13b7773d2988e",
+    "semantic_hash": "da09e51ff63ce5f18ba13b7773d2988e"
+  },
+  "giso/tests/test_cleanup_pdf_themes.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509197,
+    "ast_hash": "bcbf6155ce156664a658081aae0854ca",
+    "semantic_hash": "bcbf6155ce156664a658081aae0854ca"
+  },
+  "giso/tests/test_consultant.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509207,
+    "ast_hash": "920a3352c7ea233433e1c10be05f3ead",
+    "semantic_hash": "920a3352c7ea233433e1c10be05f3ead"
+  },
+  "giso/tests/test_current_password_and_gemini_worker.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509219,
+    "ast_hash": "a26f307f78650238cffc0c55969aec6e",
+    "semantic_hash": "a26f307f78650238cffc0c55969aec6e"
+  },
+  "giso/tests/test_detective_access_bugs.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509233,
+    "ast_hash": "5bb2d28638b52940d43b97f0121b14d2",
+    "semantic_hash": "5bb2d28638b52940d43b97f0121b14d2"
+  },
+  "giso/tests/test_display_checks.js": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509243,
+    "ast_hash": "0747881bfee8c11fe514dccefbe9df13",
+    "semantic_hash": "0747881bfee8c11fe514dccefbe9df13"
+  },
+  "giso/tests/test_edu_giso_remote_management.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509257,
+    "ast_hash": "55bcc0c08148c83f5b64db36f6dbb486",
+    "semantic_hash": "55bcc0c08148c83f5b64db36f6dbb486"
+  },
+  "giso/tests/test_final_fixes.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509266,
+    "ast_hash": "aac1f03fcb8f6a99846ace7d441553af",
+    "semantic_hash": "aac1f03fcb8f6a99846ace7d441553af"
+  },
+  "giso/tests/test_fix_phase_ab.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509278,
+    "ast_hash": "2f9b5dd72c75df9143535731d4d465fd",
+    "semantic_hash": "2f9b5dd72c75df9143535731d4d465fd"
+  },
+  "giso/tests/test_fix_phase_p0p1p2.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509288,
+    "ast_hash": "8827cde6cc261023bb638b61dff7a1b2",
+    "semantic_hash": "8827cde6cc261023bb638b61dff7a1b2"
+  },
+  "giso/tests/test_gemini_proxy_hardening.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509302,
+    "ast_hash": "01d6f8ce23f465c3ee76d298d3a33db8",
+    "semantic_hash": "01d6f8ce23f465c3ee76d298d3a33db8"
+  },
+  "giso/tests/test_giso_recovery.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509312,
+    "ast_hash": "3335f4721e9d54e82020b16102316cb6",
+    "semantic_hash": "3335f4721e9d54e82020b16102316cb6"
+  },
+  "giso/tests/test_hair_analysis_final.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509326,
+    "ast_hash": "6ae8db3df8894464d38ac223942609a8",
+    "semantic_hash": "6ae8db3df8894464d38ac223942609a8"
+  },
+  "giso/tests/test_hair_sale_back.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509336,
+    "ast_hash": "a4172d3131c9b3f10ee7b9d31038748f",
+    "semantic_hash": "a4172d3131c9b3f10ee7b9d31038748f"
+  },
+  "giso/tests/test_hair_sale_result_visibility.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509347,
+    "ast_hash": "56d15c14163f2d5e1a2ae94414a8c6c3",
+    "semantic_hash": "56d15c14163f2d5e1a2ae94414a8c6c3"
+  },
+  "giso/tests/test_initial_spend_credit.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509362,
+    "ast_hash": "e5160ef1c4f47c1eb617927f99801d35",
+    "semantic_hash": "e5160ef1c4f47c1eb617927f99801d35"
+  },
+  "giso/tests/test_maintenance_timer_login_logo.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509371,
+    "ast_hash": "dd522e046fb07f710ec0f39118e8802d",
+    "semantic_hash": "dd522e046fb07f710ec0f39118e8802d"
+  },
+  "giso/tests/test_marketplace_buyer_photo_ui.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509383,
+    "ast_hash": "9562ec8690f0c63fa895bc6fd1b917c7",
+    "semantic_hash": "9562ec8690f0c63fa895bc6fd1b917c7"
+  },
+  "giso/tests/test_marketplace_notification_delivery.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509398,
+    "ast_hash": "84bcd6e023e92a7a6a39196d0c8eaf1f",
+    "semantic_hash": "84bcd6e023e92a7a6a39196d0c8eaf1f"
+  },
+  "giso/tests/test_marketplace_phase2_static.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509407,
+    "ast_hash": "6e63675fa06411a6519a9f66e5ea5d46",
+    "semantic_hash": "6e63675fa06411a6519a9f66e5ea5d46"
+  },
+  "giso/tests/test_menu_role_restructure.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350942,
+    "ast_hash": "b2efd839d2a013c9926b60383935fa84",
+    "semantic_hash": "b2efd839d2a013c9926b60383935fa84"
+  },
+  "giso/tests/test_monitoring_master_optimization.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350943,
+    "ast_hash": "1e25b91ff74f87d73fc085dd1b8e24b6",
+    "semantic_hash": "1e25b91ff74f87d73fc085dd1b8e24b6"
+  },
+  "giso/tests/test_monitoring_reset.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350944,
+    "ast_hash": "f3ef2fe1ecaabc551a9a369b0ae4030d",
+    "semantic_hash": "f3ef2fe1ecaabc551a9a369b0ae4030d"
+  },
+  "giso/tests/test_notifications_module.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509452,
+    "ast_hash": "5915889490abfe76cc0187fe1f9a5328",
+    "semantic_hash": "5915889490abfe76cc0187fe1f9a5328"
+  },
+  "giso/tests/test_p0_wallet_referral_retirement.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509462,
+    "ast_hash": "c5a21c0edfc41c41b1d7cd292c293315",
+    "semantic_hash": "c5a21c0edfc41c41b1d7cd292c293315"
+  },
+  "giso/tests/test_panel_authz_hair_shop.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509476,
+    "ast_hash": "ebb3b79947cf581a37aaddbeb2508c74",
+    "semantic_hash": "ebb3b79947cf581a37aaddbeb2508c74"
+  },
+  "giso/tests/test_panel_csrf_guard.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509486,
+    "ast_hash": "c78148e1e06b2faf2e2d8623c7a8e550",
+    "semantic_hash": "c78148e1e06b2faf2e2d8623c7a8e550"
+  },
+  "giso/tests/test_panel_phase5.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.35095,
+    "ast_hash": "6dd52cc702f0763154d668bd73587875",
+    "semantic_hash": "6dd52cc702f0763154d668bd73587875"
+  },
+  "giso/tests/test_panel_phase51.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350951,
+    "ast_hash": "35fe4892347f0bbc2ffd42b79caf9898",
+    "semantic_hash": "35fe4892347f0bbc2ffd42b79caf9898"
+  },
+  "giso/tests/test_panel_phase52.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509521,
+    "ast_hash": "0f7af8c12ff0db879186cd45cd8940bb",
+    "semantic_hash": "0f7af8c12ff0db879186cd45cd8940bb"
+  },
+  "giso/tests/test_phase1_user_edit_limits.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350953,
+    "ast_hash": "e2854d65119f6b72f152799255b34db6",
+    "semantic_hash": "e2854d65119f6b72f152799255b34db6"
+  },
+  "giso/tests/test_phase2_credit_panels.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509545,
+    "ast_hash": "42e9f4556f34fdec4fd76825f6c62b35",
+    "semantic_hash": "42e9f4556f34fdec4fd76825f6c62b35"
+  },
+  "giso/tests/test_phase2_maintenance_admin_entry.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509557,
+    "ast_hash": "11be1daa570ed43e73f493e71afed407",
+    "semantic_hash": "11be1daa570ed43e73f493e71afed407"
+  },
+  "giso/tests/test_phase2_modular_units.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350957,
+    "ast_hash": "321cd30ad95e85e2b188ab6ffc51e699",
+    "semantic_hash": "321cd30ad95e85e2b188ab6ffc51e699"
+  },
+  "giso/tests/test_phase3_analysis_hub.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350958,
+    "ast_hash": "96fe5ad907e1c1dd63484de3d44ffd8e",
+    "semantic_hash": "96fe5ad907e1c1dd63484de3d44ffd8e"
+  },
+  "giso/tests/test_phase3_finance_center.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350959,
+    "ast_hash": "14a22fbc20a7574363c19c77e46c8b11",
+    "semantic_hash": "14a22fbc20a7574363c19c77e46c8b11"
+  },
+  "giso/tests/test_phase4_analysis_localization_archive.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509605,
+    "ast_hash": "89ab02e6e5c77b54e58f021a7fd01896",
+    "semantic_hash": "89ab02e6e5c77b54e58f021a7fd01896"
+  },
+  "giso/tests/test_phase4_beauty_owner_ui.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509614,
+    "ast_hash": "6758a986f0d3527f8f585b4848a48e40",
+    "semantic_hash": "6758a986f0d3527f8f585b4848a48e40"
+  },
+  "giso/tests/test_phase4_temp_maintenance_links.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509626,
+    "ast_hash": "2178f2a4ba335ee9dde1f481950273cc",
+    "semantic_hash": "2178f2a4ba335ee9dde1f481950273cc"
+  },
+  "giso/tests/test_phase5_analysis_products_no_download.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350964,
+    "ast_hash": "bb257700348ee7cdfaa64fed468edf40",
+    "semantic_hash": "bb257700348ee7cdfaa64fed468edf40"
+  },
+  "giso/tests/test_phase5_shop_order_edit.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350965,
+    "ast_hash": "21c6822f9d6b89cd21997604bcd70065",
+    "semantic_hash": "21c6822f9d6b89cd21997604bcd70065"
+  },
+  "giso/tests/test_phase6_profile_security.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509662,
+    "ast_hash": "e05de8a3f1ab26aeee71d73ef03bfdcf",
+    "semantic_hash": "e05de8a3f1ab26aeee71d73ef03bfdcf"
+  },
+  "giso/tests/test_phase_behavior_tracking.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509674,
+    "ast_hash": "bc35241cb67f9753484ca6de98c3d6b5",
+    "semantic_hash": "bc35241cb67f9753484ca6de98c3d6b5"
+  },
+  "giso/tests/test_phase_broadcast_campaigns.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509686,
+    "ast_hash": "a4cf44f0a6981d8faeb41277352bbe52",
+    "semantic_hash": "a4cf44f0a6981d8faeb41277352bbe52"
+  },
+  "giso/tests/test_phase_monitoring_overview_ai.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509696,
+    "ast_hash": "cdbd6b918865bb19dab44275883c370d",
+    "semantic_hash": "cdbd6b918865bb19dab44275883c370d"
+  },
+  "giso/tests/test_phase_ui_smoke.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350971,
+    "ast_hash": "67f5c2897053123846daa768567638fe",
+    "semantic_hash": "67f5c2897053123846daa768567638fe"
+  },
+  "giso/tests/test_plan_redesign.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350972,
+    "ast_hash": "0b9f387b0ed319f51c95c776c203a2c5",
+    "semantic_hash": "0b9f387b0ed319f51c95c776c203a2c5"
+  },
+  "giso/tests/test_proxy_fast_check.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509731,
+    "ast_hash": "8e59755d2fecada6d4002f20fa669cae",
+    "semantic_hash": "8e59755d2fecada6d4002f20fa669cae"
+  },
+  "giso/tests/test_quick_solution.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509743,
+    "ast_hash": "24a488871dc3b03a2f69823c9213bdf2",
+    "semantic_hash": "24a488871dc3b03a2f69823c9213bdf2"
+  },
+  "giso/tests/test_report_dual_cta.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509753,
+    "ast_hash": "71346b8ca9ad9bbc629e6ad95945e28c",
+    "semantic_hash": "71346b8ca9ad9bbc629e6ad95945e28c"
+  },
+  "giso/tests/test_restart_flag.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509765,
+    "ast_hash": "b21b805d56159ec3775b0e17cffcadb6",
+    "semantic_hash": "b21b805d56159ec3775b0e17cffcadb6"
+  },
+  "giso/tests/test_review_removal.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350978,
+    "ast_hash": "3e970afb87f008c7971ad56d62a7bb37",
+    "semantic_hash": "3e970afb87f008c7971ad56d62a7bb37"
+  },
+  "giso/tests/test_safe_profile_form_defaults.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350979,
+    "ast_hash": "8d4a28201441d6620330c8a642c933bd",
+    "semantic_hash": "8d4a28201441d6620330c8a642c933bd"
+  },
+  "giso/tests/test_security_permissions_fix.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.35098,
+    "ast_hash": "a02247548b657de61ad8d9abf1553418",
+    "semantic_hash": "a02247548b657de61ad8d9abf1553418"
+  },
+  "giso/tests/test_send_long_message.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509815,
+    "ast_hash": "160190530e5ff8f8901b8511029ddf53",
+    "semantic_hash": "160190530e5ff8f8901b8511029ddf53"
+  },
+  "giso/tests/test_sensitive_forgot_password.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509824,
+    "ast_hash": "63b3641e055b00f6f0526813b2e382a4",
+    "semantic_hash": "63b3641e055b00f6f0526813b2e382a4"
+  },
+  "giso/tests/test_sensitive_register.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509834,
+    "ast_hash": "ba8af4c35ea677412eb73df178b78acc",
+    "semantic_hash": "ba8af4c35ea677412eb73df178b78acc"
+  },
+  "giso/tests/test_seo_background.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509848,
+    "ast_hash": "6a8e64d2fb585e5d416ed2263857afa5",
+    "semantic_hash": "6a8e64d2fb585e5d416ed2263857afa5"
+  },
+  "giso/tests/test_shop_buy_phase.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350986,
+    "ast_hash": "e7a5020a8833e84732b6c85f7787dace",
+    "semantic_hash": "e7a5020a8833e84732b6c85f7787dace"
+  },
+  "giso/tests/test_shop_layout_phase.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350987,
+    "ast_hash": "1dda604c954aa516f4d90586ec730035",
+    "semantic_hash": "1dda604c954aa516f4d90586ec730035"
+  },
+  "giso/tests/test_shop_phase_a.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509884,
+    "ast_hash": "e1c4b9cce9c330eaa00ab5e9802710fa",
+    "semantic_hash": "e1c4b9cce9c330eaa00ab5e9802710fa"
+  },
+  "giso/tests/test_shop_phase_a2.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509893,
+    "ast_hash": "ed3f5bd8aa7dd28ccb0ab9b903482602",
+    "semantic_hash": "ed3f5bd8aa7dd28ccb0ab9b903482602"
+  },
+  "giso/tests/test_shop_phase_b.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509905,
+    "ast_hash": "a662c28d8b37a61ee76a5bc87cf5397a",
+    "semantic_hash": "a662c28d8b37a61ee76a5bc87cf5397a"
+  },
+  "giso/tests/test_shop_ui_fix.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350992,
+    "ast_hash": "770a772b67e218abbea2010eab1593ee",
+    "semantic_hash": "770a772b67e218abbea2010eab1593ee"
+  },
+  "giso/tests/test_site_base_url.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350993,
+    "ast_hash": "a0aa04bb74315087b6612cbca7bf2c98",
+    "semantic_hash": "a0aa04bb74315087b6612cbca7bf2c98"
+  },
+  "giso/tests/test_special_site_role.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.350994,
+    "ast_hash": "e9c01889cdd301557dfb136bc5e10024",
+    "semantic_hash": "e9c01889cdd301557dfb136bc5e10024"
+  },
+  "giso/tests/test_spend_mission_expansion.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509953,
+    "ast_hash": "9fbbcb41c17de92634fdfcb512ea6a27",
+    "semantic_hash": "9fbbcb41c17de92634fdfcb512ea6a27"
+  },
+  "giso/tests/test_suspicious_login_alerts.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3509994,
+    "ast_hash": "39ace836a4075042102b1b4560c01f31",
+    "semantic_hash": "39ace836a4075042102b1b4560c01f31"
+  },
+  "giso/tests/test_two_layer_storage.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510003,
+    "ast_hash": "48105fd3c5b651cc780e032ef12c0255",
+    "semantic_hash": "48105fd3c5b651cc780e032ef12c0255"
+  },
+  "giso/tests/test_user_profile_site_bot_sync.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510015,
+    "ast_hash": "8190e6d5764df252c203d5c9febd2890",
+    "semantic_hash": "8190e6d5764df252c203d5c9febd2890"
+  },
+  "giso/tests/test_validate_image.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.351003,
+    "ast_hash": "00fe73e9610382babaa63c630ac0d7d0",
+    "semantic_hash": "00fe73e9610382babaa63c630ac0d7d0"
+  },
+  "giso/tests/test_wallet_balepay.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.351004,
+    "ast_hash": "8cfa9ac7dd46fd7c65744761fafd012a",
+    "semantic_hash": "8cfa9ac7dd46fd7c65744761fafd012a"
+  },
+  "giso/tests/test_wallet_unified.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.351005,
+    "ast_hash": "aeb3194b30edd9598acac0832b10da46",
+    "semantic_hash": "aeb3194b30edd9598acac0832b10da46"
+  },
+  "giso/user_profile_service.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510063,
+    "ast_hash": "006b96e80640ccad16aad49c87fec3a9",
+    "semantic_hash": "006b96e80640ccad16aad49c87fec3a9"
+  },
+  "giso/wallet.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510075,
+    "ast_hash": "55b62cc33dbe18ebaa957f0088cbdbe8",
+    "semantic_hash": "55b62cc33dbe18ebaa957f0088cbdbe8"
+  },
+  "giso/wallet_balepay.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510084,
+    "ast_hash": "d85303efbd551820c768348727a7642e",
+    "semantic_hash": "d85303efbd551820c768348727a7642e"
+  },
+  "giso/wallet_core.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510096,
+    "ast_hash": "b605295d8e00eee8f8bee1a42364c5f2",
+    "semantic_hash": "b605295d8e00eee8f8bee1a42364c5f2"
+  },
+  "giso/wallet_missions.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510108,
+    "ast_hash": "ef3569436ab55692c9d5837d911b5031",
+    "semantic_hash": "ef3569436ab55692c9d5837d911b5031"
+  },
+  "giso/wallet_receipts.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510118,
+    "ast_hash": "611f2712203a8c3b252dd875bbc3bd30",
+    "semantic_hash": "611f2712203a8c3b252dd875bbc3bd30"
+  },
+  "giso/widget_service.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510132,
+    "ast_hash": "e76482a12ef1fa05b7fc7724854d39ff",
+    "semantic_hash": "e76482a12ef1fa05b7fc7724854d39ff"
+  },
+  "giso/wsgi.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510141,
+    "ast_hash": "f54b92e6f01ff2ab314d7968fa43878f",
+    "semantic_hash": "f54b92e6f01ff2ab314d7968fa43878f"
+  },
+  "main.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510153,
+    "ast_hash": "acd73201996cfdca4dbdb6efeac4835c",
+    "semantic_hash": "acd73201996cfdca4dbdb6efeac4835c"
+  },
+  "maintenance_access.py": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510165,
+    "ast_hash": "21eead945cfc1bc247b7863f3361c556",
+    "semantic_hash": "21eead945cfc1bc247b7863f3361c556"
+  },
+  "pyrightconfig.json": {
+    "mtime": 1789429460.0,
+    "seen": 1790449407.3510177,
+    "ast_hash": "73ccbba1c0a03097475e87e2d7f8976c",
+    "semantic_hash": "73ccbba1c0a03097475e87e2d7f8976c"
+  },
+  "web/app.py": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.3510187,
+    "ast_hash": "ade9a5c5e254b1d9423ba31fccfdaa61",
+    "semantic_hash": "ade9a5c5e254b1d9423ba31fccfdaa61"
+  },
+  "web/auth.py": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.35102,
+    "ast_hash": "467fd7683e39a467da4a3e8de0b7af74",
+    "semantic_hash": "467fd7683e39a467da4a3e8de0b7af74"
+  },
+  "web/config.py": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.351021,
+    "ast_hash": "b0701a5e5a12b6e831fc267b5b20b3a1",
+    "semantic_hash": "b0701a5e5a12b6e831fc267b5b20b3a1"
+  },
+  "web/models.py": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.351022,
+    "ast_hash": "4bfff4dbb74518ede0ec24be963a0ced",
+    "semantic_hash": "4bfff4dbb74518ede0ec24be963a0ced"
+  },
+  "web/static/js/celebration.js": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.3510234,
+    "ast_hash": "369bedd1009382a77eb37b0e0fe203ed",
+    "semantic_hash": "369bedd1009382a77eb37b0e0fe203ed"
+  },
+  "web/static/js/main.js": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.3510244,
+    "ast_hash": "68bffb668e562b4568e3220fee7bdac2",
+    "semantic_hash": "68bffb668e562b4568e3220fee7bdac2"
+  },
+  "web/web_ai/__init__.py": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.3510256,
+    "ast_hash": "554d33e86ce1d167b55aa6b76502bdeb",
+    "semantic_hash": "554d33e86ce1d167b55aa6b76502bdeb"
+  },
+  "web/web_ai/ai_engine.py": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.351027,
+    "ast_hash": "c39e97f032fad918d0edfdfc3db4b67a",
+    "semantic_hash": "c39e97f032fad918d0edfdfc3db4b67a"
+  },
+  "web/web_ai/ai_gateway.py": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.351028,
+    "ast_hash": "2e8c5d7c366eed082f9c85ab80897166",
+    "semantic_hash": "2e8c5d7c366eed082f9c85ab80897166"
+  },
+  "web/web_ai/ai_monitor.py": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.3510292,
+    "ast_hash": "692c1c896651d4e321124cafc615c4e9",
+    "semantic_hash": "692c1c896651d4e321124cafc615c4e9"
+  },
+  "web/web_ai/guest_analyzer.py": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.3510306,
+    "ast_hash": "d2c79ad9f873c59fc9c676f5a083898b",
+    "semantic_hash": "d2c79ad9f873c59fc9c676f5a083898b"
+  },
+  "web/web_ai/guest_interviewer.py": {
+    "mtime": 1789429492.0,
+    "seen": 1790449407.3510315,
+    "ast_hash": "1edeebfddab33cc77b650a802aee6ac3",
+    "semantic_hash": "1edeebfddab33cc77b650a802aee6ac3"
+  }
+}
