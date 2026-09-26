@@ -1,37 +1,90 @@
-# 💎 پیش‌نمایش هوشمند ابرو — شبیه‌ساز میکروبلیدینگ
+# 💎 استودیو تخصصی PMU عسل رجبی — پیش‌نمایش هوشمند زیبایی
 
-وب‌اپ تک‌صفحه‌ای **Next.js 14 + TypeScript + Tailwind** (RTL، فارسی، فونت وزیرمتن) که به کاربر
-اجازه می‌دهد مدل و رنگ ابرو را انتخاب کند، عکس چهره‌اش را آپلود کند و پیش‌نمایش میکروبلیدینگ را
-با هوش مصنوعی ببیند.
+پلتفرم **چندخدمتی ویزاردی Next.js 14 + TypeScript + Tailwind** (RTL، فارسی، فونت وزیرمتن) برای
+استودیو آرایش دائم عسل رجبی در مشهد. کاربر خدمت (ابرو / لب / خط چشم / ریمو) را انتخاب می‌کند،
+تکنیک و سلیقهٔ خود را مشخص می‌کند، عکس چهره‌اش را آپلود می‌کند، پیش‌نمایش هوشمند را می‌بیند و
+نوبت رزرو می‌کند. یک دستیار هوشمند چت (Feature-gated) و یک پنل مدیریت کامل هم دارد.
+
+> اسناد تکمیلی: `start.md` (فازها و نیازمندی‌های محصول) و `graphify-out/GRAPH_REPORT.md`
+> (نقشهٔ ساختار کد — ۵۴۱ گره، ۱۰۰۴ یال، ۲۶ جامعه).
 
 ```
 beauty-preview/
 ├── app/
-│   ├── layout.tsx              ← RTL + فونت وزیرمتن (لوکال) + متادیتا
-│   ├── page.tsx                ← تنها صفحه: ۵ مرحله (مدل، رنگ، عکس، ساخت، نتیجه)
-│   ├── globals.css             ← تم تیره/لوکس، کلاس‌های مشترک (btn-gold، tooltip…)
-│   ├── fonts/                  ← Vazirmatn (self-hosted) + مجوز OFL
-│   ├── admin/                  ← پنل مدیریت: ورود + داشبورد (آمار، تصاویر)
-│   ├── api/generate/route.ts   ← روت اصلی: اعتبارسنجی + زنجیرهٔ پروایدرها
-│   ├── api/track/route.ts      ← ثبت بازدیدِ صفحهٔ اصلی (برای آمار پنل)
-│   ├── api/admin/              ← login + stats + upload-brow + upload-hero
-│   └── api/providers/route.ts  ← بررسی سلامت پروایدرها/کلیدها (?check=1)
-└── src/                        ← ⚠️ نام پوشه عمداً src است (نه lib): الگوی lib/
-    │                              در .gitignore ریشهٔ ریپو هر پوشهٔ lib/ را نادیده می‌گیرد
-    ├── options.ts              ← ۴ مدل ابرو، ۶ رنگ، پیام/لینک واتساپ، پرامپت انگلیسی
-    ├── brow-shapes.ts          ← مولد تصاویر SVG ابرو (بدون چهره، پس‌زمینهٔ شفاف)
-    ├── stats.ts                ← خواندن/نوشتن آمار در data/stats.json
-    ├── admin-auth.ts           ← توکن امضاشدهٔ پنل (ADMIN_PASSWORD + sha256)
-    ├── site-images.ts          ← ذخیره/حذف تصاویر آپلودی (نام‌های ثابت) + سرو امن
-    ├── admin-client.ts         ← ابزار سمت مرورگر پنل (توکن، fetch، تاریخ فارسی)
-    └── providers/
-        ├── index.ts            ← زنجیرهٔ جایگزین: Runware → SiliconFlow → AIMLAPI → Pollinations
-        ├── http.ts             ← ابزار مشترک: تجزیهٔ data URI، timeout، خواندن امن نتیجه
-        ├── runware.ts          ← آرایهٔ JSON، دو مرحله: imageUpload سپس imageInference
-        ├── siliconflow.ts      ← OpenAI SDK: images.edit با Qwen/Qwen-Image-Edit
-        ├── aimlapi.ts          ← image_url: flux/kontext-pro/image-to-image
-        └── pollinations.ts     ← OpenAI SDK: images.edits با مدل kontext
+│   ├── layout.tsx                    ← RTL + فونت وزیرمتن (لوکال) + متادیتا
+│   ├── page.tsx                      ← تنها صفحه: ویزارد ۶ مرحله‌ای (۰ تا ۵) + AiChatWidget
+│   ├── globals.css                   ← تم تیره/لوکس، کلاس‌های مشترک (card، btn-gold، btn-whatsapp…)
+│   ├── fonts/                        ← Vazirmatn (self-hosted) + مجوز OFL
+│   ├── admin/                        ← پنل مدیریت: page.tsx (ورود) + dashboard/page.tsx (داشبورد)
+│   └── api/
+│       ├── generate/route.ts         ← روت اصلی: اعتبارسنجی + زنجیرهٔ پروایدر + فشرده‌سازی
+│       ├── consult/route.ts          ← تحلیل چهره و نسخهٔ مشاوره (پشتیبان هوشمند)
+│       ├── appointments/route.ts     ← ثبت لید/نوبت + ذخیرهٔ تصاویر قبل/بعد
+│       ├── chat/route.ts             ← دستیار هوشمند غزل (OpenAI SDK)
+│       ├── plan/route.ts             ← اطلاعات سالن و پلن (bronze/silver/gold)
+│       ├── track/route.ts            ← ثبت بازدیدِ صفحهٔ اصلی (برای آمار پنل)
+│       ├── providers/route.ts        ← بررسی سلامت پروایدرها/کلیدها (?check=1)
+│       ├── site-image/[...path]/route.ts  ← سرو امن تصاویر آپلودی (جایگزین مستقیم public/)
+│       └── admin/                    ← login, stats, leads, leads/[id], chat-logs,
+│                                       tenant, upload-brow, upload-hero, upload-reference
+├── src/
+│   ├── options.ts                    ← ۴ سبک ابرو، ۶ رنگ، واتساپ/اینستاگرام، پرامپت انگلیسی
+│   ├── brow-shapes.ts                ← مولد تصاویر SVG ابرو/لب/خط چشم (دمو، پس‌زمینهٔ شفاف)
+│   ├── techniques.ts                 ← تکنیک‌های هر خدمت (۴ ابرو، ۴ لب، ۳ خط چشم)
+│   ├── services-content.ts           ← محتوای ۴ خدمت: مدت زمان، ماندگاری، افراد مناسب، مراقبت
+│   ├── style-dna.ts                  ← تزریق پاسخ‌های سلیقه‌ای در پرامپت (Style DNA)
+│   ├── plan-config.ts                ← ماتریس امکانات پلن‌ها (برنزی/نقره‌ای/طلایی)
+│   ├── db.ts                         ← دیتابیس SQLite (better-sqlite3): leads, chat_logs, tenant_settings
+│   ├── storage.ts                    ← ذخیرهٔ عکس کاربر و نتیجه در public/uploads/leads/[id]/
+│   ├── stats.ts                      ← خواندن/نوشتن آمار در data/stats.json
+│   ├── image-compress.ts             ← فشرده‌سازی خروجی (PNG → JPEG q90، fail-open)
+│   ├── admin-auth.ts                 ← توکن امزاشدهٔ پنل (ADMIN_PASSWORD + sha256)
+│   ├── admin-client.ts               ← ابزار سمت مرورگر پنل (توکن، fetch، تاریخ فارسی)
+│   ├── site-images.ts                ← ذخیره/حذف تصاویر آپلودی (نام‌های ثابت) + سرو امن
+│   ├── providers/
+│   │   ├── index.ts                  ← زنجیرهٔ پروایدرها: فقط Cloudflare؛ سهمیه تمام‌شده → demo
+│   │   ├── cloudflare.ts             ← FLUX.2 Klein 4B، تا ۳ حساب مستقل
+│   │   ├── openrouter.ts / pollinations.ts  ← پروایدرهای جایگزین
+│   │   ├── http.ts                   ← ابزار مشترک: تجزیهٔ data URI، timeout، خواندن امن نتیجه
+│   │   └── types.ts                  ← قرارداد Provider / ProviderInput / AttemptLog
+│   └── lib/vision/                   ← بینایی ماشین سمت کلاینت (MediaPipe + Canvas)
+│       ├── face-landmarker.ts        ← بارگذاری FaceLandmarker
+│       ├── landmarks-extractor.ts    ← استخراج لندمارک‌های صورت
+│       └── canvas-composite.ts       ← Hard Composite سمت کلاینت (دو مرحلهٔ فدر)
+├── src/components/
+│   ├── StepIndicator.tsx             ← شمارهٔ مراحل ویزارد (قابل کلیک)
+│   ├── AiChatWidget.tsx              ← دستیار شناور غزل (Feature gate با پلن)
+│   └── wizard/
+│       ├── HeroStep.tsx              ← مرحلهٔ ۰: هیرو + شعار + CTA
+│       ├── ServiceSelectStep.tsx     ← مرحلهٔ ۱: انتخاب خدمت (۴ کارت)
+│       ├── PreferencesStep.tsx       ← مرحلهٔ ۲: تکنیک + ۳ سؤال سلیقه‌ای
+│       ├── UploadStep.tsx            ← مرحلهٔ ۳: آپلود عکس + بازخورد نور/وضوح
+│       ├── PreviewStep.tsx           ← مرحلهٔ ۴: تولید پیش‌نمایش + اسلایدر قبل/بعد
+│       ├── BookingStep.tsx           ← مرحلهٔ ۵: فرم رزرو + چک‌باکس‌های ایمنی
+│       ├── SafetyCheckStep.tsx       ← ۳ سؤال ایمنی پزشکی (در BookingStep)
+│       └── ConsultStep.tsx           ← نمایش نتیجهٔ تحلیل چهره (از /api/consult)
+├── scripts/
+│   ├── mock-providers.mjs            ← سرور mock پروایدرها
+│   ├── test-chain.mjs                ← تست زنجیرهٔ پروایدرها
+│   ├── test-admin.mjs                ← تست پنل مدیریت
+│   └── reminder.mjs                  ← اسکریپت CRON یادآوری لیدها
+├── data/                             ← stats.json (آمار) + app.sqlite (CRM) + leads.json
+├── public/
+│   ├── eyebrows/ lips/ eyeliner/     ← تصاویر نمونهٔ تکنیک‌ها
+│   ├── hero/                         ← تصویر هیرو
+│   ├── services/                     ← تصاویر ۴ خدمت اصلی
+│   └── uploads/leads/[id]/           ← عکس قبل/بعد هر مراجع (original.png + result.jpg)
+├── schema.prisma                     ← طرح‌نمای Prisma (مدل Lead — مرجع؛ دیتابیس فعلی better-sqlite3)
+├── requirements.txt                  ← نیازمندی‌های پایتونِ موتور بینایی (FastAPI/OpenCV/MediaPipe)
+├── next.config.mjs                   ← distDir (NEXT_DIST_DIR) + remotePatterns
+├── tailwind.config.ts · postcss.config.mjs · tsconfig.json
+└── package.json                      ← next 14.2.35, react 18, openai, sharp, better-sqlite3,
+                                       @mediapipe/tasks-vision, react-compare-slider
 ```
+
+> ⚠️ نام پوشهٔ `src` عمداً `src` است (نه `lib`): الگوی `lib/` در `.gitignore` ریشهٔ ریپو هر
+> پوشهٔ `lib/` را نادیده می‌گیرد. ماژول‌های بینایی کلاینت در `src/lib/vision/` هستند و با
+> دو خط `!src/lib/` و `!src/lib/**` در `.gitignore` از این نادیده‌گرفتن مستثنا شده‌اند.
 
 ---
 
@@ -40,18 +93,22 @@ beauty-preview/
 ```bash
 cd beauty-preview
 npm install
-cp .env.example .env.local     # کلیدهای API را داخلش بگذارید (یا در .env)
 npm run dev                    # http://localhost:3000
 ```
 
-اسکریپت‌های دیگر:
+> نکته: فایل `.env.example` در پروژه وجود ندارد. کلیدها را مستقیماً در `.env.local` (یا `.env`)
+> قرار دهید. این فایل‌ها داخل `.gitignore` هستند و در ریپو کامیت نمی‌شوند.
+
+اسکریپت‌های موجود (`package.json`):
 
 ```bash
-npm run build       # ساخت نسخهٔ production
-npm start           # اجرای نسخهٔ ساخته‌شده روی پورت ۳۰۰۰
-npm run type-check  # بررسی تایپ‌ها (tsc --noEmit)
-npm run test:chain  # تست زنجیرهٔ جایگزین با سرور mock (بدون مصرف اعتبار)
-npm run test:admin  # تست پنل مدیریت (۴۰ بررسی؛ آمار و تصاویر واقعی را دست‌نخورده می‌گذارد)
+npm run dev             # next dev -H 0.0.0.0 -p 3000
+npm run build           # ساخت نسخهٔ production
+npm start               # اجرای نسخهٔ ساخته‌شده روی پورت ۳۰۰۰
+npm run type-check      # بررسی تایپ‌ها (tsc --noEmit)
+npm run mock:providers  # بالا آوردن سرور mock پروایدرها
+npm run test:chain      # تست زنجیرهٔ پروایدرها با سرور mock (بدون مصرف اعتبار)
+npm run test:admin      # تست پنل مدیریت (آمار و تصاویر واقعی را دست‌نخورده می‌گذارد)
 ```
 
 ### ⚠️ مهم — کلیدها را کامیت نکنید
@@ -65,8 +122,8 @@ npm run test:admin  # تست پنل مدیریت (۴۰ بررسی؛ آمار و 
   .env.development.local  →  .env.local  →  .env.development  →  .env
   ```
 
-  ⚠️ اگر متغیری را در فایل بالاتر **خالی** بگذارید (مثلاً `RUNWARE_API_KEY=` در `.env.local`)،
-  همان مقدار خالی بر `.env` غلبه می‌کند و پروایدر غیرفعال می‌شود. پس کلیدها را فقط در **یک**
+  ⚠️ اگر متغیری را در فایل بالاتر **خالی** بگذارید (مثلاً `CLOUDFLARE_API_TOKEN_1=` در `.env.local`)،
+  همان مقدار خالی بر `.env` غلبه می‌کند و آن پروایدر غیرفعال می‌شود. پس کلیدها را فقط در **یک**
   فایل مقدار بدهید.
 
 ### تست سلامت کلیدها (درخواست واقعی)
@@ -76,6 +133,7 @@ npm run test:admin  # تست پنل مدیریت (۴۰ بررسی؛ آمار و 
 ```bash
 curl "http://localhost:3000/api/providers?check=1"      # تست واقعی همهٔ پروایدرها
 curl "http://localhost:3000/api/providers"              # فقط وضعیت (بدون مصرف اعتبار)
+curl "http://localhost:3000/api/providers?check=1&timeout=30000"   # مهلت هر بررسی
 ```
 
 خروجی نمونه:
@@ -84,10 +142,9 @@ curl "http://localhost:3000/api/providers"              # فقط وضعیت (ب�
 {
   "ok": true,
   "demo": false,
-  "summary": "2 از 4 پروایدر سالم است",
+  "summary": "1 از 1 پروایدر سالم است",
   "providers": [
-    { "id": "runware", "label": "Runware", "envKey": "RUNWARE_API_KEY", "configured": true, "ok": true, "ms": 4210 },
-    { "id": "siliconflow", "label": "SiliconFlow", "envKey": "SILICONFLOW_API_KEY", "configured": true, "ok": false, "ms": 30012, "error": "..." }
+    { "id": "cloudflare", "label": "Cloudflare", "envKey": "CLOUDFLARE_API_TOKEN_1", "configured": true, "ok": true, "ms": 4210 }
   ]
 }
 ```
@@ -97,18 +154,23 @@ curl "http://localhost:3000/api/providers"              # فقط وضعیت (ب�
 
 ---
 
-## ۲) کلیدهای API و زنجیرهٔ جایگزین
+## ۲) کلیدهای API و زنجیرهٔ پروایدرها
 
 همهٔ فراخوانی‌ها **فقط سمت سرور** در `app/api/generate/route.ts` انجام می‌شود و هیچ کلیدی به
-مرورگر نمی‌رود. پروایدرها به این ترتیب امتحان می‌شوند؛ اگر کلیدی خالی باشد آن پروایدر رد می‌شود
-(skip) و اگر خطا بدهد، پروایدر بعدی امتحان می‌شود:
+مرورگر نمی‌رود. زنجیرهٔ فعلی **تک‌پروایدر** است (`src/providers/index.ts`):
 
 | # | پروایدر | متغیر محیطی | نحوهٔ فراخوانی |
 |---|---------|--------------|-----------------|
-| ۱ | [Runware](https://runware.ai/docs) | `RUNWARE_API_KEY` | `POST https://api.runware.ai/v1` — آرایهٔ JSON (غیر OpenAI): ابتدا `imageUpload` سپس `imageInference` با `seedImage` و مدل `bfl:flux-1-kontext-pro@1` |
-| ۲ | [SiliconFlow](http://docs.siliconflow.com/) | `SILICONFLOW_API_KEY` | OpenAI SDK → `images.edit` با `Qwen/Qwen-Image-Edit`؛ در صورت خطا مسیر جایگزین `images/generations` با فیلد `image` |
-| ۳ | [AIMLAPI](https://docs.aimlapi.com/) | `AIMLAPI_API_KEY` | `POST /v1/images/generations` با `model: flux/kontext-pro/image-to-image` و فیلد `image_url` |
-| ۴ | [Pollinations](https://gen.pollinations.ai/docs) | `POLLINATIONS_API_KEY` | OpenAI SDK → `images.edit` با مدل `kontext` (کلید `sk_...`) |
+| ۱ | [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) | `CLOUDFLARE_API_TOKEN_1` + `CLOUDFLARE_ACCOUNT_ID_1` (و حساب‌های ۲ و ۳) | `POST /accounts/{id}/ai/run/@cf/black-forest-labs/flux-2-klein-4b` — تا ۳ حساب مستقل، پشت‌سرهم |
+
+رفتار زنجیره:
+
+- اگر کلید یک حساب تنظیم نشده باشد، آن حساب **رد (skip)** می‌شود.
+- اگر خطا بدهد، حساب بعدی امتحان می‌شود.
+- اگر همهٔ حساب‌ها شکست بخورند، به‌جای خطای ۵۰۲ پاسخ `demo: true` برگردانده
+  می‌شود تا مسیر کاربر قطع نشود.
+- ترتیب پروایدرها با `PROVIDER_ORDER` (لیست شناسه‌ها با کاما) قابل تنظیم است؛ شناسه‌های
+  ناشناخته نادیده گرفته می‌شوند.
 
 خواندن نتیجه در همهٔ پروایدرها امن است (هم `url` و هم `b64_json` پشتیبانی می‌شود):
 
@@ -119,14 +181,33 @@ if (!url) throw new Error('هیچ تصویری دریافت نشد');
 ```
 
 پس از دریافت آدرس تصویر، سرور آن را به **data URI** تبدیل می‌کند تا دکمهٔ «دانلود تصویر» در
-مرورگر بدون مشکل CORS کار کند.
+مرورگر بدون مشکل CORS کار کند. سپس `src/image-compress.ts` آن PNG بزرگ را به **JPEG باکیفیت**
+(پیش‌فرض q90، mozjpeg) تبدیل می‌کند:
+
+- `IMAGE_COMPRESS=off` → بدون فشرده‌سازی.
+- `IMAGE_JPEG_QUALITY=1..100` (پیش‌فرض ۹۰).
+- fail-open: اگر `sharp` نصب نباشد یا خطایی بدهد، همان تصویر اصلی برمی‌گردد.
+
+### متغیرهای محیطی
+
+| متغیر | توضیح |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN_1..3` + `CLOUDFLARE_ACCOUNT_ID_1..3` | تا ۳ حساب مستقل Cloudflare |
+| `CLOUDFLARE_MODEL` | مدل تصویرسازی (پیش‌فرض `@cf/black-forest-labs/flux-2-klein-4b`) |
+| `CLOUDFLARE_VISION_MODEL` | مدل بینایی سرور |
+| `OPENAI_API_KEY` | دستیار هوشمند غزل (`app/api/chat/route.ts`) |
+| `POLLINATIONS_API_KEY` | پروایدر جایگزین Pollinations |
+| `ADMIN_PASSWORD` | رمز پنل مدیریت (پیش‌فرض `1234`) |
+| `DEMO_MODE` | `auto` (پیش‌فرض) / `on` / `off` |
+| `PROVIDER_TIMEOUT_MS` | مهلت سراسری هر پروایدر (پیش‌فرض ۹۰ ثانیه) |
 
 ### حالت نمایشی (بدون کلید API)
 
 `DEMO_MODE` سه مقدار دارد:
 
 - `auto` (پیش‌فرض): اگر هیچ کلید API‌ای تنظیم نشده باشد، صفحه در **حالت نمایشی** کار می‌کند؛
-  شکل ابرو با مدل و رنگ انتخابی، به‌صورت محلی روی عکس کشیده می‌شود تا کل مسیر صفحه قابل تست باشد.
+  ابرو/لب/خط چشم با مدل و رنگ انتخابی، به‌صورت محلی (SVG) روی عکس کشیده می‌شود تا کل مسیر
+  صفحه قابل تست باشد.
 - `on` / `off`: فعال یا غیرفعال کردن همیشگی.
 
 برچسب «حالت نمایشی» و توضیح شفاف در نتیجه نمایش داده می‌شود تا با خروجی واقعی هوش مصنوعی
@@ -136,25 +217,40 @@ if (!url) throw new Error('هیچ تصویری دریافت نشد');
 
 ## ۳) جریان کار صفحه (app/page.tsx)
 
-| مرحله | توضیح |
-|-------|-------|
-| ۱ — مدل ابرو | ۴ کارت (۲×۲) با تصویر SVG تولیدی و نام فارسی: هایر استروک طبیعی، فدر براو، اومبره پودری، کامبینیشن. انتخاب‌شده = حاشیهٔ طلایی + تیک |
-| ۲ — رنگ | ۶ دایرهٔ رنگ با tooltip نام فارسی (قهوه‌ای طبیعی `#8B6914`، قهوه‌ای تیره `#5C3D11`، بلوند `#C4A265`، خاکستری تیره `#4A4A4A`، مشکی نرم `#2C2C2C`، قهوه‌ای قرمز `#7B3F00`). انتخاب‌شده = حلقهٔ سفید |
-| ۳ — آپلود عکس | کادر drag & drop با برچسب «عکس چهره خود را آپلود کنید»، فقط JPG/PNG/WEBP و حداکثر ۵ مگابایت، به‌همراه thumbnail و دکمهٔ حذف |
-| ۴ — دکمهٔ ساخت | دکمهٔ طلایی «ایجاد پیش‌نمایش هوشمند» — فقط با انتخاب مدل + رنگ + عکس فعال می‌شود |
-| ۵ — نتیجه | اسلایدر مقایسه (`react-compare-slider`) با برچسب «قبل» (چپ) و «بعد» (راست)، دکمهٔ «دانلود تصویر» و دکمهٔ واتساپ با پیام آماده |
+ویزارد **۶ مرحله‌ای** است (`WIZARD_STEPS`)؛ هر مرحله یک کامپوننت جداگانه در `src/components/wizard/`
+است که از طریق props کنترل می‌شود:
 
-مراحل ۲ و ۳ تا تکمیل مرحلهٔ قبل کم‌رنگ و غیرفعال هستند (بدون پنهان کردن ساختار صفحه).
+| مرحله | کامپوننت | توضیح |
+|-------|-----------|-------|
+| ۰ — خانه | `HeroStep` | تصویر هیرو، شعار «تو زیبایی؛ من فقط کشفش می‌کنم ✨»، دکمهٔ CTA |
+| ۱ — انتخاب خدمت | `ServiceSelectStep` | ۴ کارت: میکروبلیدینگ ابرو، شیدینگ لب، خط چشم و بن‌مژه، ریمو تخصصی |
+| ۲ — سلیقه و انتخاب مدل | `PreferencesStep` | کارت‌های تکنیک (متناسب با خدمت) + ۳ سؤال (آرایش روزانه، فرم ابرو، تراکم) |
+| ۳ — آپلود تصویر | `UploadStep` | فقط JPG/PNG/WEBP و حداکثر ۵ مگابایت، با بازخورد کیفیت عکس |
+| ۴ — پیش‌نمایش هوشمند | `PreviewStep` | دکمهٔ تولید → `POST /api/generate` → اسلایدر قبل/بعد + دکمهٔ دانلود و واتساپ |
+| ۵ — رزرو نوبت | `BookingStep` | فرم نام/شماره/اینستاگرام + `SafetyCheckStep` (۳ سؤال ایمنی پزشکی) |
+
+مرحلهٔ ۲ نتایج تحلیل چهره را هم از `GET /api/consult` می‌گیرد (فرم صورت، تقارن، زیرتن پوست،
+فیتزپاتریک) که در `ConsultStep` نمایش داده می‌شود. در خدمت **ریمو** تولید تصویر انجام نمی‌شود
+و کاربر مستقیم به مشاوره و رزرو هدایت می‌شود.
+
+> اگر کاربر انتخابش را بعد از تولید پیش‌نمایش عوض کند، نتیجهٔ قبلی به‌عنوان «کهنه» (stale)
+> شناخته و دور ریخته می‌شود.
 
 ### پیام واتساپ
 
 ```
-سلام خانم رجبی، مدل [نام مدل] با رنگ [نام رنگ] برای میکروبلیدینگ انتخاب کردم و می‌خواهم نوبت بگیرم.
+سلام خانم رجبی، برای [نام خدمت] با مدل [نام مدل] می‌خواهم مشاوره و نوبت بگیرم.
 ```
 
-به لینک `https://wa.me/989058674412` با پارامتر `text` (URL-encoded) وصل می‌شود.
+به لینک `https://wa.me/989058674412` با پارامتر `text` (URL-encoded) وصل می‌شود
+(`WHATSAPP_NUMBER` در `src/options.ts`).
 
 ### پرامپت ارسالی به هوش مصنوعی
+
+پرامپت از `buildEnglishPrompt` در `src/options.ts` ساخته می‌شود؛ برای هر خدمت یک بلوک
+SCOPE اختصاصی دارد (مثلاً برای لب: «فقط ناحیهٔ lip vermilion، بدون overlining») که از
+`styleDesignSpec` (قرارداد فنی هر تکنیک) و `STYLE_DNA` (پاسخ‌های سلیقه‌ای از `src/style-dna.ts`)
+تغذیه می‌شود. نمونهٔ بخش ابرو:
 
 ```
 Apply professional microblading eyebrows in the style of <مدل> (<English Name>)
@@ -163,20 +259,37 @@ Keep everything else exactly the same.
 Realistic, natural, high quality beauty result.
 ```
 
-نام انگلیسی هر مدل از `labelEn` در `src/options.ts` می‌آید تا مدل‌های تصویری (که فارسی را
-ضعیف می‌فهمند) دقیق‌تر عمل کنند.
+نام انگلیسی هر مدل از `labelEn` می‌آید تا مدل‌های تصویری (که فارسی را ضعیف می‌فهمند) دقیق‌تر
+عمل کنند.
+
+### امنیت تصویر (Hard Composite)
+
+پیکسل‌های خارج از ناحیهٔ ویرایش از عکس اصلی بازیابی می‌شوند تا چهرهٔ کاربر هرگز تغییر نکند.
+این منطق **دو نسخه** دارد:
+
+- **سمت کلاینت** — `src/lib/vision/` (MediaPipe FaceLandmarker + Canvas): ماسک دو مرحله‌ای
+  فدر، رسم چندضلعی و ترکیب نهایی. خروجی نهایی برای ثبت نوبت به صفحه رزرو داده می‌شود.
+- **سمت سرور** — در `src/providers/`، محدود کردن ویرایش به ناحیهٔ مجاز از طریق پرامپت و
+  پردازش تصویر (sharp).
 
 ---
 
-## ۴) تصاویر SVG ابروها
+## ۴) تصاویر نمونهٔ تکنیک‌ها
 
-`src/brow-shapes.ts` به‌صورت برنامه‌نویسی‌شده و قطعی (deterministic) تصویر SVG می‌سازد:
-مسیر بستهٔ ابرو + تارهای موی کوتاه که از لبهٔ پایین به سمت بالا و دم ابرو کشیده شده‌اند و با
-`clipPath` داخل شکل ابرو بریده می‌شوند. هیچ چهره یا پوستی در تصویر نیست و پس‌زمینه کاملاً شفاف است.
+تصاویر نمونه‌کار هر تکنیک از `src/techniques.ts` خوانده می‌شوند:
 
-اگر خواستید عکس واقعی بگذارید، فایل را در `public/eyebrows/` قرار دهید و در `src/options.ts`
-مقدار `sampleImage` همان مدل را به مسیر فایل تغییر دهید؛ در غیر این صورت همان SVG تولیدی
-نمایش داده می‌شود.
+| خدمت | تکنیک‌ها | پوشهٔ تصاویر |
+| --- | --- | --- |
+| ابرو | هایر استروک طبیعی، فدر براو، آمبره پودری، کامبینیشن | `public/eyebrows/` |
+| لب | لیپ بلاش آبرنگی، نود پینک، فول کالر، خنثی‌سازی تیرگی | `public/lips/` |
+| خط چشم | بن‌مژه مخفی، خط چشم کلاسیک، شیدینگ اسموکی | `public/eyeliner/` |
+
+مدیر می‌تواند هر تصویر را از پنل (`POST /api/admin/upload-reference`) جایگزین کند؛ فایل با
+نام `<styleKey>.png` در پوشهٔ `public/<service>/` ذخیره می‌شود.
+
+برای ابروها، اگر تصویر واقعی وجود نداشته باشد، `src/brow-shapes.ts` به‌صورت قطعی (deterministic)
+تصویر SVG می‌سازد: مسیر بستهٔ ابرو + تارهای موی کوتاه که از لبهٔ پایین به سمت بالا کشیده شده‌اند
+و با `clipPath` داخل شکل ابرو بریده می‌شوند. هیچ چهره یا پوستی در تصویر نیست و پس‌زمینه شفاف است.
 
 ---
 
@@ -184,7 +297,7 @@ Realistic, natural, high quality beauty result.
 
 آدرس: `http://localhost:3000/admin` — رمز از `ADMIN_PASSWORD` خوانده می‌شود و اگر تنظیم نشده
 باشد، رمز پیش‌فرض **`1234`** است. هیچ کتابخانهٔ احراز هویتی نصب نشده است: رمز با یک درخواست
-ساده به `/api/admin/login` فرستاده می‌شود، در پاسخ یک **توکن امضاشدهٔ ۱۲ ساعته** می‌آید و در
+ساده به `/api/admin/login` فرستاده می‌شود، در پاسخ یک **توکن امزاشدهٔ ۱۲ ساعته** می‌آید و در
 `sessionStorage` مرورگر (کلید `beauty_admin_token`) نگه داشته می‌شود. توکن با یک هش SHA-256 از
 `ADMIN_PASSWORD` ساخته می‌شود؛ بنابراین تغییر رمز همهٔ توکن‌های قبلی را باطل می‌کند.
 
@@ -193,26 +306,42 @@ Realistic, natural, high quality beauty result.
 
 | بخش | توضیح |
 | --- | --- |
-| 📊 **آمار بازدید** | سه کارت «بازدید امروز»، «پیش‌نمایش‌های ساخته‌شده»، «بازدید کل» + آخرین ۱۰ رویداد با تاریخ/ساعت فارسی |
-| 🖼️ **تصاویر ابرو** | آپلود عکس واقعی برای هر یک از ۴ مدل (فقط PNG، حداکثر ۵ مگابایت) |
+| 📊 **آمار بازدید** | کارت‌های بازدید امروز/کل و پیش‌نمایش‌های ساخته‌شده + آخرین رویدادها با تاریخ/ساعت فارسی |
+| 👥 **مدیریت مراجعین (CRM)** | جدول لیدها (نام، شماره، خدمت، تاریخ، وضعیت)، مودال جزئیات با عکس قبل/بعد، تغییر وضعیت، یادداشت، تماس مستقیم واتساپ، حذف امن |
+| 🖼️ **تصاویر ابرو** | آپلود عکس واقعی برای هر یک از ۴ سبک (فقط JPG، حداکثر ۵ مگابایت) |
 | 🌟 **تصویر هیرو** | آپلود بنر بالای صفحهٔ اصلی (JPG/PNG/WEBP، حداکثر ۱۰ مگابایت) |
+| 📚 **تصاویر مرجع** | آپلود/جایگزینی تصویر نمونهٔ هر تکنیک |
+| 💬 **دستیار هوشمند** | فعال/غیرفعال کردن چت‌بات، ویرایش نام دستیار و پیام خوشامد، مشاهدهٔ تاریخچهٔ مکالمات |
+| 🏪 **تنظیمات سالن** | نام سالن، پلن (bronze/silver/gold)، سهمیهٔ ماهانهٔ تولید |
+
+### روت‌های API پنل
+
+| روت | متدها | توضیح |
+| --- | --- | --- |
+| `/api/admin/login` | POST | ورود و دریافت توکن |
+| `/api/admin/stats` | GET | خلاصهٔ آمار |
+| `/api/admin/leads` | GET | فهرست همهٔ لیدها |
+| `/api/admin/leads/[id]` | GET · PATCH · DELETE | جزئیات، تغییر وضعیت/یادداشت، حذف امن |
+| `/api/admin/chat-logs` | GET | تاریخچهٔ مکالمات چت |
+| `/api/admin/tenant` | GET · PATCH | تنظیمات سالن و پلن |
+| `/api/admin/upload-brow` | POST | آپلود تصویر سبک ابرو |
+| `/api/admin/upload-hero` | POST | آپلود تصویر هیرو |
+| `/api/admin/upload-reference` | POST | آپلود تصویر مرجع تکنیک |
 
 ### نام فایل‌های ثابت
 
 | مدل ابرو | فایل |
 | --- | --- |
-| هایر استروک طبیعی | `public/eyebrows/natural-hairstroke.png` |
-| فدر براو | `public/eyebrows/feather.png` |
-| اومبره پودری | `public/eyebrows/ombre-powder.png` |
-| کامبینیشن | `public/eyebrows/combination.png` |
+| هایر استروک طبیعی | `public/eyebrows/natural-hairstroke.jpg` |
+| فدر براو | `public/eyebrows/feather.jpg` |
+| آمبره پودری | `public/eyebrows/ombre-powder.jpg` |
+| کامبینیشن | `public/eyebrows/combination.jpg` |
 
 تصویر هیرو با نام `hero.<ext>` (jpg/png/webp — فقط یکی هم‌زمان) در `public/hero/` ذخیره می‌شود.
 
-`src/options.ts` برای هر مدل دو آدرس دارد: `imagePath` (مسیر فایل داخل public، همان نام‌های
+`src/options.ts` برای هر سبک دو آدرس دارد: `imagePath` (مسیر فایل داخل public، همان نام‌های
 بالا) و `imageUrl` (آدرسی که مرورگر می‌خواند). صفحهٔ اصلی اول `imageUrl` را امتحان می‌کند و اگر
-فایل وجود نداشت (۴۰۴) خودکار به تصویر SVG تولیدی برمی‌گردد. برای هیرو هم اگر تصویری نباشد،
-پس‌زمینهٔ گرادیانی نمایش داده می‌شود و روی آن عنوان «عسل رجبی» و دکمه‌های واتساپ/اینستاگرام
-می‌نشیند (ارتفاع ۳۲۰ پیکسل).
+فایل وجود نداشت (۴۰۴) خودکار به تصویر SVG تولیدی برمی‌گردد.
 
 > 💡 تصاویر از روت `GET /api/site-image/...` سرو می‌شوند، نه مستقیم از `public/`؛ چون سرور
 > production نکست فهرست `public/` را فقط یک بار در زمان بالا آمدن می‌خواند و فایل آپلودشده تا
@@ -221,30 +350,58 @@ Realistic, natural, high quality beauty result.
 > نمایش تصویرها روی صفحهٔ اصلی به‌صورت client-side انجام می‌شود؛ همین باعث می‌شود کش مرورگر
 > تصویر قدیمی را نشان ندهد (هدر `no-store` + پارامتر نسخه).
 
-### آمار
+### آمار و دیتابیس
 
-آمار در `data/stats.json` ذخیره می‌شود (`{visits, previews, history[]}`): هر بازدید صفحهٔ اصلی
-یک بار در هر نشست مرورگر و حداکثر یک بار در هر ۶ ساعت از هر IP ثبت می‌شود (`POST /api/track`)
-و هر پیش‌نمایش موفق در `app/api/generate/route.ts` یک رویداد `preview` می‌سازد. این فایل داخل
-ریپو کامیت شده است تا پنل از ابتدا کار کند.
+پروژه از دو لایهٔ ذخیره‌سازی استفاده می‌کند:
 
-> ⚠️ دو نکته: ۱) رمز پیش‌فرض را روی سرور واقعی عوض کنید: `ADMIN_PASSWORD=...` در `.env.local`.
+- **آمار بازدید** — فایل `data/stats.json` با ساختار `{visits, previews, history[]}`. هر بازدید
+  صفحهٔ اصلی یک بار در هر نشست مرورگر و حداکثر یک بار در هر ۶ ساعت از هر IP ثبت می‌شود
+  (`POST /api/track`) و هر پیش‌نمایش موفق در `app/api/generate/route.ts` یک رویداد `preview`
+  می‌سازد. نوشتن‌ها با یک قفل سریال می‌شوند تا فایل خراب نشود.
+- **CRM لیدها و چت** — دیتابیس SQLite `data/app.sqlite` (better-sqlite3 در `src/db.ts`) با
+  سه جدول `leads`، `chat_logs` و `tenant_settings`. تصاویر هر لید در
+  `public/uploads/leads/<leadId>/` (دقیقاً `original.png` و `result.jpg`) و مسیرشان در دیتابیس
+  ذخیره می‌شود. فایل `data/leads.json` هم به‌عنوان لایهٔ پل باید باقی مانده است.
+
+> ⚠️ نکات: ۱) رمز پیش‌فرض را روی سرور واقعی عوض کنید: `ADMIN_PASSWORD=...` در `.env.local`.
 > ۲) آدرس پیج اینستاگرام در `src/options.ts` → `INSTAGRAM_URL` است؛ آن را با پیج واقعی خودتان
-> عوض کنید.
+> عوض کنید. ۳) برای چند ادمین یا نقش‌های مختلف باید به سامانهٔ auth واقعی ارتقا داده شود.
 
 ---
 
-## ۶) نکات فنی
+## ۶) دستیار هوشمند غزل (AiChatWidget)
 
-- **بدون دیتابیس** — فقط یک فایل JSON (`data/stats.json` برای آمار) و فایل‌های تصویری با نام
-  ثابت. پنل مدیریت هم فقط با یک رمز متنی (`ADMIN_PASSWORD`) محافظت می‌شود و توکنش در
-  `sessionStorage` است؛ برای چند ادمین یا نقش‌های مختلف باید به سامانهٔ auth واقعی ارتقا داده شود.
-- رنگ‌بندی: پس‌زمینه `#0A0A0A`، اکسنت `#D4AF37`، کارت‌ها `#1A1A1A`.
-- چیدمان دسکتاپ-اول و وسط‌چین (`max-w-5xl`)؛ در موبایل تک‌ستونه می‌شود.
+دستیار شناور چت در گوشهٔ صفحه، در `app/page.tsx` (نه در `layout.tsx`) رندر می‌شود تا دقیقاً
+یک نمونه فعال باشد. نام و قابلیت دستیار از `GET /api/plan` خوانده می‌شود و متناسب با پلن سالن
+(ماتریس `PLAN_CONFIGS` در `src/plan-config.ts`) فعال می‌شود — مثلاً پلن برنزی چت‌بات ندارد.
+
+پیام‌ها به `POST /api/chat` می‌روند که با OpenAI SDK و System Prompt تخصصی (لتن صمیمی و
+حرفه‌ای، بدون قیمت قطعی، بدون تشخیص پزشکی) کار می‌کند. تاریخچهٔ مکالمه‌ها در جدول `chat_logs`
+ذخیره و از پنل قابل مشاهده است.
+
+---
+
+## ۷) نکات فنی
+
+- **دو لایهٔ ذخیره‌سازی** — `data/stats.json` برای آمار و `data/app.sqlite` (SQLite) برای CRM.
+  `schema.prisma` طرح‌نمای Prisma برای مدل `Lead` را نگه می‌دارد ولی دیتابیس فعلی پروژه با
+  `better-sqlite3` در `src/db.ts` اجرا می‌شود.
+- رنگ‌بندی: پس‌زمینه `#0A0A0A`، اکسنت طلایی (`gold` در متغیرهای Tailwind)، اکسنت ثانویه
+  سبزرنگ (emerald) برای واتساپ و ویژگی‌ها.
+- چیدمان دسکتاپ-اول و وسط‌چین (`max-w-6xl` سربرگ، `max-w-4xl` محتوای ویزارد)؛ در موبایل
+  تک‌ستونه می‌شود.
 - فونت وزیرمتن **لوکال** است (`app/fonts/Vazirmatn-Variable.woff2`) تا ساخت پروژه به دسترسی به
   Google Fonts وابسته نباشد.
-- `PROVIDER_TIMEOUT_MS` مهلت هر پروایدر را تعیین می‌کند (پیش‌فرض ۹۰ ثانیه).
+- `PROVIDER_TIMEOUT_MS` مهلت سراسری پروایدرها را تعیین می‌کند (پیش‌فرض ۹۰ ثانیه). مهلت اختصاصی
+  Cloudflare با `CLOUDFLARE_TIMEOUT_MS` و `CLOUDFLARE_GUIDANCE` (پیش‌فرض ۵) قابل تنظیم است.
+- ورودی مدل klein باید کوچک‌تر از ۵۱۲×۵۱۲ باشد (توسط sharp کوچک می‌شود) و خروجی بین ۲۵۶ و
+  ۱۵۳۶ پیکسل است.
 - مسیر فایل آمار با `STATS_PATH` قابل تغییر است (پیش‌فرض `data/stats.json`)؛ اسکریپت‌های تست از
   همین راه آمار واقعی را دست‌نخورده می‌گذارند و در `.next-*` جداگانه build می‌گیرند تا اگر
   `npm run dev` در حال اجرا باشد خراب نشود (`NEXT_DIST_DIR` در `next.config.mjs`).
-- هیچ بستهٔ PWA نصب نشده است.
+- پکیج `sharp` برای پردازش تصویر (کوچک‌کردن ورودی + فشرده‌سازی خروجی) استفاده می‌شود؛ بارگذاریِ
+  آن اختیاری (fail-open) است تا نبودش پروژه را از کار نیندازد.
+- **هیچ بستهٔ PWA نصب نشده است.**
+- موتور بینایی پایتون (FastAPI/OpenCV/MediaPipe) در `requirements.txt` تعریف شده ولی پوشهٔ
+  `vision-engine/` در پروژه وجود ندارد؛ منطق بینایی فعلاً کلاً سمت کلاینت
+  (`src/lib/vision/` با `@mediapipe/tasks-vision`) و سمت سرور (`src/providers/`) پیاده‌سازی شده است.
