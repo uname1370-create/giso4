@@ -1,7 +1,7 @@
 # راهنمای فنی گیسو (GISO_GUIDE) — نسخه بازنویسی‌شده مطابق کد جاری
 
-<!-- updated 2026-09-09 -->
-**آخرین همگام‌سازی با کد:** 2026-09-09 — بازنویسی سه‌فازی سیستم هوش مصنوعی (رجیستری مستقل، کشف پویا + پنل، سلامت مشترک + سقف زمانی) و مستندسازی کامل آن در **§25**؛ پیش از آن: ممیزی کامل + اجرای `1.md` (بخش §24): برش مارک‌داون پاسخ ادمین روی مرز خط با فالبک متن خام؛ اتصال `send_long_message` به ۴ نقطهٔ ربات؛ پاک‌سازی ۴۳ ایمپورت مردهٔ `bot.py` (اکنون ۷۳۷۰ خط)؛ ابعاد/`loading` برای تصاویر هیرو. همچنین تحویل‌های نشست‌های قبل در §21–§23. کیت تست جاری: **۵۵۶ پاس / ۳۹ فیل** (همهٔ فیل‌ها از پیش موجود؛ لیست `docs/GISO_KNOWN_ISSUES.md`). (پیش‌تر 2026-09-01: اجرای ۱۹ مورد `img/help.md` (§14)، عکس واقعی کاتالوگ، اصلاحات پنل سوپر، کیبورد ۶ دکمه، بازرس هوشمند، سه گزارش دستیار.)
+<!-- updated 2026-09-26 -->
+**آخرین همگام‌سازی با کد:** 2026-09-26 — ممیزی مجدد `giso/` روی شاخهٔ `giso-end` با تکیه بر کد واقعی و نقشهٔ Graphify؛ اصلاح شمارنده‌ها و وضعیت پنل کاربر، ثبت ۸ پروایدر واقعی، ثبت سرویس‌های جدیدِ استخراج‌شده از `app.py` و ماژول‌های شکسته‌شده، و ثبت دقیق وضعیت وابستگی‌ها/نقاط اتصال. `bot.py` در این commit **۷۴۲۲ خط** است. اعداد تست **۵۵۶ پاس / ۳۹ فیل** متعلق به snapshot تاریخی 2026-09-09 هستند و در این همگام‌سازی دوباره اجرا نشده‌اند؛ برای وضعیت فعلی باید تست runtime مستقل اجرا شود. Graphify فعلی روی commit `49e41dfd` با `--code-only` ساخته شده است. `beauty-preview` عمداً خارج از این راهنما و این ممیزی است.
 
 > **هدف این سند:** مرجع واحد و دقیق برای هر عامل هوشمند/توسعه‌دهنده‌ای که روی `giso/` کار می‌کند.
 > فقط **معماری جاری** مستند است — لاگ فازهای تاریخی، قابلیت‌های حذف‌شده و UI قدیمی حذف شدند.
@@ -59,7 +59,7 @@
 | `shop/` | فروشگاه (routes, logic/checkout, logic/channel_bridge, bot/, panel/) |
 | `channel_importer.py` | پست کانال بله → محصول pending |
 | `panel/` | پنل ادمین/سوپر (`/admin`) — ۱۹ ماژول + ۲ بسته (`notifications/`، `backup/`) <!-- updated 2026-09-06 --> |
-| `panel_user/` | پنل کاربر (`/dashboard`) — ۱۵ ماژول |
+| `panel_user/` | پنل کاربر (`/dashboard`) — **۹ گزینهٔ اصلی منو** در `USER_MODULES` + قابلیت‌ها/routeهای جانبی مانند `notifications`, `marketplace`, `buyer_request`, `beauty_center`, `wishlist`, `reviews`, `shop`, `ai_assistant`, `center_chats`, `reservations`؛ **دیگر نباید «۱۵ ماژول» به‌عنوان شمارندهٔ canonical نوشته شود.** |
 | `wallet_balepay.py` / `bot_balepay.py` | پرداخت آنی کیف پول با بازوی بله (§18) |
 | `broadcasts_center/` | مرکز پیام سوپرادمین (صف، زمان‌بندی، گزارش تحویل — §21) |
 | `perf.py` | میان‌افزار gzip پاسخ‌ها |
@@ -84,7 +84,7 @@
 | کیف پول | `wallet_transactions` (دفترکل؛ `balance_scope` cash/spend، `idempotency_key`) • `wallet_topup_requests` (رسید اجباری) • `wallet_missions` + `wallet_mission_completions` + `wallet_mission_tombstones` • `withdrawal_requests` • `customer_scores` • `referrals` فقط آرشیو تاریخی (هیچ رکورد/پورسانت جدیدی ساخته نمی‌شود) |
 | مراکز زیبایی | `beauty_centers` (یک مرکز per owner؛ pending_review→reviewing→published/rejected/paused/closed؛ خدمات JSON، آمار واقعی) • `beauty_center_images` • `beauty_center_conversations` + `beauty_center_messages` • `beauty_center_feedback` • `beauty_center_promotions` • `beauty_center_discounts` • `beauty_center_events` • `beauty_center_expiry_notices` • `beauty_center_reports` + گزارش‌های تاریخی |
 | بازارچه | `hair_listings` (pending_review→published→negotiating→sold؛ soft-delete `deleted_at`) • `buyer_profiles` (gate تأیید) • `buyer_offers` (pending→countered→accepted→sold) • `marketplace_messages` (چت per-offer، `chat_closed`) • `marketplace_reviews` + `marketplace_user_ratings` • `listing_reports` • `marketplace_policies` • `marketplace_event_stats` • **anti-fraud:** `marketplace_devices`/`marketplace_device_links`/`marketplace_listing_device_claims`/`marketplace_risk_events`/`marketplace_phone_observations` (فقط hash — token/IP خام ذخیره نمی‌شود) • `marketplace_price_stats`/`marketplace_price_history` • `marketplace_saved_searches` (**soft-deprecated** — جدول باقی است، UI فعال ندارد) |
-| AI | `giso_ai_providers` (7 provider + proxy) • `giso_ai_settings` • `giso_ai_permissions` • `giso_ai_checks_log` • `giso_ai_usage_stats` • `giso_ai_pending_actions` (تأیید/rollback سوپر) • `giso_ai_action_logs` • `giso_proxy_settings` • `prompt_versions` |
+| AI | `giso_ai_providers` (**۸ provider** + تنظیمات/پراکسی) • `giso_ai_settings` • `giso_ai_permissions` • `giso_ai_checks_log` • `giso_ai_usage_stats` • `giso_ai_pending_actions` (تأیید/rollback سوپر) • `giso_ai_action_logs` • `giso_proxy_settings` • `prompt_versions` |
 | اعلان | `giso_notifications` (مرکز: category/subcategory/title/message/`target_role`/`source_type`/`source_id`/`recipient_id`/status) • `giso_notification_deliveries` (لاگ ارسال بله) |
 | پشتیبانی | `giso_support_tickets` (ربات + وب مشترک) |
 | مشترک/سیستم | `giso_config` (فقط کلیدهای محلی: `site_base_url`، `backup_interval_hours`) • `giso_audit_log` • `giso_demoted_admins` (لیست سیاه ادمین‌های تنزل‌یافته) • `giso_admin_permissions` (inert — permission per-admin حذف شد) |
@@ -442,7 +442,7 @@
 4. Recovery فایل‌های دائمی و رسیدها را پوشش می‌دهد، اما انتقال Off-site و تمرین زمان‌بندی‌شده Restore هنوز زیرساخت عملیاتی می‌خواهد.
 5. rate-limit حافظه‌ای بین workerهای Gunicorn مشترک نیست. ظرفیت 100/500 کاربر بدون load test تأیید نشده است.
 6. هویت سوپرادمین در `giso/config.py` ثابت است و باید در bootstrap امن آینده تعیین تکلیف شود.
-7. `USER_MODULE_GROUPS` فعلاً خالی است؛ عملکرد «مرکز زیبایی من» و گفتگوها موجود است، اما گروه‌بندی بصری کامل منوی پنل کاربر هنوز قرارداد نهایی ندارد.
+7. `USER_MODULE_GROUPS` **خالی نیست**. در `giso/panel_user/permissions.py` چهار گروه `اصلی/خدمات/پشتیبانی/حساب کاربری` تعریف شده‌اند و `_menu_for_current_user()` از همین ساختار برای منوی گروه‌بندی‌شده استفاده می‌کند. `MODULES_META` نیز برای `marketplace`, `buyer_request`, `beauty_center`, `shop`, `notifications`, `reviews`, `wishlist`, `reservations`, `center_chats`, `ai_assistant` metadata دارد.
 
 ### ۹.۱۳ چک‌لیست تحویل و تست
 1. پیش از migration از `giso/data/giso.db` موجود backup بگیر.
@@ -1138,7 +1138,7 @@ FEATURE_FLAG_LEGACY_MODE = False       # True = رفتار قدیمی همه م�
 
 ---
 
-## §26. ممیزی جامع ۱۲ بخش — شناخت، عیب‌یابی، اصلاح (۱۴۰۵-۰۶-۱۸ / 2026-09-09) <!-- updated 2026-09-09 -->
+## §26. ممیزی جامع ۱۲ بخش — snapshot تاریخی 2026-09-09 <!-- updated 2026-09-26 -->
 
 اجرای کامل مأموریت `3.md` در سه مرحله با گزارش‌های `giso/docs/r2.md` (ساختار)، `r3.md` (عیب‌یابی) و `r4.md` (اصلاحات).
 
@@ -1152,7 +1152,7 @@ FEATURE_FLAG_LEGACY_MODE = False       # True = رفتار قدیمی همه م�
 
 ---
 
-## §27. لیست تمیز هوش مصنوعی + پراکسی زنده (۱۴۰۵-۰۶-۱۸ / 2026-09-09) <!-- updated 2026-09-09 -->
+## §27. لیست تمیز هوش مصنوعی + پراکسی زنده — snapshot تاریخی 2026-09-09 <!-- updated 2026-09-26 -->
 
 اجرای مأموریت ۵ مرحله‌ای «لیست تمیز» (گزارش کامل: `r5.md` و این بخش): تحلیل مصرف، راستی‌آزمایی سرویس‌های رایگان، حذف سرویس‌های بی‌جواب، ثبت تک‌مرحله‌ای، و پراکسی فقط‌زنده.
 
@@ -1195,3 +1195,201 @@ FEATURE_FLAG_LEGACY_MODE = False       # True = رفتار قدیمی همه م�
 - فقط پروکسی‌هایی که تست واقعی اتصال + کشور را پاس کنند وارد استخر می‌شوند.
 - **حذف خودکار:** پروکسی که در استفادهٔ واقعی ۵ شکست پیاپی بخورد (`RUNTIME_EVICT_AFTER`) از استخر «سالم‌ها» حذف می‌شود و در لاگ `proxy eviction` ثبت می‌گردد.
 - توصیه: برای کارکرد پایدار تحلیل عکس، حالت «ورکر» یا پروکسی دستی خصوصی مطمئن‌تر از لیست رایگان است.
+
+
+---
+
+## §28. وضعیت canonical پروژه در 2026-09-26 — ممیزی کد + Graphify
+
+این بخش برای جلوگیری از دوباره‌کاری و مهم‌تر از آن، جلوگیری از باور کردن عددهای قدیمی نوشته شده است. **مرجع نهایی همیشه کد commit جاری است، نه عددی که در گزارش قدیمی آمده است.**
+
+### ۲۸.۱ محدوده ممیزی
+
+- شاخه: `giso-end`
+- commit مبنا: `49e41dfd7535cfaa0c0319af1716ca1bd5844bcd`
+- scope: کل هستهٔ `giso/`
+- `beauty-preview`: **خارج از scope** و عمداً در این راهنما مستند نشده است.
+- `bot_edu/` و `web/`: فقط در حد قراردادهای اتصال مشترک؛ این راهنما مالک تغییرات آن‌ها نیست.
+- Graphify با `--code-only` اجرا شده تا وابستگی به LLM برای استخراج اسناد و تصاویر حذف شود.
+
+### ۲۸.۲ snapshot نقشه Graphify
+
+خروجی فعلی در `graphify-out/`:
+
+| شاخص | مقدار |
+|---|---:|
+| فایل کد استخراج‌شده | 371 |
+| node | 7,755 |
+| edge | 24,200 |
+| community | 226 |
+| community نمایش‌داده‌شده | 197 |
+| community باریک حذف‌شده از نمایش | 29 |
+| EXTRACTED | 89% |
+| INFERRED | 11% |
+| edgeهای inferred | 2,738 |
+| میانگین confidence برای inferred | 0.86 |
+| commit گراف | `49e41dfd` |
+
+**محدودیت مهم:** edgeهای `INFERRED` فرضیهٔ Graphify هستند، نه حقیقت کد. هر نتیجهٔ معماری که بر یک edge inferred تکیه کند باید با import/call واقعی در فایل تأیید شود.
+
+### ۲۸.۳ هسته‌های اتصال مهم
+
+Graphify در این snapshot بیشترین اتصال را برای این نقاط نشان می‌دهد:
+
+1. `get_giso_db_conn()` — 561 edge
+2. `create_app()` — 390 edge
+3. `_run_async()` — 289 edge
+4. `redirect()` — 287 edge
+5. `url_for()` — 280 edge
+6. `flash()` — 247 edge
+7. `route()` — 223 edge
+8. `button_handler()` — 191 edge
+9. `User` — 181 edge
+10. `handle_callback()` — 162 edge
+
+نتیجهٔ معماری: `get_giso_db_conn()` و `create_app()` نقاط پراتصال هستند؛ تغییرات ساختاری در آن‌ها باید کوچک، قابل rollback و همراه با تست regression باشد. Graphify نباید بهانه‌ای برای refactor بزرگ `bot.py` یا شکستن لایه‌های پایدار شود.
+
+### ۲۸.۴ نقشهٔ فعلی ماژول‌های مرکزی که باید در راهنما شناخته شوند
+
+علاوه بر ماژول‌های قبلی، این فایل‌ها/لایه‌ها اکنون بخشی از معماری جاری‌اند و نباید در ممیزی‌های بعدی «وجود ندارند» فرض شوند:
+
+| فایل | نقش فعلی | وضعیت مستندات |
+|---|---|---|
+| `recommendation_service.py` | موتور پیشنهاد چندسیگناله؛ اتصال Analysis → Recommendation → Products → Shop؛ دادهٔ واقعی DB و سقف 4 پیشنهاد صفحه/3 ویجت | **باید در مسیر تحلیل→فروشگاه ذکر شود** |
+| `ai_discovery.py` | کشف مدل از `/models` providerها، انتخاب مدل‌های vision/text، refresh و گزارش برای پنل/ربات | **باید در AI architecture ذکر شود** |
+| `analysis_report.py` | استخراج سازنده‌های pure برای گزارش نهایی آنالیز از `analysis.py` بدون وابستگی Flask/DB | **باید به decomposition آنالیز اضافه شود** |
+| `analysis_labels.py` | لایهٔ برچسب‌گذاری/normalization خروجی تحلیل | **باید کنار analysis_report مستند شود** |
+| `widget_service.py` | سرویس ویجت AI و اعلان‌های مشاور، استخراج‌شده از `app.py` با re-export برای سازگاری | **باید در AI/UI service map ذکر شود** |
+| `seo_meta.py` | اعتبارسنجی و پرکردن meta description محصولات؛ طول 150–160 و فیلتر claimهای ممنوع | **باید در SEO jobs ذکر شود** |
+| `seo_sitemap.py` | cache دیسکی sitemap؛ TTL پیش‌فرض 3 ساعت و فعال‌سازی پیش‌فرض production | **باید در SEO/runtime ذکر شود** |
+| `site_jobs.py` | hookهای background best-effort سایت: digest روزانه، واریز اعتبار رتبه، تخلیه صف broadcast | **باید کنار app factory ذکر شود** |
+| `security_alerts.py` | اعلان پایدار و privacy-safe رویدادهای ورود مشکوک، claim idempotent و ارسال best-effort | **باید در security/auth ذکر شود** |
+| `account_password_vault.py` | خزانهٔ رمزگذاری‌شده برای نمایش رمز فعلی به superadmin با تطبیق hash؛ جایگزین hash یک‌طرفه نیست | **باید در امنیت/حساب ذکر شود** |
+| `wallet_core.py` | ثابت‌ها، scopes cash/spend، قواعد دفترکل و تنظیمات مالی | **هستهٔ wallet** |
+| `wallet_missions.py` | منطق مأموریت‌ها و reward scope | **زیرلایهٔ wallet** |
+| `wallet_receipts.py` | ذخیرهٔ خصوصی رسید top-up، JPG/PNG، ≤5MB و ≤20MP، خارج static | **زیرلایهٔ wallet/security** |
+
+### ۲۸.۵ پنل کاربر — وضعیت واقعی
+
+**کانت اصلی منو ۹ مورد است**، نه ۱۵:
+
+`overview, hair_sale, orders, analyses, reservations, center_chats, wallet, chats, profile`
+
+در کنار آن‌ها metadata/route برای `notifications, marketplace, buyer_request, beauty_center, ai_assistant, shop, wishlist, reviews, notifies` وجود دارد. این تفاوت باید در هر مستندات بعدی حفظ شود:
+
+- «۹ گزینهٔ اصلی» = منوی canonical فعلی.
+- «قابلیت‌های پنل» = همهٔ route/module capabilityها.
+- «۱۵ ماژول» = **عبارت قدیمی و غیرcanonical**.
+
+گروه‌بندی فعلی `USER_MODULE_GROUPS` چهار گروه دارد:
+`اصلی`، `خدمات`، `پشتیبانی`، `حساب کاربری`.
+پس هر متن قدیمی که آن را «خالی» معرفی کند غلط است.
+
+### ۲۸.۶ پنل ادمین
+
+`giso/panel/modules/` دارای 19 ماژول فایل است و `notifications/` و `backup/` به‌صورت package در کنار آن‌ها هستند. این شمارنده همچنان با ساختار فعلی سازگار است.
+
+در مقابل، نباید دسترسی ادمین را صرفاً از روی نام فایل‌ها نتیجه گرفت. قرارداد دسترسی در `giso/panel/permissions.py` و guardهای route تعیین می‌شود. برای عملیات حساس، هم guard عمومی و هم `require_super` را بررسی کنید.
+
+### ۲۸.۷ AI — حقیقت فعلی
+
+رجیستری کد `giso/ai_models_registry.py::PROVIDERS` دقیقاً **8 provider** دارد:
+
+1. `groq`
+2. `openrouter`
+3. `mistral`
+4. `sambanova`
+5. `cloudflare`
+6. `gemini`
+7. `gapgpt`
+8. `avalai`
+
+بنابراین:
+- «7 provider» در جدول قدیمی DB/schema **غلط** است.
+- «8 provider» معیار فعلی است.
+- زنجیرهٔ Vision می‌تواند فقط subset دارای vision باشد و این با «تعداد کل providerها» تناقضی ندارد.
+- `ai_discovery.py` مکمل رجیستری است: برای providerهای دارای endpoint مدل، `GET /models` را بررسی می‌کند و لیست مدل‌ها را به‌روز می‌کند.
+- `cloudflare` در discovery از `/models` مستثنی است و مدل‌هایش از رجیستری پایه مدیریت می‌شوند.
+
+### ۲۸.۸ تحلیل و توصیه محصول
+
+مسیر معماری را به شکل زیر در نظر بگیرید:
+
+`analysis.py` → گزارش/normalization در `analysis_report.py` و `analysis_labels.py` → `recommendation_service.py` → `products`/Shop → UI
+
+`recommendation_service.py` از دادهٔ واقعی کاربر مانند آخرین hair order، آخرین analysis و تاریخچهٔ تعامل/خرید استفاده می‌کند و سقف توصیه دارد؛ دادهٔ ساختگی نباید برای تکمیل این زنجیره اضافه شود.
+
+### ۲۸.۹ امنیت و حساب
+
+- `security.py`: CSRF، rate limit، audit، headers و guardهای امنیتی.
+- `security_alerts.py`: رویدادهای ورود مشکوک و اعلان پایدار.
+- `account_password_vault.py`: secret-backed encryption برای نگهداری رمز قابل نمایش به superadmin؛ این را با `password_hash` یکسان نگیرید.
+- `wallet_receipts.py`: رسیدهای top-up خارج از static و فقط از route محافظت‌شده سرو می‌شوند.
+- اصل مهم: وجود یک helper یا route به معنی «امن بودن runtime» نیست؛ سناریوی واقعی auth/IDOR/CSRF باید تست شود.
+
+### ۲۸.۱۰ SEO و background jobs
+
+- `seo_meta.py`: meta description را sanitize/validate می‌کند؛ بازهٔ 150–160 کاراکتر و banned claimها را کنترل می‌کند.
+- `seo_sitemap.py`: cache sitemap با TTL پیش‌فرض 3 ساعت و production-only default.
+- `site_jobs.py`: سه hook best-effort را از `create_app` جدا کرده و رفتار/نام threadهای قبلی را حفظ می‌کند؛ شامل digest بازاریابی، rank credit deposit و broadcast drain.
+
+### ۲۸.۱۱ Wallet decomposition
+
+`wallet.py` همچنان facade/compatibility surface مهم است، اما منطق اکنون در چند فایل تخصصی هم وجود دارد:
+- `wallet_core.py`: scopes، ثابت‌ها، قواعد مالی و helperهای اصلی.
+- `wallet_missions.py`: mission list/create/reward و completion.
+- `wallet_receipts.py`: receipt validation/storage.
+- `wallet_balepay.py` و `bot_balepay.py`: مسیر پرداخت بله.
+- `rank_daily.py`: رتبه و اعتبار دوره‌ای.
+این تفکیک باید در راهنمای معماری حفظ شود و نباید صرفاً `wallet.py` را کل سیستم فرض کرد.
+
+### ۲۸.۱۲ Mission / Referral / Saved Search
+
+- **Mission:** ساختار `once/daily/weekly` در داده/نمایش وجود دارد، اما semantics کامل روزانه/هفتگی در `complete_mission` هنوز باید با تست runtime و منطق فعلی تأیید شود؛ وضعیت مستنداتی: **PARTIAL**.
+- **Referral:** جریان کسب‌وکار متوقف/retired است؛ `referrals` و ستون‌های قدیمی فقط برای سازگاری/ممیزی حفظ می‌شوند و نباید به‌عنوان قابلیت فعال تبلیغ شوند.
+- **Saved Search:** جدول `marketplace_saved_searches` باقی است اما UI فعال canonical ندارد؛ وضعیت: **SOFT-DEPRECATED / RETAINED**.
+
+### ۲۸.۱۳ قواعد وضعیت‌گذاری در این راهنما
+
+برای هر قابلیت از برچسب زیر استفاده شود:
+
+- **IMPLEMENTED**: کد و مسیر فعلی وجود دارد؛ اگر runtime تست نشده، همان را صریح بنویس.
+- **PARTIAL**: بخشی از قرارداد/جریان وجود دارد ولی semantics یا runtime کامل نشده است.
+- **LEGACY**: برای سازگاری نگه داشته شده و مسیر اصلی نیست.
+- **SOFT-DEPRECATED**: داده/route هنوز وجود دارد ولی UI/استفادهٔ canonical ندارد.
+- **RETIRED**: دیگر نباید به‌عنوان قابلیت فعال معرفی شود، ولی ممکن است داده/ردپا باقی بماند.
+- **NOT VERIFIED**: فقط از static/code evidence می‌دانیم و runtime test لازم است.
+
+قاعدهٔ مهم: **وجود route = اثبات وجود feature نیست؛ وجود table = اثبات فعال بودن business flow نیست؛ Graph edge = اثبات dependency نیست.**
+
+### ۲۸.۱۴ چک‌لیست همگام‌سازی بعدی
+
+هر بار که ساختار Giso تغییر کرد:
+
+1. `git rev-parse HEAD` را ثبت کن.
+2. `graphify update .` یا extraction مناسب اجرا کن.
+3. تعداد providerها را از `ai_models_registry.py` بخوان، نه از متن قبلی.
+4. منوی کاربر را از `panel_user/permissions.py::USER_MODULES` بخوان.
+5. دسترسی‌ها را از `panel/permissions.py` و guardهای route تأیید کن.
+6. routeهای canonical و legacy را جداگانه ثبت کن.
+7. جداول active را از migration/schema واقعی تطبیق بده.
+8. featureهای retired/soft-deprecated را از active جدا نگه دار.
+9. اگر runtime تست نشده، **NOT VERIFIED** بنویس.
+10. پس از تغییر این فایل، تاریخ و commit این راهنما را به‌روز کن.
+
+### ۲۸.۱۵ نتیجهٔ canonical
+
+در تاریخ 2026-09-26، این راهنما باید این موارد را به‌عنوان حقایق فعلی در نظر بگیرد:
+
+- `giso-end` commit = `49e41dfd`
+- `beauty-preview` خارج scope
+- `bot.py` = 7422 خط
+- Graphify = 7755 nodes / 24200 edges / 226 communities
+- providerهای AI = 8
+- user top-level menu = 9
+- `USER_MODULE_GROUPS` = چهار گروه، **غیرخالی**
+- admin panel = 19 module files + 2 packages
+- Mission = PARTIAL
+- Referral = RETIRED
+- Saved Search = SOFT-DEPRECATED / RETAINED
+- inferred Graphify edges = نیازمند تأیید با کد واقعی
