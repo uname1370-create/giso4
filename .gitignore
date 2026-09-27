@@ -242,3 +242,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local Letta tooling dependencies (reproducible from tools/letta/package-lock.json)
+tools/letta/node_modules/
+tools/letta/.env.local

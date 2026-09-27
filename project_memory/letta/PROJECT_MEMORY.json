@@ -1,0 +1,167 @@
+{
+  "last_update": {
+    "date_user_timezone": "2026-09-27",
+    "user_timezone": "Asia/Tehran"
+  },
+  "last_agent": "Arena.ai Agent Mode",
+  "last_model": "not recorded; memory is model-agnostic",
+  "status": "Project Memory and local Letta setup are prepared for handoff. No Giso feature/refactor/migration/scenario has been executed.",
+  "source_of_truth_layers": {
+    "git_github": "Source of truth for code and tracked repository files.",
+    "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
+    "project_memory": "Independent project state, rules, decisions, progress, current stage, and handoff.",
+    "letta": "Optional agent memory layer when initialized/used. Local backend persistence was verified during setup; runtime-local IDs and paths are intentionally not stored in Git.",
+    "coding_agent": "Execution/change layer."
+  },
+  "project_identity": {
+    "repository_url": "https://github.com/uname1370-create/giso4",
+    "branch": "arena/01a0e0b8-giso4",
+    "local_head_during_setup": "c9b198cd8505f1e97c470aea4fae034948144548",
+    "local_head_subject": "Delete graphify-out directory",
+    "remote_head_observed_during_setup": "10017eccdd23292bab494a0cfe13cdda924a2c27",
+    "remote_head_subject": "Create sena.md",
+    "git_history_note": "Setup workspace was shallow/grafted. Local branch was behind fetched remote branch. Do not blindly pull/reset/force-checkout because local untracked graphify-out may conflict with remote tracked graphify-out."
+  },
+  "current_git_state_observed": {
+    "status_short_branch": [
+      "## arena/01a0e0b8-giso4",
+      " M .gitignore",
+      "?? graphify-out/",
+      "?? project_memory/",
+      "?? tools/"
+    ],
+    "forbidden_paths_modified": false,
+    "graphify_out_commit_decision": "Do not commit graphify-out unless explicitly requested."
+  },
+  "sena_md": {
+    "remote_present": true,
+    "local_present_at_setup_head": false,
+    "blob_sha_verified": "dee8def86cb376d431576ac858027320892eb2ce",
+    "role": "Temporary conversation/review/analysis material only; not final executable scenario and not Project Memory replacement.",
+    "execute_now": false,
+    "implementation_now": false,
+    "notes": "Discusses a possible Giso Beauty Mirror direction involving analysis, service selection, image validation, AI service analysis, preview, consultants, beauty centers, reservations, leads, wallet/credits, and panels. Wait for the user to define the real final scenario."
+  },
+  "architecture": {
+    "root": {
+      "main.py": "Unified launcher for education bot, education web, Giso web, and Giso bot watcher depending on env/token availability.",
+      "env_loader.py": "Environment loader.",
+      "requirements.txt": "Python dependencies.",
+      "PROJECT_GUIDE.md": "High-level monorepo guide.",
+      "GISO_GUIDE.md": "Detailed Giso architecture and rules."
+    },
+    "giso": "Active Giso product area when user authorizes implementation: Flask app, Bale bot, AI analysis/runtime, panels, shop, marketplace, beauty centers, wallet, templates/static/tests.",
+    "bot_edu": "Education Bale bot and shared bridge; locked unless explicitly requested.",
+    "web": "Education website; locked unless explicitly requested.",
+    "deploy": "Deployment/systemd/nginx/server docs and service files.",
+    "project_memory_letta": "Durable model-agnostic Project Memory and handoff files.",
+    "tools_letta": "Local isolated Letta CLI setup; not Giso runtime."
+  },
+  "important_rules": [
+    "Stay on branch arena/01a0e0b8-giso4 in this Arena session.",
+    "Check git status --short --branch before modifications.",
+    "Do not execute sena.md or any scenario until user gives the final scenario explicitly.",
+    "Do not touch giso/, web/, bot_edu/, or main.py during memory/setup work except read-only inspection.",
+    "bot_edu/ and web/ are locked unless explicitly requested.",
+    "Do not refactor/split giso/bot.py.",
+    "Use Graphify for navigation only; verify inferred relations in source.",
+    "Do not commit secrets, DB files, uploads, runtime logs, node_modules, Letta local backend data, local agent IDs, or smoke-test artifacts."
+  ],
+  "graphify_findings": {
+    "purpose": "Code structure/dependency map only; does not replace Project Memory.",
+    "local_status": "graphify-out existed locally as untracked artifact during setup.",
+    "remote_status": "Fetched remote branch tracked graphify-out files.",
+    "stats_observed": {
+      "nodes": 7755,
+      "links": 24200,
+      "hyperedges": 0,
+      "manifest_entries": 371,
+      "communities": 241,
+      "confidence_counts": {
+        "EXTRACTED": 21462,
+        "INFERRED": 2738
+      }
+    },
+    "coverage_limitations": [
+      "code-oriented / cluster-only output",
+      "no HTML nodes observed",
+      "no TXT/Markdown nodes observed",
+      "prompt/template/scenario content not represented as content knowledge"
+    ]
+  },
+  "letta_setup": {
+    "install_path": "tools/letta/",
+    "package": "@letta-ai/letta-code",
+    "version": "0.33.2",
+    "helper_dependency": "ws@8.22.0",
+    "node_version_used": "v22.22.3",
+    "npm_version_used": "10.9.8",
+    "binary": "./tools/letta/node_modules/.bin/letta",
+    "install_note": "Successful install used --ignore-scripts after node-pty native build failed in sandbox. CLI and local backend operations worked, but interactive TUI/PTY may be incomplete until normal install/rebuild succeeds.",
+    "cloud_auth": "Not configured by repo setup; no API key/provider secret stored.",
+    "local_backend_persistence": "Verified during setup. Exact local runtime IDs, local backend paths, and smoke-test artifacts are intentionally omitted from Git.",
+    "project_agent_name": "giso4-project-memory",
+    "project_agent_role": "Persistent Project Memory only; not Coding Agent and not scenario executor.",
+    "bootstrap_files": [
+      "project_memory/letta/PROJECT_MEMORY.md",
+      "project_memory/letta/PROJECT_MEMORY.json",
+      "project_memory/letta/BOOTSTRAP_PROMPT.md",
+      "project_memory/letta/UPDATE_TEMPLATE.md"
+    ]
+  },
+  "mcp_notes": {
+    "needed_now": false,
+    "why": "Local CLI/repo files are enough for this sandbox. External agents need shared filesystem, Letta App Server, hosted/cloud Letta, or MCP/API integration.",
+    "hosted_endpoint": "https://api.letta.com/mcp",
+    "example_config": "tools/letta/mcp.hosted.example.json",
+    "secret_rule": "Example must contain placeholders only; never commit real API keys."
+  },
+  "known_issues": [
+    "Local checked branch was behind fetched remote branch containing sena.md and tracked graphify-out.",
+    "Local untracked graphify-out may complicate future checkout/pull.",
+    "sena.md is temporary discussion/analysis material, not final scenario.",
+    "Letta install used --ignore-scripts; node-pty native module may be missing.",
+    "Letta Cloud/provider execution is not configured by this repo setup.",
+    "External Coding Agents cannot access the same local Letta Project Agent without shared filesystem, App Server, Cloud, MCP, or API integration.",
+    "Graphify inferred edges require source verification.",
+    "analysis_final_override.py patches final analysis behavior from app.py/wsgi.py; runtime may differ from analysis.py body.",
+    "Prior audit notes mention possible analysis override divergence around wallet/mission/finalization; re-verify before such changes.",
+    "AI provider/failover paths for runtime chat and analysis vision are not necessarily identical; verify before changing AI behavior."
+  ],
+  "decisions": [
+    "Keep Project Memory separate from functional Giso code.",
+    "Keep project_memory/letta/ as durable, model-agnostic handoff state in Git.",
+    "Keep tools/letta/ as isolated local tooling, not root runtime dependencies.",
+    "Keep Graphify as structural map only.",
+    "Keep sena.md as temporary discussion material until user defines final scenario.",
+    "Do not store local Letta backend data, local agent IDs, smoke-test artifacts, secrets, or runtime paths in Git.",
+    "MCP remains optional until external cross-agent access requires it."
+  ],
+  "completed_work": [
+    "Checked Git state before setup.",
+    "Reviewed project guides and repository structure.",
+    "Verified sena.md exists on fetched remote branch and is temporary discussion material only.",
+    "Reviewed Graphify output and recorded scope/limitations.",
+    "Installed local Letta CLI tooling under tools/letta/.",
+    "Verified local Letta backend persistence during setup.",
+    "Created repo-local Project Memory files for future agents.",
+    "Created instructions for future Letta Project Agent creation/import.",
+    "Did not modify giso/, web/, bot_edu/, or main.py.",
+    "Did not execute any scenario."
+  ],
+  "next_action": [
+    "Run git status --short --branch before work.",
+    "Read project_memory/letta/PROJECT_MEMORY.md and PROJECT_MEMORY.json.",
+    "If using Letta Local, create/reuse an agent named giso4-project-memory and import/refresh the Project Memory files.",
+    "Carefully decide how to reconcile local branch with remote because local graphify-out is untracked while remote tracks Graphify output.",
+    "Wait for user to specify the real final scenario.",
+    "Do not execute sena.md or any other scenario until explicitly instructed."
+  ],
+  "update_protocol": [
+    "Update PROJECT_MEMORY.md and PROJECT_MEMORY.json after meaningful work.",
+    "Record branch, HEAD, and git status --short --branch.",
+    "Keep Graphify findings separate from code-verified facts.",
+    "Record decisions and rationale.",
+    "Do not store secrets, credentials, DB files, uploads, logs, node_modules, local Letta backend data, local agent IDs, or smoke-test artifacts."
+  ]
+}

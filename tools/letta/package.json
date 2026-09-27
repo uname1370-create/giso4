@@ -1,0 +1,14 @@
+{
+  "name": "giso4-letta-local",
+  "private": true,
+  "description": "Local Letta CLI/App Server tooling for Giso4 project memory. Does not affect Giso runtime.",
+  "scripts": {
+    "letta": "letta",
+    "letta:server": "letta server --backend local --listen ws://127.0.0.1:4500",
+    "letta:server:openai": "letta server --backend local --listen ws://127.0.0.1:4500 --openai-api"
+  },
+  "dependencies": {
+    "@letta-ai/letta-code": "0.33.2",
+    "ws": "8.22.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "letta": {
+      "url": "https://api.letta.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <LETTA_API_KEY>"
+      }
+    }
+  }
+}
