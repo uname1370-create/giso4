@@ -93,13 +93,6 @@
         </div>
         {% endif %}
 
-        {% if generation and (generation.fallback_used or generation.status == 'non_ai_guided_fallback_ready') %}
-        <form class="bti-retry-ai-form" method="post" action="{{ url_for('buti_ai.eyebrow_final_retry') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <span>عکس و انتخابت ذخیره است.</span>
-            <button class="bti-secondary-action" type="submit">تلاش دوباره با مدل‌های AI</button>
-        </form>
-        {% endif %}
 
         <div class="bti-final-design-grid">
             <article class="is-main">

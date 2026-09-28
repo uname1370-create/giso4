@@ -2173,31 +2173,11 @@
     text-align: center;
 }
 
-.bti-retry-ai-form {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-top: 12px;
-    padding: 12px 14px;
-    border: 1px solid rgba(255,173,18,.18);
-    border-radius: 18px;
-    background: rgba(255,173,18,.065);
-    color: var(--bti-muted);
-}
-
-.bti-retry-ai-form span {
-    color: #f4e7c4;
-    font-weight: 900;
-}
 
 @media (max-width: 720px) {
     .bti-compare-slider {
         min-height: 300px;
         aspect-ratio: 3 / 4;
-    }
-    .bti-retry-ai-form {
-        display: grid;
     }
 }
 

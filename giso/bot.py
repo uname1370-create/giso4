@@ -23,6 +23,32 @@ _READ_REPORT_CACHE = {}
 # جلوگیری از لو رفتن توکن ربات در لاگ‌های httpx (سطح INFO → WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
+class _TelegramPollingNoiseFilter(logging.Filter):
+    """کاهش لاگ تکراری polling وقتی بله/شبکه/proxy اتصال را قطع می‌کند."""
+
+    def filter(self, record):
+        try:
+            message = record.getMessage()
+        except Exception:
+            message = ""
+        if "Error while getting Updates" not in message and "Exception happened while polling for updates" not in message:
+            return True
+        error_text = message
+        if record.exc_info:
+            try:
+                error = record.exc_info[1]
+                error_text += f" {type(error).__name__}: {error}"
+            except Exception:
+                pass
+        noisy_network_error = any(
+            part in error_text
+            for part in ("RemoteProtocolError", "NetworkError", "Server disconnected without sending a response")
+        )
+        return not noisy_network_error
+
+
+logging.getLogger("telegram.ext.Updater").addFilter(_TelegramPollingNoiseFilter())
+
 def _to_thread(fn, *args, **kwargs):
     """اجرای فراخوانی blocking خارج از event loop (در صورت اجرا داخل loop)."""
     import functools
