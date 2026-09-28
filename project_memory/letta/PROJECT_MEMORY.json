@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 2.5 completed locally: eyebrow page top stepper removed, model cards now use lightweight realistic brow sample images, and upload remains a separate panel. Backend/AI flow unchanged. Validation passed; commit/push pending at memory-update time.",
+  "status": "Buti AI Phase 2.5 completed, validated, committed, and pushed: eyebrow page top stepper removed, model cards now use lightweight realistic brow sample images, and upload remains a separate panel. Backend/AI flow unchanged.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -25,10 +25,12 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "Phase 2.5 eyebrow UI/static sample files modified locally at memory-update time"
+      "clean after Phase 2.5 brow sample push"
     ],
+    "phase_2_5_code_commit": "38c3418ab9fc3c2cd3b43761ddeec997e4fa029c",
     "phase_2_5_note": "Frontend/static-only in Buti AI eyebrow template/static assets; validation passed before commit.",
-    "forbidden_paths_modified": false
+    "forbidden_paths_modified": false,
+    "protected_paths_note": "Protected path check showed no changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/."
   },
   "sena_md": {
     "remote_present": true,
@@ -210,7 +212,8 @@
     "Removed bti-flow-steps from /analysis/mirror/eyebrow only.",
     "Generated and compressed five lightweight realistic brow sample images under giso/buti_ai/static/brows/.",
     "Updated eyebrow model cards to use image samples instead of CSS-only brow lines.",
-    "Kept upload as a separate panel and renamed its heading to عکس چهره برای تحلیل."
+    "Kept upload as a separate panel and renamed its heading to عکس چهره برای تحلیل.",
+    "Committed and pushed Buti AI Phase 2.5 realistic brow samples as 38c3418ab9fc3c2cd3b43761ddeec997e4fa029c."
   ],
   "next_action": [
     "Run git status --short --branch before future work.",
@@ -379,7 +382,7 @@
       "giso/buti_ai/static/buti_ai.css",
       "giso/buti_ai/static/buti_ai.js"
     ],
-    "phase_2_5_status": "remove_eyebrow_top_stepper_add_realistic_brow_samples_validation_passed_pending_commit_at_memory_update_time",
+    "phase_2_5_status": "remove_eyebrow_top_stepper_add_realistic_brow_samples_validated_committed_pushed",
     "phase_2_5_files": [
       "giso/buti_ai/templates/buti_ai/eyebrow_wizard.html",
       "giso/buti_ai/static/buti_ai.css",
