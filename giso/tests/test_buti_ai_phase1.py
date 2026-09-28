@@ -939,7 +939,12 @@ def test_cloudflare_cf_alias_and_account_root_builder():
     assert normalize_provider_name("Cloudflare Workers AI") == "cloudflare"
     cf_images = get_image_models("cf")
     assert cf_images[0]["id"] == "@cf/black-forest-labs/flux-2-klein-4b"
-    assert any(m["id"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting" and m.get("image_kind") == "cloudflare_inpainting" for m in cf_images)
+    assert any(
+        m["id"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting"
+        and m.get("image_kind") == "cloudflare_inpainting"
+        and m.get("auto_assign") is False
+        for m in cf_images
+    )
     root = normalize_cloudflare_api_root("", "ba0fec1e8a6deda27719c582e4d8eb9d", require_account=True)
     assert root == "https://api.cloudflare.com/client/v4/accounts/ba0fec1e8a6deda27719c582e4d8eb9d/ai/run"
     assert cloudflare_account_id_from_url(root) == "ba0fec1e8a6deda27719c582e4d8eb9d"
@@ -1053,9 +1058,8 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
     assert [int(r["priority"]) for r in images] == [1, 2, 3]
     assert images[0]["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b"
     assert images[0]["image_kind"] == "cloudflare"
-    assert any(r["model_name"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting" for r in images)
-    inpaint = [r for r in images if r["model_name"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting"][0]
-    assert inpaint["image_kind"] == "cloudflare_inpainting"
+    assert "@cf/runwayml/stable-diffusion-v1-5-inpainting" not in [r["model_name"] for r in images]
+    assert all(r["image_kind"] == "cloudflare" for r in images)
 
     second = ai_models.auto_configure_for_provider("cloudflare")
     assert second["added"] == 0

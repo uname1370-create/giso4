@@ -547,11 +547,13 @@ def _model_ids(items: Iterable[Any], limit: int = 3) -> List[str]:
     return ids
 
 
-def _model_items(items: Iterable[Any], limit: int = 3) -> List[Dict[str, str]]:
+def _model_items(items: Iterable[Any], limit: int = 3, auto_assign_only: bool = False) -> List[Dict[str, str]]:
     result: List[Dict[str, str]] = []
     seen = set()
     for item in items or []:
         if isinstance(item, dict):
+            if auto_assign_only and item.get("auto_assign") is False:
+                continue
             mid = str(item.get("id") or "").strip()
             image_kind = str(item.get("image_kind") or item.get("kind") or "").strip().lower()
         else:
@@ -596,7 +598,7 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
         if ok:
             added.append({"task": TASK_EYEBROW_ANALYSIS, "priority": 1, "model": vision_model})
 
-    for priority, item in enumerate(_model_items(get_image_models(provider_name), limit=3), start=1):
+    for priority, item in enumerate(_model_items(get_image_models(provider_name), limit=3, auto_assign_only=True), start=1):
         model = item["id"]
         image_kind = item.get("image_kind") or ("cloudflare" if provider_name == "cloudflare" else "")
         if provider_name == "cloudflare":
