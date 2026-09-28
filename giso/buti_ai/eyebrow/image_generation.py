@@ -43,15 +43,19 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import requests
 
 from giso.buti_ai.eyebrow import final_design
+from giso.buti_ai.eyebrow.landmarks import MASK_POLARITY, ensure_eyebrow_mask
 from giso.buti_ai.eyebrow.options import normalize_style_key
 
 logger = logging.getLogger("giso_buti_ai_image_generation")
 
 DEFAULT_CLOUDFLARE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b"
+CLOUDFLARE_INPAINTING_MODEL = "@cf/runwayml/stable-diffusion-v1-5-inpainting"
+CLOUDFLARE_INPAINTING_KINDS = {"cloudflare_inpainting", "cloudflare_inpaint", "inpainting", "mask_inpainting"}
 DEFAULT_TIMEOUT_SECONDS = 90
 MAX_DOWNLOAD_BYTES = 12 * 1024 * 1024
 MAX_SAVE_SIDE = 1600
 MAX_PROVIDER_INPUT_SIDE = 512
+MAX_INPAINTING_INPUT_SIDE = 512
 
 
 class ImageProviderError(RuntimeError):
@@ -96,6 +100,16 @@ def _env_value(env: Optional[Dict[str, str]], key: str, default: str = "") -> st
 
 def _truthy(value: Any) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on", "y"}
+
+
+def _cloudflare_kind_for_model(model: str, configured_kind: str = "cloudflare") -> str:
+    """Capability routing for documented Cloudflare image models, without changing selected model."""
+    kind = str(configured_kind or "").strip().lower() or "cloudflare"
+    if kind in CLOUDFLARE_INPAINTING_KINDS:
+        return "cloudflare_inpainting"
+    if str(model or "").strip() == CLOUDFLARE_INPAINTING_MODEL:
+        return "cloudflare_inpainting"
+    return kind
 
 
 def _timeout_seconds(env: Optional[Dict[str, str]]) -> int:
@@ -153,7 +167,7 @@ def _cloudflare_providers(env: Optional[Dict[str, str]]) -> List[ImageProviderCo
             ImageProviderConfig(
                 id=f"cloudflare_{index}",
                 label=f"Cloudflare {index}",
-                kind="cloudflare",
+                kind=_cloudflare_kind_for_model(model, "cloudflare"),
                 endpoint=endpoint,
                 model=model,
                 api_key=token,
@@ -501,6 +515,124 @@ def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_
     return _parse_response_image(response)
 
 
+def _dimension_for_model(value: int) -> int:
+    value = int(round(float(value or 0) / 8.0) * 8)
+    return max(256, min(2048, value or 512))
+
+
+def _prepare_cloudflare_inpainting_assets(source_path: str, mask_path: str) -> Tuple[bytes, bytes, int, int, int, float]:
+    """ساخت image/mask هم‌اندازه برای Cloudflare inpainting.
+
+    طبق نمونه رسمی Workers AI برای مدل inpainting، `image` و `mask` آرایه‌ای از
+    byteهای فایل هستند؛ بنابراین هر دو را به PNG هم‌اندازه تبدیل می‌کنیم و بعد
+    byte array می‌فرستیم، نه multipart و نه فیلد حدسی mask_image/input_mask.
+    """
+    try:
+        from PIL import Image
+    except Exception as exc:
+        raise ImageProviderError("کتابخانه پردازش تصویر برای ساخت mask در دسترس نیست") from exc
+
+    try:
+        image = Image.open(source_path).convert("RGB")
+        mask = Image.open(mask_path).convert("L")
+    except Exception as exc:
+        raise ImageProviderError("عکس یا mask ابرو برای inpainting قابل خواندن نیست") from exc
+
+    if mask.size != image.size:
+        mask = mask.resize(image.size, Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST)
+
+    width, height = image.size
+    if width <= 0 or height <= 0:
+        raise ImageProviderError("ابعاد عکس برای inpainting نامعتبر است")
+
+    scale = min(1.0, float(MAX_INPAINTING_INPUT_SIDE) / float(max(width, height)))
+    if min(width, height) * scale < 256:
+        scale = max(scale, 256.0 / float(max(1, min(width, height))))
+    new_w = _dimension_for_model(width * scale)
+    new_h = _dimension_for_model(height * scale)
+    if (new_w, new_h) != (width, height):
+        image = image.resize((new_w, new_h), Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
+        mask = mask.resize((new_w, new_h), Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST)
+    mask = mask.point(lambda px: 255 if int(px) >= 128 else 0)
+    mask_pixels = sum(1 for px in mask.getdata() if px > 0)
+    total_pixels = max(1, new_w * new_h)
+    coverage = float(mask_pixels) / float(total_pixels)
+    if mask_pixels <= 0:
+        raise ImageProviderError("mask واقعی ابرو خالی است؛ inpainting متوقف شد")
+    if coverage > 0.18:
+        raise ImageProviderError("mask ابرو بیش از حد وسیع است؛ برای حفظ صورت inpainting متوقف شد")
+
+    image_out = BytesIO()
+    mask_out = BytesIO()
+    image.save(image_out, "PNG", optimize=True)
+    mask.save(mask_out, "PNG", optimize=True)
+    return image_out.getvalue(), mask_out.getvalue(), int(new_w), int(new_h), int(mask_pixels), round(coverage, 6)
+
+
+def _real_eyebrow_mask_for_candidate(source_path: str, candidate: Dict[str, Any]) -> Tuple[Dict[str, Any], str]:
+    detection = candidate.get("eyebrow_detection") if isinstance(candidate.get("eyebrow_detection"), dict) else {}
+    if not detection or not detection.get("regions"):
+        detection = final_design.ensure_eyebrow_detection(candidate)
+    if detection and detection.get("regions"):
+        detection = ensure_eyebrow_mask(source_path, detection)
+        candidate["eyebrow_detection"] = detection
+    mask = detection.get("mask") if isinstance(detection, dict) and isinstance(detection.get("mask"), dict) else {}
+    mask_path = str(mask.get("path") or detection.get("mask_path") or "").strip() if isinstance(detection, dict) else ""
+    if not mask.get("ok") or not mask_path or not os.path.exists(mask_path):
+        raise ImageProviderError("برای Cloudflare Inpainting، mask واقعی ابرو در دسترس نیست")
+    if mask.get("is_fallback") or mask.get("real_mask") is False or str(detection.get("method") or "") == "proportional_fallback":
+        raise ImageProviderError("mask نسبتی/fallback برای AI Inpainting واقعی استفاده نمی‌شود")
+    return detection, mask_path
+
+
+def _call_cloudflare_inpainting(provider: ImageProviderConfig, source_path: str, candidate: Dict[str, Any], prompt: str, timeout: int) -> str:
+    detection, mask_path = _real_eyebrow_mask_for_candidate(source_path, candidate)
+    image_bytes, mask_bytes, width, height, mask_pixels, coverage = _prepare_cloudflare_inpainting_assets(source_path, mask_path)
+    guidance = float(provider.extra.get("guidance") or _env_value(None, "CLOUDFLARE_INPAINTING_GUIDANCE") or 7.5)
+    strength = float(provider.extra.get("strength") or _env_value(None, "CLOUDFLARE_INPAINTING_STRENGTH") or 0.72)
+    try:
+        num_steps = int(provider.extra.get("num_steps") or _env_value(None, "CLOUDFLARE_INPAINTING_STEPS") or 20)
+    except Exception:
+        num_steps = 20
+    num_steps = max(1, min(20, num_steps))
+    payload = {
+        "prompt": (
+            f"{prompt} Apply the selected eyebrow design only inside the uploaded inpainting mask. "
+            f"Mask polarity: {MASK_POLARITY}; white pixels are editable eyebrow pixels, black pixels must remain unchanged."
+        ),
+        "negative_prompt": (
+            "new face, changed identity, changed eyes, changed eyelids, changed eyelashes, skin retouching, "
+            "hair change, background change, makeup change outside eyebrows, distorted face, cartoon, illustration"
+        ),
+        "image": list(image_bytes),
+        "mask": list(mask_bytes),
+        "width": width,
+        "height": height,
+        "num_steps": num_steps,
+        "strength": max(0.05, min(1.0, strength)),
+        "guidance": guidance,
+    }
+    provider.extra["_last_request_meta"] = {
+        "ai_inpainting": True,
+        "mask_used": True,
+        "mask_width": width,
+        "mask_height": height,
+        "mask_pixels": mask_pixels,
+        "mask_coverage_ratio": coverage,
+        "mask_polarity": MASK_POLARITY,
+        "mask_source_method": detection.get("method"),
+        "reference_image_sent": False,
+        "cloudflare_request_format": "json_image_and_mask_byte_arrays",
+    }
+    response = requests.post(
+        provider.endpoint,
+        headers={**_authorization_headers(provider), "Content-Type": "application/json"},
+        json=payload,
+        timeout=timeout,
+    )
+    return _parse_response_image(response)
+
+
 def _call_openai_image_edit(provider: ImageProviderConfig, source_path: str, prompt: str, timeout: int) -> str:
     photo_bytes, photo_mime, photo_ext = _image_bytes_for_provider(source_path, 1024, square=False)
     data = {
@@ -573,9 +705,13 @@ def _call_json_image(provider: ImageProviderConfig, source_path: str, reference_
 
 
 def _call_provider(provider: ImageProviderConfig, source_path: str, reference_path: str, candidate: Dict[str, Any], prompt: str, timeout: int) -> str:
-    kind = (provider.kind or "").strip().lower()
+    kind = _cloudflare_kind_for_model(provider.model, provider.kind) if (provider.kind or "").strip().lower().startswith("cloudflare") else (provider.kind or "").strip().lower()
+    provider.kind = kind
+    provider.extra.pop("_last_request_meta", None)
     if kind == "cloudflare":
         return _call_cloudflare(provider, source_path, reference_path, prompt, timeout)
+    if kind in CLOUDFLARE_INPAINTING_KINDS:
+        return _call_cloudflare_inpainting(provider, source_path, candidate, prompt, timeout)
     if kind in {"openai_image_edit", "openai_edit", "images_edit"}:
         return _call_openai_image_edit(provider, source_path, prompt, timeout)
     if kind in {"multipart", "form", "form_data"}:
@@ -640,7 +776,13 @@ def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") 
         "model": provider.model,
         "ok": bool(ok),
         "ms": int(ms),
+        "ai_inpainting": provider.kind in CLOUDFLARE_INPAINTING_KINDS,
     }
+    meta = provider.extra.get("_last_request_meta") if isinstance(provider.extra, dict) else None
+    if isinstance(meta, dict):
+        for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "reference_image_sent", "cloudflare_request_format"):
+            if key in meta:
+                item[key] = meta[key]
     if error:
         item["error"] = str(error)[:280]
     return item
@@ -670,22 +812,32 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
             image_value = _call_provider(provider, source_path, reference_path, candidate, prompt, timeout)
             filename = _save_provider_output(image_value, timeout)
             ms = int((time.monotonic() - started) * 1000)
-            attempts.append(_attempt(provider, True, ms))
-            return {
+            attempt = _attempt(provider, True, ms)
+            attempts.append(attempt)
+            ai_inpainting = provider.kind in CLOUDFLARE_INPAINTING_KINDS
+            current_detection = candidate.get("eyebrow_detection") if isinstance(candidate.get("eyebrow_detection"), dict) else eyebrow_detection
+            result = {
                 "ok": True,
                 "filename": filename,
                 "provider": provider.id,
                 "provider_label": provider.label,
+                "kind": provider.kind,
                 "model": provider.model,
-                "status": "ai_final_ready",
+                "status": "ai_inpainting_ready" if ai_inpainting else "ai_final_ready",
                 "prompt": prompt,
-                "eyebrow_detection_method": eyebrow_detection.get("method") if isinstance(eyebrow_detection, dict) else "",
-                "eyebrow_detection": eyebrow_detection,
+                "eyebrow_detection_method": current_detection.get("method") if isinstance(current_detection, dict) else "",
+                "eyebrow_detection": current_detection,
                 "attempts": attempts,
                 "fallback_used": False,
+                "ai_inpainting": ai_inpainting,
+                "is_ai_generated": True,
                 "configured_provider_count": len(providers),
-                "message": "طراحی عکس نهایی با مدل تصویرسازی آماده شد.",
+                "message": "طراحی عکس نهایی با AI Inpainting و ماسک واقعی ابرو آماده شد." if ai_inpainting else "طراحی عکس نهایی با مدل تصویرسازی آماده شد.",
             }
+            for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "reference_image_sent", "cloudflare_request_format"):
+                if key in attempt:
+                    result[key] = attempt[key]
+            return result
         except Exception as exc:
             ms = int((time.monotonic() - started) * 1000)
             safe_error = str(exc)[:280] or "provider failed"
@@ -703,19 +855,23 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
     fallback["configured_provider_count"] = len(providers)
     fallback["fallback_used"] = bool(providers)
     fallback["prompt"] = prompt
+    fallback["ai_inpainting"] = False
+    fallback["is_ai_generated"] = False
+    fallback["fallback_type"] = "non_ai_guided_fallback"
     if fallback.get("ok"):
         if providers:
-            fallback["status"] = "guided_fallback_ready"
-            fallback["message"] = "مدل‌های تصویرسازی فعلاً جواب ندادند؛ عکس و انتخاب شما حفظ شد و نسخه راهنمای امن نمایش داده می‌شود. کمی بعد می‌توانید دوباره تلاش کنید."
+            fallback["status"] = "non_ai_guided_fallback_ready"
+            fallback["message"] = "مدل‌های تصویرسازی/AI Inpainting فعلاً جواب ندادند؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI نمایش داده می‌شود. کمی بعد می‌توانید دوباره تلاش کنید."
         else:
-            fallback["status"] = "guided_final_ready"
-            fallback["message"] = "مدل تصویرسازی هنوز در مدیریت AI تنظیم نشده؛ عکس و انتخاب شما حفظ شد و نسخه راهنمای امن آماده شد."
+            fallback["status"] = "non_ai_guided_preview_ready"
+            fallback["message"] = "مدل تصویرسازی هنوز در مدیریت AI تنظیم نشده؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI آماده شد."
     elif providers:
         fallback["message"] = "فعلاً طراحی عکس نهایی آماده نشد؛ عکس و انتخاب شما حفظ شد. لطفاً چند دقیقه بعد دوباره تلاش کنید."
     return fallback
 
 
 __all__ = [
+    "CLOUDFLARE_INPAINTING_MODEL",
     "ImageProviderConfig",
     "configured_image_providers",
     "generate_final_design",

@@ -11,7 +11,7 @@ import os
 import uuid
 from datetime import datetime
 
-from giso.buti_ai.eyebrow.landmarks import detect_eyebrow_regions, proportional_fallback_regions
+from giso.buti_ai.eyebrow.landmarks import detect_eyebrow_regions, ensure_eyebrow_mask, proportional_fallback_regions
 from giso.buti_ai.eyebrow.options import CHANGE_LEVELS, EYEBROW_STYLES, normalize_change_level, normalize_style_key
 from giso.buti_ai.eyebrow.upload import EYEBROW_UPLOAD_DIR
 
@@ -174,15 +174,21 @@ def source_image_path(candidate):
 
 
 def ensure_eyebrow_detection(candidate):
-    """اگر ROI ابرو در candidate نیست، از روی عکس آن را تشخیص می‌دهد."""
+    """اگر ROI/polygon/mask ابرو در candidate نیست، از روی عکس آن را تشخیص می‌دهد."""
     candidate = candidate if isinstance(candidate, dict) else {}
+    src = _source_path(candidate)
     existing = candidate.get("eyebrow_detection")
     if isinstance(existing, dict) and existing.get("regions"):
+        mask = existing.get("mask") if isinstance(existing.get("mask"), dict) else {}
+        if src and not (mask.get("ok") and mask.get("path")):
+            existing = ensure_eyebrow_mask(src, existing)
+            candidate["eyebrow_detection"] = existing
         return existing
-    src = _source_path(candidate)
     if not src:
         return {}
     detection = detect_eyebrow_regions(src, allow_fallback=False)
+    if isinstance(detection, dict) and detection.get("regions"):
+        detection = ensure_eyebrow_mask(src, detection)
     candidate["eyebrow_detection"] = detection
     return detection
 
@@ -190,20 +196,30 @@ def ensure_eyebrow_detection(candidate):
 def _eyebrow_region_text(candidate):
     detection = candidate.get("eyebrow_detection") if isinstance(candidate, dict) else {}
     if not isinstance(detection, dict) or not detection.get("regions"):
-        return "No reliable eyebrow ROI was detected; infer the two natural eyebrow regions from the original face photo and leave all non-eyebrow areas unchanged."
+        return "No reliable eyebrow polygon/mask was detected; do not treat prompt coordinates as a mask and leave all non-eyebrow areas unchanged."
     image_w = detection.get("image_width") or "?"
     image_h = detection.get("image_height") or "?"
+    mask = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
     chunks = []
     for region in (detection.get("regions") or [])[:2]:
         try:
+            polygon_points = region.get("polygon") if isinstance(region.get("polygon"), list) else []
             chunks.append(
-                f"{region.get('side')}: x={int(region.get('x') or 0)}, y={int(region.get('y') or 0)}, "
-                f"w={int(region.get('width') or 0)}, h={int(region.get('height') or 0)}"
+                f"{region.get('side')}: bbox x={int(region.get('x') or 0)}, y={int(region.get('y') or 0)}, "
+                f"w={int(region.get('width') or 0)}, h={int(region.get('height') or 0)}, "
+                f"polygon_points={len(polygon_points)}"
             )
         except Exception:
             continue
     method = detection.get("method") or "unknown"
-    return f"Detected eyebrow ROI on original image {image_w}x{image_h} using {method}: " + "; ".join(chunks)
+    mask_text = ""
+    if mask.get("ok"):
+        mask_text = (
+            f" Pixel eyebrow mask available {mask.get('width') or image_w}x{mask.get('height') or image_h}, "
+            f"polarity={mask.get('polarity') or 'white_edit_black_keep'}, "
+            f"coverage={mask.get('coverage_ratio')}."
+        )
+    return f"Detected eyebrow polygon regions on original image {image_w}x{image_h} using {method}: " + "; ".join(chunks) + mask_text
 
 
 def _scaled_regions_for_image(candidate, image_w, image_h):
@@ -293,22 +309,24 @@ def build_design_prompt(candidate):
 
     face_notes = _prompt_text(candidate.get("face_analysis"))
     current_brows = _prompt_text(candidate.get("current_brow_summary"))
-    recommendation = _prompt_text(candidate.get("do") or candidate.get("short_reason"))
+    style_instructions = _prompt_text(candidate.get("do") or candidate.get("short_reason"))
     avoid = _prompt_text(candidate.get("avoid"))
     region_text = _eyebrow_region_text(candidate)
     return (
         "Photorealistic image edit of the ORIGINAL customer face photo. "
-        "The selected beauty service is intelligent eyebrow design preview; apply the selected eyebrow model precisely to the natural brow location. "
+        "The selected beauty service is intelligent eyebrow design preview; apply ONLY the user-selected eyebrow model to the natural brow location. "
+        "Use the provided eyebrow pixel mask when the API request includes one; white mask pixels are the editable eyebrow area and black pixels must be preserved. "
+        "Prompt text and ROI coordinates are only descriptive metadata, not a substitute for the mask. "
         "Edit ONLY the two eyebrow regions: brow hairs, shape, fill, tail, arch, and very local brow shadow if needed. "
         "Do not change identity, face shape, eyes, eyelids, lashes, skin texture, hair, makeup, lips, nose, lighting, camera angle, background, jewelry, clothes, or expression. "
         "Keep pores, shadows and natural asymmetry realistic. No beauty filter, no new face, no illustration, no heavy retouching. "
         f"Selected service: {service_label}. "
         f"Selected eyebrow model: {model_label}. Final design label: {style_label}. "
         f"Requested change level: {candidate.get('change_label', '')}. "
-        f"Eyebrow edit region: {region_text}. "
+        f"Real eyebrow location: {region_text}. "
         f"Current eyebrow notes: {current_brows}. "
-        f"Face-fit notes: {face_notes}. "
-        f"Recommendation to follow: {recommendation}. "
+        f"Face preservation notes: {face_notes}. "
+        f"Selected-style instructions: {style_instructions}. "
         f"Avoid: {avoid}. "
         "The result should look like the same photo after a professional eyebrow consultation preview; subtle, wearable, and salon-realistic."
     )
@@ -362,11 +380,14 @@ def generate_python_guided_design(candidate):
             "filename": out_name,
             "provider": "python_guided_composite",
             "model": "pillow_brow_overlay_v1",
-            "status": "guided_final_ready",
+            "status": "non_ai_guided_preview_ready",
             "prompt": build_design_prompt(candidate),
             "eyebrow_detection_method": detection_method,
             "eyebrow_detection": detection,
-            "message": "طراحی عکس نهایی راهنما آماده شد.",
+            "ai_inpainting": False,
+            "is_ai_generated": False,
+            "fallback_type": "non_ai_guided_fallback",
+            "message": "طراحی راهنمای غیر AI آماده شد.",
         }
     except Exception as exc:
         return {"ok": False, "message": f"ساخت طراحی عکس نهایی انجام نشد: {str(exc)[:120]}", "status": "generate_failed"}

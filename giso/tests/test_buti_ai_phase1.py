@@ -293,8 +293,27 @@ def test_final_candidate_uses_selected_style_even_if_ai_recommends_other():
     assert candidate["final_label"] == "شیدینگ پودری"
     prompt = build_design_prompt(candidate)
     assert "Selected eyebrow model: شیدینگ پودری" in prompt
+    assert "Recommendation to follow" not in prompt
     assert "طبیعی و نچرال" not in prompt
 
+
+
+
+def test_reference_image_comes_from_selected_final_style():
+    from giso.buti_ai.eyebrow import image_generation
+
+    candidate = {
+        "selected_style": "powder",
+        "selected_label": "شیدینگ پودری",
+        "recommended_style": "natural",
+        "final_style": "powder",
+        "final_label": "شیدینگ پودری",
+    }
+
+    reference = image_generation._reference_image_path(candidate)
+
+    assert reference.endswith("powder.jpg")
+    assert Path(reference).exists()
 
 
 def test_selected_model_a_and_b_stay_exactly_in_final_candidate(monkeypatch):
@@ -443,6 +462,24 @@ def test_eyebrow_region_detector_finds_drawn_brow_bands(tmp_path):
     assert detection["method"] in {"dark_pixel_band", "opencv_haar_eye", "mediapipe_face_mesh"}
     assert len(detection["regions"]) == 2
     assert detection["regions"][0]["x"] < detection["regions"][1]["x"]
+    assert detection["mask"]["ok"] is True
+    assert detection["mask_width"] == 640
+    assert detection["mask_height"] == 820
+    assert Path(detection["mask_path"]).exists()
+    with Image.open(detection["mask_path"]) as mask_image:
+        assert mask_image.mode == "L"
+        assert mask_image.size == (640, 820)
+    assert detection["mask"]["format"] == "png_luminance"
+    assert detection["mask"]["polarity"] == "white_edit_black_keep"
+    assert detection["mask"]["is_rectangle_mask"] is False
+    assert detection["mask"]["pixel_count"] < detection["mask"]["bbox_area_sum"]
+    left, right = detection["regions"]
+    assert left["side"] == "left"
+    assert right["side"] == "right"
+    assert left["mask_pixel_count"] > 0
+    assert right["mask_pixel_count"] > 0
+    assert len(left["polygon"]) >= 4
+    assert len(right["polygon"]) >= 4
 
 
 
@@ -466,6 +503,9 @@ def test_python_guided_final_design_generates_output_file(tmp_path, monkeypatch)
 
     assert result["ok"] is True
     assert result["provider"] == "python_guided_composite"
+    assert result["ai_inpainting"] is False
+    assert result["is_ai_generated"] is False
+    assert result["status"] == "non_ai_guided_preview_ready"
     assert result["filename"].startswith("final/final_eyebrow_")
     assert result["eyebrow_detection_method"] == "proportional_fallback"
     assert (tmp_path / result["filename"]).exists()
@@ -517,7 +557,9 @@ def test_final_design_provider_chain_falls_back_when_not_configured(tmp_path, mo
     assert result["provider"] == "python_guided_composite"
     assert result["configured_provider_count"] == 0
     assert result["fallback_used"] is False
-    assert result["status"] == "guided_final_ready"
+    assert result["status"] == "non_ai_guided_preview_ready"
+    assert result["ai_inpainting"] is False
+    assert result["is_ai_generated"] is False
     assert "تنظیم نشده" in result["message"]
     assert (tmp_path / result["filename"]).exists()
 
@@ -559,11 +601,13 @@ def test_final_design_cloudflare_provider_success_saves_ai_output(tmp_path, monk
         assert "acct-1" in url
         assert headers["Authorization"] == "Bearer secret-token"
         assert "input_image_0" in files
+        assert "mask" not in files
+        assert json is None
         assert "Edit ONLY the two eyebrow regions" in data["prompt"]
         assert "Selected service: آینه ابرو گیسو / طراحی هوشمند ابرو" in data["prompt"]
         assert "Selected eyebrow model: کامبینیشن" in data["prompt"]
         assert "Current eyebrow notes: دم ابرو کم‌پشت" in data["prompt"]
-        assert "Eyebrow edit region: Detected eyebrow ROI" in data["prompt"]
+        assert "Real eyebrow location: Detected eyebrow polygon regions" in data["prompt"]
         assert "Do not change identity" in data["prompt"]
         return FakeResponse()
 
@@ -586,6 +630,94 @@ def test_final_design_cloudflare_provider_success_saves_ai_output(tmp_path, monk
     assert result["fallback_used"] is False
     assert result["attempts"][0]["ok"] is True
     assert result["filename"].startswith("final/ai_eyebrow_")
+    assert (tmp_path / result["filename"]).exists()
+
+
+
+def test_cloudflare_inpainting_request_uses_real_eyebrow_mask(tmp_path, monkeypatch):
+    import json
+    from io import BytesIO as _BytesIO
+    from PIL import Image, ImageDraw
+    from giso.buti_ai import ai_models as mirror_ai_models
+    from giso.buti_ai.eyebrow import final_design, image_generation
+
+    original = tmp_path / "face.jpg"
+    image = Image.new("RGB", (640, 820), (218, 178, 148))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((205, 265, 285, 282), radius=8, fill=(48, 32, 24))
+    draw.rounded_rectangle((355, 265, 435, 282), radius=8, fill=(48, 32, 24))
+    image.save(original, "JPEG")
+    output = _BytesIO()
+    Image.new("RGB", (360, 460), (205, 160, 132)).save(output, "PNG")
+
+    monkeypatch.setattr(final_design, "EYEBROW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(final_design, "FINAL_DESIGN_DIR", str(tmp_path / "final"))
+
+    class FakeResponse:
+        ok = True
+        status_code = 200
+        headers = {"content-type": "image/png"}
+        text = ""
+        content = output.getvalue()
+
+        def json(self):
+            return {}
+
+    calls = []
+
+    def fake_post(url, headers=None, data=None, files=None, timeout=None, json=None):
+        calls.append({"url": url, "headers": headers or {}, "data": data, "files": files, "json": json or {}})
+        return FakeResponse()
+
+    monkeypatch.setattr(image_generation.requests, "post", fake_post)
+    monkeypatch.setattr(
+        mirror_ai_models,
+        "configured_image_provider_dicts",
+        lambda limit=3: [
+            {
+                "id": "ai_mirror_cloudflare_1",
+                "label": "مدیریت AI: cloudflare #1",
+                "kind": "cloudflare_inpainting",
+                "endpoint": "https://api.cloudflare.com/client/v4/accounts/acct-1/ai/run/@cf/runwayml/stable-diffusion-v1-5-inpainting",
+                "model": "@cf/runwayml/stable-diffusion-v1-5-inpainting",
+                "api_key": "secret-token",
+                "headers": {},
+                "extra": {"source": "ai_management", "priority": 1},
+            }
+        ],
+    )
+
+    result = image_generation.generate_final_design(_sample_final_candidate(), env=None)
+
+    assert calls
+    call = calls[0]
+    assert call["url"].endswith("/ai/run/@cf/runwayml/stable-diffusion-v1-5-inpainting")
+    assert call["files"] is None
+    payload = call["json"]
+    assert "mask" in payload
+    assert "image" in payload
+    assert isinstance(payload["mask"], list)
+    assert isinstance(payload["image"], list)
+    assert "mask_image" not in payload
+    assert "input_mask" not in payload
+    mask_bytes = bytes(payload["mask"])
+    with Image.open(_BytesIO(mask_bytes)) as mask_image:
+        mask = mask_image.convert("L")
+        assert mask.size == (payload["width"], payload["height"])
+        nonzero = sum(1 for px in mask.getdata() if px > 0)
+        assert nonzero > 0
+        assert nonzero < payload["width"] * payload["height"] * 0.18
+    assert "Prompt text and ROI coordinates are only descriptive metadata" in payload["prompt"]
+    assert "white pixels are editable eyebrow pixels" in payload["prompt"]
+    assert result["ok"] is True
+    assert result["status"] == "ai_inpainting_ready"
+    assert result["ai_inpainting"] is True
+    assert result["mask_used"] is True
+    assert result["mask_width"] == payload["width"]
+    assert result["mask_height"] == payload["height"]
+    assert result["mask_polarity"] == "white_edit_black_keep"
+    assert result["provider"] == "ai_mirror_cloudflare_1"
+    assert result["model"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting"
     assert (tmp_path / result["filename"]).exists()
 
 
@@ -782,8 +914,8 @@ def test_final_design_template_shows_inline_center_suggestions():
     assert "مشاهده همه مراکز ابرو" in html
     assert "برای اجرای" in html
     assert "راهنمای هوشمند قبل از انتخاب مرکز" in html
-    assert "این تصویر، راهنمای هوشمند/پیش‌نمایش طراحی عکس نهایی است" in html
-    assert "طراحی راهنمای امن آماده شد" in html
+    assert "این تصویر، راهنمای غیر AI/پیش‌نمایش طراحی عکس نهایی است" in html
+    assert "طراحی راهنمای غیر AI آماده شد" in html
 
 
 def test_final_design_template_shows_inline_waitlist_when_no_centers():
@@ -805,7 +937,9 @@ def test_cloudflare_cf_alias_and_account_root_builder():
 
     assert normalize_provider_name("cf") == "cloudflare"
     assert normalize_provider_name("Cloudflare Workers AI") == "cloudflare"
-    assert get_image_models("cf")[0]["id"] == "@cf/black-forest-labs/flux-2-klein-4b"
+    cf_images = get_image_models("cf")
+    assert cf_images[0]["id"] == "@cf/black-forest-labs/flux-2-klein-4b"
+    assert any(m["id"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting" and m.get("image_kind") == "cloudflare_inpainting" for m in cf_images)
     root = normalize_cloudflare_api_root("", "ba0fec1e8a6deda27719c582e4d8eb9d", require_account=True)
     assert root == "https://api.cloudflare.com/client/v4/accounts/ba0fec1e8a6deda27719c582e4d8eb9d/ai/run"
     assert cloudflare_account_id_from_url(root) == "ba0fec1e8a6deda27719c582e4d8eb9d"
@@ -871,6 +1005,8 @@ def test_final_design_reads_ai_management_image_provider(tmp_path, monkeypatch):
 
     assert calls
     assert calls[0]["url"].endswith("/ai/run/@cf/test-image")
+    assert "input_image_0" in calls[0]["files"]
+    assert "mask" not in calls[0]["files"]
     assert "Selected eyebrow model: کامبینیشن" in calls[0]["data"]["prompt"]
     assert "Edit ONLY the two eyebrow regions" in calls[0]["data"]["prompt"]
     assert result["ok"] is True
@@ -916,10 +1052,56 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
     assert "vision" in analysis[0]["model_name"]
     assert [int(r["priority"]) for r in images] == [1, 2, 3]
     assert images[0]["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b"
-    assert all(r["image_kind"] == "cloudflare" for r in images)
+    assert images[0]["image_kind"] == "cloudflare"
+    assert any(r["model_name"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting" for r in images)
+    inpaint = [r for r in images if r["model_name"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting"][0]
+    assert inpaint["image_kind"] == "cloudflare_inpainting"
 
     second = ai_models.auto_configure_for_provider("cloudflare")
     assert second["added"] == 0
+
+
+
+def test_ai_management_preserves_cloudflare_inpainting_image_kind(tmp_path, monkeypatch):
+    import sqlite3
+    from giso import ai_brain
+    from giso.buti_ai import ai_models
+
+    db_path = tmp_path / "mirror_inpainting_models.db"
+
+    def connect():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    monkeypatch.setattr(ai_models, "get_giso_db_conn", connect)
+    ai_models.init_buti_ai_model_assignments()
+    ok, _message = ai_models.save_model_assignment(
+        ai_models.TASK_EYEBROW_IMAGE_DESIGN,
+        1,
+        "cloudflare",
+        "@cf/runwayml/stable-diffusion-v1-5-inpainting",
+        image_kind="cloudflare_inpainting",
+    )
+    assert ok is True
+
+    def fake_provider(name):
+        return {
+            "name": name,
+            "enabled": 1,
+            "kind": "cloudflare",
+            "api_key": "secret",
+            "api_root": "https://api.cloudflare.com/client/v4/accounts/acct/ai/run",
+            "base_url": "https://api.cloudflare.com/client/v4/accounts/acct/ai/run",
+        }
+
+    monkeypatch.setattr(ai_brain, "get_ai_provider", fake_provider)
+    providers = ai_models.configured_image_provider_dicts(limit=3)
+
+    assert len(providers) == 1
+    assert providers[0]["kind"] == "cloudflare_inpainting"
+    assert providers[0]["model"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting"
+    assert providers[0]["endpoint"].endswith("/ai/run/@cf/runwayml/stable-diffusion-v1-5-inpainting")
 
 
 def test_beauty_mirror_readiness_reports_missing_and_ready(tmp_path, monkeypatch):

@@ -18,6 +18,8 @@ logger = logging.getLogger("giso_buti_ai_models")
 
 TASK_EYEBROW_ANALYSIS = "eyebrow_analysis"
 TASK_EYEBROW_IMAGE_DESIGN = "eyebrow_image_design"
+CLOUDFLARE_INPAINTING_MODEL = "@cf/runwayml/stable-diffusion-v1-5-inpainting"
+CLOUDFLARE_INPAINTING_KINDS = {"cloudflare_inpainting", "cloudflare_inpaint", "inpainting", "mask_inpainting"}
 
 TASK_DEFS: Dict[str, Dict[str, Any]] = {
     TASK_EYEBROW_ANALYSIS: {
@@ -74,6 +76,16 @@ def _row_get(row: Any, key: str, default: Any = "") -> Any:
     except Exception:
         pass
     return default
+
+
+def _cloudflare_image_kind_for_model(model_name: str, image_kind: str = "") -> str:
+    """Preserve explicit AI Management capability; infer only documented inpainting model."""
+    kind = str(image_kind or "").strip().lower()
+    if kind:
+        return "cloudflare_inpainting" if kind in CLOUDFLARE_INPAINTING_KINDS else kind
+    if str(model_name or "").strip() == CLOUDFLARE_INPAINTING_MODEL:
+        return "cloudflare_inpainting"
+    return "cloudflare"
 
 
 def init_buti_ai_model_assignments(conn=None) -> None:
@@ -384,7 +396,7 @@ def configured_image_provider_dicts(limit: int = 3) -> List[Dict[str, Any]]:
             if not root:
                 continue
             endpoint = root.rstrip("/") + "/" + model_name
-            image_kind = "cloudflare"
+            image_kind = _cloudflare_image_kind_for_model(model_name, image_kind)
         else:
             endpoint = _openai_image_endpoint(provider, row.get("endpoint_override", ""))
             image_kind = image_kind or "openai_image_edit"
@@ -399,7 +411,7 @@ def configured_image_provider_dicts(limit: int = 3) -> List[Dict[str, Any]]:
             "model": model_name,
             "api_key": api_key,
             "headers": {},
-            "extra": {"priority": priority, "source": "ai_management"},
+            "extra": {"priority": priority, "source": "ai_management", "image_kind": image_kind},
         })
     return providers
 
@@ -535,6 +547,25 @@ def _model_ids(items: Iterable[Any], limit: int = 3) -> List[str]:
     return ids
 
 
+def _model_items(items: Iterable[Any], limit: int = 3) -> List[Dict[str, str]]:
+    result: List[Dict[str, str]] = []
+    seen = set()
+    for item in items or []:
+        if isinstance(item, dict):
+            mid = str(item.get("id") or "").strip()
+            image_kind = str(item.get("image_kind") or item.get("kind") or "").strip().lower()
+        else:
+            mid = str(item or "").strip()
+            image_kind = ""
+        if not mid or mid in seen:
+            continue
+        seen.add(mid)
+        result.append({"id": mid, "image_kind": image_kind})
+        if len(result) >= limit:
+            break
+    return result
+
+
 def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> Dict[str, Any]:
     """پرکردن خودکار اسلات‌های خالی آینه زیبایی بعد از افزودن پروایدر.
 
@@ -565,8 +596,11 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
         if ok:
             added.append({"task": TASK_EYEBROW_ANALYSIS, "priority": 1, "model": vision_model})
 
-    image_kind = "cloudflare" if provider_name == "cloudflare" else ""
-    for priority, model in enumerate(_model_ids(get_image_models(provider_name), limit=3), start=1):
+    for priority, item in enumerate(_model_items(get_image_models(provider_name), limit=3), start=1):
+        model = item["id"]
+        image_kind = item.get("image_kind") or ("cloudflare" if provider_name == "cloudflare" else "")
+        if provider_name == "cloudflare":
+            image_kind = _cloudflare_image_kind_for_model(model, image_kind)
         if not (overwrite or _slot_is_empty(TASK_EYEBROW_IMAGE_DESIGN, priority)):
             continue
         ok, _message = save_model_assignment(
@@ -578,7 +612,7 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
             image_kind=image_kind,
         )
         if ok:
-            added.append({"task": TASK_EYEBROW_IMAGE_DESIGN, "priority": priority, "model": model})
+            added.append({"task": TASK_EYEBROW_IMAGE_DESIGN, "priority": priority, "model": model, "image_kind": image_kind})
 
     return {"ok": True, "added": len(added), "items": added, "provider": provider_name}
 
@@ -612,6 +646,7 @@ def auto_configure_defaults(overwrite: bool = False) -> Dict[str, Any]:
 
 
 __all__ = [
+    "CLOUDFLARE_INPAINTING_MODEL",
     "TASK_EYEBROW_ANALYSIS",
     "TASK_EYEBROW_IMAGE_DESIGN",
     "TASK_DEFS",
