@@ -734,3 +734,51 @@ Boundary:
 - Frontend/static-only changes inside Buti AI.
 - Backend/AI flow unchanged.
 - No protected/unrelated path changes.
+
+---
+
+## 24. Buti AI Phase 2.6 — Catchy Eyebrow Journey Copy and Guided Upload Flow
+
+Status:
+
+- User clarified that copy must be short, simple, hook-oriented, and attractive enough for users to choose the service.
+- User approved implementing the reviewed eyebrow-flow changes first; other beauty mirror services will later follow this eyebrow pattern.
+
+Changed UX:
+
+- `/analysis` mirror card now uses a realistic eyebrow/AI mirror image and shorter hook copy: before paying, see the eyebrow model first.
+- `/analysis/mirror` service card now uses the same Buti AI eyebrow hero image, simpler metadata, and a cleaner active/ready badge.
+- `/analysis/mirror/eyebrow` now starts with a compact hero at the top, not a side explanation panel.
+- Added a light mini-flow inside the eyebrow page: انتخاب خدمت → انتخاب مدل → آپلود عکس → تحلیل و پیشنهاد → رزرو نوبت.
+- Model-selection copy is shorter and clearer; “گیسو پیشنهاد بدهد” is the safe option when the user is unsure.
+- Change-level panel now has a clear “مرحله بعد: آپلود عکس” action.
+- Upload section now includes a realistic full-face sample image and separate upload/action area.
+- Result section now says `پیشنهاد گیسو` / `طرح پیشنهادی` instead of over-claiming a real generated final image.
+- Result data now includes simple score cards for quality/visibility/model/change summary, using AI-provided cards when available and safe fallbacks otherwise.
+
+Generated static files:
+
+```text
+giso/buti_ai/static/brows/eyebrow_ai_mirror.jpg   (~32 KB)
+giso/buti_ai/static/brows/upload_face_sample.jpg  (~16 KB)
+```
+
+Code commit:
+
+```text
+3fef62e998de66cf8665689716e58c0ac7fe117f style: simplify Buti AI eyebrow journey
+```
+
+Validation before commit:
+
+- `python3 -m py_compile giso/buti_ai/eyebrow/*.py giso/buti_ai/routes.py giso/tests/test_buti_ai_phase1.py` passed.
+- Targeted pytest passed: `6 passed, 1 warning`.
+- `git diff --check` passed.
+- Preview server returned HTTP 200 for `/analysis`, `/analysis/mirror`, `/analysis/mirror/eyebrow`, and both new Buti AI static images.
+
+Boundary:
+
+- Changes stayed inside Buti AI-owned code/assets plus the existing Buti AI regression test.
+- No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
+- Real final AI image generation is still not implemented; current output remains analysis + guided proposal/preview.
+
