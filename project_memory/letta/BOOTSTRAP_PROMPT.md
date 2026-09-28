@@ -6,8 +6,9 @@ Read these repo-local files first:
 
 1. `project_memory/letta/PROJECT_MEMORY.md`
 2. `project_memory/letta/PROJECT_MEMORY.json`
-3. `project_memory/letta/UPDATE_TEMPLATE.md`
-4. `tools/letta/README.md`
+3. `project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md`
+4. `project_memory/letta/UPDATE_TEMPLATE.md`
+5. `tools/letta/README.md`
 
 Your role:
 
@@ -50,3 +51,14 @@ After meaningful work:
 - Update `project_memory/letta/PROJECT_MEMORY.md`.
 - Update `project_memory/letta/PROJECT_MEMORY.json`.
 - Use `project_memory/letta/UPDATE_TEMPLATE.md` as the checklist.
+
+
+Active product scenario to know, but not execute without approval:
+
+- `project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md` — آینه ابرو گیسو product/UX scenario. It is documented only; no Giso code implementation has started yet.
+
+
+Beauty Mirror modularity rule:
+- Treat `giso/buti_ai/` as the owner module for آینه زیبایی گیسو / Buti AI.
+- Do not scatter mirror-specific routes, services, templates, prompt orchestration, or state across unrelated Giso modules.
+- Use other Giso modules only through thin integrations and follow the documented stage order.

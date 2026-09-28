@@ -1,11 +1,11 @@
 {
   "last_update": {
-    "date_user_timezone": "2026-09-27",
+    "date_user_timezone": "2026-09-28",
     "user_timezone": "Asia/Tehran"
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Project Memory and local Letta setup are prepared for handoff. No Giso feature/refactor/migration/scenario has been executed.",
+  "status": "Project Memory and local Letta setup are prepared for handoff. The product scenario آینه ابرو گیسو has been documented in Project Memory, but no Giso feature/refactor/migration/scenario has been executed.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -65,7 +65,10 @@
     "bot_edu/ and web/ are locked unless explicitly requested.",
     "Do not refactor/split giso/bot.py.",
     "Use Graphify for navigation only; verify inferred relations in source.",
-    "Do not commit secrets, DB files, uploads, runtime logs, node_modules, Letta local backend data, local agent IDs, or smoke-test artifacts."
+    "Do not commit secrets, DB files, uploads, runtime logs, node_modules, Letta local backend data, local agent IDs, or smoke-test artifacts.",
+    "Beauty Mirror / Buti AI must be modular and primarily live under giso/buti_ai/.",
+    "Do not scatter Beauty Mirror routes/services/templates/prompt orchestration/state across unrelated Giso modules.",
+    "Execute Beauty Mirror stages in order: memory, technical MVP design, base wizard, AI analysis, preview/fallback, centers/reservation, panels/stats/wallet."
   ],
   "graphify_findings": {
     "purpose": "Code structure/dependency map only; does not replace Project Memory.",
@@ -135,7 +138,9 @@
     "Keep Graphify as structural map only.",
     "Keep sena.md as temporary discussion material until user defines final scenario.",
     "Do not store local Letta backend data, local agent IDs, smoke-test artifacts, secrets, or runtime paths in Git.",
-    "MCP remains optional until external cross-agent access requires it."
+    "MCP remains optional until external cross-agent access requires it.",
+    "Beauty Mirror technical module/folder name is Buti AI / giso/buti_ai/.",
+    "آینه زیبایی گیسو UI/product code should stay modular in giso/buti_ai/ with only thin integrations to shared Giso modules."
   ],
   "completed_work": [
     "Checked Git state before setup.",
@@ -147,15 +152,20 @@
     "Created repo-local Project Memory files for future agents.",
     "Created instructions for future Letta Project Agent creation/import.",
     "Did not modify giso/, web/, bot_edu/, or main.py.",
-    "Did not execute any scenario."
+    "Did not execute any scenario.",
+    "Documented آینه ابرو گیسو scenario in project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md.",
+    "Documented modular Buti AI ownership rule for Beauty Mirror: keep feature code primarily in giso/buti_ai/."
   ],
   "next_action": [
     "Run git status --short --branch before work.",
     "Read project_memory/letta/PROJECT_MEMORY.md and PROJECT_MEMORY.json.",
+    "Read project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md before implementing Beauty Mirror/Eyebrow work.",
     "If using Letta Local, create/reuse an agent named giso4-project-memory and import/refresh the Project Memory files.",
     "Carefully decide how to reconcile local branch with remote because local graphify-out is untracked while remote tracks Graphify output.",
     "Wait for user to specify the real final scenario.",
-    "Do not execute sena.md or any other scenario until explicitly instructed."
+    "Do not execute sena.md or any other scenario until explicitly instructed.",
+    "Persist updated Project Memory safely before implementation.",
+    "Next implementation design must start from giso/buti_ai/ as the owner module."
   ],
   "update_protocol": [
     "Update PROJECT_MEMORY.md and PROJECT_MEMORY.json after meaningful work.",
@@ -163,5 +173,66 @@
     "Keep Graphify findings separate from code-verified facts.",
     "Record decisions and rationale.",
     "Do not store secrets, credentials, DB files, uploads, logs, node_modules, local Letta backend data, local agent IDs, or smoke-test artifacts."
-  ]
+  ],
+  "active_product_scenario": {
+    "name": "آینه ابرو گیسو",
+    "file": "project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md",
+    "status": "documented_only_no_code_changes",
+    "summary_path": [
+      "ورود سایت",
+      "آینه زیبایی گیسو",
+      "آینه ابرو",
+      "انتخاب مدل/سلیقه",
+      "آپلود عکس",
+      "بررسی کیفیت عکس",
+      "تحلیل هوشمند ابرو",
+      "نتیجه پیشنهادی",
+      "پیش‌نمایش قبل/بعد",
+      "مراکز مرتبط",
+      "رزرو"
+    ],
+    "product_decisions": [
+      "نام کلی مسیر آینه ابرو گیسو باشد نه فقط میکروبلید",
+      "میکروبلیدینگ یکی از گزینه‌ها باشد",
+      "گزینه پیش‌فرض برای کاربر مردد: نمی‌دانم؛ گیسو پیشنهاد بدهد",
+      "ماژول فنی قابلیت Buti AI / giso/buti_ai باشد",
+      "کد آینه زیبایی در بخش‌های نامرتبط Giso پخش نشود",
+      "مراحل اجرا به ترتیب مستند شده انجام شود"
+    ],
+    "initial_eyebrow_options": [
+      "طبیعی و نچرال",
+      "میکروبلیدینگ ظریف",
+      "شیدینگ پودری",
+      "کامبینیشن",
+      "نمی‌دانم؛ گیسو پیشنهاد بدهد"
+    ],
+    "implementation_targets_later": [
+      "giso/buti_ai/",
+      "giso/analysis.py",
+      "giso/ai_brain.py",
+      "giso/prompts/",
+      "giso/beauty_centers/"
+    ],
+    "constraints": [
+      "No code implementation yet",
+      "Do not break existing hair/skin analysis",
+      "Do not change bot_edu web main.py unless explicitly requested",
+      "Do not refactor/split giso/bot.py",
+      "Keep Beauty Mirror-specific code in giso/buti_ai/ as owner module",
+      "Use shared modules only as thin integrations",
+      "Do stages in the documented order"
+    ],
+    "technical_module_name": "Buti AI / buti_ai",
+    "owner_module": "giso/buti_ai/",
+    "modularity_rule": "All Beauty Mirror-specific routes, services, templates, prompt orchestration, state, and scenario logic should primarily live in giso/buti_ai/; other Giso modules should be thin integrations only.",
+    "stage_order": [
+      "Project Memory and scenario safe persistence",
+      "Technical MVP design inside giso/buti_ai/",
+      "Base wizard/path in giso/buti_ai/",
+      "AI quality check and eyebrow analysis",
+      "Image preview or transparent fallback",
+      "Beauty center/reservation integration",
+      "Panels, stats, wallet, and later expansion"
+    ]
+  }
 }

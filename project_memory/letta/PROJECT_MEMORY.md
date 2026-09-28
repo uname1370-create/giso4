@@ -3,7 +3,7 @@
 Last Update: 2026-09-27 (Asia/Tehran)
 Last Agent: Arena.ai Agent Mode
 Last Model: not recorded; this memory is intentionally model-agnostic.
-Status: Project Memory and local Letta setup are prepared for handoff. No Giso feature/refactor/migration/scenario has been executed.
+Status: Project Memory and local Letta setup are prepared for handoff. The product scenario `آینه ابرو گیسو` has been documented in Project Memory, but no Giso feature/refactor/migration/scenario has been executed.
 
 ---
 
@@ -263,7 +263,69 @@ Project Agent guidance:
 
 ---
 
-## 13. Next Action
+## 13. Active Product Scenario — آینه ابرو گیسو
+
+Scenario file:
+
+```text
+project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md
+```
+
+Current status:
+
+- Product/UX scenario is documented only.
+- No Giso code has been changed for this scenario yet.
+- This scenario should be implemented only after explicit user approval.
+
+Scenario summary:
+
+```text
+ورود سایت
+→ آینه زیبایی گیسو
+→ آینه ابرو
+→ انتخاب مدل/سلیقه
+→ آپلود عکس
+→ بررسی کیفیت عکس
+→ تحلیل هوشمند ابرو
+→ نتیجه پیشنهادی
+→ پیش‌نمایش قبل/بعد
+→ مراکز مرتبط
+→ رزرو
+```
+
+Product decisions:
+
+- Route/name should be broad: **آینه ابرو گیسو**.
+- Do not name the whole flow only **میکروبلید**; microblading is one technique, not the full product.
+- Architecture must be modular: the Beauty Mirror/Buti AI capability lives primarily in **`giso/buti_ai/`** and must not be scattered across unrelated Giso modules.
+- Product UI name can be Persian, but the technical module/folder name is **Buti AI / `buti_ai`**.
+- Starting eyebrow options:
+  - طبیعی و نچرال
+  - میکروبلیدینگ ظریف
+  - شیدینگ پودری
+  - کامبینیشن
+  - نمی‌دانم؛ گیسو پیشنهاد بدهد
+
+Use existing Giso capacity when implementation starts, but keep ownership modular:
+
+- `giso/buti_ai/` is the owner module for Beauty Mirror/Buti AI routes, services, templates, prompt orchestration, state, and scenario logic.
+- `giso/analysis.py` may provide upload/analysis patterns only; do not move eyebrow mirror business logic there.
+- `giso/ai_brain.py` may provide AI provider/vision integration only; keep scenario orchestration in `giso/buti_ai/`.
+- `giso/prompts/` may hold prompt files only if this matches existing Giso conventions; names must clearly belong to `buti_ai`.
+- `giso/beauty_centers/` is for center listing/reservation/lead connection only; do not make it the owner of mirror logic.
+
+Constraints:
+
+- Do not break current hair/skin analysis.
+- Do not change `bot_edu/`, `web/`, or `main.py` for this scenario.
+- Do not refactor/split `giso/bot.py`.
+- Do not scatter Beauty Mirror code across unrelated modules; prefer `giso/buti_ai/` with thin integrations only.
+- Execute stages in order: memory → technical MVP design → base wizard → AI analysis → preview/fallback → centers/reservation → panels/stats/wallet.
+- `sena.md` remains temporary idea/audit material, not the final executable scenario by itself.
+
+---
+
+## 14. Next Action
 
 Before real Giso work:
 
@@ -276,7 +338,7 @@ Before real Giso work:
 
 ---
 
-## 14. Update Protocol
+## 15. Update Protocol
 
 At the end of meaningful work:
 
