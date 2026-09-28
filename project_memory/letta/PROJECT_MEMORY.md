@@ -261,6 +261,7 @@ Project Agent guidance:
 - Did not modify `giso/`, `web/`, `bot_edu/`, or `main.py`.
 - Did not execute any scenario.
 - Documented the technical MVP design for Buti AI in `project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md`.
+- Documented hard code-boundary rules for Buti AI in `project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md`.
 
 ---
 
@@ -277,6 +278,13 @@ Technical MVP design file:
 
 ```text
 project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md
+```
+
+
+Code boundary rules file:
+
+```text
+project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md
 ```
 
 Current status:
@@ -325,6 +333,17 @@ Use existing Giso capacity when implementation starts, but keep ownership modula
 
 Constraints:
 
+
+Hard code-boundary rules:
+
+- Every Buti AI code change must have a clear owner and location before implementation.
+- Feature-specific code belongs under `giso/buti_ai/`.
+- Changes outside `giso/buti_ai/` must be thin integrations only: blueprint registration, shared provider call, upload helper reuse, or center/reservation link.
+- Do not scatter Beauty Mirror logic across `giso/analysis.py`, `giso/ai_brain.py`, `giso/beauty_centers/`, panels, or global launchers.
+- Protected unless explicitly approved: `web/`, `bot_edu/`, `main.py`, `giso/bot.py`.
+- Existing Giso flows, especially current hair/skin analysis, must not be broken.
+- If placement is unclear, stop and ask the user before coding.
+
 - Do not break current hair/skin analysis.
 - Do not change `bot_edu/`, `web/`, or `main.py` for this scenario.
 - Do not refactor/split `giso/bot.py`.
@@ -343,8 +362,9 @@ Before real Giso work:
 3. If using Letta Local, create/reuse an agent named `giso4-project-memory` and import/refresh the Project Memory files.
 4. Carefully decide how to reconcile local branch with remote `origin/arena/01a0e0b8-giso4`, because local `graphify-out/` is untracked while remote tracks Graphify output.
 5. Read `project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md` before code implementation.
-6. Wait for explicit user approval before functional Giso code changes.
-7. Do not execute `sena.md` or any other scenario until explicitly instructed.
+6. Read `project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md` before code implementation.
+7. Wait for explicit user approval before functional Giso code changes.
+8. Do not execute `sena.md` or any other scenario until explicitly instructed.
 
 ---
 

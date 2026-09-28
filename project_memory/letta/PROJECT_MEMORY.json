@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Project Memory contains the آینه ابرو گیسو scenario and the modular Buti AI MVP technical design. No functional Giso code has been changed for this scenario.",
+  "status": "Project Memory contains the آینه ابرو گیسو scenario, modular Buti AI MVP technical design, and hard code-boundary rules. No functional Giso code has been changed for this scenario.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -68,7 +68,12 @@
     "Do not commit secrets, DB files, uploads, runtime logs, node_modules, Letta local backend data, local agent IDs, or smoke-test artifacts.",
     "Beauty Mirror / Buti AI must be modular and primarily live under giso/buti_ai/.",
     "Do not scatter Beauty Mirror routes/services/templates/prompt orchestration/state across unrelated Giso modules.",
-    "Execute Beauty Mirror stages in order: memory, technical MVP design, base wizard, AI analysis, preview/fallback, centers/reservation, panels/stats/wallet."
+    "Execute Beauty Mirror stages in order: memory, technical MVP design, base wizard, AI analysis, preview/fallback, centers/reservation, panels/stats/wallet.",
+    "Before any Buti AI code change, identify the owner/location of the code; feature-specific code belongs in giso/buti_ai/.",
+    "Buti AI changes outside giso/buti_ai/ must be thin, necessary integrations only and must not change existing behavior unexpectedly.",
+    "Protected from Buti AI work unless explicitly approved: web/, bot_edu/, main.py, giso/bot.py.",
+    "Existing Giso flows, especially current analysis flows, must not be damaged by Buti AI work.",
+    "If the correct placement for Buti AI code is unclear, stop and ask the user before coding."
   ],
   "graphify_findings": {
     "purpose": "Code structure/dependency map only; does not replace Project Memory.",
@@ -111,7 +116,8 @@
       "project_memory/letta/BOOTSTRAP_PROMPT.md",
       "project_memory/letta/UPDATE_TEMPLATE.md",
       "project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md",
-      "project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md"
+      "project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md",
+      "project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md"
     ]
   },
   "mcp_notes": {
@@ -142,7 +148,9 @@
     "Do not store local Letta backend data, local agent IDs, smoke-test artifacts, secrets, or runtime paths in Git.",
     "MCP remains optional until external cross-agent access requires it.",
     "Beauty Mirror technical module/folder name is Buti AI / giso/buti_ai/.",
-    "آینه زیبایی گیسو UI/product code should stay modular in giso/buti_ai/ with only thin integrations to shared Giso modules."
+    "آینه زیبایی گیسو UI/product code should stay modular in giso/buti_ai/ with only thin integrations to shared Giso modules.",
+    "Added hard code-boundary rule: every Buti AI code change must have a clear owner/location and should not damage existing Giso structure.",
+    "Buti AI scenario must explicitly define where it works and must not touch unrelated areas."
   ],
   "completed_work": [
     "Checked Git state before setup.",
@@ -158,7 +166,9 @@
     "Documented آینه ابرو گیسو scenario in project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md.",
     "Documented modular Buti AI ownership rule for Beauty Mirror: keep feature code primarily in giso/buti_ai/.",
     "Committed and pushed Project Memory scenario for آینه ابرو گیسو to arena/01a0e0b8-giso4.",
-    "Documented technical MVP design for modular Buti AI in project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md."
+    "Documented technical MVP design for modular Buti AI in project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md.",
+    "Documented hard Buti AI code-boundary rules in project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md.",
+    "Updated scenario, technical design, bootstrap, and JSON memory to require clear code ownership/location and no damage to existing Giso flows."
   ],
   "next_action": [
     "Run git status --short --branch before work.",
@@ -171,7 +181,9 @@
     "Persist updated Project Memory safely before implementation.",
     "Next implementation design must start from giso/buti_ai/ as the owner module.",
     "Read project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md before code implementation.",
-    "Ask for or confirm explicit user approval before changing functional Giso code for Buti AI."
+    "Ask for or confirm explicit user approval before changing functional Giso code for Buti AI.",
+    "Read project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md before any Buti AI code changes.",
+    "For every Buti AI implementation step, confirm code location and protected areas before editing."
   ],
   "update_protocol": [
     "Update PROJECT_MEMORY.md and PROJECT_MEMORY.json after meaningful work.",
@@ -228,7 +240,10 @@
       "Use shared modules only as thin integrations",
       "Do stages in the documented order",
       "Do not implement code until user explicitly approves functional Giso changes",
-      "Technical MVP design is documentation only until approval"
+      "Technical MVP design is documentation only until approval",
+      "Every code change must have a clear owner/location before implementation",
+      "Do not damage or unexpectedly alter existing Giso structure/flows",
+      "Do not touch unrelated areas; stop and ask if code placement is unclear"
     ],
     "technical_module_name": "Buti AI / buti_ai",
     "owner_module": "giso/buti_ai/",
@@ -245,6 +260,15 @@
     "technical_design_file": "project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md",
     "stage_1_memory_persisted_commit": "0a6c3c9ca1698aa517475d8415bdbef8e911470e",
     "stage_2_technical_design_status": "documented_only_no_code_changes",
-    "next_code_stage_requires_user_approval": true
+    "next_code_stage_requires_user_approval": true,
+    "code_boundary_rules_file": "project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md",
+    "hard_code_boundary_rule": "Every Buti AI code change must have a clear owner/location; feature-specific code belongs in giso/buti_ai/; outside changes are thin integrations only; protected areas must not be touched without explicit approval; existing Giso flows must not be damaged.",
+    "protected_paths_without_explicit_approval": [
+      "web/",
+      "bot_edu/",
+      "main.py",
+      "giso/bot.py"
+    ],
+    "allowed_external_touch_policy": "Only minimal and necessary integration points such as blueprint registration, shared AI provider calls, upload helper reuse, and beauty-center/reservation links."
   }
 }
