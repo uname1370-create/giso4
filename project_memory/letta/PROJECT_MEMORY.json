@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 2.1 UI/UX redesign completed locally: mirror landing and eyebrow wizard were simplified and cleaned up without backend/AI flow changes. Validation passed; commit/push pending at memory-update time.",
+  "status": "Buti AI Phase 2.1 UI/UX redesign completed, validated, committed, and pushed: mirror landing and eyebrow wizard were simplified and cleaned up without backend/AI flow changes.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -25,10 +25,12 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "Phase 2.1 UI/UX files modified locally at memory-update time"
+      "clean after Phase 2.1 UI/UX push"
     ],
+    "phase_2_1_code_commit": "03bdd5adb2a0b602d69ad2bbadde9325a3cf9777",
     "phase_2_1_note": "UI/UX-only changes in Buti AI templates/static CSS; validation passed before commit.",
-    "forbidden_paths_modified": false
+    "forbidden_paths_modified": false,
+    "protected_paths_note": "Protected path check showed no changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/."
   },
   "sena_md": {
     "remote_present": true,
@@ -186,7 +188,8 @@
     "Completed Buti AI Phase 2.1 clean UI/UX redesign after user said the previous UI was messy.",
     "Redesigned giso/buti_ai/templates/buti_ai/mirror_home.html for a simpler entry page.",
     "Redesigned giso/buti_ai/templates/buti_ai/eyebrow_wizard.html for a clearer step-by-step eyebrow wizard.",
-    "Rewrote giso/buti_ai/static/buti_ai.css with calmer, more organized RTL styling."
+    "Rewrote giso/buti_ai/static/buti_ai.css with calmer, more organized RTL styling.",
+    "Committed and pushed Buti AI Phase 2.1 clean UI/UX redesign as 03bdd5adb2a0b602d69ad2bbadde9325a3cf9777."
   ],
   "next_action": [
     "Run git status --short --branch before future work.",
@@ -329,7 +332,7 @@
     ],
     "phase_2_ai_note": "Photo quality and eyebrow analysis use a thin call from giso/buti_ai/eyebrow/ai.py to existing giso.analysis.call_vision_with_fallback when a vision provider is active; unavailable providers fall back transparently.",
     "phase_2_preview_note": "Before/after is a guided visual preview over the uploaded photo; it is not a real generated/edited after image yet.",
-    "phase_2_1_status": "ui_ux_redesign_completed_validation_passed_pending_commit_at_memory_update_time",
+    "phase_2_1_status": "ui_ux_redesign_completed_validated_committed_pushed",
     "phase_2_1_files": [
       "giso/buti_ai/templates/buti_ai/mirror_home.html",
       "giso/buti_ai/templates/buti_ai/eyebrow_wizard.html",
