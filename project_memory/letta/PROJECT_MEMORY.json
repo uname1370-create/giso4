@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 4.1 completed, validated, committed, and pushed: final eyebrow choice, auth gate, Python guided final design output, and final-design DB storage are implemented. Real image-generation provider chaining remains pending user model choices.",
+  "status": "Buti AI Phase 4.2 completed, validated, committed, and pushed: configurable image-generation provider chain added for final eyebrow design, with Cloudflare/generic provider support and Python guided fallback. Real credentials/models still need environment configuration for live AI image output.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -25,10 +25,10 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "clean after Phase 4.1 code push before memory commit"
+      "clean after Phase 4.2 code push before memory commit"
     ],
-    "phase_4_1_code_commit": "027e785dc37d9d9177964938c04dc6625a528b83",
-    "phase_4_1_note": "Final user choice/auth gate/Python guided final design implemented inside Buti AI; validation passed before commit.",
+    "phase_4_2_code_commit": "71d652f51180f8e49122c2e08b47b09a2e7257a4",
+    "phase_4_2_note": "Image-generation provider/fallback chain implemented under giso/buti_ai/eyebrow; route now uses generate_final_design.",
     "forbidden_paths_modified": false,
     "protected_paths_note": "No changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/."
   },
@@ -216,7 +216,8 @@
     "Committed and pushed Buti AI Phase 2.5 realistic brow samples as 38c3418ab9fc3c2cd3b43761ddeec997e4fa029c.",
     "Committed and pushed Buti AI Phase 2.6 catchy eyebrow journey refinement as 3fef62e998de66cf8665689716e58c0ac7fe117f.",
     "Committed and pushed Buti AI Phase 3 structured eyebrow AI analysis/scoring as 5f0ed9c824cb60936fc83879e486e3923b4481ce.",
-    "Committed and pushed Buti AI Phase 4.1 final choice/auth gate/Python guided final design as 027e785dc37d9d9177964938c04dc6625a528b83."
+    "Committed and pushed Buti AI Phase 4.1 final choice/auth gate/Python guided final design as 027e785dc37d9d9177964938c04dc6625a528b83.",
+    "Committed and pushed Buti AI Phase 4.2 image provider fallback chain as 71d652f51180f8e49122c2e08b47b09a2e7257a4."
   ],
   "next_action": [
     "Run git status --short --branch before future work.",
@@ -229,7 +230,8 @@
     "Before any Buti AI code change, read CODE_BOUNDARY_RULES_BUTI_AI.md and confirm code ownership/location.",
     "If user approves visuals, next step can refine actual AI analysis depth or future real image-generation/virtual try-on, but do not claim final generated image until implemented.",
     "Next Buti AI step should be user-approved: final-choice confirmation/locked recommendation, guided final design handoff, or reservation/center lead flow; do not claim real final image generation until implemented.",
-    "Next Buti AI step: implement real image-generation provider chain for final design after user supplies/approves 3 image-generation models; keep Python composite as safety layer."
+    "Next Buti AI step: implement real image-generation provider chain for final design after user supplies/approves 3 image-generation models; keep Python composite as safety layer.",
+    "Next Buti AI step: configure/test real image provider credentials/models, then add eyebrow-region mask/landmark compositing for safer generated edits."
   ],
   "update_protocol": [
     "Update PROJECT_MEMORY.md and PROJECT_MEMORY.json after meaningful work.",
@@ -241,7 +243,7 @@
   "active_product_scenario": {
     "name": "آینه ابرو گیسو",
     "file": "project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md",
-    "status": "phase_4_1_final_choice_and_guided_design_implemented_tests_passed",
+    "status": "phase_4_2_image_provider_chain_done_real_provider_env_pending",
     "summary_path": [
       "ورود سایت",
       "آینه زیبایی گیسو",
@@ -400,7 +402,8 @@
     ],
     "phase_2_6_status": "catchy_copy_top_hero_guided_upload_score_cards_validated_committed_pushed",
     "phase_3_status": "structured_eyebrow_ai_analysis_scoring_validated_committed_pushed",
-    "phase_4_1_status": "final_choice_auth_gate_python_guided_design_validated_committed_pushed"
+    "phase_4_1_status": "final_choice_auth_gate_python_guided_design_validated_committed_pushed",
+    "phase_4_2_status": "image_provider_chain_validated_committed_pushed"
   },
   "validations": [
     "py_compile passed for giso/buti_ai Python files after Phase 1 changes.",

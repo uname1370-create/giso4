@@ -894,3 +894,75 @@ Boundary:
 - Changes stayed inside Buti AI-owned module/templates/static assets plus Buti AI tests.
 - No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
 
+---
+
+## 27. Buti AI Phase 4.2 — Image Provider Fallback Chain for Final Eyebrow Design
+
+Status:
+
+- Implemented the next safe step after Phase 4.1: a configurable image-generation provider chain for the final eyebrow design page.
+- The chain is Python/Giso-oriented and lives under `giso/buti_ai/eyebrow/`.
+- If real image providers are not configured or all configured providers fail, the existing Python guided composite remains the user-facing fallback.
+
+Changed behavior:
+
+- Final design route now calls `generate_final_design(candidate)` instead of directly calling the Pillow guide.
+- `generate_final_design` tries configured image providers first, then falls back to `python_guided_composite`.
+- The final page now displays provider status honestly:
+  - real AI provider output when configured and successful,
+  - guided fallback when providers fail,
+  - Python guided composite when no real provider is configured.
+- Cached final generation is cleared if the user changes the final eyebrow style, so the design is regenerated for the new style.
+
+Provider configuration supported:
+
+- Cloudflare-compatible old Buti configuration:
+  - `CLOUDFLARE_API_TOKEN_1..3`
+  - `CLOUDFLARE_ACCOUNT_ID_1..3`
+  - `CLOUDFLARE_MODEL` or `CLOUDFLARE_MODEL_1..3`
+  - default model remains `@cf/black-forest-labs/flux-2-klein-4b`.
+- Three generic image models:
+  - `BUTI_AI_IMAGE_MODEL_1_URL`, `BUTI_AI_IMAGE_MODEL_1_KEY`, `BUTI_AI_IMAGE_MODEL_1_MODEL`, `BUTI_AI_IMAGE_MODEL_1_KIND`
+  - repeated up to `_3_`.
+  - supported kinds: `openai_image_edit`, `multipart`, `json_image`.
+- Advanced JSON configuration:
+  - `BUTI_AI_IMAGE_PROVIDERS`.
+- Provider order can be adjusted via `BUTI_AI_IMAGE_PROVIDER_ORDER`.
+
+Security/claims boundary:
+
+- No API keys or base64 image payloads are stored in code or logs.
+- DB persistence stores provider/model/status and sanitized attempt metadata through the existing final-design generation JSON.
+- The app still does not overclaim AI output when providers are absent or failing.
+
+Changed files:
+
+```text
+giso/buti_ai/eyebrow/image_generation.py
+giso/buti_ai/eyebrow/final_design.py
+giso/buti_ai/routes.py
+giso/buti_ai/templates/buti_ai/eyebrow_final_design.html
+giso/buti_ai/templates/buti_ai/eyebrow_final_auth.html
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+giso/tests/test_buti_ai_phase1.py
+```
+
+Code commit:
+
+```text
+71d652f51180f8e49122c2e08b47b09a2e7257a4 feat: add Buti AI image provider fallback chain
+```
+
+Validation before commit:
+
+- `python3 -m py_compile giso/buti_ai/eyebrow/*.py giso/buti_ai/routes.py giso/buti_ai/services.py giso/buti_ai/schema.py giso/tests/test_buti_ai_phase1.py` passed.
+- Targeted pytest passed: `10 passed, 1 warning`.
+- `git diff --check` passed.
+- Protected/unrelated paths remained untouched.
+
+Next:
+
+- Configure real provider credentials/models in environment, then test real generated-image output end-to-end.
+- Later improve eyebrow-region masking/landmarks so real generated edits are constrained more tightly to eyebrows.
+
