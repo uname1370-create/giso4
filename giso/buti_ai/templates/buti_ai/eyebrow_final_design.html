@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}طراحی نهایی کار ابرو گیسو{% endblock %}
+{% block title %}طراحی عکس نهایی ابرو گیسو{% endblock %}
 {% block meta %}
-<meta name="description" content="طراحی نهایی کار ابرو در آینه ابرو گیسو؛ پیش‌نمایش هوشمند و راهنمای مراجعه به مرکز تخصصی.">
+<meta name="description" content="طراحی عکس نهایی ابرو در آینه ابرو گیسو؛ پیش‌نمایش هوشمند و راهنمای مراجعه به مرکز تخصصی.">
 {% endblock %}
 {% block head %}
 {{ super() }}
@@ -17,7 +17,7 @@
             <div class="bti-brand-mark">
                 <span>طراحی</span>
                 <div>
-                    <b>طراحی نهایی کار ابرو</b>
+                    <b>طراحی عکس نهایی ابرو</b>
                     <small>
                         {% if generation and generation.fallback_used %}نسخه راهنما بعد از تلاش AI{% elif generation and generation.provider and generation.provider != 'python_guided_composite' %}ساخته‌شده با مدل AI{% else %}پیش‌نمایش راهنمای امن{% endif %}
                     </small>
@@ -26,26 +26,26 @@
         </div>
 
         <header class="bti-result-header">
-            <span>مرحله ۵: طراحی نهایی کار</span>
+            <span>مرحله ۵: طراحی عکس نهایی</span>
             <h2>{{ candidate.final_label }}</h2>
-            <p>{{ generation.message if generation else 'طراحی نهایی کار آماده‌سازی شد.' }}</p>
+            <p>{{ generation.message if generation else 'طراحی عکس نهایی آماده‌سازی شد.' }}</p>
         </header>
 
         {% if generation.ok %}
-        <div class="bti-compare-card" aria-label="مقایسه قبل و بعد طراحی نهایی کار">
+        <div class="bti-compare-card" aria-label="مقایسه قبل و بعد طراحی عکس نهایی">
             <div class="bti-compare-slider" data-bti-compare style="--bti-compare-pos: 50%;">
                 <img class="bti-compare-img bti-compare-before" src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename) }}" alt="عکس اصلی کاربر">
                 <div class="bti-compare-after-wrap">
-                    <img class="bti-compare-img bti-compare-after" src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename) }}" alt="طراحی نهایی کار ابرو">
+                    <img class="bti-compare-img bti-compare-after" src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename) }}" alt="طراحی عکس نهایی ابرو">
                 </div>
                 <span class="bti-compare-label is-before">قبل</span>
-                <span class="bti-compare-label is-after">طراحی نهایی کار</span>
+                <span class="bti-compare-label is-after">طراحی عکس نهایی</span>
                 <button class="bti-compare-handle" type="button" aria-label="کشیدن خط مقایسه قبل و بعد">
                     <i class="fas fa-arrows-left-right"></i>
                 </button>
-                <input class="bti-compare-range" type="range" min="0" max="100" value="50" aria-label="میزان نمایش طراحی نهایی کار">
+                <input class="bti-compare-range" type="range" min="0" max="100" value="50" aria-label="میزان نمایش طراحی عکس نهایی">
             </div>
-            <p>خط وسط را بکش تا قبل و بعد طراحی نهایی کار را دقیق‌تر ببینی.</p>
+            <p>خط وسط را بکش تا قبل و بعد طراحی عکس نهایی را دقیق‌تر ببینی.</p>
         </div>
         {% else %}
         <div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ generation.message }}</div>
@@ -59,7 +59,7 @@
                     {% if generation.fallback_used %}
                     مدل‌های AI فعلاً جواب ندادند؛ نسخه راهنما نمایش داده شد
                     {% elif generation.provider and generation.provider != 'python_guided_composite' %}
-                    طراحی نهایی کار با مدل AI آماده شد
+                    طراحی عکس نهایی با مدل AI آماده شد
                     {% else %}
                     طراحی راهنمای امن آماده شد
                     {% endif %}
@@ -91,7 +91,7 @@
 
         <div class="bti-final-design-grid">
             <article class="is-main">
-                <span>خلاصه طراحی نهایی کار</span>
+                <span>خلاصه طراحی عکس نهایی</span>
                 <h3>{{ candidate.final_label }}</h3>
                 <p>{{ candidate.short_reason }}</p>
                 <small>میزان تغییر: {{ candidate.change_label }}</small>
@@ -99,7 +99,7 @@
             <article>
                 <span>پیشنهاد گیسو</span>
                 <p>{{ candidate.recommended_label }}</p>
-                <small>انتخاب نهایی کار شما ذخیره شد.</small>
+                <small>انتخاب نهایی شما ذخیره شد.</small>
             </article>
             <article>
                 <span>بهتر است</span>
@@ -114,9 +114,9 @@
         <div class="bti-final-design-note">
             <b>مهم:</b>
             {% if generation and generation.provider and generation.provider != 'python_guided_composite' and not generation.fallback_used %}
-            <span>این تصویر، پیش‌نمایش هوشمند طراحی نهایی کار در گیسو است. برای اجرای دقیق، بررسی فرم نهایی، رنگ و تکنیک، نتیجه را به مرکز متخصص ابرو نشان بده.</span>
+            <span>این تصویر، پیش‌نمایش هوشمند طراحی عکس نهایی در گیسو است. برای اجرای دقیق، بررسی فرم نهایی، رنگ و تکنیک، نتیجه را به مرکز متخصص ابرو نشان بده.</span>
             {% else %}
-            <span>این تصویر، راهنمای هوشمند/پیش‌نمایش طراحی نهایی کار است؛ نه اجرای واقعی خدمات. برای طراحی دقیق و انجام کار، از مراکز زیبایی ارائه‌دهنده ابرو کمک بگیر.</span>
+            <span>این تصویر، راهنمای هوشمند/پیش‌نمایش طراحی عکس نهایی است؛ نه اجرای واقعی خدمات. برای طراحی دقیق و انجام کار، از مراکز زیبایی ارائه‌دهنده ابرو کمک بگیر.</span>
             {% endif %}
         </div>
 
@@ -189,7 +189,7 @@
             </summary>
             <div class="bti-smart-guide-grid">
                 <article><span>از مرکز چه بپرسم؟</span><p>بپرس این مدل با فرم صورت و جنس پوستت قابل اجرا هست یا باید نرم‌تر/طبیعی‌تر شود.</p></article>
-                <article><span>چه چیزی نشان بدهم؟</span><p>همین طراحی نهایی کار، مدل انتخابی، میزان تغییر و عکس اصلی را به متخصص نشان بده.</p></article>
+                <article><span>چه چیزی نشان بدهم؟</span><p>همین طراحی عکس نهایی، مدل انتخابی، میزان تغییر و عکس اصلی را به متخصص نشان بده.</p></article>
                 <article><span>قیمت و ماندگاری؟</span><p>قبل از رزرو، قیمت حدودی، جلسه ترمیم، مراقبت بعد از کار و ماندگاری را شفاف بپرس.</p></article>
                 <article><span>چه زمانی منصرف شوم؟</span><p>اگر مرکز بدون بررسی چهره و سابقه حساسیت فقط قول نتیجه قطعی داد، با احتیاط انتخاب کن.</p></article>
             </div>

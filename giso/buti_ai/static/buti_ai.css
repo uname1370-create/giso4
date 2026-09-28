@@ -832,7 +832,6 @@
     margin-bottom: 16px;
 }
 
-.bti-eyebrow-hero-copy,
 .bti-eyebrow-hero-photo,
 .bti-upload-sample-card,
 .bti-upload-action-card,
@@ -842,30 +841,8 @@
     background: var(--bti-card);
 }
 
-.bti-eyebrow-hero-copy {
-    padding: clamp(18px, 3vw, 30px);
-    display: grid;
-    align-content: center;
-    gap: 12px;
-    background:
-        radial-gradient(500px 260px at 8% 10%, rgba(255,173,18,.11), transparent 62%),
-        linear-gradient(135deg, #17120a, #101010 65%);
-}
 
-.bti-eyebrow-hero-copy h1 {
-    margin: 0;
-    color: #fff;
-    font-size: clamp(1.7rem, 4vw, 2.7rem);
-    line-height: 1.35;
-}
 
-.bti-eyebrow-hero-copy p {
-    max-width: 620px;
-    margin: 0;
-    color: #d0d0d0;
-    line-height: 1.9;
-    font-weight: 750;
-}
 
 .bti-hero-actions {
     display: flex;
@@ -2254,15 +2231,7 @@
     grid-template-columns: 1fr;
 }
 
-.bti-eyebrow-hero-compact .bti-eyebrow-hero-copy {
-    min-height: 240px;
-    text-align: center;
-    justify-items: center;
-}
 
-.bti-eyebrow-hero-compact .bti-eyebrow-hero-copy p {
-    margin-inline: auto;
-}
 
 .bti-eyebrow-hero-compact .bti-hero-actions {
     justify-content: center;
@@ -2357,4 +2326,230 @@
     line-height: 1.8;
     font-size: .86rem;
     font-weight: 800;
+}
+
+/* Arena requested eyebrow-flow polish — compact, staged, no big hero card */
+.bti-eyebrow-board {
+    padding-top: 22px;
+}
+
+.bti-eyebrow-board .bti-board-topbar {
+    margin-bottom: 14px;
+}
+
+.bti-eyebrow-mini-flow {
+    justify-content: center;
+    margin-bottom: 18px;
+}
+
+.bti-model-panel,
+.bti-change-panel,
+.bti-upload-panel-separated,
+.bti-selection-summary-panel {
+    border-radius: 22px;
+    background: linear-gradient(135deg, rgba(255,255,255,.04), rgba(255,255,255,.018));
+}
+
+.bti-form-panel-head {
+    align-items: center;
+}
+
+.bti-style-choice {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 132px;
+    min-height: 106px;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+}
+
+.bti-style-info {
+    grid-column: 1;
+    padding-left: 0;
+}
+
+.bti-brow-sample {
+    grid-column: 2;
+    width: 132px;
+    height: 86px;
+    min-height: 86px;
+    flex: none;
+}
+
+.bti-brow-sample img {
+    width: 100%;
+    height: 86px;
+    min-height: 86px;
+    object-fit: cover;
+    object-position: center 34%;
+}
+
+.bti-step-actions {
+    direction: ltr;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 14px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    background: rgba(255,255,255,.026);
+}
+
+.bti-step-actions > * {
+    direction: rtl;
+}
+
+.bti-step-actions .bti-step-back {
+    justify-self: flex-start;
+}
+
+.bti-step-actions .bti-step-next {
+    justify-self: flex-end;
+}
+
+.bti-primary-action.is-disabled,
+.bti-primary-action:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    box-shadow: none;
+    filter: grayscale(.25);
+}
+
+.bti-upload-zone {
+    min-height: 260px;
+}
+
+.bti-upload-preview {
+    position: absolute;
+    inset: 10px;
+    z-index: 1;
+    width: calc(100% - 20px);
+    height: calc(100% - 20px);
+    object-fit: contain;
+    border-radius: 16px;
+    background: #0b0b0b;
+}
+
+.bti-upload-zone:has(.bti-upload-preview:not([hidden])) i,
+.bti-upload-zone:has(.bti-upload-preview:not([hidden])) b,
+.bti-upload-zone:has(.bti-upload-preview:not([hidden])) small {
+    position: relative;
+    z-index: 2;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(0,0,0,.62);
+}
+
+.bti-upload-checks {
+    margin-top: 12px;
+    padding: 13px;
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 16px;
+    background: rgba(255,255,255,.035);
+}
+
+.bti-upload-checks.is-loading { border-color: rgba(255,173,18,.24); }
+.bti-upload-checks.is-ok { border-color: rgba(37,211,154,.32); background: rgba(37,211,154,.07); }
+.bti-upload-checks.is-warn { border-color: rgba(255,173,18,.34); background: rgba(255,173,18,.07); }
+.bti-upload-checks.is-bad { border-color: rgba(255,109,98,.35); background: rgba(255,109,98,.08); }
+
+.bti-upload-check-status {
+    color: #fff;
+    font-weight: 950;
+    line-height: 1.8;
+}
+
+.bti-upload-check-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 8px;
+}
+
+.bti-upload-check-list span {
+    padding: 6px 9px;
+    border-radius: 999px;
+    color: #ddd;
+    background: rgba(255,255,255,.06);
+    font-size: .78rem;
+    font-weight: 850;
+}
+
+.bti-upload-check-list .pass { color: #dffff3; background: rgba(37,211,154,.12); }
+.bti-upload-check-list .warn { color: #ffe5ad; background: rgba(255,173,18,.12); }
+
+.bti-simple-analysis-card {
+    display: grid;
+    grid-template-columns: .88fr 1.24fr .88fr;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.bti-simple-analysis-card article {
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 20px;
+    background: rgba(255,255,255,.035);
+    padding: 16px;
+    min-height: 150px;
+    display: grid;
+    align-content: center;
+    gap: 7px;
+}
+
+.bti-simple-analysis-card article.is-main {
+    border-color: rgba(255,173,18,.32);
+    background: linear-gradient(135deg, rgba(255,173,18,.12), rgba(255,255,255,.035));
+    text-align: center;
+}
+
+.bti-simple-analysis-card span {
+    color: var(--bti-gold);
+    font-weight: 950;
+}
+
+.bti-simple-analysis-card b,
+.bti-simple-analysis-card h3 {
+    color: #fff;
+    margin: 0;
+    line-height: 1.8;
+}
+
+.bti-simple-analysis-card p,
+.bti-simple-analysis-card small {
+    color: var(--bti-muted);
+    margin: 0;
+    line-height: 1.85;
+}
+
+.bti-final-choice-board {
+    max-width: 880px;
+    margin: 16px auto 14px;
+}
+
+.bti-final-choice-actions {
+    justify-content: center;
+}
+
+.bti-result-bottom-actions {
+    max-width: 880px;
+    margin-inline: auto;
+}
+
+@media (max-width: 820px) {
+    .bti-style-choice {
+        grid-template-columns: 1fr;
+    }
+    .bti-brow-sample,
+    .bti-brow-sample img {
+        width: 100%;
+        height: 126px;
+        min-height: 126px;
+    }
+    .bti-step-actions,
+    .bti-simple-analysis-card {
+        grid-template-columns: 1fr;
+        display: grid;
+    }
 }

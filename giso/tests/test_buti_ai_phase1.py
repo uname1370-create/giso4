@@ -80,6 +80,7 @@ def test_buti_ai_routes_and_analysis_card_are_rendered_from_module():
     assert "اول کیفیت عکس بررسی می‌شود" not in eyebrow_text
     assert "نمونه بدون عکس" not in eyebrow_text
     assert "bti-eyebrow-hero-photo" not in eyebrow_text
+    assert "bti-eyebrow-hero-copy" not in eyebrow_text
 
     token = re.search(r'name="csrf_token" value="([^"]+)"', eyebrow_text).group(1)
     selected = client.post(
@@ -150,8 +151,8 @@ def test_buti_ai_eyebrow_real_photo_step_flow_with_csrf(monkeypatch):
     text = response.get_data(as_text=True)
     assert "پیشنهاد گیسو" in text
     assert "میکروبلیدینگ ظریف" in text
-    assert "کیفیت عکس" in text
-    assert "ادامه به طراحی نهایی کار" in text
+    assert "تأیید اولیه عکس" in text
+    assert "طراحی عکس نهایی" in text
 
     _cleanup_buti_ai_sessions()
 
@@ -335,15 +336,15 @@ def test_eyebrow_photo_post_builds_ai_preview(monkeypatch):
 
     assert response.status_code == 200
     text = response.get_data(as_text=True)
-    assert "تحلیل هوشمند ابرو انجام شد" in text
-    assert "طرح پیشنهادی" in text
-    assert "عکس اصلی شما" in text
+    assert "تحلیل و پیشنهاد" in text
+    assert "تحلیل و پیشنهاد" in text
+    assert "جزئیات کوتاه عکس" in text
     assert "کامبینیشن" in text
-    assert "امتیاز مدل‌ها" in text
-    assert "تحلیل چهره و ابرو" in text
     assert "انتخاب نهایی" in text
-    assert "ادامه به طراحی نهایی" in text
-    assert "91٪" in text
+    assert "طراحی عکس نهایی" in text
+    assert "91٪ تناسب با عکس" in text
+    assert "عکس اصلی شما" not in text
+    assert "امتیاز مدل‌ها" not in text
 
     final_choice = client.post(
         "/analysis/mirror/eyebrow/finalize",
@@ -666,7 +667,7 @@ def _render_final_design_template(center_suggestions):
                 "filename": "final/final_eyebrow_test.jpg",
                 "provider": "python_guided_composite",
                 "model": "pillow_brow_overlay_v1",
-                "message": "طراحی نهایی کار راهنما آماده شد.",
+                "message": "طراحی عکس نهایی راهنما آماده شد.",
             },
             center_city="مشهد",
             center_suggestions=enrich_eyebrow_center_suggestions(center_suggestions, candidate=candidate, city="مشهد"),
@@ -700,7 +701,7 @@ def test_final_design_template_shows_inline_center_suggestions():
     assert "مشاهده همه مراکز ابرو" in html
     assert "برای اجرای" in html
     assert "راهنمای هوشمند قبل از انتخاب مرکز" in html
-    assert "این تصویر، راهنمای هوشمند/پیش‌نمایش طراحی نهایی کار است" in html
+    assert "این تصویر، راهنمای هوشمند/پیش‌نمایش طراحی عکس نهایی است" in html
     assert "طراحی راهنمای امن آماده شد" in html
 
 

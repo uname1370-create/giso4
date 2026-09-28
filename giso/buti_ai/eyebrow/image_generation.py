@@ -646,7 +646,7 @@ def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") 
 
 
 def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-    """تولید طراحی نهایی کار با providerهای تصویر و fallback پایتونی امن.
+    """تولید طراحی عکس نهایی با providerهای تصویر و fallback پایتونی امن.
 
     اگر provider تصویر تنظیم نشده باشد یا همه providerها شکست بخورند، خروجی
     `generate_python_guided_design` ساخته می‌شود تا تجربه کاربر قطع نشود.
@@ -654,7 +654,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
     candidate = candidate or {}
     source_path = final_design.source_image_path(candidate)
     if not source_path:
-        return {"ok": False, "message": "برای طراحی نهایی کار، عکس واقعی لازم است.", "status": "missing_photo"}
+        return {"ok": False, "message": "برای طراحی عکس نهایی، عکس واقعی لازم است.", "status": "missing_photo"}
 
     prompt = final_design.build_design_prompt(candidate)
     providers = configured_image_providers(env)
@@ -680,7 +680,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 "attempts": attempts,
                 "fallback_used": False,
                 "configured_provider_count": len(providers),
-                "message": "طراحی نهایی کار با مدل تصویرسازی آماده شد.",
+                "message": "طراحی عکس نهایی با مدل تصویرسازی آماده شد.",
             }
         except Exception as exc:
             ms = int((time.monotonic() - started) * 1000)
@@ -707,7 +707,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
             fallback["status"] = "guided_final_ready"
             fallback["message"] = "مدل تصویرسازی هنوز در مدیریت AI تنظیم نشده؛ عکس و انتخاب شما حفظ شد و نسخه راهنمای امن آماده شد."
     elif providers:
-        fallback["message"] = "فعلاً طراحی نهایی کار آماده نشد؛ عکس و انتخاب شما حفظ شد. لطفاً چند دقیقه بعد دوباره تلاش کنید."
+        fallback["message"] = "فعلاً طراحی عکس نهایی آماده نشد؛ عکس و انتخاب شما حفظ شد. لطفاً چند دقیقه بعد دوباره تلاش کنید."
     return fallback
 
 

@@ -5,6 +5,10 @@ giso/buti_ai/routes.py — کنترلرهای وب و ای‌پی‌آی آین�
 قانون مرز کد: منطق اختصاصی Buti AI داخل همین ماژول می‌ماند. این فایل فقط
 route/controller است و منطق سناریوی ابرو در `giso/buti_ai/eyebrow/` قرار دارد.
 """
+import os
+import shutil
+import tempfile
+
 from flask import flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from flask_login import current_user
 
@@ -32,7 +36,8 @@ from giso.buti_ai.eyebrow.final_design import (
     update_final_selection,
 )
 from giso.buti_ai.eyebrow.image_generation import generate_final_design
-from giso.buti_ai.eyebrow.upload import EYEBROW_UPLOAD_DIR
+from giso.buti_ai.eyebrow.ai import check_photo_quality
+from giso.buti_ai.eyebrow.upload import EYEBROW_UPLOAD_DIR, save_eyebrow_photo
 from giso.buti_ai.schema import init_buti_ai_db
 from giso.buti_ai.services import (
     record_service_demand,
@@ -172,6 +177,48 @@ def eyebrow_upload():
     if state.get("flash_message"):
         flash(state["flash_message"], state.get("flash_category") or "info")
     return _render_eyebrow_wizard(state)
+
+
+@buti_ai_bp.route("/eyebrow/validate-photo", methods=["POST"])
+def eyebrow_validate_photo():
+    """بررسی اولیه عکس آپلود ابرو برای پیش‌نمایش همان صفحه، مشابه مسیر مو/پوست."""
+    init_buti_ai_db()
+    tmp_dir = tempfile.mkdtemp(prefix="buti_eyebrow_validate_")
+    try:
+        photo = request.files.get("photo") or request.files.get("image")
+        saved = save_eyebrow_photo(photo, upload_dir=tmp_dir)
+        if not saved.get("ok"):
+            return jsonify({
+                "valid": False,
+                "reason_code": saved.get("reason") or "invalid_image",
+                "message": saved.get("message") or "عکس مناسب نیست.",
+                "checks": {},
+            }), 400
+        quality = check_photo_quality(saved.get("path"))
+        q_ok = quality.get("ok")
+        valid = q_ok is not False
+        warnings = []
+        if q_ok is None:
+            warnings.append("بررسی هوشمند کامل در دسترس نبود؛ عکس دریافت شد و می‌توانی ادامه بدهی.")
+        checks = quality.get("checks") or {}
+        return jsonify({
+            "valid": bool(valid),
+            "status": quality.get("status"),
+            "message": quality.get("message") or ("عکس برای تحلیل مناسب است." if valid else "این عکس برای تحلیل دقیق مناسب نیست."),
+            "warnings": warnings,
+            "checks": {
+                "face_visible": checks.get("face_visible"),
+                "eyebrows_visible": checks.get("eyebrows_visible"),
+                "lighting": checks.get("lighting"),
+                "angle": checks.get("angle"),
+                "sharpness": checks.get("sharpness"),
+            },
+        }), (200 if valid else 422)
+    finally:
+        try:
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        except Exception:
+            pass
 
 
 @buti_ai_bp.route("/eyebrow/finalize", methods=["POST"])

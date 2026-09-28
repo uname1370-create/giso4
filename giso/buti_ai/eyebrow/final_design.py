@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""انتخاب نهایی و ساخت طراحی نهایی کار راهنمای ابرو با Python.
+"""انتخاب نهایی و ساخت طراحی عکس نهایی راهنمای ابرو با Python.
 
 این ماژول عمداً داخل Buti AI است. فعلاً خروجی نهایی یک composite راهنمای
 پایتونی است و ادعای تولید تصویر واقعی با مدل image-generation ندارد.
@@ -225,7 +225,7 @@ def generate_python_guided_design(candidate):
     """ساخت تصویر راهنمای نهایی با Pillow؛ فقط روی ناحیه تقریبی ابرو overlay می‌گذارد."""
     src = _source_path(candidate)
     if not src:
-        return {"ok": False, "message": "برای طراحی نهایی کار، عکس واقعی لازم است.", "status": "missing_photo"}
+        return {"ok": False, "message": "برای طراحی عکس نهایی، عکس واقعی لازم است.", "status": "missing_photo"}
 
     try:
         from PIL import Image, ImageDraw, ImageFilter
@@ -273,10 +273,10 @@ def generate_python_guided_design(candidate):
             "model": "pillow_brow_overlay_v1",
             "status": "guided_final_ready",
             "prompt": build_design_prompt(candidate),
-            "message": "طراحی نهایی کار راهنما آماده شد.",
+            "message": "طراحی عکس نهایی راهنما آماده شد.",
         }
     except Exception as exc:
-        return {"ok": False, "message": f"ساخت طراحی نهایی کار انجام نشد: {str(exc)[:120]}", "status": "generate_failed"}
+        return {"ok": False, "message": f"ساخت طراحی عکس نهایی انجام نشد: {str(exc)[:120]}", "status": "generate_failed"}
 
 
 def candidate_to_json(candidate):
