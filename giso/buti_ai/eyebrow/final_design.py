@@ -119,9 +119,13 @@ def get_final_candidate(session_obj):
 
 def update_final_selection(session_obj, final_style_key):
     candidate = get_final_candidate(session_obj)
+    previous_style = normalize_style_key(candidate.get("final_style") or candidate.get("recommended_style"))
     final_style = normalize_style_key(final_style_key or candidate.get("recommended_style"))
     candidate["final_style"] = final_style
     candidate["final_label"] = _style_label(final_style)
+    if final_style != previous_style:
+        candidate.pop("generation", None)
+        candidate.pop("final_design_id", None)
     session_obj[FINAL_DESIGN_SESSION_KEY] = candidate
     session_obj.modified = True
     return candidate
@@ -136,6 +140,11 @@ def _source_path(candidate):
     if not path.startswith(root + os.sep):
         return ""
     return path if os.path.exists(path) else ""
+
+
+def source_image_path(candidate):
+    """مسیر امن عکس اصلی برای مصرف providerهای تصویرسازی داخل Buti AI."""
+    return _source_path(candidate or {})
 
 
 def _brow_curve(cx, cy, length, arch, flip=False, steps=30):

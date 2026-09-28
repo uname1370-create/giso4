@@ -6,7 +6,7 @@
 {% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=9">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=10">
 {% endblock %}
 
 {% block content %}
@@ -18,7 +18,9 @@
                 <span>طرح</span>
                 <div>
                     <b>طرح نهایی ابرو</b>
-                    <small>Python Guided Composite</small>
+                    <small>
+                        {% if generation and generation.fallback_used %}Guided Fallback{% elif generation and generation.provider and generation.provider != 'python_guided_composite' %}AI Image Provider{% else %}Python Guided Composite{% endif %}
+                    </small>
                 </div>
             </div>
         </div>
@@ -42,6 +44,26 @@
         </div>
         {% else %}
         <div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ generation.message }}</div>
+        {% endif %}
+
+        {% if generation %}
+        <div class="bti-provider-status {% if generation.fallback_used %}is-fallback{% elif generation.provider and generation.provider != 'python_guided_composite' %}is-ai{% endif %}">
+            <i class="fas fa-wand-magic-sparkles"></i>
+            <div>
+                <b>
+                    {% if generation.fallback_used %}
+                    خروجی راهنما بعد از fallback
+                    {% elif generation.provider and generation.provider != 'python_guided_composite' %}
+                    خروجی مدل تصویرسازی
+                    {% else %}
+                    خروجی راهنمای پایتونی
+                    {% endif %}
+                </b>
+                <span>
+                    Provider: {{ generation.provider_label or generation.provider }}{% if generation.model %} — Model: {{ generation.model }}{% endif %}
+                </span>
+            </div>
+        </div>
         {% endif %}
 
         <div class="bti-final-design-grid">
@@ -68,7 +90,11 @@
 
         <div class="bti-final-design-note">
             <b>نکته:</b>
-            <span>این نسخه، طرح راهنمای پایتونی است. اتصال مدل‌های تصویرسازی واقعی در مرحله بعد با مدل‌هایی که معرفی می‌کنی انجام می‌شود.</span>
+            {% if generation and generation.provider and generation.provider != 'python_guided_composite' and not generation.fallback_used %}
+            <span>این خروجی با provider تصویرسازی تنظیم‌شده ساخته شده و قبل از اجرای واقعی باید توسط متخصص مرکز بررسی شود.</span>
+            {% else %}
+            <span>مدل تصویرسازی واقعی هنوز تنظیم نشده یا پاسخ نداده است؛ فعلاً نسخه راهنمای امن پایتونی نمایش داده می‌شود.</span>
+            {% endif %}
         </div>
 
         <div class="bti-result-actions">

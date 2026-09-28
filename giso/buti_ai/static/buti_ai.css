@@ -1575,3 +1575,64 @@
         display: grid;
     }
 }
+
+.bti-provider-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,.1);
+    background: rgba(255,255,255,.045);
+    color: var(--bti-muted);
+}
+
+.bti-provider-status i {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background: rgba(255,173,18,.12);
+    color: var(--bti-gold);
+}
+
+.bti-provider-status b {
+    display: block;
+    color: #fff;
+    margin-bottom: 3px;
+    line-height: 1.7;
+}
+
+.bti-provider-status span {
+    display: block;
+    direction: ltr;
+    text-align: right;
+    unicode-bidi: plaintext;
+    font-size: .86rem;
+    line-height: 1.7;
+    word-break: break-word;
+}
+
+.bti-provider-status.is-ai {
+    border-color: rgba(50,214,143,.24);
+    background: rgba(50,214,143,.08);
+}
+
+.bti-provider-status.is-ai i {
+    background: rgba(50,214,143,.16);
+    color: #6ef0b5;
+}
+
+.bti-provider-status.is-fallback {
+    border-color: rgba(255,173,18,.28);
+    background: rgba(255,173,18,.075);
+}
+
+@media (max-width: 620px) {
+    .bti-provider-status {
+        align-items: flex-start;
+    }
+}

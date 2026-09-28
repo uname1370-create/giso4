@@ -18,11 +18,11 @@ from giso.buti_ai.eyebrow import (
 )
 from giso.buti_ai.eyebrow.final_design import (
     FINAL_DESIGN_SESSION_KEY,
-    generate_python_guided_design,
     get_final_candidate,
     store_final_candidate,
     update_final_selection,
 )
+from giso.buti_ai.eyebrow.image_generation import generate_final_design
 from giso.buti_ai.eyebrow.upload import EYEBROW_UPLOAD_DIR
 from giso.buti_ai.schema import init_buti_ai_db
 from giso.buti_ai.services import save_final_design
@@ -124,7 +124,7 @@ def eyebrow_final_design():
 
     generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
     if not generation or not generation.get("ok"):
-        generation = generate_python_guided_design(candidate)
+        generation = generate_final_design(candidate)
         candidate["generation"] = generation
         if generation.get("ok") and not candidate.get("final_design_id"):
             design_id = save_final_design(_safe_current_user_id(), candidate, generation)

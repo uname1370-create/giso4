@@ -334,3 +334,121 @@ def test_python_guided_final_design_generates_output_file(tmp_path, monkeypatch)
     assert result["provider"] == "python_guided_composite"
     assert result["filename"].startswith("final/final_eyebrow_")
     assert (tmp_path / result["filename"]).exists()
+
+
+def _sample_final_candidate(filename="face.jpg"):
+    return {
+        "photo_filename": filename,
+        "final_style": "combination",
+        "final_label": "کامبینیشن",
+        "recommended_style": "combination",
+        "recommended_label": "کامبینیشن",
+        "change_key": "medium",
+        "change_label": "کمی تغییر",
+        "short_reason": "دم ابرو کمی کامل‌تر شود.",
+        "do": ["دم ابرو مرتب شود"],
+        "avoid": ["تاج ابرو خیلی تیره نشود"],
+    }
+
+
+def test_final_design_provider_chain_falls_back_when_not_configured(tmp_path, monkeypatch):
+    from PIL import Image
+    from giso.buti_ai.eyebrow import final_design, image_generation
+
+    original = tmp_path / "face.jpg"
+    Image.new("RGB", (640, 820), (218, 178, 148)).save(original, "JPEG")
+    monkeypatch.setattr(final_design, "EYEBROW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(final_design, "FINAL_DESIGN_DIR", str(tmp_path / "final"))
+
+    result = image_generation.generate_final_design(_sample_final_candidate(), env={})
+
+    assert result["ok"] is True
+    assert result["provider"] == "python_guided_composite"
+    assert result["configured_provider_count"] == 0
+    assert result["fallback_used"] is False
+    assert result["status"] == "guided_final_ready"
+    assert "تنظیم نشده" in result["message"]
+    assert (tmp_path / result["filename"]).exists()
+
+
+def test_final_design_cloudflare_provider_success_saves_ai_output(tmp_path, monkeypatch):
+    import base64
+    import json
+    from io import BytesIO as _BytesIO
+    from PIL import Image
+    from giso.buti_ai.eyebrow import final_design, image_generation
+
+    original = tmp_path / "face.jpg"
+    Image.new("RGB", (640, 820), (218, 178, 148)).save(original, "JPEG")
+    output = _BytesIO()
+    Image.new("RGB", (360, 460), (205, 160, 132)).save(output, "PNG")
+    output_b64 = base64.b64encode(output.getvalue()).decode("ascii")
+
+    monkeypatch.setattr(final_design, "EYEBROW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(final_design, "FINAL_DESIGN_DIR", str(tmp_path / "final"))
+
+    class FakeResponse:
+        ok = True
+        status_code = 200
+        headers = {"content-type": "application/json"}
+        text = ""
+        content = b""
+
+        def __init__(self):
+            self._payload = {"result": {"image": output_b64}}
+            self.text = json.dumps(self._payload)
+
+        def json(self):
+            return self._payload
+
+    calls = []
+
+    def fake_post(url, headers=None, data=None, files=None, timeout=None, json=None):
+        calls.append({"url": url, "headers": headers or {}, "data": data or {}, "files": files or {}, "timeout": timeout})
+        assert "acct-1" in url
+        assert headers["Authorization"] == "Bearer secret-token"
+        assert "input_image_0" in files
+        assert data["prompt"].startswith("Edit only the two eyebrow regions")
+        return FakeResponse()
+
+    monkeypatch.setattr(image_generation.requests, "post", fake_post)
+    env = {
+        "CLOUDFLARE_API_TOKEN_1": "secret-token",
+        "CLOUDFLARE_ACCOUNT_ID_1": "acct-1",
+        "CLOUDFLARE_MODEL": "@cf/test-model",
+        "BUTI_AI_IMAGE_TIMEOUT_SECONDS": "5",
+    }
+
+    result = image_generation.generate_final_design(_sample_final_candidate(), env=env)
+
+    assert calls
+    assert result["ok"] is True
+    assert result["provider"] == "cloudflare_1"
+    assert result["provider_label"] == "Cloudflare 1"
+    assert result["model"] == "@cf/test-model"
+    assert result["status"] == "ai_final_ready"
+    assert result["fallback_used"] is False
+    assert result["attempts"][0]["ok"] is True
+    assert result["filename"].startswith("final/ai_eyebrow_")
+    assert (tmp_path / result["filename"]).exists()
+
+
+def test_final_selection_change_clears_cached_generation():
+    from flask import session
+    from giso.buti_ai.eyebrow.final_design import (
+        FINAL_DESIGN_SESSION_KEY,
+        update_final_selection,
+    )
+
+    app = create_app()
+    with app.test_request_context("/analysis/mirror/eyebrow/finalize", method="POST"):
+        session[FINAL_DESIGN_SESSION_KEY] = {
+            "recommended_style": "combination",
+            "final_style": "combination",
+            "generation": {"ok": True, "filename": "final/old.jpg"},
+            "final_design_id": 123,
+        }
+        candidate = update_final_selection(session, "natural")
+        assert candidate["final_style"] == "natural"
+        assert "generation" not in candidate
+        assert "final_design_id" not in candidate
