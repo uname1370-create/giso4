@@ -25,14 +25,14 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "clean after Phase 2 push"
+      "clean after Phase 2 code push and docs memory state update"
     ],
-    "head_after_phase_2_push": "1f70dd6ff69a79d2a06ec96cf15777cc1f39c160",
     "remote_branch": "origin/arena/01a0e0b8-giso4",
-    "remote_head_after_phase_2_push": "1f70dd6ff69a79d2a06ec96cf15777cc1f39c160",
     "forbidden_paths_modified": false,
     "protected_paths_note": "Protected path check showed no changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/.",
-    "validation_note": "py_compile, PROJECT_MEMORY.json validation, targeted pytest, git diff --check, and preview route curl check passed for Phase 2."
+    "validation_note": "py_compile, PROJECT_MEMORY.json validation, targeted pytest, git diff --check, and preview route curl check passed for Phase 2.",
+    "phase_2_code_commit": "1f70dd6ff69a79d2a06ec96cf15777cc1f39c160",
+    "latest_push_note": "A docs-only Project Memory state update was pushed after the Phase 2 code commit; use git status/log as source of truth for the current HEAD."
   },
   "sena_md": {
     "remote_present": true,
@@ -185,7 +185,8 @@
     "Updated eyebrow result/flow/template/static assets for polished UI, photo quality status, AI analysis status, and guided before/after preview.",
     "Expanded giso/tests/test_buti_ai_phase1.py to cover quality analysis, AI result merging, photo POST preview, and bad-photo rejection.",
     "Committed Buti AI Phase 2 as 1f70dd6ff69a79d2a06ec96cf15777cc1f39c160 (feat: polish Buti AI eyebrow analysis).",
-    "Pushed Phase 2 commit to origin/arena/01a0e0b8-giso4."
+    "Pushed Phase 2 commit to origin/arena/01a0e0b8-giso4.",
+    "Pushed docs-only Project Memory state update after Phase 2 code commit."
   ],
   "next_action": [
     "Run git status --short --branch before future work.",
