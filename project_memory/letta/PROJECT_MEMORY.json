@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 2.2 full luxury UI rebuild completed locally: Beauty Mirror entry and eyebrow wizard were redesigned from scratch with a dark luxury/studio aesthetic. Backend/AI flow unchanged. Validation passed; commit/push pending at memory-update time.",
+  "status": "Buti AI Phase 2.2 full luxury UI rebuild completed, validated, committed, and pushed: Beauty Mirror entry and eyebrow wizard were redesigned from scratch with a dark luxury/studio aesthetic. Backend/AI flow unchanged.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -25,10 +25,12 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "Phase 2.2 luxury UI files modified locally at memory-update time"
+      "clean after Phase 2.2 luxury UI push"
     ],
+    "phase_2_2_code_commit": "7a6ef5d0439983312c5bf7ac2d83e554788d4288",
     "phase_2_2_note": "UI-only changes in Buti AI templates/static CSS; validation passed before commit.",
-    "forbidden_paths_modified": false
+    "forbidden_paths_modified": false,
+    "protected_paths_note": "Protected path check showed no changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/."
   },
   "sena_md": {
     "remote_present": true,
@@ -192,7 +194,8 @@
     "Rebuilt Buti AI mirror_home.html as a dark luxury Beauty Mirror entry experience.",
     "Rebuilt eyebrow_wizard.html as a luxury Eyebrow Design Studio flow.",
     "Rewrote buti_ai.css for a cohesive dark champagne luxury visual system.",
-    "Preserved backend/AI flow and existing route/test contracts during the full visual redesign."
+    "Preserved backend/AI flow and existing route/test contracts during the full visual redesign.",
+    "Committed and pushed Buti AI Phase 2.2 luxury UI rebuild as 7a6ef5d0439983312c5bf7ac2d83e554788d4288."
   ],
   "next_action": [
     "Run git status --short --branch before future work.",
@@ -341,7 +344,7 @@
       "giso/buti_ai/templates/buti_ai/eyebrow_wizard.html",
       "giso/buti_ai/static/buti_ai.css"
     ],
-    "phase_2_2_status": "full_luxury_ui_rebuild_completed_validation_passed_pending_commit_at_memory_update_time",
+    "phase_2_2_status": "full_luxury_ui_rebuild_completed_validated_committed_pushed",
     "phase_2_2_files": [
       "giso/buti_ai/templates/buti_ai/mirror_home.html",
       "giso/buti_ai/templates/buti_ai/eyebrow_wizard.html",
