@@ -244,13 +244,19 @@ def handle_provider_add():
     if name == "gemini":
         from giso.ai_brain import _normalize_gemini_base_url
         base_url = _normalize_gemini_base_url(base_url)
+    cloudflare_image_model = ""
     if name == "cloudflare":
         try:
             from giso.ai_brain import normalize_cloudflare_api_root
+            from giso.ai_models_registry import get_best_text_model, get_best_vision_model, get_image_models
             base_url = normalize_cloudflare_api_root(
                 base_url, request.form.get("account_id", ""), require_account=True
             )
             kind = "cloudflare"
+            model = get_best_vision_model("cloudflare") or get_best_text_model("cloudflare") or model
+            image_models = get_image_models("cloudflare") or []
+            if image_models:
+                cloudflare_image_model = str(image_models[0].get("id") if isinstance(image_models[0], dict) else image_models[0])
         except ValueError as cf_error:
             flash(str(cf_error), "warning")
             return redirect(url_for("panel.ai"))
@@ -262,6 +268,9 @@ def handle_provider_add():
     if name == "gemini":
         use_proxy = False
     proxy_url = (request.form.get("proxy_url") or "").strip()
+    if name == "cloudflare":
+        use_proxy = False
+        proxy_url = ""
     proxy_type = _proxy_type_of(proxy_url)
     if proxy_url and not proxy_type:
         flash("آدرس پروکسی باید با socks5:// یا http:// شروع شود.", "warning")
@@ -287,9 +296,14 @@ def handle_provider_add():
                 pass
             try:
                 from giso.buti_ai.ai_models import auto_configure_for_provider
-                auto_res = auto_configure_for_provider(name)
+                auto_res = auto_configure_for_provider(name, overwrite=(name == "cloudflare"))
                 if auto_res.get("added"):
                     flash(f"🪞 {auto_res['added']} اسلات آینه زیبایی خودکار تنظیم شد.", "success")
+                if name == "cloudflare" and cloudflare_image_model:
+                    flash(
+                        f"⚡ Cloudflare/cf آماده شد؛ آدرس run خودکار ساخته شد و مدل طراحی عکس ابرو «{cloudflare_image_model}» است.",
+                        "success",
+                    )
             except Exception as auto_exc:
                 logger.debug(f"beauty mirror auto config after provider add: {auto_exc}")
             # شناسایی خودکار مدل‌های زنده از /models (بدون شکست در صورت خطا)
@@ -682,9 +696,15 @@ def context():
                         if pname.lower() == "cloudflare":
                             try:
                                 from giso.ai_brain import cloudflare_account_id_from_url
+                                from giso.ai_models_registry import get_image_models
                                 row["cloudflare_account_id"] = cloudflare_account_id_from_url(row.get("api_root") or row.get("base_url") or "")
+                                _image_models = get_image_models("cloudflare") or []
+                                row["cloudflare_image_model_default"] = str(
+                                    _image_models[0].get("id") if _image_models and isinstance(_image_models[0], dict) else (_image_models[0] if _image_models else "")
+                                )
                             except Exception:
                                 row["cloudflare_account_id"] = ""
+                                row["cloudflare_image_model_default"] = ""
                 except Exception:
                     pass
                 rows.append(row)

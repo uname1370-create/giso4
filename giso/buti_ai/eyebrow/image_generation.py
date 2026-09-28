@@ -3,8 +3,8 @@
 
 این فایل عمداً داخل `giso/buti_ai/eyebrow/` است تا منطق اختصاصی آینه ابرو
 در ماژول خودش بماند. خروجی واقعی image-generation فقط وقتی فعال می‌شود که
-provider/model/key در محیط تنظیم شده باشد. در غیر این صورت، خروجی امن
-`python_guided_composite` از `final_design.py` fallback می‌شود.
+provider/model/key در پنل «مدیریت AI» یا محیط تنظیم شده باشد. در غیر این صورت،
+خروجی امن `python_guided_composite` از `final_design.py` fallback می‌شود.
 
 پیکربندی‌های پشتیبانی‌شده بدون ذخیره کلید در کد:
 

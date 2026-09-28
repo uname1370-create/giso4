@@ -36,21 +36,28 @@
     <section class="pnl-pane show" id="pane-providers">
         <div class="pnl-card">
             <h3>➕ افزودن سرویس هوش مصنوعی</h3>
-            <form method="POST" action="{{ url_for('panel.ai_provider_add') }}" class="pnl-grid-form">
+            <form method="POST" action="{{ url_for('panel.ai_provider_add') }}" class="pnl-grid-form" data-ai-provider-add-form>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <select name="name">
+                <select name="name" data-provider-name>
                     <option value="">— انتخاب پروایدر یا نام دلخواه —</option>
+                    <option value="cf">⚡ cf — Cloudflare سریع (فقط API Token + Account ID)</option>
                     {% for opt in ai.get('registry_options', []) %}
                     <option value="{{ opt.name }}">{{ opt.display }}</option>
                     {% endfor %}
                 </select>
-                <input type="text" name="custom_name" placeholder="نام ساده/دلخواه؛ مثلاً cf برای Cloudflare" dir="ltr">
-                <input type="text" name="api_key" placeholder="کلید API / Token* (الزامی)" dir="ltr" required>
-                <input type="text" name="account_id" placeholder="Cloudflare Account ID فقط برای cf/cloudflare" dir="ltr">
-                <input type="text" name="proxy_url" placeholder="پروکسی SOCKS5 (اختیاری): socks5://... — خالی = مستقیم" dir="ltr">
-                <input type="text" name="selected_model" placeholder="مدل دلخواه (اختیاری) — مثال: model-name" dir="ltr">
-                <small class="pnl-muted" style="grid-column:1/-1;">اگر پروایدر را <b>Cloudflare / cf</b> انتخاب کنی، کافی است API Token و Account ID را بدهی؛ آدرس <span dir="ltr">/ai/run</span> خودکار ساخته می‌شود.</small>
-                <details style="grid-column:1/-1;">
+                <input type="text" name="custom_name" data-hide-for-cf placeholder="نام ساده/دلخواه؛ مثلاً cf برای Cloudflare" dir="ltr">
+                <input type="text" name="api_key" data-cf-required placeholder="کلید API / Token* (الزامی)" dir="ltr" required>
+                <input type="text" name="account_id" data-cf-account placeholder="Cloudflare Account ID فقط برای cf/cloudflare" dir="ltr">
+                <input type="text" name="proxy_url" data-hide-for-cf placeholder="پروکسی SOCKS5 (اختیاری): socks5://... — خالی = مستقیم" dir="ltr">
+                <input type="text" name="selected_model" data-hide-for-cf placeholder="مدل دلخواه (اختیاری) — مثال: model-name" dir="ltr">
+                <div class="pnl-card" data-cf-help style="grid-column:1/-1;background:#f8fbff;border-color:#cfe4ff;display:none;">
+                    <b>⚡ افزودن سریع Cloudflare با cf</b>
+                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">فقط دو مقدار بده: <b>API Token</b> و <b>Account ID</b>. گیسو خودش این آدرس را می‌سازد:</p>
+                    <code dir="ltr" style="display:block;margin-top:6px;white-space:normal;">https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run</code>
+                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">مدل پیش‌فرض طراحی عکس نهایی ابرو: <code dir="ltr">@cf/black-forest-labs/flux-2-klein-4b</code></p>
+                </div>
+                <small class="pnl-muted" style="grid-column:1/-1;">اگر پروایدر را <b>Cloudflare / cf</b> انتخاب کنی، کافی است API Token و Account ID را بدهی؛ آدرس <span dir="ltr">/ai/run</span> خودکار ساخته می‌شود و مدل تصویر پیش‌فرض برای آینه ابرو تنظیم می‌شود.</small>
+                <details style="grid-column:1/-1;" data-hide-for-cf>
                     <summary style="cursor:pointer;">⚙️ تنظیمات پیشرفته (اختیاری — خالی = از رجیستری)</summary>
                     <div class="pnl-grid-form" style="margin-top:8px;">
                         <input type="text" name="base_url" placeholder="آدرس پایه (خالی = از رجیستری)" dir="ltr">
@@ -83,6 +90,7 @@
                             <span dir="ltr">{{ p.effective_base_url or p.base_url or '—' }}</span>
                             {% if p.connects_via_worker %}<span class="pnl-badge pnl-badge-ok">ورکر Cloudflare</span>{% endif %}
                             {% if p.cloudflare_account_id %}<span class="pnl-badge pnl-badge-info">Account: <span dir="ltr">{{ p.cloudflare_account_id[:6] }}…{{ p.cloudflare_account_id[-4:] }}</span></span>{% endif %}
+                            {% if p.cloudflare_image_model_default %}<span class="pnl-badge pnl-badge-info">مدل عکس ابرو: <span dir="ltr">{{ p.cloudflare_image_model_default }}</span></span>{% endif %}
                         </div>
                         <div class="pnl-muted" style="font-size:.72rem;margin-top:2px;">
                             🖼️ Vision: <b>{{ p.vision_count|default(0) }}</b>
@@ -426,4 +434,31 @@
 
     {% endif %}
 </div>
+
+<script>
+(function(){
+  function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fn); else fn(); }
+  ready(function(){
+    var form=document.querySelector('[data-ai-provider-add-form]');
+    if(!form) return;
+    var select=form.querySelector('[data-provider-name]');
+    var account=form.querySelector('[data-cf-account]');
+    var help=form.querySelector('[data-cf-help]');
+    var hideItems=Array.prototype.slice.call(form.querySelectorAll('[data-hide-for-cf]'));
+    function norm(v){ return String(v||'').trim().toLowerCase(); }
+    function apply(){
+      var value=norm(select && select.value);
+      var custom=norm(form.querySelector('[name="custom_name"]') && form.querySelector('[name="custom_name"]').value);
+      var isCf=(value==='cf'||value==='cloudflare'||custom==='cf'||custom==='cloudflare');
+      hideItems.forEach(function(el){ el.style.display=isCf?'none':''; });
+      if(help) help.style.display=isCf?'block':'none';
+      if(account){ account.required=!!isCf; account.placeholder=isCf?'Cloudflare Account ID*':'Cloudflare Account ID فقط برای cf/cloudflare'; }
+    }
+    if(select) select.addEventListener('change',apply);
+    var custom=form.querySelector('[name="custom_name"]');
+    if(custom) custom.addEventListener('input',apply);
+    apply();
+  });
+})();
+</script>
 {% endblock %}

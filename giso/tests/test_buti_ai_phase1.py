@@ -421,8 +421,13 @@ def _sample_final_candidate(filename="face.jpg"):
         "final_label": "کامبینیشن",
         "recommended_style": "combination",
         "recommended_label": "کامبینیشن",
+        "selected_style": "combination",
+        "selected_label": "کامبینیشن",
+        "service_label": "آینه ابرو گیسو / طراحی هوشمند ابرو",
         "change_key": "medium",
         "change_label": "کمی تغییر",
+        "current_brow_summary": "دم ابرو کم‌پشت و قوس ملایم است.",
+        "face_analysis": {"face_shape": "oval", "fit": "قوس نرم بهتر است"},
         "short_reason": "دم ابرو کمی کامل‌تر شود.",
         "do": ["دم ابرو مرتب شود"],
         "avoid": ["تاج ابرو خیلی تیره نشود"],
@@ -487,6 +492,10 @@ def test_final_design_cloudflare_provider_success_saves_ai_output(tmp_path, monk
         assert headers["Authorization"] == "Bearer secret-token"
         assert "input_image_0" in files
         assert "Edit ONLY the two eyebrow regions" in data["prompt"]
+        assert "Selected service: آینه ابرو گیسو / طراحی هوشمند ابرو" in data["prompt"]
+        assert "Selected eyebrow model: کامبینیشن" in data["prompt"]
+        assert "Current eyebrow analysis: دم ابرو کم‌پشت" in data["prompt"]
+        assert "Do not change identity" in data["prompt"]
         return FakeResponse()
 
     monkeypatch.setattr(image_generation.requests, "post", fake_post)
@@ -716,7 +725,7 @@ def test_final_design_template_shows_inline_waitlist_when_no_centers():
 
 
 def test_cloudflare_cf_alias_and_account_root_builder():
-    from giso.ai_models_registry import normalize_provider_name
+    from giso.ai_models_registry import get_image_models, normalize_provider_name
     from giso.ai_brain import (
         cloudflare_account_id_from_url,
         normalize_cloudflare_api_root,
@@ -724,6 +733,7 @@ def test_cloudflare_cf_alias_and_account_root_builder():
 
     assert normalize_provider_name("cf") == "cloudflare"
     assert normalize_provider_name("Cloudflare Workers AI") == "cloudflare"
+    assert get_image_models("cf")[0]["id"] == "@cf/black-forest-labs/flux-2-klein-4b"
     root = normalize_cloudflare_api_root("", "ba0fec1e8a6deda27719c582e4d8eb9d", require_account=True)
     assert root == "https://api.cloudflare.com/client/v4/accounts/ba0fec1e8a6deda27719c582e4d8eb9d/ai/run"
     assert cloudflare_account_id_from_url(root) == "ba0fec1e8a6deda27719c582e4d8eb9d"
@@ -780,7 +790,7 @@ def test_final_design_reads_ai_management_image_provider(tmp_path, monkeypatch):
     calls = []
 
     def fake_post(url, headers=None, data=None, files=None, timeout=None, json=None):
-        calls.append({"url": url, "headers": headers or {}, "files": files or {}})
+        calls.append({"url": url, "headers": headers or {}, "data": data or {}, "files": files or {}})
         return FakeResponse()
 
     monkeypatch.setattr(image_generation.requests, "post", fake_post)
@@ -789,6 +799,8 @@ def test_final_design_reads_ai_management_image_provider(tmp_path, monkeypatch):
 
     assert calls
     assert calls[0]["url"].endswith("/ai/run/@cf/test-image")
+    assert "Selected eyebrow model: کامبینیشن" in calls[0]["data"]["prompt"]
+    assert "Edit ONLY the two eyebrow regions" in calls[0]["data"]["prompt"]
     assert result["ok"] is True
     assert result["provider"] == "ai_mirror_cloudflare_1"
     assert result["model"] == "@cf/test-image"
@@ -831,6 +843,7 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
     assert analysis[0]["provider_name"] == "cloudflare"
     assert "vision" in analysis[0]["model_name"]
     assert [int(r["priority"]) for r in images] == [1, 2, 3]
+    assert images[0]["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b"
     assert all(r["image_kind"] == "cloudflare" for r in images)
 
     second = ai_models.auto_configure_for_provider("cloudflare")

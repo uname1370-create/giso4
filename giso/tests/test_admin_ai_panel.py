@@ -77,6 +77,9 @@ def test_admin_ai_panel_read_only_view():
     html = r2.get_data(as_text=True)
     assert 'مدیریت هوش مصنوعی' in html
     assert 'اسم نمایشی مشاور هوشمند' in html
+    assert 'cf — Cloudflare سریع' in html
+    assert '@cf/black-forest-labs/flux-2-klein-4b' in html
+    assert 'data-cf-account' in html
     print('PASS  نمای AI برای سوپرادمین کامل و برای ادمین مسدود است')
 
 

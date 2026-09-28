@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """انتخاب نهایی و ساخت طراحی عکس نهایی راهنمای ابرو با Python.
 
-این ماژول عمداً داخل Buti AI است. فعلاً خروجی نهایی یک composite راهنمای
-پایتونی است و ادعای تولید تصویر واقعی با مدل image-generation ندارد.
-اتصال مدل‌های تصویرسازی واقعی بعداً از همین مرز اضافه می‌شود.
+این ماژول عمداً داخل Buti AI است. اگر در مدیریت AI مدل تصویرسازی فعال باشد،
+خروجی provider-backed می‌سازد؛ در غیر این صورت خروجی راهنمای پایتونی امن
+و بدون ادعای تولید واقعی ارائه می‌شود.
 """
 import json
 import math
@@ -102,6 +102,7 @@ def build_final_candidate(result, photo_status):
         "photo_filename": filename,
         "recommended_style": recommended_style,
         "recommended_label": _style_label(recommended_style),
+        "service_label": result.get("service_label") or "آینه ابرو گیسو / طراحی هوشمند ابرو",
         "selected_style": selected_style,
         "selected_label": _style_label(selected_style),
         "final_style": recommended_style,
@@ -210,13 +211,33 @@ def _draw_brow(draw, cx, cy, length, arch, color, params, flip=False, mode="comb
 def build_design_prompt(candidate):
     """پرامپت دقیق برای provider تصویر؛ فقط ناحیه ابرو و حفظ هویت کاربر."""
     style_label = candidate.get("final_label") or _style_label(candidate.get("final_style"))
+    service_label = candidate.get("service_label") or "intelligent eyebrow design"
+    model_label = candidate.get("selected_label") or style_label
+
+    def _prompt_text(value):
+        if isinstance(value, dict):
+            return "; ".join(f"{k}: {v}" for k, v in value.items() if v)[:420]
+        if isinstance(value, (list, tuple)):
+            return "; ".join(str(x) for x in value if x)[:420]
+        return str(value or "")[:420]
+
+    face_notes = _prompt_text(candidate.get("face_analysis"))
+    current_brows = _prompt_text(candidate.get("current_brow_summary"))
+    recommendation = _prompt_text(candidate.get("do") or candidate.get("short_reason"))
+    avoid = _prompt_text(candidate.get("avoid"))
     return (
         "Photorealistic image edit of the ORIGINAL customer face photo. "
-        "Edit ONLY the two eyebrow regions. Do not change identity, face shape, eyes, eyelids, skin texture, hair, makeup, lighting, camera angle, background, or expression. "
+        "The selected beauty service is intelligent eyebrow design preview; apply the selected eyebrow model precisely to the natural brow location. "
+        "Edit ONLY the two eyebrow regions: brow hairs, shape, fill, tail, arch, and very local brow shadow if needed. "
+        "Do not change identity, face shape, eyes, eyelids, lashes, skin texture, hair, makeup, lips, nose, lighting, camera angle, background, jewelry, clothes, or expression. "
         "Keep pores, shadows and natural asymmetry realistic. No beauty filter, no new face, no illustration, no heavy retouching. "
-        f"Eyebrow design to preview: {style_label}. "
+        f"Selected service: {service_label}. "
+        f"Selected eyebrow model: {model_label}. Final design label: {style_label}. "
         f"Requested change level: {candidate.get('change_label', '')}. "
-        f"User-facing reason: {candidate.get('short_reason', '')}. "
+        f"Current eyebrow analysis: {current_brows}. "
+        f"Face-fit notes: {face_notes}. "
+        f"Recommendation to follow: {recommendation}. "
+        f"Avoid: {avoid}. "
         "The result should look like the same photo after a professional eyebrow consultation preview; subtle, wearable, and salon-realistic."
     )
 
