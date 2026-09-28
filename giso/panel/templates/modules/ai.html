@@ -233,6 +233,11 @@
             <p class="pnl-muted">
                 این بخش مدل تحلیل عکس ابرو را از مدل طراحی تصویر جدا می‌کند. اسلات ۱ مدل اصلی است و اسلات‌های بعدی fallback هستند.
             </p>
+            <form method="POST" action="{{ url_for('panel.ai_config') }}" style="margin:10px 0 14px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="ai_action" value="seed_beauty_mirror_models">
+                <button class="pnl-btn pnl-btn-outline pnl-btn-sm">✨ پرکردن خودکار اسلات‌های خالی از پروایدرهای فعال</button>
+            </form>
             {% set bm = ai.get('beauty_mirror', {}) %}
             <datalist id="beautyMirrorModelList">
                 {% for model in bm.get('model_options', []) %}

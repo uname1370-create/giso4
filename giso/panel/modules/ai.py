@@ -133,6 +133,12 @@ def handle_config():
                 image_kind=request.form.get("image_kind", ""),
                 endpoint_override=request.form.get("endpoint_override", ""),
             )
+        elif action == "seed_beauty_mirror_models":
+            from giso.buti_ai.ai_models import auto_configure_defaults
+            res = auto_configure_defaults(overwrite=False)
+            ok = bool(res.get("ok"))
+            added = int(res.get("added") or 0)
+            message = f"{added} اسلات خالی آینه زیبایی به‌صورت خودکار تنظیم شد." if ok else "تنظیم خودکار مدل‌های آینه زیبایی انجام نشد."
     except Exception as e:
         ok = False
         message = f"خطا در اجرای تغییر: {e}"
@@ -279,6 +285,13 @@ def handle_provider_add():
                                      iranian=is_iranian, timeout=timeout)
             except Exception:
                 pass
+            try:
+                from giso.buti_ai.ai_models import auto_configure_for_provider
+                auto_res = auto_configure_for_provider(name)
+                if auto_res.get("added"):
+                    flash(f"🪞 {auto_res['added']} اسلات آینه زیبایی خودکار تنظیم شد.", "success")
+            except Exception as auto_exc:
+                logger.debug(f"beauty mirror auto config after provider add: {auto_exc}")
             # شناسایی خودکار مدل‌های زنده از /models (بدون شکست در صورت خطا)
             try:
                 from giso.ai_brain import refresh_models

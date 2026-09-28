@@ -668,3 +668,34 @@ def test_final_design_template_uses_drag_compare_slider():
     assert "bti-compare-handle" in tpl
     assert "bti-before-after bti-final-before-after" not in tpl
     assert "eyebrow_final_retry" in tpl
+
+
+def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path, monkeypatch):
+    import sqlite3
+    from giso.buti_ai import ai_models
+
+    db_path = tmp_path / "mirror_models.db"
+
+    def connect():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    monkeypatch.setattr(ai_models, "get_giso_db_conn", connect)
+    ai_models.init_buti_ai_model_assignments()
+
+    result = ai_models.auto_configure_for_provider("cf")
+
+    assert result["ok"] is True
+    assert result["added"] == 4
+    rows = ai_models.list_model_assignments()
+    assert len(rows) == 4
+    analysis = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_ANALYSIS]
+    images = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_IMAGE_DESIGN]
+    assert analysis[0]["provider_name"] == "cloudflare"
+    assert "vision" in analysis[0]["model_name"]
+    assert [int(r["priority"]) for r in images] == [1, 2, 3]
+    assert all(r["image_kind"] == "cloudflare" for r in images)
+
+    second = ai_models.auto_configure_for_provider("cloudflare")
+    assert second["added"] == 0

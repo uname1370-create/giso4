@@ -1682,6 +1682,15 @@ async def _run_async(token=None, test_mode=False):
             except Exception as e:
                 logger.debug(f"save_provider_to_env (add known): {e}")
 
+            auto_summary = ""
+            try:
+                from giso.buti_ai.ai_models import auto_configure_for_provider
+                auto_res = auto_configure_for_provider(name)
+                if auto_res.get("added"):
+                    auto_summary = f"\n🪞 مدل‌های آینه زیبایی: {auto_res['added']} اسلات خودکار پر شد"
+            except Exception as auto_exc:
+                logger.debug(f"beauty mirror auto config (bot add known): {auto_exc}")
+
             await msg.reply_text(f"⏳ در حال تست سلامت پروایدر «{name}»…")
             res = await check_ai_provider(name)
             st_fa = "سالم ✅" if str(res.get("status", "")).startswith("ok") else str(res.get("status", "خطا ❌"))
@@ -1692,6 +1701,7 @@ async def _run_async(token=None, test_mode=False):
                 f"🌐 پروکسی Gemini: {'فعال' if use_proxy else 'غیرفعال'}\n"
                 f"🎯 مدل انتخابی: {res.get('selected') or '—'}\n"
                 f"📊 وضعیت اتصال: {st_fa}"
+                f"{auto_summary}"
             )
             if res.get("error") and not str(res.get("status", "")).startswith("ok"):
                 msg_res += f"\n⚠️ خطا: {res.get('error')}"
@@ -1734,6 +1744,15 @@ async def _run_async(token=None, test_mode=False):
             except Exception as e:
                 logger.debug(f"save_provider_to_env (add cloudflare): {e}")
 
+            auto_summary = ""
+            try:
+                from giso.buti_ai.ai_models import auto_configure_for_provider
+                auto_res = auto_configure_for_provider("cloudflare")
+                if auto_res.get("added"):
+                    auto_summary = f"\n🪞 مدل‌های آینه زیبایی: {auto_res['added']} اسلات خودکار پر شد"
+            except Exception as auto_exc:
+                logger.debug(f"beauty mirror auto config (bot add cloudflare): {auto_exc}")
+
             await msg.reply_text("⏳ در حال تست سلامت Cloudflare…")
             res = await check_ai_provider("cloudflare")
             st_fa = "سالم ✅" if str(res.get("status", "")).startswith("ok") else str(res.get("status", "خطا ❌"))
@@ -1744,6 +1763,7 @@ async def _run_async(token=None, test_mode=False):
                 f"🔗 API Root: {api_root}\n"
                 f"🎯 مدل انتخابی: {res.get('selected') or '—'}\n"
                 f"📊 وضعیت اتصال: {st_fa}"
+                f"{auto_summary}"
             )
             if res.get("error") and not str(res.get("status", "")).startswith("ok"):
                 msg_res += f"\n⚠️ خطا: {res.get('error')}"

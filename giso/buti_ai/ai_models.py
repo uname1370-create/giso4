@@ -403,6 +403,109 @@ def configured_image_provider_dicts(limit: int = 3) -> List[Dict[str, Any]]:
     return providers
 
 
+def _slot_is_empty(task_key: str, priority: int) -> bool:
+    """آیا اسلات کاربردی هنوز مدل واقعی ندارد؟"""
+    task_key = normalize_task_key(task_key)
+    priority = _normal_priority(priority, task_key)
+    for row in list_model_assignments(task_key):
+        try:
+            if int(row.get("priority") or 0) != priority:
+                continue
+        except Exception:
+            continue
+        if str(row.get("provider_name") or "").strip() and str(row.get("model_name") or "").strip():
+            return False
+    return True
+
+
+def _model_ids(items: Iterable[Any], limit: int = 3) -> List[str]:
+    ids: List[str] = []
+    for item in items or []:
+        mid = item.get("id") if isinstance(item, dict) else item
+        mid = str(mid or "").strip()
+        if mid and mid not in ids:
+            ids.append(mid)
+        if len(ids) >= limit:
+            break
+    return ids
+
+
+def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> Dict[str, Any]:
+    """پرکردن خودکار اسلات‌های خالی آینه زیبایی بعد از افزودن پروایدر.
+
+    این کار فقط اسلات‌های خالی را پر می‌کند تا انتخاب دستی سوپرادمین خراب نشود.
+    برای Cloudflare علاوه بر تحلیل عکس، سه مدل تصویرسازی پیش‌فرض هم تنظیم می‌شود.
+    """
+    try:
+        from giso.ai_models_registry import (
+            get_best_vision_model,
+            get_image_models,
+            normalize_provider_name,
+        )
+    except Exception as exc:
+        return {"ok": False, "added": 0, "items": [], "error": str(exc)[:160]}
+
+    provider_name = normalize_provider_name(provider_name)
+    added: List[Dict[str, Any]] = []
+
+    vision_model = get_best_vision_model(provider_name)
+    if vision_model and (overwrite or _slot_is_empty(TASK_EYEBROW_ANALYSIS, 1)):
+        ok, _message = save_model_assignment(
+            TASK_EYEBROW_ANALYSIS,
+            1,
+            provider_name,
+            vision_model,
+            enabled=True,
+        )
+        if ok:
+            added.append({"task": TASK_EYEBROW_ANALYSIS, "priority": 1, "model": vision_model})
+
+    image_kind = "cloudflare" if provider_name == "cloudflare" else ""
+    for priority, model in enumerate(_model_ids(get_image_models(provider_name), limit=3), start=1):
+        if not (overwrite or _slot_is_empty(TASK_EYEBROW_IMAGE_DESIGN, priority)):
+            continue
+        ok, _message = save_model_assignment(
+            TASK_EYEBROW_IMAGE_DESIGN,
+            priority,
+            provider_name,
+            model,
+            enabled=True,
+            image_kind=image_kind,
+        )
+        if ok:
+            added.append({"task": TASK_EYEBROW_IMAGE_DESIGN, "priority": priority, "model": model})
+
+    return {"ok": True, "added": len(added), "items": added, "provider": provider_name}
+
+
+def auto_configure_defaults(overwrite: bool = False) -> Dict[str, Any]:
+    """پیشنهاد خودکار مدل‌های آینه زیبایی از پروایدرهای فعال فعلی."""
+    try:
+        from giso.ai_brain import list_ai_providers
+        from giso.ai_models_registry import normalize_provider_name
+    except Exception as exc:
+        return {"ok": False, "added": 0, "items": [], "error": str(exc)[:160]}
+
+    try:
+        rows = list_ai_providers(only_enabled=True) or []
+    except Exception:
+        rows = []
+
+    names: List[str] = []
+    for row in rows:
+        name = normalize_provider_name(_row_get(row, "name", ""))
+        if name and name not in names:
+            names.append(name)
+    # Cloudflare برای تصویرسازی ابرو اولویت دارد، چون رجیستری تصویرساز دارد.
+    names = (["cloudflare"] if "cloudflare" in names else []) + [n for n in names if n != "cloudflare"]
+
+    all_items: List[Dict[str, Any]] = []
+    for name in names:
+        result = auto_configure_for_provider(name, overwrite=overwrite)
+        all_items.extend(result.get("items") or [])
+    return {"ok": True, "added": len(all_items), "items": all_items, "providers": names}
+
+
 __all__ = [
     "TASK_EYEBROW_ANALYSIS",
     "TASK_EYEBROW_IMAGE_DESIGN",
@@ -411,6 +514,8 @@ __all__ = [
     "save_model_assignment",
     "list_model_assignments",
     "panel_slots_context",
+    "auto_configure_for_provider",
+    "auto_configure_defaults",
     "configured_vision_chain",
     "configured_image_provider_dicts",
 ]
