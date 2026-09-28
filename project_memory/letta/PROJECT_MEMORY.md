@@ -1025,3 +1025,58 @@ Next:
 - Add owner/admin visibility for Buti AI leads/demand later, without disrupting the current Beauty Center panel.
 - Add reservation handoff once active eyebrow centers exist and the final design can be attached as context.
 
+---
+
+## 29. Buti AI Phase 4.4 — Inline Centers and Smart Guidance on Final Design Page
+
+Status:
+
+- Implemented the final UX requested after user review: after the final eyebrow design image, the page now shows eyebrow center suggestions inline instead of only a button.
+- If no active eyebrow centers exist, the same final page shows a waitlist/notification form and registers the demand as service interest.
+- Added a lightweight collapsible smart guidance section so the page helps the user choose/ask the right questions without becoming cluttered.
+
+Changed behavior:
+
+- `/analysis/mirror/eyebrow/final` now fetches up to 3 active published Beauty Centers that provide the `brow` service.
+- When centers exist:
+  - The final page shows center cards under the final design.
+  - Each card shows center name, type, city/region, service tag, price level, feedback label if present, and links to center/detail/reservation check.
+  - A secondary action links to all eyebrow centers.
+- When no centers exist:
+  - The final page shows an inline no-center block.
+  - The user can submit city/phone for notification.
+  - The request posts to the existing Buti AI missing-center flow and is stored in `buti_ai_waitlist`.
+  - The page explains that this demand becomes part of center-marketplace statistics.
+- Added a collapsible “راهنمای هوشمند قبل از انتخاب مرکز” with short advice about what to ask, what to show, price/durability questions, and warning signs.
+- The final note now clearly says this is a smart preview/guide, not guaranteed real-world execution.
+
+Changed files:
+
+```text
+giso/buti_ai/routes.py
+giso/buti_ai/templates/buti_ai/eyebrow_final_design.html
+giso/buti_ai/templates/buti_ai/eyebrow_centers_empty.html
+giso/buti_ai/templates/buti_ai/eyebrow_final_auth.html
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+giso/tests/test_buti_ai_phase1.py
+```
+
+Code commit:
+
+```text
+038d45cbcf5ab7b4b68a6ad6b613b772e3a873a7 feat: show eyebrow centers on final design page
+```
+
+Validation before commit:
+
+- `python3 -m py_compile giso/buti_ai/eyebrow/*.py giso/buti_ai/routes.py giso/buti_ai/services.py giso/buti_ai/schema.py giso/tests/test_buti_ai_phase1.py` passed.
+- Targeted pytest passed: `15 passed, 1 warning`.
+- `git diff --check` passed.
+- No protected/unrelated paths were changed.
+
+Next:
+
+- Add real admin/center dashboard visibility for Buti AI waitlist/demand.
+- Later connect center cards directly to a reservation handoff with final design context attached.
+

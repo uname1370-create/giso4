@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 4.3 completed, validated, committed, and pushed: eyebrow centers route now handles no active salon by showing a waitlist/lead capture page and uses the correct Beauty Center service key brow when active centers exist.",
+  "status": "Buti AI Phase 4.4 completed, validated, committed, and pushed: final design page now shows inline eyebrow center suggestions, inline no-center waitlist, and lightweight smart guidance.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -25,10 +25,10 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "clean after Phase 4.3 code push before memory commit"
+      "clean after Phase 4.4 code push before memory commit"
     ],
-    "phase_4_3_code_commit": "005cf8aefcde701dd13b9b05f972f172b718afa4",
-    "phase_4_3_note": "No-active-eyebrow-center scenario implemented inside Buti AI; waitlist lead storage enhanced.",
+    "phase_4_4_code_commit": "038d45cbcf5ab7b4b68a6ad6b613b772e3a873a7",
+    "phase_4_4_note": "Inline centers/no-center waitlist/smart guidance added under final eyebrow design page.",
     "forbidden_paths_modified": false,
     "protected_paths_note": "No changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/."
   },
@@ -218,7 +218,8 @@
     "Committed and pushed Buti AI Phase 3 structured eyebrow AI analysis/scoring as 5f0ed9c824cb60936fc83879e486e3923b4481ce.",
     "Committed and pushed Buti AI Phase 4.1 final choice/auth gate/Python guided final design as 027e785dc37d9d9177964938c04dc6625a528b83.",
     "Committed and pushed Buti AI Phase 4.2 image provider fallback chain as 71d652f51180f8e49122c2e08b47b09a2e7257a4.",
-    "Committed and pushed Buti AI Phase 4.3 missing eyebrow center scenario as 005cf8aefcde701dd13b9b05f972f172b718afa4."
+    "Committed and pushed Buti AI Phase 4.3 missing eyebrow center scenario as 005cf8aefcde701dd13b9b05f972f172b718afa4.",
+    "Committed and pushed Buti AI Phase 4.4 inline final centers UX as 038d45cbcf5ab7b4b68a6ad6b613b772e3a873a7."
   ],
   "next_action": [
     "Run git status --short --branch before future work.",
@@ -233,7 +234,8 @@
     "Next Buti AI step should be user-approved: final-choice confirmation/locked recommendation, guided final design handoff, or reservation/center lead flow; do not claim real final image generation until implemented.",
     "Next Buti AI step: implement real image-generation provider chain for final design after user supplies/approves 3 image-generation models; keep Python composite as safety layer.",
     "Next Buti AI step: configure/test real image provider credentials/models, then add eyebrow-region mask/landmark compositing for safer generated edits.",
-    "Next Buti AI step: expose no-salon waitlist/leads to admin/center workflows and connect final design context to reservation handoff when centers are available."
+    "Next Buti AI step: expose no-salon waitlist/leads to admin/center workflows and connect final design context to reservation handoff when centers are available.",
+    "Next Buti AI step: build admin/center dashboard visibility for eyebrow demand/waitlist and attach final design context to reservations."
   ],
   "update_protocol": [
     "Update PROJECT_MEMORY.md and PROJECT_MEMORY.json after meaningful work.",
@@ -245,7 +247,7 @@
   "active_product_scenario": {
     "name": "آینه ابرو گیسو",
     "file": "project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md",
-    "status": "phase_4_3_missing_center_flow_done",
+    "status": "phase_4_4_final_design_inline_marketplace_done",
     "summary_path": [
       "ورود سایت",
       "آینه زیبایی گیسو",
@@ -406,7 +408,8 @@
     "phase_3_status": "structured_eyebrow_ai_analysis_scoring_validated_committed_pushed",
     "phase_4_1_status": "final_choice_auth_gate_python_guided_design_validated_committed_pushed",
     "phase_4_2_status": "image_provider_chain_validated_committed_pushed",
-    "phase_4_3_status": "no_active_eyebrow_center_waitlist_validated_committed_pushed"
+    "phase_4_3_status": "no_active_eyebrow_center_waitlist_validated_committed_pushed",
+    "phase_4_4_status": "inline_centers_waitlist_smart_guidance_validated_committed_pushed"
   },
   "validations": [
     "py_compile passed for giso/buti_ai Python files after Phase 1 changes.",
