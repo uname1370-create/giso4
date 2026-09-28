@@ -694,3 +694,43 @@ Boundary:
 - Frontend/UI-only within Buti AI templates/static assets.
 - Backend/AI flow unchanged.
 - No protected/unrelated path changes.
+
+---
+
+## 23. Buti AI Phase 2.5 — Remove Eyebrow Top Stepper and Add Realistic Brow Samples
+
+Status:
+
+- User said the top stepper on the eyebrow page looked bad and should not be shown there.
+- User requested actual-looking eyebrow examples in the model cards, with upload separated and not mixed into the model step.
+
+Changed UX:
+
+- Removed the top `bti-flow-steps` stepper from `/analysis/mirror/eyebrow` only.
+- Kept the service-selection stepper on `/analysis/mirror`.
+- Replaced CSS-only eyebrow sample lines with lightweight realistic generated sample images for each style.
+- Kept the upload panel separate and renamed it to `عکس چهره برای تحلیل` instead of the previous step-like heading.
+- Sample images were compressed to roughly 6–14 KB each.
+
+Generated static sample files:
+
+```text
+giso/buti_ai/static/brows/natural.jpg
+giso/buti_ai/static/brows/microblading.jpg
+giso/buti_ai/static/brows/powder.jpg
+giso/buti_ai/static/brows/combination.jpg
+giso/buti_ai/static/brows/giso_suggested.jpg
+```
+
+Validation:
+
+- `py_compile` passed for Buti AI modules and tests.
+- Targeted pytest passed: `6 passed, 1 warning`.
+- `git diff --check` passed.
+- Live curl checks returned HTTP 200 for `/analysis`, `/analysis/mirror`, `/analysis/mirror/eyebrow`, and a brow sample static image.
+
+Boundary:
+
+- Frontend/static-only changes inside Buti AI.
+- Backend/AI flow unchanged.
+- No protected/unrelated path changes.

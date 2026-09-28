@@ -16,14 +16,6 @@
 
 {% block content %}
 <main class="bti-page bti-service-experience bti-eyebrow-flow" dir="rtl">
-    <section class="bti-shell bti-flow-steps" aria-label="مراحل آینه ابرو گیسو">
-        <div class="bti-flow-step is-done"><b>1</b><span>انتخاب خدمت</span></div>
-        <div class="bti-flow-step {{ 'is-done' if result else 'is-active' }}"><b>2</b><span>سلیقه و انتخاب مدل</span></div>
-        <div class="bti-flow-step {{ 'is-done' if result else '' }}"><b>3</b><span>آپلود تصویر</span></div>
-        <div class="bti-flow-step {{ 'is-active' if result else '' }}"><b>4</b><span>پیش‌نمایش هوشمند</span></div>
-        <div class="bti-flow-step"><b>5</b><span>رزرو نوبت</span></div>
-    </section>
-
     <section class="bti-shell bti-eyebrow-board">
         <div class="bti-board-topbar">
             <a class="bti-board-back" href="{{ url_for('buti_ai.mirror_home') }}">بازگشت به انتخاب خدمت</a>
@@ -75,9 +67,8 @@
                                 </span>
                                 {% if key == 'giso_suggested' %}<em>پیشنهاد امن</em>{% endif %}
                             </span>
-                            <span class="bti-brow-sample" aria-hidden="true">
-                                <i class="brow brow-right"></i>
-                                <i class="brow brow-left"></i>
+                            <span class="bti-brow-sample">
+                                <img src="{{ url_for('buti_ai.static', filename='brows/' ~ key ~ '.jpg') }}" alt="نمونه {{ item.label }}">
                                 <small>نمونه فرم</small>
                             </span>
                         </label>
@@ -105,10 +96,10 @@
 
                 <section class="bti-form-panel bti-step-panel bti-upload-panel-separated">
                     <div class="bti-form-panel-head">
-                        <span>مرحله ۳</span>
+                        <span>بخش عکس</span>
                         <div>
-                            <h2>حالا عکس را آپلود کن</h2>
-                            <p>بعد از انتخاب مدل، عکس واضح صورت را جداگانه بفرست تا کیفیت عکس و فرم ابرو بررسی شود.</p>
+                            <h2>عکس چهره برای تحلیل</h2>
+                            <p>این بخش جدا از انتخاب مدل است. بعد از انتخاب مدل، فقط یک عکس واضح بفرست تا کیفیت تصویر و فرم ابرو بررسی شود.</p>
                         </div>
                     </div>
                     <div class="bti-upload-layout">
