@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 2.1 UI/UX redesign completed, validated, committed, and pushed: mirror landing and eyebrow wizard were simplified and cleaned up without backend/AI flow changes.",
+  "status": "Buti AI Phase 2.2 full luxury UI rebuild completed locally: Beauty Mirror entry and eyebrow wizard were redesigned from scratch with a dark luxury/studio aesthetic. Backend/AI flow unchanged. Validation passed; commit/push pending at memory-update time.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -25,12 +25,10 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "clean after Phase 2.1 UI/UX push"
+      "Phase 2.2 luxury UI files modified locally at memory-update time"
     ],
-    "phase_2_1_code_commit": "03bdd5adb2a0b602d69ad2bbadde9325a3cf9777",
-    "phase_2_1_note": "UI/UX-only changes in Buti AI templates/static CSS; validation passed before commit.",
-    "forbidden_paths_modified": false,
-    "protected_paths_note": "Protected path check showed no changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/."
+    "phase_2_2_note": "UI-only changes in Buti AI templates/static CSS; validation passed before commit.",
+    "forbidden_paths_modified": false
   },
   "sena_md": {
     "remote_present": true,
@@ -189,7 +187,12 @@
     "Redesigned giso/buti_ai/templates/buti_ai/mirror_home.html for a simpler entry page.",
     "Redesigned giso/buti_ai/templates/buti_ai/eyebrow_wizard.html for a clearer step-by-step eyebrow wizard.",
     "Rewrote giso/buti_ai/static/buti_ai.css with calmer, more organized RTL styling.",
-    "Committed and pushed Buti AI Phase 2.1 clean UI/UX redesign as 03bdd5adb2a0b602d69ad2bbadde9325a3cf9777."
+    "Committed and pushed Buti AI Phase 2.1 clean UI/UX redesign as 03bdd5adb2a0b602d69ad2bbadde9325a3cf9777.",
+    "Completed external UX/UI review for luxury beauty mirror / virtual try-on patterns.",
+    "Rebuilt Buti AI mirror_home.html as a dark luxury Beauty Mirror entry experience.",
+    "Rebuilt eyebrow_wizard.html as a luxury Eyebrow Design Studio flow.",
+    "Rewrote buti_ai.css for a cohesive dark champagne luxury visual system.",
+    "Preserved backend/AI flow and existing route/test contracts during the full visual redesign."
   ],
   "next_action": [
     "Run git status --short --branch before future work.",
@@ -337,6 +340,12 @@
       "giso/buti_ai/templates/buti_ai/mirror_home.html",
       "giso/buti_ai/templates/buti_ai/eyebrow_wizard.html",
       "giso/buti_ai/static/buti_ai.css"
+    ],
+    "phase_2_2_status": "full_luxury_ui_rebuild_completed_validation_passed_pending_commit_at_memory_update_time",
+    "phase_2_2_files": [
+      "giso/buti_ai/templates/buti_ai/mirror_home.html",
+      "giso/buti_ai/templates/buti_ai/eyebrow_wizard.html",
+      "giso/buti_ai/static/buti_ai.css"
     ]
   },
   "validations": [
@@ -352,6 +361,9 @@
     "Live preview route curl returned HTTP 200 for /analysis/mirror/eyebrow and contained آینه ابرو گیسو, بررسی کیفیت عکس, and پیش‌نمایش قبل/بعد.",
     "Phase 2.1 py_compile passed for Buti AI Python modules and tests.",
     "Phase 2.1 targeted pytest passed: 6 passed, 1 warning.",
-    "Phase 2.1 live curl checks returned HTTP 200 for /analysis/mirror and /analysis/mirror/eyebrow."
+    "Phase 2.1 live curl checks returned HTTP 200 for /analysis/mirror and /analysis/mirror/eyebrow.",
+    "Phase 2.2 py_compile passed for Buti AI Python modules and tests.",
+    "Phase 2.2 targeted pytest passed: 6 passed, 1 warning.",
+    "Phase 2.2 live curl checks returned HTTP 200 for /analysis, /analysis/mirror, and /analysis/mirror/eyebrow."
   ]
 }

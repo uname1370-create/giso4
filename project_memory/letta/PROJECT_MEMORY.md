@@ -570,3 +570,42 @@ Boundary:
 
 - Only Buti AI templates/static CSS changed.
 - No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
+
+---
+
+## 20. Buti AI Phase 2.2 — Full Luxury UI Rebuild
+
+Status:
+
+- User rejected the prior cleaned-up UI and explicitly requested a full visual redesign from scratch for the Beauty Mirror entry and eyebrow mirror flow.
+- External UX/UI inspiration was reviewed for beauty mirror / virtual try-on patterns.
+- A new luxury/studio visual direction was implemented without changing backend, AI flow, routes, or protected modules.
+
+UX/UI direction applied:
+
+- Dark luxury beauty-studio aesthetic with champagne/gold accents.
+- Stronger hero area for `آینه زیبایی گیسو`.
+- Clearer journey: choose service → upload clear photo → receive recommendation.
+- Eyebrow page rebuilt as `Eyebrow Design Studio` with a step panel, studio form, side guidance, and luxury result layout.
+- More premium spacing, fewer generic white cards, more cohesive palette, clearer CTAs.
+- Result page rebuilt with showcase header, status cards, before/after guide, and advice grid.
+
+Changed files:
+
+```text
+giso/buti_ai/templates/buti_ai/mirror_home.html
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+```
+
+Validation:
+
+- `python3 -m py_compile giso/buti_ai/eyebrow/*.py giso/buti_ai/routes.py giso/tests/test_buti_ai_phase1.py` passed.
+- Targeted pytest passed: `6 passed, 1 warning`.
+- `git diff --check` passed.
+- Live curl checks returned HTTP 200 for `/analysis`, `/analysis/mirror`, and `/analysis/mirror/eyebrow`.
+
+Boundary:
+
+- UI-only changes under Buti AI templates/static CSS.
+- No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
