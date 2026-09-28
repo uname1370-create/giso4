@@ -966,3 +966,62 @@ Next:
 - Configure real provider credentials/models in environment, then test real generated-image output end-to-end.
 - Later improve eyebrow-region masking/landmarks so real generated edits are constrained more tightly to eyebrows.
 
+---
+
+## 28. Buti AI Phase 4.3 — Missing Eyebrow Center / No Active Salon Scenario
+
+Status:
+
+- Implemented the scenario requested after reviewing `sena.md`: if the user reaches eyebrow centers/reservation and no active center offers eyebrow service, the app no longer sends the user to an empty public list.
+- The behavior is owned by Buti AI while using Beauty Centers only through its public listing route/service.
+
+Changed behavior:
+
+- `/analysis/mirror/eyebrow/centers` now checks active published beauty centers for the real Beauty Center service key `brow`.
+- If active eyebrow centers exist, the user is redirected to `/beauty-centers?service=brow&city=...`.
+- If no active eyebrow center exists, a dedicated Buti AI page is shown:
+  - explains that no active eyebrow center is currently available,
+  - keeps the final design context if present,
+  - lets the user register phone/city for notification,
+  - shows demand count for the city/service,
+  - gives salons a CTA to register their beauty center.
+- Waitlist storage was improved with `user_id`, `source`, `status`, and `payload_json` columns while keeping backward compatibility with the older `add_to_waitlist` helper.
+
+Important product decision:
+
+- In the no-salon case, the correct behavior is: do not show an empty dead-end; save demand/lead, reassure the user their design is preserved, and invite centers to register.
+- This matches the `sena.md` flow: Analysis → Beauty Mirror → final design → service marketplace → center/reservation, with graceful fallback when marketplace supply is missing.
+
+Changed files:
+
+```text
+giso/buti_ai/eyebrow/centers.py
+giso/buti_ai/routes.py
+giso/buti_ai/schema.py
+giso/buti_ai/services.py
+giso/buti_ai/templates/buti_ai/eyebrow_centers_empty.html
+giso/buti_ai/templates/buti_ai/eyebrow_final_auth.html
+giso/buti_ai/templates/buti_ai/eyebrow_final_design.html
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+giso/tests/test_buti_ai_phase1.py
+```
+
+Code commit:
+
+```text
+005cf8aefcde701dd13b9b05f972f172b718afa4 feat: handle missing eyebrow centers in Buti AI
+```
+
+Validation before commit:
+
+- `python3 -m py_compile giso/buti_ai/eyebrow/*.py giso/buti_ai/routes.py giso/buti_ai/services.py giso/buti_ai/schema.py giso/tests/test_buti_ai_phase1.py` passed.
+- Targeted pytest passed: `13 passed, 1 warning`.
+- `git diff --check` passed.
+- No protected/unrelated paths were changed.
+
+Next:
+
+- Add owner/admin visibility for Buti AI leads/demand later, without disrupting the current Beauty Center panel.
+- Add reservation handoff once active eyebrow centers exist and the final design can be attached as context.
+
