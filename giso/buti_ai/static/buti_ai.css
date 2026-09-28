@@ -2931,3 +2931,50 @@
         height: 118px !important;
     }
 }
+
+/* Arena verification fix — deterministic left/right action placement */
+.bti-step-actions,
+.bti-result-actions,
+.bti-final-auth-actions {
+    direction: ltr;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.bti-step-actions > *,
+.bti-result-actions > *,
+.bti-final-auth-actions > * {
+    direction: rtl;
+}
+.bti-step-actions .bti-step-next,
+.bti-result-actions .bti-primary-action,
+.bti-final-auth-actions .bti-primary-action {
+    order: 1;
+    margin: 0;
+}
+.bti-step-actions .bti-step-back,
+.bti-result-actions .bti-secondary-action,
+.bti-final-auth-actions .bti-secondary-action {
+    order: 2;
+    margin: 0;
+}
+
+@media (max-width: 820px) {
+    .bti-step-actions,
+    .bti-result-actions,
+    .bti-final-auth-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        direction: rtl;
+    }
+    .bti-step-actions .bti-step-next,
+    .bti-step-actions .bti-step-back,
+    .bti-result-actions .bti-primary-action,
+    .bti-result-actions .bti-secondary-action,
+    .bti-final-auth-actions .bti-primary-action,
+    .bti-final-auth-actions .bti-secondary-action {
+        order: initial;
+        margin: 0;
+        width: 100%;
+    }
+}
