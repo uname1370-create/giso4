@@ -1,96 +1,78 @@
 {% extends "base.html" %}
 
-{% block title %}آینه زیبایی گیسو | تجربه هوشمند زیبایی{% endblock %}
+{% block title %}آینه زیبایی گیسو | انتخاب خدمت{% endblock %}
 {% block meta %}
-<meta name="description" content="آینه زیبایی گیسو؛ تجربه‌ای لوکس و هوشمند برای بررسی مدل ابرو و خدمات زیبایی قبل از تصمیم نهایی.">
+<meta name="description" content="آینه زیبایی گیسو؛ انتخاب خدمت زیبایی، شروع مسیر هوشمند و آماده‌سازی عکس برای پیش‌نمایش و تحلیل.">
 <meta property="og:title" content="آینه زیبایی گیسو">
-<meta property="og:description" content="اولین تجربه فعال: آینه ابرو گیسو؛ انتخاب مدل، بررسی عکس و پیشنهاد هوشمند.">
+<meta property="og:description" content="خدمت زیبایی مورد نظر را انتخاب کن و وارد مسیر هوشمند گیسو شو.">
 <link rel="canonical" href="{{ url_for('buti_ai.mirror_home', _external=True) }}">
 <meta property="og:url" content="{{ url_for('buti_ai.mirror_home', _external=True) }}">
 {% endblock %}
 
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=5">
 {% endblock %}
 
 {% block content %}
-<main class="bti-page bti-luxe" dir="rtl">
-    <section class="bti-luxe-hero">
-        <div class="bti-shell bti-luxe-hero-grid">
-            <div class="bti-luxe-copy">
-                <a class="bti-luxe-back" href="{{ url_for('analysis') }}">بازگشت به آنالیز هوشمند</a>
-                <span class="bti-luxe-kicker">Giso Beauty Mirror</span>
-                <h1>آینه زیبایی گیسو</h1>
-                <p>یک تجربه آرام، لوکس و مرحله‌ای برای اینکه قبل از تغییر، مدل مناسب چهره‌ات را بهتر ببینی و با اطمینان تصمیم بگیری.</p>
-                <div class="bti-luxe-actions">
-                    <a class="bti-luxe-btn bti-luxe-btn-primary" href="{{ url_for('buti_ai.eyebrow_wizard') }}">شروع آینه ابرو</a>
-                    <a class="bti-luxe-btn bti-luxe-btn-ghost" href="#btiLuxeServices">مشاهده مسیرها</a>
+<main class="bti-page bti-service-experience" dir="rtl">
+    <section class="bti-shell bti-flow-steps" aria-label="مراحل آینه زیبایی گیسو">
+        <div class="bti-flow-step is-active"><b>1</b><span>انتخاب خدمت</span></div>
+        <div class="bti-flow-step"><b>2</b><span>سلیقه و انتخاب مدل</span></div>
+        <div class="bti-flow-step"><b>3</b><span>آپلود تصویر</span></div>
+        <div class="bti-flow-step"><b>4</b><span>پیش‌نمایش هوشمند</span></div>
+        <div class="bti-flow-step"><b>5</b><span>رزرو نوبت</span></div>
+    </section>
+
+    <section class="bti-shell bti-service-board">
+        <div class="bti-board-topbar">
+            <a class="bti-board-back" href="{{ url_for('analysis') }}">بازگشت به آنالیز هوشمند</a>
+            <div class="bti-brand-mark">
+                <span>G</span>
+                <div>
+                    <b>آینه زیبایی گیسو</b>
+                    <small>Giso Intelligent Beauty Mirror</small>
                 </div>
             </div>
-
-            <aside class="bti-luxe-stage" aria-label="نمای تجربه آینه زیبایی گیسو">
-                <div class="bti-stage-frame">
-                    <div class="bti-stage-orb">🪞</div>
-                    <div class="bti-stage-brow bti-stage-brow-one"></div>
-                    <div class="bti-stage-brow bti-stage-brow-two"></div>
-                    <span class="bti-stage-shine"></span>
-                </div>
-                <div class="bti-stage-caption">
-                    <b>Beauty Preview</b>
-                    <small>انتخاب مدل، عکس واضح، پیشنهاد گیسو</small>
-                </div>
-            </aside>
         </div>
-    </section>
 
-    <section class="bti-shell bti-luxe-journey" aria-label="مسیر استفاده از آینه زیبایی">
-        <article>
-            <span>01</span>
-            <h2>انتخاب مسیر</h2>
-            <p>فعلاً آینه ابرو فعال است؛ مسیرهای بعدی بعد از کامل شدن همین تجربه اضافه می‌شوند.</p>
-        </article>
-        <article>
-            <span>02</span>
-            <h2>ارسال عکس</h2>
-            <p>عکس واضح کمک می‌کند بررسی کیفیت و تحلیل چهره دقیق‌تر انجام شود.</p>
-        </article>
-        <article>
-            <span>03</span>
-            <h2>دیدن پیشنهاد</h2>
-            <p>نتیجه ساده و قابل فهم نمایش داده می‌شود؛ بدون اغراق و بدون وعده قطعی.</p>
-        </article>
-    </section>
-
-    <section class="bti-shell bti-luxe-services" id="btiLuxeServices" aria-labelledby="btiServicesTitle">
-        <header class="bti-luxe-section-head">
-            <span class="bti-luxe-kicker">Mirror Menu</span>
-            <h2 id="btiServicesTitle">مسیرهای آینه</h2>
-            <p>یک منوی خلوت و روشن؛ کاربر فقط چیزی را می‌بیند که لازم دارد.</p>
+        <header class="bti-board-head">
+            <span class="bti-board-kicker">مرحله اول</span>
+            <h1>خدمت تخصصی مورد نظرتان را انتخاب کنید</h1>
+            <p>هر مسیر با مدل، عکس و تحلیل مخصوص خودش ادامه پیدا می‌کند. فعلاً آینه ابرو فعال است و بقیه مسیرها در صف توسعه‌اند.</p>
         </header>
 
-        <div class="bti-luxe-service-grid">
+        <div class="bti-service-card-grid">
             {% for item in services %}
-            <article class="bti-luxe-service-card {{ 'is-active' if item.status == 'active' else 'is-soon' }}">
-                <div class="bti-luxe-service-top">
-                    <span class="bti-luxe-service-icon">{{ item.icon }}</span>
-                    <small>{{ 'فعال' if item.status == 'active' else 'به‌زودی' }}</small>
+            <article class="bti-pmu-card {{ 'is-selected' if item.status == 'active' else 'is-disabled' }}">
+                <div class="bti-pmu-image">
+                    <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.title }}">
+                    <span>{{ item.tag }}</span>
                 </div>
-                <h3>{{ item.title }}</h3>
-                <p>{{ item.description }}</p>
-                {% if item.status == 'active' %}
-                <a class="bti-luxe-card-link" href="{{ item.href }}">ورود به این تجربه</a>
-                {% else %}
-                <span class="bti-luxe-card-link is-disabled">بعداً فعال می‌شود</span>
-                {% endif %}
+                <div class="bti-pmu-content">
+                    <div class="bti-pmu-badges">
+                        <small>{{ item.badge }}</small>
+                        {% if item.status == 'active' %}<small class="is-green">✓ انتخاب شد</small>{% endif %}
+                    </div>
+                    <h2>{{ item.title }}</h2>
+                    <p>{{ item.description }}</p>
+                    <ul>
+                        {% for meta in item.meta %}<li>{{ meta }}</li>{% endfor %}
+                    </ul>
+                    {% if item.status == 'active' %}
+                    <a class="bti-pmu-card-action" href="{{ item.href }}">ورود به مسیر</a>
+                    {% else %}
+                    <span class="bti-pmu-card-action is-disabled">به‌زودی</span>
+                    {% endif %}
+                </div>
             </article>
             {% endfor %}
         </div>
-    </section>
 
-    <section class="bti-shell bti-luxe-disclaimer">
-        <span>شفافیت</span>
-        <p>آینه گیسو ابزار تصمیم‌یار است. اگر سرویس AI یا تصویرساز آماده نباشد، نتیجه به‌صورت راهنمای واضح نمایش داده می‌شود.</p>
+        <footer class="bti-board-footer">
+            <a class="bti-primary-action" href="{{ url_for('buti_ai.eyebrow_wizard') }}">ادامه با آینه ابرو ←</a>
+            <p>آینه گیسو ابزار تصمیم‌یار است؛ نتیجه نهایی به متخصص و شرایط واقعی چهره بستگی دارد.</p>
+        </footer>
     </section>
 </main>
 {% endblock %}

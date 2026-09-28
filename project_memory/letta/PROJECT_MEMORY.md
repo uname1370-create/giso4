@@ -609,3 +609,50 @@ Boundary:
 
 - UI-only changes under Buti AI templates/static CSS.
 - No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
+
+---
+
+## 21. Buti AI Phase 2.3 — Service-Card Stepper Redesign
+
+Status:
+
+- User clarified that prior redesigns still felt like the same layout with changed colors.
+- User supplied a dark service-selection screenshot and pointed to `3d site.md` as a design/experience skill reference.
+- A new frontend-only redesign was implemented around the requested pattern: top stepper + service cards with images + selected service + continuation into eyebrow flow.
+
+Design direction applied:
+
+- `/analysis/mirror` now starts with a 5-step progress header:
+  1. انتخاب خدمت
+  2. سلیقه و انتخاب مدل
+  3. آپلود تصویر
+  4. پیش‌نمایش هوشمند
+  5. رزرو نوبت
+- Main entry content is now a dark service-board with image-based service cards.
+- Eyebrow is the selected/active card with gold border and CTA.
+- Future services are shown as disabled/soon cards with images.
+- `/analysis/mirror/eyebrow` now follows the same stepper language and layout, with a side service panel, model-selection rows, upload section, and result board.
+- This is a true layout replacement, not just recoloring of the previous UI.
+
+Changed files:
+
+```text
+giso/buti_ai/eyebrow/flow.py
+giso/buti_ai/templates/buti_ai/mirror_home.html
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+giso/buti_ai/static/buti_ai.js
+```
+
+Validation:
+
+- `python3 -m py_compile giso/buti_ai/eyebrow/*.py giso/buti_ai/routes.py giso/tests/test_buti_ai_phase1.py` passed.
+- Targeted pytest passed: `6 passed, 1 warning`.
+- `git diff --check` passed.
+- Live curl checks returned HTTP 200 for `/analysis`, `/analysis/mirror`, and `/analysis/mirror/eyebrow`.
+
+Boundary:
+
+- Backend/AI flow remains unchanged.
+- Only Buti AI-owned flow metadata, templates, static CSS/JS, and memory docs changed.
+- No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.

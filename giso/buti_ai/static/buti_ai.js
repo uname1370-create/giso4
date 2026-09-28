@@ -15,7 +15,7 @@
       });
     }
 
-    var styleOptions = Array.prototype.slice.call(document.querySelectorAll('.bti-style-option'));
+    var styleOptions = Array.prototype.slice.call(document.querySelectorAll('.bti-style-option, .bti-style-row'));
     styleOptions.forEach(function (option) {
       var radio = option.querySelector('input[type="radio"]');
       if (!radio) return;
