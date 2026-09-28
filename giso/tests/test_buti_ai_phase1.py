@@ -62,7 +62,7 @@ def test_buti_ai_routes_and_analysis_card_are_rendered_from_module():
     assert analysis.status_code == 200
     analysis_text = analysis.get_data(as_text=True)
     assert "آینه زیبایی گیسو" in analysis_text
-    assert "گزینه آینه از ماژول مستقل Buti AI" in analysis_text
+    assert "فعلاً مسیر ابرو فعال است" in analysis_text
     assert "buti_ai/_analysis_mirror_card.html" not in analysis_text
 
     mirror = client.get("/analysis/mirror")
@@ -72,10 +72,10 @@ def test_buti_ai_routes_and_analysis_card_are_rendered_from_module():
     eyebrow = client.get("/analysis/mirror/eyebrow")
     assert eyebrow.status_code == 200
     eyebrow_text = eyebrow.get_data(as_text=True)
-    assert "چه مدل ابرویی بیشتر به سلیقه‌ات نزدیک است؟" in eyebrow_text
+    assert "کدام مدل به سلیقه‌ات نزدیک‌تر است؟" in eyebrow_text
     assert "میکروبلیدینگ ظریف" in eyebrow_text
     assert "شیدینگ پودری" in eyebrow_text
-    assert "بررسی کیفیت عکس" in eyebrow_text
+    assert "کیفیت عکس بررسی می‌شود" in eyebrow_text
 
     ping = client.get("/analysis/mirror/ping")
     assert ping.status_code == 200
@@ -102,10 +102,10 @@ def test_buti_ai_eyebrow_demo_post_with_csrf():
     )
     assert response.status_code == 200
     text = response.get_data(as_text=True)
-    assert "نتیجه آینه ابرو" in text
+    assert "پیشنهاد گیسو" in text
     assert "میکروبلیدینگ ظریف" in text
     assert "کیفیت عکس" in text
-    assert "مشاهده مراکز مرتبط با ابرو" in text
+    assert "مرحله ۵: مراکز و رزرو" in text
 
     _cleanup_buti_ai_sessions()
 
@@ -223,7 +223,7 @@ def test_eyebrow_photo_post_builds_ai_preview(monkeypatch):
     assert response.status_code == 200
     text = response.get_data(as_text=True)
     assert "تحلیل هوشمند ابرو انجام شد" in text
-    assert "پیش‌نمایش قبل و بعد" in text
+    assert "طرح پیشنهادی" in text
     assert "عکس اصلی شما" in text
     assert "کامبینیشن" in text
 

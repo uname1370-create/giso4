@@ -15,11 +15,12 @@ def get_mirror_services(eyebrow_href):
             "key": "eyebrow",
             "title": "آینه ابرو گیسو",
             "icon": "🪞",
-            "badge": "انتخاب شد",
-            "tag": "پرطرفدار",
-            "description": "طراحی فرم ابرو، میکروبلیدینگ، شیدینگ و پیشنهاد مدل مناسب چهره.",
-            "meta": ["مدت زمان: ۲ تا ۵ دقیقه", "ماندگاری تصمیم: قبل از مراجعه"],
-            "image": "images/analysis_skin.webp",
+            "badge": "پرطرفدار",
+            "tag": "فعال",
+            "description": "قبل از هزینه، با یک عکس ببین چه مدل ابرویی به چهره‌ات می‌آید.",
+            "meta": ["۲ تا ۵ دقیقه", "نیاز: عکس واضح", "پیشنهاد قبل از مراجعه"],
+            "image": "brows/eyebrow_ai_mirror.jpg",
+            "image_blueprint": "buti_ai",
             "href": eyebrow_href,
             "status": "active",
         },
@@ -144,7 +145,7 @@ def process_eyebrow_submission(form, files, user_id=None):
             flash_message = "عکس بررسی شد و تحلیل هوشمند ابرو آماده است."
             flash_category = "success"
         else:
-            flash_message = "عکس دریافت شد؛ نتیجه راهنما و پیش‌نمایش قبل/بعد آماده است."
+            flash_message = "عکس دریافت شد؛ نتیجه راهنما و طرح پیشنهادی آماده است."
             flash_category = "info"
 
     return {

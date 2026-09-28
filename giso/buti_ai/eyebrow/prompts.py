@@ -41,6 +41,7 @@ def eyebrow_analysis_prompt(selected_style_label, change_level_label):
 - حالت چشم‌ها و تناسب ابرو
 - ضخامت و قوس فعلی ابرو
 - تقارن تقریبی ابروها
+- نقاط قوت فرم فعلی ابرو
 - اینکه کدام مدل برای کاربر مناسب‌تر است
 
 گزینه‌های مجاز recommended_style:
@@ -63,6 +64,12 @@ def eyebrow_analysis_prompt(selected_style_label, change_level_label):
   "recommended_style": "natural | microblading | powder | combination | giso_suggested",
   "change_level": "very_natural | medium | clear",
   "why": "",
+  "score_cards": [
+    {{"label": "تقارن ابرو", "value": "خوب | متوسط | نیاز به اصلاح", "tone": "good | warn | bad"}},
+    {{"label": "پرپشتی ابرو", "value": "خوب | کم‌پشت | نیاز به تکمیل", "tone": "good | warn | bad"}},
+    {{"label": "قوس ابرو", "value": "هماهنگ | نیاز به ملایم‌تر شدن | نیاز به اصلاح", "tone": "good | warn | bad"}},
+    {{"label": "مدل پیشنهادی", "value": "نام مدل کوتاه", "tone": "good | warn | bad"}}
+  ],
   "do": [],
   "avoid": [],
   "alternative_styles": [],
