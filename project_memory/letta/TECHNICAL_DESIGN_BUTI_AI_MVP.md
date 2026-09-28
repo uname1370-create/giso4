@@ -277,3 +277,20 @@ centers: مراکز مرتبط و رزرو
 - تغییر `web/`, `bot_edu/`, `main.py`.
 - ذخیره API key یا secret در Project Memory یا repo.
 - اجرای preview تصویر بدون safety/fallback.
+
+---
+
+## 13. اجرای فعلی فاز ۱
+
+مرحله اجرا شروع شده و این طراحی به شکل MVP پایه اعمال شده است:
+
+- Landing page آینه زیبایی: `/analysis/mirror`
+- Wizard آینه ابرو: `/analysis/mirror/eyebrow`
+- اتصال مراکز زیبایی: `/analysis/mirror/eyebrow/centers`
+- کارت آینه در صفحه آنالیز از template داخل Buti AI خوانده می‌شود.
+
+نکته مهم:
+
+- هنوز AI vision و image generation اضافه نشده است.
+- خروجی فعلی، fallback/راهنمای متنی MVP است.
+- این وضعیت برای شروع تجربه کاربری و تثبیت معماری ماژول کافی است.

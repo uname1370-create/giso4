@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Project Memory contains the آینه ابرو گیسو scenario, modular Buti AI MVP technical design, and hard code-boundary rules. No functional Giso code has been changed for this scenario.",
+  "status": "Buti AI Phase 1 eyebrow MVP has started and route sanity checks passed: mirror card is owned by giso/buti_ai, /analysis/mirror renders a landing page, and /analysis/mirror/eyebrow renders/posts a text-fallback wizard. AI vision/preview is not implemented yet.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -168,7 +168,12 @@
     "Committed and pushed Project Memory scenario for آینه ابرو گیسو to arena/01a0e0b8-giso4.",
     "Documented technical MVP design for modular Buti AI in project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md.",
     "Documented hard Buti AI code-boundary rules in project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md.",
-    "Updated scenario, technical design, bootstrap, and JSON memory to require clear code ownership/location and no damage to existing Giso flows."
+    "Updated scenario, technical design, bootstrap, and JSON memory to require clear code ownership/location and no damage to existing Giso flows.",
+    "Started Buti AI Phase 1 implementation inside giso/buti_ai/.",
+    "Moved the analysis-page mirror card source into giso/buti_ai/templates/buti_ai/_analysis_mirror_card.html with only a thin include from giso/templates/analysis_home.html.",
+    "Added Buti AI landing page and eyebrow MVP wizard routes/templates/static assets.",
+    "Kept Phase 1 as text fallback only; no AI vision or image preview implemented yet.",
+    "Validated Buti AI Phase 1 GET routes and POST demo flow using Flask test client in a temporary venv."
   ],
   "next_action": [
     "Run git status --short --branch before work.",
@@ -183,7 +188,10 @@
     "Read project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md before code implementation.",
     "Ask for or confirm explicit user approval before changing functional Giso code for Buti AI.",
     "Read project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md before any Buti AI code changes.",
-    "For every Buti AI implementation step, confirm code location and protected areas before editing."
+    "For every Buti AI implementation step, confirm code location and protected areas before editing.",
+    "After user review of Phase 1 UI, decide whether to add AI photo quality check and eyebrow analysis prompts.",
+    "Do not add image preview generation until MVP wizard is accepted.",
+    "Review Phase 1 UI in browser/live preview if desired."
   ],
   "update_protocol": [
     "Update PROJECT_MEMORY.md and PROJECT_MEMORY.json after meaningful work.",
@@ -269,6 +277,36 @@
       "main.py",
       "giso/bot.py"
     ],
-    "allowed_external_touch_policy": "Only minimal and necessary integration points such as blueprint registration, shared AI provider calls, upload helper reuse, and beauty-center/reservation links."
-  }
+    "allowed_external_touch_policy": "Only minimal and necessary integration points such as blueprint registration, shared AI provider calls, upload helper reuse, and beauty-center/reservation links.",
+    "phase_1_status": "implemented_mvp_text_fallback_route_sanity_passed",
+    "phase_1_routes": [
+      "/analysis/mirror",
+      "/analysis/mirror/eyebrow",
+      "/analysis/mirror/eyebrow/centers"
+    ],
+    "phase_1_files": [
+      "giso/buti_ai/routes.py",
+      "giso/buti_ai/templates/buti_ai/_analysis_mirror_card.html",
+      "giso/buti_ai/templates/buti_ai/mirror_home.html",
+      "giso/buti_ai/templates/buti_ai/eyebrow_wizard.html",
+      "giso/buti_ai/static/buti_ai.css",
+      "giso/buti_ai/static/buti_ai.js",
+      "giso/templates/analysis_home.html"
+    ],
+    "phase_1_external_change_note": "giso/templates/analysis_home.html only includes the Buti AI-owned mirror card template; feature logic/pages/assets remain in giso/buti_ai/.",
+    "phase_1_not_implemented_yet": [
+      "AI vision quality check",
+      "AI eyebrow analysis",
+      "image preview generation",
+      "deep reservation/panel integration"
+    ],
+    "phase_1_preview_status": "live_preview_started_on_port_5001_and_curl_checks_passed"
+  },
+  "validations": [
+    "py_compile passed for giso/buti_ai Python files after Phase 1 changes.",
+    "Temporary venv /tmp/giso4-venv installed requirements for validation only; it is outside the repo.",
+    "Full Flask test-client GET checks passed for /analysis, /analysis/mirror, /analysis/mirror/, /analysis/mirror/eyebrow, /analysis/mirror/ping, and Buti AI static CSS/JS.",
+    "POST demo/fallback check passed for /analysis/mirror/eyebrow with CSRF and demo_mode=1.",
+    "Live preview/curl checks returned HTTP 200 for /analysis, /analysis/mirror, /analysis/mirror/eyebrow, and Buti AI CSS."
+  ]
 }

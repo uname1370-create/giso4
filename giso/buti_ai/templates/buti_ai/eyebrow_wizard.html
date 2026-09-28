@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}آینه ابرو گیسو | Buti AI{% endblock %}
+{% block meta %}
+<meta name="description" content="آینه ابرو گیسو؛ انتخاب مدل ابرو، میکروبلیدینگ، شیدینگ یا فرم طبیعی با راهنمایی ساده قبل از مراجعه به مرکز زیبایی.">
+<meta property="og:title" content="آینه ابرو گیسو">
+<meta property="og:description" content="فرم مناسب ابرو را قبل از انجام، ساده‌تر انتخاب کن.">
+<link rel="canonical" href="{{ url_for('buti_ai.eyebrow_wizard', _external=True) }}">
+<meta property="og:url" content="{{ url_for('buti_ai.eyebrow_wizard', _external=True) }}">
+{% endblock %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=1">
+{% endblock %}
+
+{% block content %}
+<main class="bti-page bti-eyebrow-page" dir="rtl">
+    <header class="bti-flow-header">
+        <a class="bti-back" href="{{ url_for('buti_ai.mirror_home') }}">← آینه زیبایی</a>
+        <div>
+            <span class="bti-kicker">سناریوی اول Buti AI</span>
+            <h1>آینه ابرو گیسو</h1>
+            <p>مدل ابرو را انتخاب کن، میزان تغییر را بگو و یک عکس واضح بفرست. در فاز اول نتیجه راهنمای متنی امن نمایش داده می‌شود.</p>
+        </div>
+    </header>
+
+    <section class="bti-shell bti-stepper" aria-label="مراحل آینه ابرو">
+        <div class="bti-step is-done"><b>۱</b><span>انتخاب مدل</span></div>
+        <div class="bti-step {{ 'is-done' if result else 'is-active' }}"><b>۲</b><span>آپلود عکس</span></div>
+        <div class="bti-step {{ 'is-active' if result else '' }}"><b>۳</b><span>نتیجه MVP</span></div>
+    </section>
+
+    <section class="bti-shell bti-wizard-grid">
+        <form class="bti-form-card" method="post" enctype="multipart/form-data" action="{{ url_for('buti_ai.eyebrow_wizard') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <header>
+                <span class="bti-kicker">مرحله ۱</span>
+                <h2>چه مدل ابرویی بیشتر دوست داری؟</h2>
+                <p>میکروبلیدینگ فقط یکی از گزینه‌هاست؛ اگر مطمئن نیستی، بگذار گیسو پیشنهاد اولیه بدهد.</p>
+            </header>
+
+            <div class="bti-style-grid" role="radiogroup" aria-label="انتخاب مدل ابرو">
+                {% for key, item in styles.items() %}
+                <label class="bti-style-option {{ 'is-selected' if form_values.style == key else '' }}">
+                    <input type="radio" name="style" value="{{ key }}" {{ 'checked' if form_values.style == key else '' }}>
+                    <span class="bti-style-icon">{{ item.icon }}</span>
+                    <b>{{ item.label }}</b>
+                    <small>{{ item.summary }}</small>
+                </label>
+                {% endfor %}
+            </div>
+
+            <div class="bti-form-section">
+                <h3>میزان تغییر چقدر باشد؟</h3>
+                <div class="bti-change-row" role="radiogroup" aria-label="میزان تغییر">
+                    {% for key, label in change_levels.items() %}
+                    <label>
+                        <input type="radio" name="change_level" value="{{ key }}" {{ 'checked' if form_values.change_level == key else '' }}>
+                        <span>{{ label }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="bti-form-section">
+                <h3>عکس صورتت را آپلود کن</h3>
+                <p class="bti-help">برای نتیجه بهتر: عکس روبه‌رو، نور خوب، بدون فیلتر شدید و ابروها واضح باشد.</p>
+                <label class="bti-upload" for="btiEyebrowPhoto">
+                    <i class="fas fa-cloud-arrow-up"></i>
+                    <span id="btiUploadText">انتخاب عکس واضح صورت</span>
+                    <small>jpg، png یا webp</small>
+                    <input id="btiEyebrowPhoto" type="file" name="photo" accept="image/jpeg,image/png,image/webp">
+                </label>
+                {% if error_message %}
+                <div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ error_message }}</div>
+                {% endif %}
+            </div>
+
+            <div class="bti-form-actions">
+                <button class="bti-btn bti-btn-primary" type="submit">نمایش نتیجه اولیه</button>
+                <button class="bti-btn bti-btn-outline" type="submit" name="demo_mode" value="1">فعلاً نمونه بدون عکس</button>
+            </div>
+        </form>
+
+        <aside class="bti-guide-card">
+            <span class="bti-guide-icon">🪞</span>
+            <h2>فاز اول چه کاری می‌کند؟</h2>
+            <ul>
+                <li>مسیر آینه ابرو را داخل Buti AI فعال می‌کند.</li>
+                <li>مدل و میزان تغییر را از کاربر می‌گیرد.</li>
+                <li>عکس را فقط در مسیر runtime همین ماژول دریافت می‌کند.</li>
+                <li>نتیجه متنی MVP و CTA مراکز زیبایی را نشان می‌دهد.</li>
+            </ul>
+            <p>تحلیل دقیق AI و پیش‌نمایش تصویری بعد از تأیید فازهای بعدی اضافه می‌شود.</p>
+        </aside>
+    </section>
+
+    {% if result %}
+    <section class="bti-shell bti-result" id="result">
+        <div class="bti-result-head">
+            <span class="bti-kicker">نتیجه آینه ابرو</span>
+            <h2>{{ result.style.icon }} {{ result.style.label }}</h2>
+            <p>{{ result.mvp_notice }}</p>
+        </div>
+        <div class="bti-result-grid">
+            <article class="bti-result-card bti-result-main">
+                <h3>پیشنهاد اولیه گیسو</h3>
+                <p>{{ result.style.summary }}</p>
+                <p>{{ result.style.why }}</p>
+                <div class="bti-result-badge">میزان تغییر: {{ result.change_label }}</div>
+                <small>{{ result.change_note }}</small>
+            </article>
+            <article class="bti-result-card">
+                <h3>بهتر است انجام شود</h3>
+                <ul>
+                    {% for item in result.style.do %}<li>{{ item }}</li>{% endfor %}
+                </ul>
+            </article>
+            <article class="bti-result-card">
+                <h3>بهتر است پرهیز شود</h3>
+                <ul>
+                    {% for item in result.style.avoid %}<li>{{ item }}</li>{% endfor %}
+                </ul>
+            </article>
+        </div>
+        <div class="bti-result-actions">
+            <a class="bti-btn bti-btn-primary" href="{{ url_for('buti_ai.eyebrow_centers') }}">مشاهده مراکز مرتبط با ابرو</a>
+            <a class="bti-btn bti-btn-outline" href="{{ url_for('buti_ai.eyebrow_wizard') }}">شروع دوباره</a>
+        </div>
+        <p class="bti-legal-note">این نتیجه قطعی پزشکی/زیبایی نیست و نتیجه نهایی به اجرای متخصص، فرم واقعی چهره و شرایط پوست بستگی دارد.</p>
+    </section>
+    {% endif %}
+</main>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=1" defer></script>
+{% endblock %}

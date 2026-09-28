@@ -391,36 +391,8 @@
     <!-- ==================== شبکه کارت‌ها (۱ کارت عریض بالا + ۲ کارت پایین) ==================== -->
     <div class="ahs-cards">
 
-        <!-- ======= ردیف ۱: کارت عریض آینه جادویی (Top Hero Card) ======= -->
-        <div class="ahs-card mirror">
-            <div class="ahs-card-inner">
-                <!-- تصویر پس‌زمینه چهره طبیعی با جلوه مدرن -->
-                <img class="ahs-card-bg mirror-bg" loading="lazy"
-                     src="{{ url_for('static', filename='images/analysis_skin.webp') }}"
-                     alt="آینه جادویی گیسو">
-                <div class="ahs-card-overlay"></div>
-                <div class="ahs-scanner-line"></div>
-
-                <div class="ahs-mirror-content">
-                    <span class="ahs-mirror-badge">✨ جدید | شبیه‌ساز زنده چهره</span>
-                    <h2>آینه جادویی گیسو</h2>
-                    <p>قبل از رفتن به سالن و پرداخت هزینه، تغییرات چهره‌ات رو به صورت زنده و طبیعی ببین!</p>
-
-                    <!-- لیبل‌های ۳ گانه Glassmorphism -->
-                    <div class="ahs-mirror-tags">
-                        <span class="ahs-mirror-tag">🪞 مقایسه آنی قبل و بعد</span>
-                        <span class="ahs-mirror-tag">💸 انتخاب بدون ریسک و هزینه</span>
-                        <span class="ahs-mirror-tag">🪄 کشف بهترین مدل برای صورت تو</span>
-                    </div>
-
-                    <a href="/analysis/mirror" class="ahs-mirror-btn">
-                        <span>📸 آپلود عکس و مشاهده تغییرات</span>
-                        <span>←</span>
-                    </a>
-                </div>
-            </div>
-            <p class="ahs-card-caption">تجربه شبیه‌سازی هوشمند فرم ابرو، رنگ مو و چهره با چند کلیک ساده</p>
-        </div>
+        <!-- ======= ردیف ۱: کارت آینه زیبایی — منبع داخل giso/buti_ai ======= -->
+        {% include "buti_ai/_analysis_mirror_card.html" %}
 
         <!-- ======= ردیف ۲ - کارت ۱: آنالیز مو ======= -->
         <div class="ahs-card hair">

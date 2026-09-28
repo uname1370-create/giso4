@@ -459,3 +459,36 @@ AI باید بررسی کند:
    - بدون تغییر سنگین در AI یا DB اصلی.
    - بدون پخش منطق در فایل‌های عمومی Giso.
 
+---
+
+## 11. وضعیت اجرای فاز ۱
+
+فاز ۱ بعد از تأیید کاربر شروع شد.
+
+انجام‌شده:
+
+- گزینه/کارت آینه در صفحه آنالیز از حالت inline خارج شد و منبع آن به template داخل `giso/buti_ai/` منتقل شد.
+- صفحه اصلی آینه زیبایی در `/analysis/mirror` داخل Buti AI ساخته شد.
+- ویزارد اولیه آینه ابرو در `/analysis/mirror/eyebrow` داخل Buti AI ساخته شد.
+- انتخاب مدل ابرو، انتخاب میزان تغییر، آپلود عکس یا حالت demo/fallback اضافه شد.
+- نتیجه فعلی فقط متن MVP/fallback است و هنوز تحلیل AI واقعی یا preview تصویری ندارد.
+
+فایل‌های اجرایی فعلی:
+
+```text
+giso/buti_ai/routes.py
+giso/buti_ai/templates/buti_ai/_analysis_mirror_card.html
+giso/buti_ai/templates/buti_ai/mirror_home.html
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+giso/buti_ai/static/buti_ai.js
+```
+
+تغییر بیرون از ماژول:
+
+```text
+giso/templates/analysis_home.html
+```
+
+این تغییر فقط include نازک است تا کارت آینه از `giso/buti_ai/` خوانده شود.
+

@@ -379,3 +379,55 @@ At the end of meaningful work:
 5. Record decisions and rationale.
 6. Record known issues only if verified or clearly labeled as prior context.
 7. Do not store secrets, credentials, DB files, uploads, logs, `node_modules`, local Letta backend data, local agent IDs, or smoke-test artifacts.
+
+---
+
+## 16. Buti AI Phase 1 Implementation Started — Eyebrow MVP
+
+Status after user approval:
+
+- Phase 1 implementation has started in `giso/buti_ai/`.
+- The existing mirror card/option that was previously inline in `giso/templates/analysis_home.html` now reads from a Buti AI-owned template:
+
+```text
+giso/buti_ai/templates/buti_ai/_analysis_mirror_card.html
+```
+
+- `giso/templates/analysis_home.html` has only a thin integration include:
+
+```jinja2
+{% include "buti_ai/_analysis_mirror_card.html" %}
+```
+
+- The Buti AI module now owns its MVP pages and assets:
+
+```text
+giso/buti_ai/routes.py
+giso/buti_ai/templates/buti_ai/mirror_home.html
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+giso/buti_ai/static/buti_ai.js
+```
+
+Implemented Phase 1 scope:
+
+- `/analysis/mirror` renders a proper Buti AI landing page instead of raw text.
+- `/analysis/mirror/eyebrow` renders the first eyebrow wizard.
+- User can choose eyebrow style and change level.
+- User can upload an eyebrow/face photo or view a demo/fallback result without a photo.
+- Result is MVP text/fallback only; no AI vision analysis and no generated image preview yet.
+- CTA to beauty centers is a thin redirect to `beauty_centers.list_centers` with `service=eyebrow`.
+
+Boundary note:
+
+- Functional code changes were kept primarily inside `giso/buti_ai/`.
+- The only non-Buti functional change is the thin include in `giso/templates/analysis_home.html` so the mirror option is read from the Buti AI module.
+- Protected paths `web/`, `bot_edu/`, `main.py`, and `giso/bot.py` were not changed.
+
+Validation note:
+
+- `python3 -m py_compile giso/buti_ai/__init__.py giso/buti_ai/routes.py giso/buti_ai/schema.py giso/buti_ai/services.py` passed.
+- A temporary venv at `/tmp/giso4-venv` was used only for validation; it is outside the repo and not committed.
+- Full Flask test-client GET checks passed for `/analysis`, `/analysis/mirror`, `/analysis/mirror/`, `/analysis/mirror/eyebrow`, `/analysis/mirror/ping`, and Buti AI static CSS/JS.
+- POST demo/fallback check passed for `/analysis/mirror/eyebrow` with CSRF and `demo_mode=1`.
+- Live preview server curl checks returned HTTP 200 for `/analysis`, `/analysis/mirror`, `/analysis/mirror/eyebrow`, and Buti AI CSS.
