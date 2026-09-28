@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}آینه ابرو گیسو | انتخاب مدل و آپلود عکس{% endblock %}
+{% block title %}آینه ابرو گیسو | انتخاب مدل ابرو{% endblock %}
 {% block meta %}
 <meta name="description" content="آینه ابرو گیسو؛ قبل از هزینه، مدل ابروی مناسب چهره‌ات را با یک عکس واضح بررسی کن.">
 <meta property="og:title" content="آینه ابرو گیسو">
-<meta property="og:description" content="مدل ابرو را انتخاب کن، عکس بفرست و پیشنهاد ساده گیسو را ببین.">
+<meta property="og:description" content="مدل ابرو را انتخاب کن؛ بعد در مرحله جداگانه عکس واضح بفرست و پیشنهاد ساده گیسو را ببین.">
 <link rel="canonical" href="{{ url_for('buti_ai.eyebrow_wizard', _external=True) }}">
 <meta property="og:url" content="{{ url_for('buti_ai.eyebrow_wizard', _external=True) }}">
 {% endblock %}
 
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=12">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=14">
 {% endblock %}
 
 {% block content %}
@@ -28,19 +28,14 @@
             </div>
         </div>
 
-        <header class="bti-eyebrow-hero">
+        <header class="bti-eyebrow-hero bti-eyebrow-hero-compact">
             <div class="bti-eyebrow-hero-copy">
                 <span class="bti-board-kicker">مرحله ۲ از مسیر آینه</span>
-                <h1>قبل از هزینه، مدل ابروت را ببین</h1>
-                <p>یک مدل انتخاب کن، عکس واضح بفرست؛ گیسو کیفیت عکس و فرم ابرو را بررسی می‌کند.</p>
+                <h1>مدل ابروی دلخواهت را انتخاب کن</h1>
+                <p>اگر مطمئن نیستی، گزینه «گیسو پیشنهاد بدهد» را بزن. بعد از انتخاب مدل، مرحله آپلود عکس جداست.</p>
                 <div class="bti-hero-actions">
-                    <a class="bti-primary-action" href="#btiModelStep">انتخاب مدل ابرو</a>
-                    <a class="bti-secondary-action" href="#btiUploadStep">رفتن به آپلود عکس</a>
+                    <a class="bti-primary-action" href="#btiModelStep">شروع انتخاب مدل ابرو</a>
                 </div>
-            </div>
-            <div class="bti-eyebrow-hero-photo">
-                <img src="{{ url_for('buti_ai.static', filename='brows/eyebrow_ai_mirror.jpg') }}" alt="آینه هوشمند ابرو گیسو">
-                <span>تحلیل ابرو با عکس شما</span>
             </div>
         </header>
 
@@ -57,10 +52,10 @@
 
             <section class="bti-form-panel bti-step-panel bti-model-panel" id="btiModelStep">
                 <div class="bti-form-panel-head">
-                    <span>مدل ابرو</span>
+                    <span>ابرو</span>
                     <div>
                         <h2>کدام مدل به سلیقه‌ات نزدیک‌تر است؟</h2>
-                        <p>مطمئن نیستی؟ گزینه «گیسو پیشنهاد بدهد» را بزن.</p>
+                        <p>فعلاً فقط مدل ابرو را انتخاب کن؛ عکس در مرحله بعد آپلود می‌شود.</p>
                     </div>
                 </div>
 
@@ -115,13 +110,6 @@
                     </div>
                 </div>
                 <div class="bti-upload-layout bti-upload-layout-redesigned">
-                    <div class="bti-upload-sample-card">
-                        <img src="{{ url_for('buti_ai.static', filename='brows/upload_face_sample.jpg') }}" alt="نمونه عکس مناسب برای تحلیل ابرو">
-                        <div>
-                            <b>عکس مناسب</b>
-                            <span>صورت کامل، نور کافی، ابروها واضح</span>
-                        </div>
-                    </div>
                     <div class="bti-upload-action-card">
                         <label class="bti-upload-zone" for="btiEyebrowPhoto">
                             <i class="fas fa-cloud-arrow-up"></i>
@@ -136,6 +124,13 @@
                             <span>بدون فیلتر</span>
                         </div>
                     </div>
+                    <div class="bti-upload-sample-card">
+                        <img src="{{ url_for('buti_ai.static', filename='brows/upload_face_sample.jpg') }}" alt="نمونه عکس مناسب برای تحلیل ابرو">
+                        <div>
+                            <b>عکس مناسب</b>
+                            <span>صورت کامل، نور کافی، ابروها واضح</span>
+                        </div>
+                    </div>
                 </div>
                 {% if error_message %}
                 <div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ error_message }}</div>
@@ -144,7 +139,6 @@
 
             <div class="bti-form-submit-row bti-submit-separated">
                 <button class="bti-primary-action" type="submit">آنالیز عکس</button>
-                <button class="bti-secondary-action" type="submit" name="demo_mode" value="1">نمونه بدون عکس</button>
             </div>
         </form>
     </section>
@@ -234,7 +228,7 @@
                 <span>انتخاب نهایی</span>
                 <h3>مدل نهایی را انتخاب کن</h3>
             </div>
-            <p class="bti-final-choice-lead">پیشنهاد گیسو را قبول کن یا یکی از مدل‌های دیگر را انتخاب کن؛ بعد وارد طراحی نهایی می‌شوی.</p>
+            <p class="bti-final-choice-lead">پیشنهاد گیسو را قبول کن یا یکی از مدل‌های دیگر را انتخاب کن؛ بعد وارد طراحی نهایی کار می‌شوی.</p>
             <form method="post" action="{{ url_for('buti_ai.eyebrow_finalize_choice') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="bti-final-choice-list" role="radiogroup" aria-label="انتخاب نهایی مدل ابرو">
@@ -250,18 +244,18 @@
                     {% endfor %}
                 </div>
                 <div class="bti-final-choice-actions">
-                    <button class="bti-primary-action" type="submit">ادامه به طراحی نهایی</button>
-                    <small>برای ساخت طرح نهایی، ورود یا ثبت‌نام لازم است.</small>
+                    <button class="bti-primary-action" type="submit">ادامه به طراحی نهایی کار</button>
+                    <small>برای ساخت طراحی نهایی کار، ورود یا ثبت‌نام لازم است.</small>
                 </div>
             </form>
         </section>
         {% else %}
-        <section class="bti-final-choice-board is-disabled" aria-label="طراحی نهایی نیازمند عکس">
+        <section class="bti-final-choice-board is-disabled" aria-label="طراحی نهایی کار نیازمند عکس">
             <div class="bti-section-title-row">
-                <span>طراحی نهایی</span>
-                <h3>برای طراحی نهایی عکس واقعی لازم است</h3>
+                <span>طراحی نهایی کار</span>
+                <h3>برای طراحی نهایی کار عکس واقعی لازم است</h3>
             </div>
-            <p class="bti-final-choice-lead">حالت نمونه فقط برای دیدن مسیر است. برای طراحی نهایی، یک عکس واضح آپلود کن.</p>
+            <p class="bti-final-choice-lead">حالت نمونه فقط برای دیدن مسیر است. برای طراحی نهایی کار، یک عکس واضح آپلود کن.</p>
         </section>
         {% endif %}
 

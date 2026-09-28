@@ -76,6 +76,9 @@ def test_buti_ai_routes_and_analysis_card_are_rendered_from_module():
     assert "میکروبلیدینگ ظریف" in eyebrow_text
     assert "شیدینگ پودری" in eyebrow_text
     assert "کیفیت عکس بررسی می‌شود" in eyebrow_text
+    assert "نمونه بدون عکس" not in eyebrow_text
+    assert "bti-eyebrow-hero-photo" not in eyebrow_text
+    assert eyebrow_text.find("bti-upload-action-card") < eyebrow_text.find("bti-upload-sample-card")
 
     ping = client.get("/analysis/mirror/ping")
     assert ping.status_code == 200
@@ -523,6 +526,44 @@ def test_eyebrow_centers_waitlist_post_saves_interest(monkeypatch):
     _cleanup_buti_ai_waitlist()
 
 
+def test_service_demand_records_pre_need_without_phone():
+    from giso.buti_ai.services import record_service_demand, service_demand_count, total_service_interest_count
+
+    city = "شهر تست تقاضا"
+    init_buti_ai_db()
+    with get_giso_db_conn() as conn:
+        conn.execute("DELETE FROM buti_ai_service_demand WHERE city=? AND service_type=?", (city, "eyebrow"))
+        conn.execute("DELETE FROM buti_ai_waitlist WHERE city=? AND service_type=?", (city, "eyebrow"))
+        conn.commit()
+
+    ok, row_id = record_service_demand(
+        None,
+        city,
+        "eyebrow",
+        source="pytest_no_center",
+        dedupe_key="pytest-no-center-demand",
+        payload={"final_style": "natural"},
+    )
+    ok2, row_id2 = record_service_demand(
+        None,
+        city,
+        "eyebrow",
+        source="pytest_no_center",
+        dedupe_key="pytest-no-center-demand",
+        payload={"final_style": "natural"},
+    )
+
+    assert ok is True
+    assert ok2 is True
+    assert row_id == row_id2
+    assert service_demand_count("eyebrow", city=city) == 1
+    assert total_service_interest_count("eyebrow", city=city) == 1
+
+    with get_giso_db_conn() as conn:
+        conn.execute("DELETE FROM buti_ai_service_demand WHERE city=? AND service_type=?", (city, "eyebrow"))
+        conn.commit()
+
+
 def _render_final_design_template(center_suggestions):
     from flask import render_template
 
@@ -536,7 +577,7 @@ def _render_final_design_template(center_suggestions):
                 "filename": "final/final_eyebrow_test.jpg",
                 "provider": "python_guided_composite",
                 "model": "pillow_brow_overlay_v1",
-                "message": "طرح نهایی راهنما آماده شد.",
+                "message": "طراحی نهایی کار راهنما آماده شد.",
             },
             center_city="مشهد",
             center_suggestions=center_suggestions,
@@ -566,7 +607,8 @@ def test_final_design_template_shows_inline_center_suggestions():
     assert "مشاهده مرکز" in html
     assert "مشاهده همه مراکز ابرو" in html
     assert "راهنمای هوشمند قبل از انتخاب مرکز" in html
-    assert "این تصویر، راهنمای هوشمند/پیش‌نمایش است" in html
+    assert "این تصویر، راهنمای هوشمند/پیش‌نمایش طراحی نهایی کار است" in html
+    assert "طراحی راهنمای امن آماده شد" in html
 
 
 def test_final_design_template_shows_inline_waitlist_when_no_centers():
@@ -574,7 +616,7 @@ def test_final_design_template_shows_inline_waitlist_when_no_centers():
 
     assert "فعلاً مرکز فعال برای این خدمت ثبت نشده" in html
     assert "ثبت درخواست اطلاع‌رسانی" in html
-    assert "درخواست‌های باز مشهد برای ابرو: 4" in html
+    assert "تقاضای ثبت‌شده مشهد برای ابرو: 4" in html
     assert "ثبت مرکز زیبایی برای خدمت ابرو" in html
     assert "راهنمای هوشمند قبل از انتخاب مرکز" in html
 

@@ -11,7 +11,7 @@
 
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=7">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=14">
 {% endblock %}
 
 {% block content %}
@@ -45,14 +45,6 @@
         <div class="bti-service-card-grid">
             {% for item in services %}
             <article class="bti-pmu-card {{ 'is-selected' if item.status == 'active' else 'is-disabled' }}">
-                <div class="bti-pmu-image">
-                    {% if item.image_blueprint == 'buti_ai' %}
-                    <img src="{{ url_for('buti_ai.static', filename=item.image) }}" alt="{{ item.title }}">
-                    {% else %}
-                    <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.title }}">
-                    {% endif %}
-                    <span>{{ item.tag }}</span>
-                </div>
                 <div class="bti-pmu-content">
                     <div class="bti-pmu-badges">
                         <small>{{ item.badge }}</small>
@@ -68,6 +60,14 @@
                     {% else %}
                     <span class="bti-pmu-card-action is-disabled">به‌زودی</span>
                     {% endif %}
+                </div>
+                <div class="bti-pmu-image">
+                    {% if item.image_blueprint == 'buti_ai' %}
+                    <img src="{{ url_for('buti_ai.static', filename=item.image) }}" alt="{{ item.title }}">
+                    {% else %}
+                    <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.title }}">
+                    {% endif %}
+                    <span>{{ item.tag }}</span>
                 </div>
             </article>
             {% endfor %}

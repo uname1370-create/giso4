@@ -32,7 +32,12 @@ from giso.buti_ai.eyebrow.final_design import (
 from giso.buti_ai.eyebrow.image_generation import generate_final_design
 from giso.buti_ai.eyebrow.upload import EYEBROW_UPLOAD_DIR
 from giso.buti_ai.schema import init_buti_ai_db
-from giso.buti_ai.services import save_final_design, save_service_waitlist, waitlist_interest_count
+from giso.buti_ai.services import (
+    record_service_demand,
+    save_final_design,
+    save_service_waitlist,
+    total_service_interest_count,
+)
 
 
 def _safe_current_user_id():
@@ -157,7 +162,34 @@ def eyebrow_final_design():
 
     center_city = (request.args.get("city") or user_default_city(current_user)).strip() or "مشهد"
     center_suggestions = active_eyebrow_centers(city=center_city, limit=3)
-    center_demand_count = waitlist_interest_count(BUTI_EYEBROW_SERVICE, city=center_city)
+    if not center_suggestions:
+        demand_key = ":".join([
+            "eyebrow_final_no_center",
+            str(_safe_current_user_id() or "guest"),
+            str(candidate.get("final_design_id") or candidate.get("session_id") or candidate.get("created_at") or candidate.get("photo_filename") or "draft"),
+            center_city,
+        ])
+        ok_demand, demand_id = record_service_demand(
+            _safe_current_user_id(),
+            center_city,
+            BUTI_EYEBROW_SERVICE,
+            source="eyebrow_final_no_active_center",
+            dedupe_key=demand_key,
+            payload={
+                "final_design_id": candidate.get("final_design_id"),
+                "final_style": candidate.get("final_style"),
+                "has_generation": bool(candidate.get("generation")),
+            },
+        )
+        if ok_demand:
+            recorded = candidate.get("center_demand_recorded")
+            if not isinstance(recorded, dict):
+                recorded = {}
+            recorded[center_city] = demand_id
+            candidate["center_demand_recorded"] = recorded
+            session[FINAL_DESIGN_SESSION_KEY] = candidate
+            session.modified = True
+    center_demand_count = total_service_interest_count(BUTI_EYEBROW_SERVICE, city=center_city)
     centers_url = url_for("beauty_centers.list_centers", service=BEAUTY_CENTER_BROW_SERVICE, city=center_city)
     register_center_url = (
         url_for("beauty_centers.register_center")
@@ -223,7 +255,7 @@ def eyebrow_centers():
         else:
             waitlist_error = message
 
-    demand_count = waitlist_interest_count(BUTI_EYEBROW_SERVICE, city=city)
+    demand_count = total_service_interest_count(BUTI_EYEBROW_SERVICE, city=city)
     return render_template(
         "buti_ai/eyebrow_centers_empty.html",
         candidate=candidate,

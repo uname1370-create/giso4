@@ -122,6 +122,74 @@ def waitlist_interest_count(service_type, city=""):
         return 0
 
 
+def _clean_city_service(city, service_type):
+    city = " ".join(str(city or "").split())[:80] or "مشهد"
+    service_type = " ".join(str(service_type or "").split())[:60]
+    return city, service_type
+
+
+def record_service_demand(user_id, city, service_type, source="", payload=None, dedupe_key=""):
+    """ثبت تقاضای سبک/بی‌نیاز از شماره وقتی مرکز فعال برای خدمت وجود ندارد."""
+    try:
+        import json
+
+        city, service_type = _clean_city_service(city, service_type)
+        if not service_type:
+            return False, None
+        source = " ".join(str(source or "").split())[:80]
+        dedupe_key = " ".join(str(dedupe_key or "").split())[:160]
+        conn = get_giso_db_conn()
+        if dedupe_key:
+            row = conn.execute(
+                "SELECT id FROM buti_ai_service_demand WHERE dedupe_key=? LIMIT 1",
+                (dedupe_key,),
+            ).fetchone()
+            if row:
+                return True, int(row[0])
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        payload_json = json.dumps(payload or {}, ensure_ascii=False)
+        cur = conn.execute(
+            """
+            INSERT INTO buti_ai_service_demand (
+                user_id, city, service_type, source, status, dedupe_key, payload_json, created_at
+            ) VALUES (?, ?, ?, ?, 'open', ?, ?, ?)
+            """,
+            (user_id, city, service_type, source, dedupe_key, payload_json, now_str),
+        )
+        conn.commit()
+        return True, cur.lastrowid
+    except Exception as e:
+        logger.error("Error recording buti_ai service demand: %s", e)
+        return False, None
+
+
+def service_demand_count(service_type, city=""):
+    """تعداد تقاضاهای ثبت‌شده بدون شماره برای آمار مدیریت."""
+    try:
+        conn = get_giso_db_conn()
+        service_type = str(service_type or "").strip()
+        city = str(city or "").strip()
+        if city:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM buti_ai_service_demand WHERE service_type=? AND city=? AND status='open'",
+                (service_type, city),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM buti_ai_service_demand WHERE service_type=? AND status='open'",
+                (service_type,),
+            ).fetchone()
+        return int(row[0] if row else 0)
+    except Exception as e:
+        logger.error("Error counting buti_ai service demand: %s", e)
+        return 0
+
+
+def total_service_interest_count(service_type, city=""):
+    """جمع لیست انتظار و تقاضای سبک برای نمایش «نیاز بازار» به مدیریت."""
+    return waitlist_interest_count(service_type, city) + service_demand_count(service_type, city)
+
+
 def add_to_waitlist(phone_number, city, service_type):
     """ثبت شماره و تقاضای کاربر در لیست انتظار شهرستان‌ها؛ سازگار با کد قدیمی."""
     ok, _message, row_id = save_service_waitlist(

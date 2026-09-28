@@ -35,6 +35,21 @@ CREATE TABLE IF NOT EXISTS buti_ai_waitlist (
 CREATE INDEX IF NOT EXISTS idx_buti_ai_waitlist_city ON buti_ai_waitlist(city, service_type);
 CREATE INDEX IF NOT EXISTS idx_buti_ai_waitlist_status ON buti_ai_waitlist(service_type, status, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS buti_ai_service_demand (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    city TEXT NOT NULL,
+    service_type TEXT NOT NULL,
+    source TEXT DEFAULT '',
+    status TEXT DEFAULT 'open',
+    dedupe_key TEXT DEFAULT '',
+    payload_json TEXT DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_buti_ai_service_demand_city ON buti_ai_service_demand(city, service_type);
+CREATE INDEX IF NOT EXISTS idx_buti_ai_service_demand_status ON buti_ai_service_demand(service_type, status, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_buti_ai_service_demand_dedupe ON buti_ai_service_demand(dedupe_key) WHERE dedupe_key <> '';
+
 CREATE TABLE IF NOT EXISTS buti_ai_final_designs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id INTEGER,
@@ -71,6 +86,14 @@ def init_buti_ai_db():
         _ensure_column(conn, "buti_ai_waitlist", "source", "source TEXT DEFAULT ''")
         _ensure_column(conn, "buti_ai_waitlist", "status", "status TEXT DEFAULT 'open'")
         _ensure_column(conn, "buti_ai_waitlist", "payload_json", "payload_json TEXT DEFAULT ''")
+        for _col, _ddl in (
+            ("user_id", "user_id INTEGER"),
+            ("source", "source TEXT DEFAULT ''"),
+            ("status", "status TEXT DEFAULT 'open'"),
+            ("dedupe_key", "dedupe_key TEXT DEFAULT ''"),
+            ("payload_json", "payload_json TEXT DEFAULT ''"),
+        ):
+            _ensure_column(conn, "buti_ai_service_demand", _col, _ddl)
         try:
             from giso.buti_ai.ai_models import init_buti_ai_model_assignments
 

@@ -6,7 +6,7 @@
 {% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=12">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=14">
 {% endblock %}
 
 {% block content %}
@@ -26,7 +26,7 @@
         <header class="bti-result-header bti-no-center-header">
             <span>مرحله ۶: انتخاب مرکز</span>
             <h2>فعلاً مرکز فعال ابرو پیدا نکردیم</h2>
-            <p>طراحی نهایی شما از بین نمی‌رود. درخواستت را ثبت کن؛ وقتی مرکز فعال ابرو در {{ city }} اضافه شود، اطلاع می‌دهیم.</p>
+            <p>طراحی نهایی کار شما از بین نمی‌رود. درخواستت را ثبت کن؛ وقتی مرکز فعال ابرو در {{ city }} اضافه شود، اطلاع می‌دهیم.</p>
         </header>
 
         <div class="bti-no-center-grid">
@@ -37,13 +37,13 @@
                 <p>درخواست کاربر ذخیره می‌شود، تقاضای خدمت ابرو شمرده می‌شود و مسیر ثبت مرکز برای سالن‌ها نمایش داده می‌شود.</p>
             </article>
             <article>
-                <span>درخواست‌های باز این شهر</span>
+                <span>تقاضای ثبت‌شده این شهر</span>
                 <strong>{{ demand_count }}</strong>
                 <small>برای خدمت ابرو</small>
             </article>
             <article>
                 <span>مدل انتخابی شما</span>
-                <p>{{ candidate.final_label if candidate else 'هنوز طراحی نهایی ثبت نشده' }}</p>
+                <p>{{ candidate.final_label if candidate else 'هنوز طراحی نهایی کار ثبت نشده' }}</p>
                 <small>{{ candidate.change_label if candidate else 'ابتدا تحلیل ابرو را انجام بده.' }}</small>
             </article>
         </div>

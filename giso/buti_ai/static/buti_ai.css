@@ -2223,3 +2223,121 @@
         display: grid;
     }
 }
+
+/* Arena polish — service/model/upload layout fixes requested by user */
+.bti-service-card-grid .bti-pmu-card {
+    grid-template-columns: minmax(0, 1fr) minmax(190px, .78fr);
+}
+
+.bti-service-card-grid .bti-pmu-content {
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.bti-service-card-grid .bti-pmu-content p {
+    max-width: 360px;
+}
+
+.bti-service-card-grid .bti-pmu-content ul {
+    width: 100%;
+    display: grid;
+    justify-items: center;
+}
+
+.bti-service-card-grid .bti-pmu-badges {
+    justify-content: center;
+}
+
+.bti-eyebrow-hero-compact {
+    grid-template-columns: 1fr;
+}
+
+.bti-eyebrow-hero-compact .bti-eyebrow-hero-copy {
+    min-height: 240px;
+    text-align: center;
+    justify-items: center;
+}
+
+.bti-eyebrow-hero-compact .bti-eyebrow-hero-copy p {
+    margin-inline: auto;
+}
+
+.bti-eyebrow-hero-compact .bti-hero-actions {
+    justify-content: center;
+}
+
+.bti-style-choice {
+    min-height: 116px;
+    align-items: center;
+}
+
+.bti-style-info {
+    text-align: right;
+    align-content: center;
+}
+
+.bti-brow-sample {
+    flex: 0 0 154px;
+    min-height: 92px;
+}
+
+.bti-brow-sample img {
+    min-height: 92px;
+    object-position: center 32%;
+}
+
+.bti-brow-sample small {
+    font-size: .66rem;
+    padding: 3px 7px;
+}
+
+.bti-upload-layout-redesigned {
+    grid-template-columns: minmax(300px, 1fr) minmax(230px, .56fr);
+}
+
+.bti-upload-action-card {
+    align-content: center;
+}
+
+.bti-form-submit-row.bti-submit-separated {
+    justify-content: flex-start;
+}
+
+@media (max-width: 820px) {
+    .bti-service-card-grid .bti-pmu-card,
+    .bti-upload-layout-redesigned {
+        grid-template-columns: 1fr;
+    }
+    .bti-style-choice {
+        align-items: stretch;
+    }
+    .bti-brow-sample,
+    .bti-brow-sample img {
+        min-height: 118px;
+    }
+}
+
+.bti-provider-technical {
+    margin-top: 8px;
+    color: var(--bti-muted);
+}
+
+.bti-provider-technical summary {
+    cursor: pointer;
+    width: fit-content;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.06);
+    color: #f1d18a;
+    font-size: .78rem;
+    font-weight: 900;
+}
+
+.bti-provider-technical ul {
+    margin: 8px 0 0;
+    padding-right: 18px;
+    line-height: 1.8;
+    font-size: .78rem;
+}
