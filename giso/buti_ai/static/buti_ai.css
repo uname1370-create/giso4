@@ -1151,3 +1151,178 @@
         min-height: 220px;
     }
 }
+
+/* Phase 3 — AI scoring and structured eyebrow analysis output */
+.bti-section-title-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 12px;
+}
+
+.bti-section-title-row span {
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: #111;
+    background: var(--bti-gold);
+    font-size: .76rem;
+    font-weight: 1000;
+}
+
+.bti-section-title-row h3 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.12rem;
+    line-height: 1.6;
+}
+
+.bti-style-score-board,
+.bti-face-analysis-board {
+    margin-bottom: 14px;
+    padding: 16px;
+    border: 1px solid var(--bti-border);
+    border-radius: 20px;
+    background: var(--bti-card);
+}
+
+.bti-style-score-list {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.bti-style-score-list article {
+    min-height: 188px;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 13px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    background: rgba(255,255,255,.032);
+}
+
+.bti-style-score-list article.is-recommended {
+    border-color: rgba(255,173,18,.58);
+    background: linear-gradient(145deg, rgba(255,173,18,.13), rgba(255,255,255,.035));
+    box-shadow: 0 14px 34px rgba(255,173,18,.09);
+}
+
+.bti-style-score-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.bti-style-score-top b {
+    color: #fff;
+    font-size: .92rem;
+    line-height: 1.55;
+}
+
+.bti-style-score-top strong {
+    flex: 0 0 auto;
+    color: #111;
+    background: var(--bti-gold);
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: .82rem;
+    font-weight: 1000;
+}
+
+.bti-score-bar {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+}
+
+.bti-score-bar i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #b87805, var(--bti-gold));
+}
+
+.bti-style-score-list p {
+    margin: 0;
+    color: var(--bti-muted);
+    font-size: .82rem;
+    line-height: 1.85;
+}
+
+.bti-score-flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: auto;
+}
+
+.bti-score-flags span {
+    width: fit-content;
+    padding: 5px 8px;
+    border-radius: 999px;
+    color: #171717;
+    background: rgba(255,173,18,.92);
+    font-size: .70rem;
+    font-weight: 950;
+}
+
+.bti-style-score-list .is-good .bti-score-bar i { background: linear-gradient(90deg, #0f9d70, var(--bti-green)); }
+.bti-style-score-list .is-warn .bti-score-bar i { background: linear-gradient(90deg, #b87805, var(--bti-gold)); }
+.bti-style-score-list .is-bad .bti-score-bar i { background: linear-gradient(90deg, #a6332b, var(--bti-red)); }
+
+.bti-face-analysis-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.bti-face-analysis-grid article {
+    min-height: 86px;
+    display: grid;
+    align-content: center;
+    gap: 7px;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 15px;
+    background: rgba(255,255,255,.032);
+}
+
+.bti-face-analysis-grid span {
+    color: var(--bti-muted);
+    font-size: .76rem;
+    font-weight: 900;
+}
+
+.bti-face-analysis-grid b {
+    color: #fff;
+    font-size: .94rem;
+    line-height: 1.6;
+}
+
+@media (max-width: 1080px) {
+    .bti-style-score-list,
+    .bti-face-analysis-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 620px) {
+    .bti-section-title-row {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .bti-style-score-list,
+    .bti-face-analysis-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .bti-style-score-list article {
+        min-height: auto;
+    }
+}

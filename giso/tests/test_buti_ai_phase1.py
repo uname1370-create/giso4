@@ -140,7 +140,23 @@ def test_eyebrow_ai_helpers_parse_quality_and_analysis(monkeypatch):
                 "current_brow_summary": "ابروها کمی نامتقارن هستند.",
                 "recommended_style": "natural",
                 "change_level": "very_natural",
+                "short_reason": "نچرال برای این چهره امن‌تر است.",
                 "why": "فرم طبیعی با چهره هماهنگ‌تر است.",
+                "face_analysis": {
+                    "face_shape": "بیضی",
+                    "eye_balance": "هماهنگ",
+                    "brow_density": "متوسط",
+                    "brow_symmetry": "متوسط",
+                    "brow_arch": "ملایم",
+                    "tail_position": "متعادل",
+                },
+                "style_scores": [
+                    {"style": "natural", "score": 88, "reason": "هماهنگ‌ترین گزینه است."},
+                    {"style": "microblading", "score": 72, "reason": "برای نقاط خالی خوب است."},
+                    {"style": "powder", "score": 55, "reason": "ممکن است سنگین دیده شود."},
+                    {"style": "combination", "score": 74, "reason": "قابل بررسی است."},
+                    {"style": "giso_suggested", "score": 80, "reason": "گزینه امن است."},
+                ],
                 "do": ["تاج ابرو نرم بماند"],
                 "avoid": ["قوس خیلی تیز"],
                 "alternative_styles": ["شیدینگ خیلی سبک"],
@@ -167,6 +183,10 @@ def test_eyebrow_ai_helpers_parse_quality_and_analysis(monkeypatch):
     assert result["ai_is_real"] is True
     assert result["style_key"] == "natural"
     assert result["face_shape"] == "بیضی"
+    assert result["face_analysis"]["brow_density"] == "متوسط"
+    assert result["style_scores"][0]["style_key"] == "natural"
+    assert result["style_scores"][0]["score"] == 88
+    assert result["short_reason"] == "نچرال برای این چهره امن‌تر است."
     assert preview["available"] is True
     assert preview["mode"] == "guided_before_after"
     assert len(calls) == 2
@@ -196,7 +216,23 @@ def test_eyebrow_photo_post_builds_ai_preview(monkeypatch):
                 "current_brow_summary": "دم ابرو کمی پایین است.",
                 "recommended_style": "combination",
                 "change_level": "medium",
+                "short_reason": "کامبینیشن ملایم برای دم ابرو بهتر است.",
                 "why": "ترکیب تارهای ظریف و سایه سبک تعادل بهتری می‌دهد.",
+                "face_analysis": {
+                    "face_shape": "کشیده",
+                    "eye_balance": "هماهنگ",
+                    "brow_density": "متوسط",
+                    "brow_symmetry": "نیاز به اصلاح",
+                    "brow_arch": "ملایم",
+                    "tail_position": "کمی افتاده",
+                },
+                "style_scores": [
+                    {"style": "combination", "score": 91, "reason": "دم ابرو را کامل‌تر می‌کند."},
+                    {"style": "natural", "score": 78, "reason": "گزینه کم‌ریسک است."},
+                    {"style": "microblading", "score": 76, "reason": "برای پر کردن جای خالی خوب است."},
+                    {"style": "powder", "score": 61, "reason": "ممکن است کمی سنگین شود."},
+                    {"style": "giso_suggested", "score": 84, "reason": "پیشنهاد متعادل است."},
+                ],
                 "do": ["دم ابرو کمی مرتب شود"],
                 "avoid": ["تیره کردن تاج ابرو"],
                 "alternative_styles": ["نچرال"],
@@ -226,6 +262,9 @@ def test_eyebrow_photo_post_builds_ai_preview(monkeypatch):
     assert "طرح پیشنهادی" in text
     assert "عکس اصلی شما" in text
     assert "کامبینیشن" in text
+    assert "امتیاز مدل‌ها" in text
+    assert "تحلیل چهره و ابرو" in text
+    assert "91٪" in text
 
     _cleanup_buti_ai_sessions()
 

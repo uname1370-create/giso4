@@ -3,10 +3,14 @@
 from giso.buti_ai.eyebrow.options import (
     CHANGE_LEVELS,
     DEFAULT_CHANGE_LEVEL,
+    DEFAULT_STYLE,
     EYEBROW_STYLES,
     normalize_change_level,
     normalize_style_key,
 )
+
+STYLE_SCORE_ORDER = ["natural", "microblading", "powder", "combination", DEFAULT_STYLE]
+_ALLOWED_TONES = {"good", "warn", "bad"}
 
 
 def change_note(change_key):
@@ -18,12 +22,20 @@ def change_note(change_key):
     return "برای نتیجه طبیعی، نظم، تقارن و پرکردن نقاط خالی مهم‌تر است."
 
 
-def _clean_list(value, fallback):
+def _clean_text(value, fallback="", limit=160):
+    text = str(value or "").strip()
+    if not text:
+        text = fallback
+    return text[:limit]
+
+
+def _clean_list(value, fallback, limit=5):
     if isinstance(value, list):
-        cleaned = [str(item).strip() for item in value if str(item).strip()]
+        cleaned = [_clean_text(item, limit=90) for item in value]
+        cleaned = [item for item in cleaned if item]
         if cleaned:
-            return cleaned[:5]
-    return fallback
+            return cleaned[:limit]
+    return list(fallback or [])[:limit]
 
 
 def _tone_from_bool(value):
@@ -34,12 +46,44 @@ def _tone_from_bool(value):
     return "warn"
 
 
+def _score_tone(score):
+    try:
+        score = int(score)
+    except Exception:
+        score = 0
+    if score >= 80:
+        return "good"
+    if score >= 60:
+        return "warn"
+    return "bad"
+
+
 def _bool_value_label(value, ok_text="خوب", bad_text="نیاز به عکس بهتر"):
     if value is True:
         return ok_text
     if value is False:
         return bad_text
     return "نامشخص"
+
+
+def _clamp_score(value, default=50):
+    try:
+        if isinstance(value, str):
+            value = value.strip().replace("٪", "").replace("%", "")
+        score = int(round(float(value)))
+    except Exception:
+        score = default
+    return max(0, min(100, score))
+
+
+def _normalize_tone(value):
+    value = str(value or "warn").strip().lower()
+    return value if value in _ALLOWED_TONES else "warn"
+
+
+def _style_label(style_key):
+    style_key = normalize_style_key(style_key)
+    return EYEBROW_STYLES[style_key]["label"]
 
 
 def _clean_score_cards(value):
@@ -49,21 +93,94 @@ def _clean_score_cards(value):
     for item in value:
         if not isinstance(item, dict):
             continue
-        label = str(item.get("label") or "").strip()
-        result = str(item.get("value") or item.get("result") or "").strip()
-        tone = str(item.get("tone") or "warn").strip()
+        label = _clean_text(item.get("label"), limit=42)
+        result = _clean_text(item.get("value") or item.get("result"), limit=72)
+        tone = _normalize_tone(item.get("tone"))
         if label and result:
-            cards.append({
-                "label": label[:42],
-                "value": result[:72],
-                "tone": tone if tone in {"good", "warn", "bad"} else "warn",
-            })
+            cards.append({"label": label, "value": result, "tone": tone})
         if len(cards) >= 6:
             break
     return cards
 
 
-def _build_score_cards(style, selected_style_key, recommended_style_key, change_label, quality_report, ai_data):
+def _clean_face_analysis(ai_data):
+    raw = ai_data.get("face_analysis") if isinstance(ai_data, dict) else None
+    raw = raw if isinstance(raw, dict) else {}
+    face_shape = _clean_text(raw.get("face_shape") or ai_data.get("face_shape"), "نامشخص", 40)
+    return {
+        "face_shape": face_shape,
+        "eye_balance": _clean_text(raw.get("eye_balance"), "نامشخص", 40),
+        "brow_density": _clean_text(raw.get("brow_density"), "نامشخص", 40),
+        "brow_symmetry": _clean_text(raw.get("brow_symmetry"), "نامشخص", 40),
+        "brow_arch": _clean_text(raw.get("brow_arch"), "نامشخص", 40),
+        "tail_position": _clean_text(raw.get("tail_position"), "نامشخص", 40),
+    }
+
+
+def _default_score_for(style_key, recommended_style_key, selected_style_key):
+    if style_key == recommended_style_key:
+        return 86
+    if style_key == selected_style_key:
+        return 74
+    defaults = {
+        "natural": 72,
+        "microblading": 68,
+        "powder": 58,
+        "combination": 70,
+        DEFAULT_STYLE: 76,
+    }
+    return defaults.get(style_key, 60)
+
+
+def _fallback_score_reason(style_key, recommended_style_key, selected_style_key):
+    if style_key == recommended_style_key:
+        return "بهترین جمع‌بندی برای فرم فعلی ابرو و میزان تغییر انتخابی."
+    if style_key == selected_style_key:
+        return "با سلیقه انتخابی شما نزدیک است، اما شاید نیاز به کنترل متخصص داشته باشد."
+    return EYEBROW_STYLES[style_key].get("summary", "گزینه قابل بررسی برای فرم ابرو.")
+
+
+def _clean_style_scores(value, recommended_style_key, selected_style_key):
+    seen = {}
+    if isinstance(value, list):
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            raw_style = item.get("style") or item.get("key")
+            style_key = normalize_style_key(raw_style)
+            score = _clamp_score(item.get("score"), _default_score_for(style_key, recommended_style_key, selected_style_key))
+            reason = _clean_text(
+                item.get("reason"),
+                _fallback_score_reason(style_key, recommended_style_key, selected_style_key),
+                120,
+            )
+            seen[style_key] = {"style_key": style_key, "score": score, "reason": reason}
+
+    for style_key in STYLE_SCORE_ORDER:
+        if style_key not in seen:
+            seen[style_key] = {
+                "style_key": style_key,
+                "score": _default_score_for(style_key, recommended_style_key, selected_style_key),
+                "reason": _fallback_score_reason(style_key, recommended_style_key, selected_style_key),
+            }
+
+    items = []
+    for style_key in STYLE_SCORE_ORDER:
+        item = seen[style_key]
+        score = _clamp_score(item.get("score"), 50)
+        items.append({
+            "style_key": style_key,
+            "label": _style_label(style_key),
+            "score": score,
+            "reason": _clean_text(item.get("reason"), limit=120),
+            "tone": _score_tone(score),
+            "is_recommended": style_key == recommended_style_key,
+            "is_selected": style_key == selected_style_key,
+        })
+    return sorted(items, key=lambda item: (item["is_recommended"], item["score"]), reverse=True)
+
+
+def _build_score_cards(style, selected_style_key, recommended_style_key, change_label, quality_report, ai_data, style_scores):
     ai_cards = _clean_score_cards(ai_data.get("score_cards"))
     if ai_cards:
         return ai_cards
@@ -72,6 +189,7 @@ def _build_score_cards(style, selected_style_key, recommended_style_key, change_
     quality_ok = (quality_report or {}).get("ok")
     model_value = "همین مدل خوب است" if selected_style_key == recommended_style_key else "پیشنهاد بهتر دارد"
     model_tone = "good" if selected_style_key == recommended_style_key else "warn"
+    top_score = style_scores[0]["score"] if style_scores else 0
 
     return [
         {
@@ -95,6 +213,11 @@ def _build_score_cards(style, selected_style_key, recommended_style_key, change_
             "tone": "good",
         },
         {
+            "label": "امتیاز پیشنهاد",
+            "value": f"{top_score}٪",
+            "tone": _score_tone(top_score),
+        },
+        {
             "label": "میزان تغییر",
             "value": change_label,
             "tone": "warn",
@@ -109,13 +232,17 @@ def build_eyebrow_result(style_key, change_key, photo_status, demo_mode=False,
     ai_data = (ai_analysis or {}).get("data") or {}
 
     recommended_style_key = normalize_style_key(ai_data.get("recommended_style") or selected_style_key)
-    result_change_key = normalize_change_level(ai_data.get("change_level") or selected_change_key)
+    result_change_key = normalize_change_level(
+        ai_data.get("recommended_change_level") or ai_data.get("change_level") or selected_change_key
+    )
     style = EYEBROW_STYLES[recommended_style_key]
     change_label = CHANGE_LEVELS.get(result_change_key, CHANGE_LEVELS[DEFAULT_CHANGE_LEVEL])
 
     fallback_do = style.get("do", [])
     fallback_avoid = style.get("avoid", [])
     ai_is_real = (ai_analysis or {}).get("status") == "ai_analyzed"
+    face_analysis = _clean_face_analysis(ai_data)
+    style_scores = _clean_style_scores(ai_data.get("style_scores"), recommended_style_key, selected_style_key)
     score_cards = _build_score_cards(
         style,
         selected_style_key,
@@ -123,6 +250,12 @@ def build_eyebrow_result(style_key, change_key, photo_status, demo_mode=False,
         change_label,
         quality_report or {},
         ai_data,
+        style_scores,
+    )
+    short_reason = _clean_text(
+        ai_data.get("short_reason") or ai_data.get("why"),
+        style.get("why", ""),
+        180,
     )
 
     return {
@@ -138,13 +271,21 @@ def build_eyebrow_result(style_key, change_key, photo_status, demo_mode=False,
         "quality": quality_report or {},
         "ai_analysis": ai_analysis or {},
         "ai_is_real": ai_is_real,
-        "face_shape": ai_data.get("face_shape") or "در نسخه راهنما مشخص نشده",
-        "current_brow_summary": ai_data.get("current_brow_summary") or "برای تحلیل دقیق‌تر، عکس واضح روبه‌رو و نور مناسب لازم است.",
-        "why": ai_data.get("why") or style.get("why", ""),
-        "do": _clean_list(ai_data.get("do"), fallback_do),
-        "avoid": _clean_list(ai_data.get("avoid"), fallback_avoid),
-        "alternative_styles": _clean_list(ai_data.get("alternative_styles"), []),
+        "face_shape": face_analysis["face_shape"],
+        "face_analysis": face_analysis,
+        "current_brow_summary": _clean_text(
+            ai_data.get("current_brow_summary"),
+            "برای تحلیل دقیق‌تر، عکس واضح روبه‌رو و نور مناسب لازم است.",
+            180,
+        ),
+        "why": _clean_text(ai_data.get("why"), style.get("why", ""), 220),
+        "short_reason": short_reason,
+        "do": _clean_list(ai_data.get("do"), fallback_do, limit=3),
+        "avoid": _clean_list(ai_data.get("avoid"), fallback_avoid, limit=3),
+        "alternative_styles": _clean_list(ai_data.get("alternative_styles"), [], limit=2),
         "score_cards": score_cards,
+        "style_scores": style_scores,
+        "top_style_score": style_scores[0]["score"] if style_scores else 0,
         "confidence": ai_data.get("confidence") or ("medium" if ai_is_real else "guide"),
         "mvp_notice": (
             "عکس تحلیل شد؛ این پیشنهاد بر اساس چهره و انتخاب شماست."

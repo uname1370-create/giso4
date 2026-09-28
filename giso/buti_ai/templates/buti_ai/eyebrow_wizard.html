@@ -11,7 +11,7 @@
 
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=7">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=8">
 {% endblock %}
 
 {% block content %}
@@ -186,6 +186,48 @@
         </div>
         {% endif %}
 
+        {% if result.style_scores %}
+        <section class="bti-style-score-board" aria-label="امتیاز مدل‌های ابرو">
+            <div class="bti-section-title-row">
+                <span>امتیاز مدل‌ها</span>
+                <h3>کدام مدل بیشتر به چهره‌ات می‌آید؟</h3>
+            </div>
+            <div class="bti-style-score-list">
+                {% for item in result.style_scores %}
+                <article class="is-{{ item.tone }} {{ 'is-recommended' if item.is_recommended else '' }}">
+                    <div class="bti-style-score-top">
+                        <b>{{ item.label }}</b>
+                        <strong>{{ item.score }}٪</strong>
+                    </div>
+                    <div class="bti-score-bar"><i style="width: {{ item.score }}%"></i></div>
+                    <p>{{ item.reason }}</p>
+                    <div class="bti-score-flags">
+                        {% if item.is_recommended %}<span>پیشنهاد گیسو</span>{% endif %}
+                        {% if item.is_selected %}<span>انتخاب شما</span>{% endif %}
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if result.face_analysis %}
+        <section class="bti-face-analysis-board" aria-label="تحلیل فرم صورت و ابرو">
+            <div class="bti-section-title-row">
+                <span>تحلیل چهره و ابرو</span>
+                <h3>خلاصه‌ای که گیسو از عکس فهمید</h3>
+            </div>
+            <div class="bti-face-analysis-grid">
+                <article><span>فرم صورت</span><b>{{ result.face_analysis.face_shape }}</b></article>
+                <article><span>تعادل چشم و ابرو</span><b>{{ result.face_analysis.eye_balance }}</b></article>
+                <article><span>پرپشتی ابرو</span><b>{{ result.face_analysis.brow_density }}</b></article>
+                <article><span>تقارن ابرو</span><b>{{ result.face_analysis.brow_symmetry }}</b></article>
+                <article><span>قوس ابرو</span><b>{{ result.face_analysis.brow_arch }}</b></article>
+                <article><span>دم ابرو</span><b>{{ result.face_analysis.tail_position }}</b></article>
+            </div>
+        </section>
+        {% endif %}
+
         {% if result.preview and result.preview.available %}
         <div class="bti-before-after" aria-label="طرح راهنمای قبل و بعد">
             <article>
@@ -207,8 +249,9 @@
         <div class="bti-advice-grid">
             <article class="is-main">
                 <span>چرا این مدل؟</span>
-                <h3>{{ result.why }}</h3>
-                <p>میزان تغییر: {{ result.change_label }}</p>
+                <h3>{{ result.short_reason }}</h3>
+                <p>{{ result.why }}</p>
+                <small>میزان تغییر: {{ result.change_label }}</small>
                 <small>{{ result.change_note }}</small>
             </article>
             <article>
@@ -241,5 +284,5 @@
     </section>
     {% endif %}
 </main>
-<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=7" defer></script>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=8" defer></script>
 {% endblock %}

@@ -90,11 +90,15 @@ def analyze_eyebrow_photo(image_path, selected_style_key, change_level_key):
         }
 
     data = result.get("data") or {}
+    if not isinstance(data, dict):
+        data = {}
     data["recommended_style"] = normalize_style_key(data.get("recommended_style") or selected_style_key)
-    data["change_level"] = normalize_change_level(data.get("change_level") or change_level_key)
-    for key in ("do", "avoid", "alternative_styles"):
+    data["change_level"] = normalize_change_level(data.get("recommended_change_level") or data.get("change_level") or change_level_key)
+    for key in ("do", "avoid", "alternative_styles", "style_scores", "score_cards"):
         if not isinstance(data.get(key), list):
             data[key] = []
+    if not isinstance(data.get("face_analysis"), dict):
+        data["face_analysis"] = {}
     return {
         "status": "ai_analyzed",
         "ok": True,
