@@ -41,38 +41,13 @@
                     {% for opt in ai.get('registry_options', []) %}
                     <option value="{{ opt.name }}">{{ opt.display }}</option>
                     {% endfor %}
-                    <option value="">— نام دلخواه (در فیلد زیر) —</option>
                 </select>
-                <input type="text" name="custom_name" placeholder="نام دلخواه برای سرویس ناشناخته (اختیاری)" dir="ltr">
                 <input type="text" name="api_key" placeholder="کلید API* (الزامی)" dir="ltr" required>
                 <input type="text" name="proxy_url" placeholder="پروکسی SOCKS5 (اختیاری): socks5://... — خالی = مستقیم" dir="ltr">
-                <details style="grid-column:1/-1;">
-                    <summary style="cursor:pointer;">⚙️ تنظیمات پیشرفته (اختیاری — خالی = از رجیستری)</summary>
-                    <div class="pnl-grid-form" style="margin-top:8px;">
-                        <input type="text" name="base_url" placeholder="آدرس پایه (خالی = از رجیستری)" dir="ltr">
-                        <select name="kind">
-                            <option value="">نوع API (خودکار)</option>
-                            <option value="openai">openai</option>
-                            <option value="cloudflare">cloudflare</option>
-                        </select>
-                        <input type="number" name="timeout" placeholder="تایم‌اوت ثانیه (خالی = پیش‌فرض)" min="5" max="120">
-                        <input type="text" name="selected_model" placeholder="مدل انتخابی (خالی = بهترین خودکار)" dir="ltr">
-                        <label class="pnl-check"><input type="checkbox" name="is_iranian" value="1"> سرویس ایرانی است (خودکار بر اساس نام)</label>
-                    </div>
-                </details>
                 <button class="pnl-btn pnl-btn-gold">💾 ذخیره و شناسایی خودکار مدل‌ها</button>
             </form>
         </div>
 
-        <div class="pnl-card" style="margin-top:16px;">
-            <h3>📥 ورود دسته‌ای مدل‌ها (JSON)</h3>
-            <p class="pnl-muted" style="font-size:.8rem;">مدل‌های فعلی پاک نمی‌شوند؛ فقط موارد جدید با منبع «ورودی دستی» اضافه می‌شوند.</p>
-            <form method="POST" action="{{ url_for('panel.ai_bulk_import_json') }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <textarea name="json_data" dir="ltr" style="width:100%;height:150px;font-family:monospace;font-size:.8rem;" placeholder='{"provider": "openrouter", "add_models": [{"id": "google/gemma-3-27b-it:free", "type": "vision", "is_free": true}]}'></textarea>
-                <button class="pnl-btn pnl-btn-outline pnl-btn-sm" style="margin-top:6px;">📥 افزودن مدل‌ها</button>
-            </form>
-        </div>
 
         {% if ai.get('providers') %}
         <div class="pnl-card" style="margin-top:16px;">
