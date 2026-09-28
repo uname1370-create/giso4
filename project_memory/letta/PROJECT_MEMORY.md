@@ -533,3 +533,40 @@ Boundary:
 - Functional ownership stayed in `giso/buti_ai/` and `giso/tests/test_buti_ai_phase1.py`.
 - `giso/analysis.py` was not modified; Buti AI only calls its existing vision function as a thin integration.
 - Protected paths `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, and unrelated flows remain untouched.
+
+---
+
+## 19. Buti AI Phase 2.1 — Clean UI/UX Redesign
+
+Status:
+
+- User reviewed the previous Buti AI / eyebrow mirror UI and said the appearance was too messy and not attractive.
+- A UI/UX-only redesign was implemented after user approval.
+- Backend structure, AI flow, routes, and protected areas were not changed.
+
+Changed files:
+
+```text
+giso/buti_ai/templates/buti_ai/mirror_home.html
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+```
+
+Design direction:
+
+- Simpler, calmer, more organized Persian RTL layout.
+- Cleaner landing page for آینه زیبایی گیسو.
+- Cleaner eyebrow wizard with clear sections: choose style, choose change level, upload photo, get result.
+- Less decorative clutter and fewer competing visual elements.
+- Mobile-friendly cards and simpler spacing.
+
+Validation:
+
+- `py_compile` passed for Buti AI Python modules and tests.
+- `PYTHONPATH=/home/user/giso4 SECRET_KEY=... .arena/venv/bin/python -m pytest -q giso/tests/test_buti_ai_phase1.py` passed: `6 passed, 1 warning`.
+- Live curl checks returned HTTP 200 for `/analysis/mirror` and `/analysis/mirror/eyebrow`.
+
+Boundary:
+
+- Only Buti AI templates/static CSS changed.
+- No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.

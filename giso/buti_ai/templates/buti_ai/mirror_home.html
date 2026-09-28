@@ -1,74 +1,80 @@
 {% extends "base.html" %}
 
-{% block title %}آینه زیبایی گیسو | Buti AI{% endblock %}
+{% block title %}آینه زیبایی گیسو{% endblock %}
 {% block meta %}
-<meta name="description" content="آینه زیبایی گیسو؛ مسیر هوشمند و ساده برای انتخاب مدل ابرو و خدمات زیبایی قبل از مراجعه به مرکز.">
-<meta property="og:title" content="آینه زیبایی گیسو | Buti AI">
-<meta property="og:description" content="اولین مسیر فعال: آینه ابرو گیسو، انتخاب مدل ابرو با راهنمایی ساده و زیبا.">
+<meta name="description" content="آینه زیبایی گیسو؛ مسیر ساده و هوشمند برای انتخاب مدل ابرو و خدمات زیبایی قبل از مراجعه.">
+<meta property="og:title" content="آینه زیبایی گیسو">
+<meta property="og:description" content="اولین مسیر فعال: آینه ابرو گیسو، انتخاب مدل ابرو با راهنمایی ساده و مرتب.">
 <link rel="canonical" href="{{ url_for('buti_ai.mirror_home', _external=True) }}">
 <meta property="og:url" content="{{ url_for('buti_ai.mirror_home', _external=True) }}">
 {% endblock %}
 
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=3">
 {% endblock %}
 
 {% block content %}
-<main class="bti-page" dir="rtl">
-    <section class="bti-hero">
-        <div class="bti-shell bti-hero-grid">
-            <div class="bti-hero-copy">
-                <span class="bti-kicker">Buti AI · ماژول مستقل گیسو</span>
-                <h1>آینه زیبایی گیسو</h1>
-                <p>قبل از انجام خدمات زیبایی، مسیر مناسب را روی چهره و سلیقه خودت بررسی کن. نسخه اول با «آینه ابرو گیسو» شروع می‌شود.</p>
-                <div class="bti-actions">
-                    <a class="bti-btn bti-btn-primary" href="{{ url_for('buti_ai.eyebrow_wizard') }}">شروع آینه ابرو</a>
-                    <a class="bti-btn bti-btn-outline" href="{{ url_for('analysis') }}">بازگشت به آنالیز هوشمند</a>
+<main class="bti-page bti-clean" dir="rtl">
+    <section class="bti-shell bti-home-hero">
+        <div class="bti-home-copy">
+            <a class="bti-back" href="{{ url_for('analysis') }}">بازگشت به آنالیز</a>
+            <span class="bti-kicker">آینه هوشمند گیسو</span>
+            <h1>قبل از تغییر، نتیجه را با خیال راحت بررسی کن.</h1>
+            <p>اینجا مسیر انتخاب خدمات زیبایی ساده‌تر می‌شود. اول با آینه ابرو شروع می‌کنیم: مدل را انتخاب کن، عکس را بده و پیشنهاد مرتب گیسو را ببین.</p>
+            <div class="bti-actions">
+                <a class="bti-btn bti-btn-primary" href="{{ url_for('buti_ai.eyebrow_wizard') }}">شروع آینه ابرو</a>
+                <a class="bti-btn bti-btn-outline" href="#btiServicesTitle">دیدن خدمات</a>
+            </div>
+        </div>
+
+        <div class="bti-home-panel" aria-label="خلاصه مسیر آینه زیبایی">
+            <div class="bti-panel-top">
+                <span class="bti-panel-mark">🪞</span>
+                <div>
+                    <b>آینه زیبایی گیسو</b>
+                    <small>ساده، مرحله‌ای، قابل فهم</small>
                 </div>
             </div>
-            <div class="bti-mirror-card" aria-label="نمایش نمادین آینه زیبایی">
-                <div class="bti-face-orb">
-                    <span>🪞</span>
-                    <i></i>
-                </div>
-                <div class="bti-floating-chip chip-1">فرم ابرو</div>
-                <div class="bti-floating-chip chip-2">سلیقه کاربر</div>
-                <div class="bti-floating-chip chip-3">پیشنهاد گیسو</div>
-            </div>
+            <ol class="bti-mini-flow">
+                <li><span>۱</span> انتخاب خدمت</li>
+                <li><span>۲</span> ارسال عکس واضح</li>
+                <li><span>۳</span> دریافت پیشنهاد</li>
+            </ol>
         </div>
     </section>
 
-    <section class="bti-shell bti-services" aria-labelledby="btiServicesTitle">
-        <header class="bti-section-head">
-            <span class="bti-kicker">مسیرهای آینه</span>
-            <h2 id="btiServicesTitle">کدام خدمت را می‌خواهی امتحان کنی؟</h2>
-            <p>همه مسیرهای آینه در همین ماژول مستقل توسعه داده می‌شوند تا با بقیه ساختار گیسو قاطی نشوند.</p>
+    <section class="bti-shell bti-services-clean" aria-labelledby="btiServicesTitle">
+        <header class="bti-section-head bti-section-head-clean">
+            <span class="bti-kicker">خدمات آینه</span>
+            <h2 id="btiServicesTitle">از کدام بخش شروع کنیم؟</h2>
+            <p>فعلاً آینه ابرو فعال است. بخش‌های بعدی بعد از کامل شدن تجربه اول اضافه می‌شوند.</p>
         </header>
-        <div class="bti-service-grid">
+
+        <div class="bti-service-grid bti-service-grid-clean">
             {% for item in services %}
             <article class="bti-service-card {{ 'is-active' if item.status == 'active' else 'is-soon' }}">
-                <span class="bti-service-icon">{{ item.icon }}</span>
-                <div>
+                <div class="bti-service-head">
+                    <span class="bti-service-icon">{{ item.icon }}</span>
                     <small>{{ 'فعال' if item.status == 'active' else 'به‌زودی' }}</small>
-                    <h3>{{ item.title }}</h3>
-                    <p>{{ item.description }}</p>
                 </div>
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.description }}</p>
                 {% if item.status == 'active' %}
-                <a class="bti-card-link" href="{{ item.href }}">شروع مسیر</a>
+                <a class="bti-card-link" href="{{ item.href }}">شروع این مسیر</a>
                 {% else %}
-                <span class="bti-card-link is-disabled">در صف توسعه</span>
+                <span class="bti-card-link is-disabled">بعداً اضافه می‌شود</span>
                 {% endif %}
             </article>
             {% endfor %}
         </div>
     </section>
 
-    <section class="bti-shell bti-note">
+    <section class="bti-shell bti-note bti-note-clean">
         <i class="fas fa-shield-halved"></i>
         <div>
-            <h2>نسخه اول، ساده و امن</h2>
-            <p>در فاز اول، نتیجه به‌صورت راهنمای متنی و fallback شفاف نمایش داده می‌شود. تحلیل AI دقیق و پیش‌نمایش تصویری در مرحله‌های بعد اضافه خواهد شد.</p>
+            <h2>شفاف و بدون اغراق</h2>
+            <p>اگر سرویس هوش مصنوعی یا تصویرساز در دسترس نباشد، نتیجه به‌صورت راهنمای شفاف نمایش داده می‌شود. هدف این بخش کمک به تصمیم بهتر است، نه وعده قطعی.</p>
         </div>
     </section>
 </main>

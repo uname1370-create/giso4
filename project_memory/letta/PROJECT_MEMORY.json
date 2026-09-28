@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 2 implemented, validated, committed, and pushed: eyebrow wizard UI is polished, photo quality check and eyebrow vision analysis are wired through a thin call to giso.analysis.call_vision_with_fallback, guided before/after preview is available, and targeted tests passed. Real image-generation/edited after-image provider is not implemented yet.",
+  "status": "Buti AI Phase 2.1 UI/UX redesign completed locally: mirror landing and eyebrow wizard were simplified and cleaned up without backend/AI flow changes. Validation passed; commit/push pending at memory-update time.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -25,14 +25,10 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "clean after Phase 2 code push and docs memory state update"
+      "Phase 2.1 UI/UX files modified locally at memory-update time"
     ],
-    "remote_branch": "origin/arena/01a0e0b8-giso4",
-    "forbidden_paths_modified": false,
-    "protected_paths_note": "Protected path check showed no changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/.",
-    "validation_note": "py_compile, PROJECT_MEMORY.json validation, targeted pytest, git diff --check, and preview route curl check passed for Phase 2.",
-    "phase_2_code_commit": "1f70dd6ff69a79d2a06ec96cf15777cc1f39c160",
-    "latest_push_note": "A docs-only Project Memory state update was pushed after the Phase 2 code commit; use git status/log as source of truth for the current HEAD."
+    "phase_2_1_note": "UI/UX-only changes in Buti AI templates/static CSS; validation passed before commit.",
+    "forbidden_paths_modified": false
   },
   "sena_md": {
     "remote_present": true,
@@ -186,7 +182,11 @@
     "Expanded giso/tests/test_buti_ai_phase1.py to cover quality analysis, AI result merging, photo POST preview, and bad-photo rejection.",
     "Committed Buti AI Phase 2 as 1f70dd6ff69a79d2a06ec96cf15777cc1f39c160 (feat: polish Buti AI eyebrow analysis).",
     "Pushed Phase 2 commit to origin/arena/01a0e0b8-giso4.",
-    "Pushed docs-only Project Memory state update after Phase 2 code commit."
+    "Pushed docs-only Project Memory state update after Phase 2 code commit.",
+    "Completed Buti AI Phase 2.1 clean UI/UX redesign after user said the previous UI was messy.",
+    "Redesigned giso/buti_ai/templates/buti_ai/mirror_home.html for a simpler entry page.",
+    "Redesigned giso/buti_ai/templates/buti_ai/eyebrow_wizard.html for a clearer step-by-step eyebrow wizard.",
+    "Rewrote giso/buti_ai/static/buti_ai.css with calmer, more organized RTL styling."
   ],
   "next_action": [
     "Run git status --short --branch before future work.",
@@ -328,7 +328,13 @@
       "giso/tests/test_buti_ai_phase1.py"
     ],
     "phase_2_ai_note": "Photo quality and eyebrow analysis use a thin call from giso/buti_ai/eyebrow/ai.py to existing giso.analysis.call_vision_with_fallback when a vision provider is active; unavailable providers fall back transparently.",
-    "phase_2_preview_note": "Before/after is a guided visual preview over the uploaded photo; it is not a real generated/edited after image yet."
+    "phase_2_preview_note": "Before/after is a guided visual preview over the uploaded photo; it is not a real generated/edited after image yet.",
+    "phase_2_1_status": "ui_ux_redesign_completed_validation_passed_pending_commit_at_memory_update_time",
+    "phase_2_1_files": [
+      "giso/buti_ai/templates/buti_ai/mirror_home.html",
+      "giso/buti_ai/templates/buti_ai/eyebrow_wizard.html",
+      "giso/buti_ai/static/buti_ai.css"
+    ]
   },
   "validations": [
     "py_compile passed for giso/buti_ai Python files after Phase 1 changes.",
@@ -340,6 +346,9 @@
     "PYTHONPATH=/home/user/giso4 SECRET_KEY=... .arena/venv/bin/python -m pytest -q giso/tests/test_buti_ai_phase1.py passed: 3 passed, 1 warning.",
     "py_compile passed for giso/buti_ai/eyebrow/*.py giso/buti_ai/routes.py giso/tests/test_buti_ai_phase1.py during Phase 2.",
     "PYTHONPATH=/home/user/giso4 SECRET_KEY=... .arena/venv/bin/python -m pytest -q giso/tests/test_buti_ai_phase1.py passed after Phase 2: 6 passed, 1 warning.",
-    "Live preview route curl returned HTTP 200 for /analysis/mirror/eyebrow and contained آینه ابرو گیسو, بررسی کیفیت عکس, and پیش‌نمایش قبل/بعد."
+    "Live preview route curl returned HTTP 200 for /analysis/mirror/eyebrow and contained آینه ابرو گیسو, بررسی کیفیت عکس, and پیش‌نمایش قبل/بعد.",
+    "Phase 2.1 py_compile passed for Buti AI Python modules and tests.",
+    "Phase 2.1 targeted pytest passed: 6 passed, 1 warning.",
+    "Phase 2.1 live curl checks returned HTTP 200 for /analysis/mirror and /analysis/mirror/eyebrow."
   ]
 }
