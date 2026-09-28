@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 2.3 service-card stepper redesign completed locally: /analysis/mirror and /analysis/mirror/eyebrow now use a true new stepper/service-card layout inspired by the user screenshot and 3d site.md. Backend/AI flow unchanged. Validation passed; commit/push pending at memory-update time.",
+  "status": "Buti AI Phase 2.3 service-card stepper redesign completed, validated, committed, and pushed: /analysis/mirror and /analysis/mirror/eyebrow now use a true new stepper/service-card layout inspired by the user screenshot and 3d site.md. Backend/AI flow unchanged.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -25,10 +25,12 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "Phase 2.3 service-card UI files modified locally at memory-update time"
+      "clean after Phase 2.3 service-card UI push"
     ],
+    "phase_2_3_code_commit": "d63924086e4796ba6954b70291584531a9195979",
     "phase_2_3_note": "Frontend/layout redesign in Buti AI templates/static plus service metadata in eyebrow flow; validation passed before commit.",
-    "forbidden_paths_modified": false
+    "forbidden_paths_modified": false,
+    "protected_paths_note": "Protected path check showed no changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/."
   },
   "sena_md": {
     "remote_present": true,
@@ -199,7 +201,8 @@
     "Rebuilt mirror_home.html around a 5-step progress header and image-based service cards.",
     "Rebuilt eyebrow_wizard.html around the same stepper language, side service panel, model rows, upload section, and result board.",
     "Rewrote buti_ai.css for the new dark PMU/service-card layout.",
-    "Updated buti_ai.js to support the new style row selector class."
+    "Updated buti_ai.js to support the new style row selector class.",
+    "Committed and pushed Buti AI Phase 2.3 service-card stepper redesign as d63924086e4796ba6954b70291584531a9195979."
   ],
   "next_action": [
     "Run git status --short --branch before future work.",
@@ -354,7 +357,7 @@
       "giso/buti_ai/templates/buti_ai/eyebrow_wizard.html",
       "giso/buti_ai/static/buti_ai.css"
     ],
-    "phase_2_3_status": "service_card_stepper_redesign_completed_validation_passed_pending_commit_at_memory_update_time",
+    "phase_2_3_status": "service_card_stepper_redesign_completed_validated_committed_pushed",
     "phase_2_3_files": [
       "giso/buti_ai/eyebrow/flow.py",
       "giso/buti_ai/templates/buti_ai/mirror_home.html",
