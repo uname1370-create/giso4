@@ -303,6 +303,7 @@ def panel_slots_context() -> Dict[str, Any]:
         "slots": slots,
         "providers": options.get("providers", []),
         "model_options": options.get("models", []),
+        "readiness": readiness_status(),
     }
 
 
@@ -401,6 +402,110 @@ def configured_image_provider_dicts(limit: int = 3) -> List[Dict[str, Any]]:
             "extra": {"priority": priority, "source": "ai_management"},
         })
     return providers
+
+
+def readiness_status() -> Dict[str, Any]:
+    """وضعیت آماده‌بودن آینه زیبایی برای استفاده واقعی از AI.
+
+    این تابع کلیدها را نمایش نمی‌دهد؛ فقط می‌گوید تنظیمات لازم برای تحلیل عکس
+    و طراحی تصویر موجود است یا نه.
+    """
+    try:
+        from giso.ai_brain import get_ai_provider
+    except Exception:
+        return {
+            "ready": False,
+            "analysis_ready": False,
+            "image_ready": False,
+            "image_ready_count": 0,
+            "image_providers": [],
+            "issues": ["دسترسی به مدیریت AI ممکن نیست؛ تنظیمات پروایدرها را بررسی کن."],
+            "warnings": [],
+        }
+
+    issues: List[str] = []
+    warnings: List[str] = []
+
+    def _enabled(value: Any) -> bool:
+        return str(value if value is not None else "0").strip().lower() not in {"", "0", "false", "off", "no"}
+
+    def provider_problem(provider_name: str, model_name: str, image_task: bool = False, endpoint_override: str = "") -> str:
+        if not provider_name or not model_name:
+            return "پروایدر یا مدل انتخاب نشده است."
+        try:
+            provider = get_ai_provider(provider_name)
+        except Exception:
+            return f"وضعیت پروایدر «{provider_name}» قابل خواندن نیست."
+        if not provider:
+            return f"پروایدر «{provider_name}» در مدیریت AI پیدا نشد."
+        if not _enabled(_row_get(provider, "enabled", 0)):
+            return f"پروایدر «{provider_name}» غیرفعال است."
+        if not str(_row_get(provider, "api_key", "") or "").strip():
+            return f"پروایدر «{provider_name}» API Key/Token ندارد."
+        if image_task:
+            kind = str(_row_get(provider, "kind", "") or "").strip().lower()
+            if kind == "cloudflare" or provider_name == "cloudflare":
+                if not _cloudflare_run_root(provider):
+                    return "Cloudflare Account ID یا API Root درست تنظیم نشده است."
+            elif not _openai_image_endpoint(provider, endpoint_override):
+                return f"برای پروایدر تصویر «{provider_name}» endpoint تصویر مشخص نیست."
+        return ""
+
+    analysis_rows = list_model_assignments(TASK_EYEBROW_ANALYSIS, only_enabled=True)
+    image_rows = list_model_assignments(TASK_EYEBROW_IMAGE_DESIGN, only_enabled=True)
+
+    analysis_ready = False
+    for row in analysis_rows:
+        problem = provider_problem(str(row.get("provider_name") or ""), str(row.get("model_name") or ""), image_task=False)
+        if not problem:
+            analysis_ready = True
+            break
+    if not analysis_ready:
+        issues.append("مدل تحلیل عکس ابرو آماده نیست.")
+        if analysis_rows:
+            sample = analysis_rows[0]
+            issues.append(provider_problem(str(sample.get("provider_name") or ""), str(sample.get("model_name") or ""), image_task=False))
+
+    image_ready_count = 0
+    image_providers: List[str] = []
+    first_image_problem = ""
+    for row in image_rows:
+        provider_name = str(row.get("provider_name") or "")
+        model_name = str(row.get("model_name") or "")
+        problem = provider_problem(provider_name, model_name, image_task=True, endpoint_override=str(row.get("endpoint_override") or ""))
+        if not problem:
+            image_ready_count += 1
+            if provider_name not in image_providers:
+                image_providers.append(provider_name)
+        elif not first_image_problem:
+            first_image_problem = problem
+    image_ready = image_ready_count > 0
+    if not image_ready:
+        issues.append("مدل طراحی تصویر آینه ابرو آماده نیست.")
+        if first_image_problem:
+            issues.append(first_image_problem)
+    elif image_ready_count < 2:
+        warnings.append("برای fallback بهتر، حداقل دو مدل طراحی تصویر فعال پیشنهاد می‌شود.")
+
+    def _unique_messages(items: List[str]) -> List[str]:
+        result: List[str] = []
+        for item in items:
+            item = str(item or "").strip()
+            if item and item not in result:
+                result.append(item)
+        return result
+
+    issues = _unique_messages(issues)
+    warnings = _unique_messages(warnings)
+    return {
+        "ready": bool(analysis_ready and image_ready),
+        "analysis_ready": bool(analysis_ready),
+        "image_ready": bool(image_ready),
+        "image_ready_count": image_ready_count,
+        "image_providers": image_providers,
+        "issues": issues,
+        "warnings": warnings,
+    }
 
 
 def _slot_is_empty(task_key: str, priority: int) -> bool:
@@ -514,6 +619,7 @@ __all__ = [
     "save_model_assignment",
     "list_model_assignments",
     "panel_slots_context",
+    "readiness_status",
     "auto_configure_for_provider",
     "auto_configure_defaults",
     "configured_vision_chain",

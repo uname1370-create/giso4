@@ -699,3 +699,60 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
 
     second = ai_models.auto_configure_for_provider("cloudflare")
     assert second["added"] == 0
+
+
+def test_beauty_mirror_readiness_reports_missing_and_ready(tmp_path, monkeypatch):
+    import sqlite3
+    from giso import ai_brain
+    from giso.buti_ai import ai_models
+
+    db_path = tmp_path / "mirror_ready.db"
+
+    def connect():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    monkeypatch.setattr(ai_models, "get_giso_db_conn", connect)
+    ai_models.init_buti_ai_model_assignments()
+
+    missing = ai_models.readiness_status()
+    assert missing["ready"] is False
+    assert missing["analysis_ready"] is False
+    assert missing["image_ready"] is False
+
+    ai_models.save_model_assignment(ai_models.TASK_EYEBROW_ANALYSIS, 1, "cloudflare", "@cf/meta/llama-3.2-11b-vision-instruct")
+    ai_models.save_model_assignment(ai_models.TASK_EYEBROW_IMAGE_DESIGN, 1, "cloudflare", "@cf/black-forest-labs/flux-2-klein-4b", image_kind="cloudflare")
+
+    def placeholder_provider(name):
+        return {
+            "name": name,
+            "enabled": 1,
+            "kind": "cloudflare",
+            "api_key": "secret",
+            "api_root": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run",
+            "base_url": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run",
+        }
+
+    monkeypatch.setattr(ai_brain, "get_ai_provider", placeholder_provider)
+    not_ready = ai_models.readiness_status()
+    assert not_ready["image_ready"] is False
+    assert any("Cloudflare" in item for item in not_ready["issues"])
+
+    def fake_provider(name):
+        return {
+            "name": name,
+            "enabled": 1,
+            "kind": "cloudflare",
+            "api_key": "secret",
+            "api_root": "https://api.cloudflare.com/client/v4/accounts/acct/ai/run",
+            "base_url": "https://api.cloudflare.com/client/v4/accounts/acct/ai/run",
+        }
+
+    monkeypatch.setattr(ai_brain, "get_ai_provider", fake_provider)
+    ready = ai_models.readiness_status()
+    assert ready["ready"] is True
+    assert ready["analysis_ready"] is True
+    assert ready["image_ready"] is True
+    assert ready["image_ready_count"] == 1
+    assert ready["warnings"]
