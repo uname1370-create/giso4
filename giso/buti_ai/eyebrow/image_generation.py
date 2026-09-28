@@ -767,20 +767,82 @@ def _decode_image_value(image_value: str, timeout: int) -> Tuple[bytes, str]:
     raise ImageProviderError("فرمت خروجی provider قابل خواندن نیست")
 
 
-def _save_provider_output(image_value: str, timeout: int) -> str:
+def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any], size: Tuple[int, int]):
+    """Return a resized eyebrow-only mask so provider output cannot alter eyes/lashes."""
+    try:
+        from PIL import Image, ImageFilter
+    except Exception as exc:
+        raise ImageProviderError("برای محدودکردن خروجی AI به ابرو، Pillow لازم است") from exc
+
+    detection = candidate.get("eyebrow_detection") if isinstance(candidate.get("eyebrow_detection"), dict) else {}
+    if not detection or not detection.get("regions"):
+        detection = final_design.ensure_eyebrow_detection(candidate)
+    if detection and detection.get("regions"):
+        detection = ensure_eyebrow_mask(source_path, detection)
+        candidate["eyebrow_detection"] = detection
+    mask_info = detection.get("mask") if isinstance(detection, dict) and isinstance(detection.get("mask"), dict) else {}
+    mask_path = str(mask_info.get("path") or detection.get("mask_path") or "").strip() if isinstance(detection, dict) else ""
+    if not mask_info.get("ok") or not mask_path or not os.path.exists(mask_path):
+        raise ImageProviderError("خروجی کامل AI ذخیره نشد؛ mask ابرو برای حفظ چشم/مژه در دسترس نیست")
+    try:
+        mask = Image.open(mask_path).convert("L").resize(size, Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
+        # Binary core + tiny feather: only brow pixels are editable; edge remains natural.
+        mask = mask.point(lambda px: 255 if int(px) >= 128 else 0)
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.65))
+        return mask, detection
+    except Exception as exc:
+        raise ImageProviderError("mask ابرو برای محدودکردن خروجی AI قابل خواندن نیست") from exc
+
+
+def _fit_provider_image_to_source(image, size: Tuple[int, int]):
+    try:
+        from PIL import Image, ImageOps
+    except Exception:
+        return image.resize(size)
+    if image.size == size:
+        return image
+    target_ratio = float(size[0]) / float(max(1, size[1]))
+    source_ratio = float(image.size[0]) / float(max(1, image.size[1]))
+    resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+    if abs(target_ratio - source_ratio) <= 0.08:
+        return image.resize(size, resample)
+    return ImageOps.fit(image, size, method=resample, centering=(0.5, 0.5))
+
+
+def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
+                          candidate: Optional[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any]]:
     raw, _mime = _decode_image_value(image_value, timeout)
     if not raw:
         raise ImageProviderError("تصویر خروجی خالی است")
     try:
         from PIL import Image
 
-        image = Image.open(BytesIO(raw)).convert("RGB")
-        image.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
+        ai_image = Image.open(BytesIO(raw)).convert("RGB")
+        meta: Dict[str, Any] = {"provider_output_constrained_to_eyebrow_mask": False}
+        if source_path and candidate is not None:
+            base = Image.open(source_path).convert("RGB")
+            base.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
+            ai_image = _fit_provider_image_to_source(ai_image, base.size).convert("RGB")
+            mask, detection = _provider_eyebrow_mask_for_save(source_path, candidate, base.size)
+            ai_image = Image.composite(ai_image, base, mask)
+            mask_info = detection.get("mask") if isinstance(detection, dict) and isinstance(detection.get("mask"), dict) else {}
+            meta.update({
+                "provider_output_constrained_to_eyebrow_mask": True,
+                "mask_used": True,
+                "mask_width": int(mask_info.get("width") or 0),
+                "mask_height": int(mask_info.get("height") or 0),
+                "mask_pixels": int(mask_info.get("pixel_count") or 0),
+                "mask_coverage_ratio": mask_info.get("coverage_ratio"),
+                "mask_polarity": mask_info.get("polarity") or MASK_POLARITY,
+                "mask_source_method": detection.get("method") if isinstance(detection, dict) else "",
+            })
+        else:
+            ai_image.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
         os.makedirs(final_design.FINAL_DESIGN_DIR, exist_ok=True)
         filename = f"final/ai_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.jpg"
         out_path = os.path.join(final_design.EYEBROW_UPLOAD_DIR, filename)
-        image.save(out_path, "JPEG", quality=90, optimize=True)
-        return filename
+        ai_image.save(out_path, "JPEG", quality=90, optimize=True)
+        return filename, meta
     except ImageProviderError:
         raise
     except Exception as exc:
@@ -799,7 +861,7 @@ def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") 
     }
     meta = provider.extra.get("_last_request_meta") if isinstance(provider.extra, dict) else None
     if isinstance(meta, dict):
-        for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "reference_image_sent", "cloudflare_request_format"):
+        for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "reference_image_sent", "cloudflare_request_format", "provider_output_constrained_to_eyebrow_mask"):
             if key in meta:
                 item[key] = meta[key]
     if error:
@@ -829,7 +891,13 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
         started = time.monotonic()
         try:
             image_value = _call_provider(provider, source_path, reference_path, candidate, prompt, timeout)
-            filename = _save_provider_output(image_value, timeout)
+            filename, save_meta = _save_provider_output(image_value, timeout, source_path, candidate)
+            if save_meta:
+                last_meta = provider.extra.setdefault("_last_request_meta", {})
+                for meta_key, meta_value in save_meta.items():
+                    if meta_key in last_meta and (meta_key == "mask_used" or meta_key.startswith("mask_")):
+                        continue
+                    last_meta[meta_key] = meta_value
             ms = int((time.monotonic() - started) * 1000)
             attempt = _attempt(provider, True, ms)
             attempts.append(attempt)
@@ -851,9 +919,9 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 "ai_inpainting": ai_inpainting,
                 "is_ai_generated": True,
                 "configured_provider_count": len(providers),
-                "message": "طراحی عکس نهایی با AI Inpainting و ماسک واقعی ابرو آماده شد." if ai_inpainting else "طراحی عکس نهایی با مدل تصویرسازی آماده شد.",
+                "message": "طراحی عکس نهایی با AI Inpainting و ماسک واقعی ابرو آماده شد." if ai_inpainting else "طراحی عکس نهایی با AI آماده شد و فقط داخل محدوده ابرو روی عکس اصلی اعمال شد.",
             }
-            for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "reference_image_sent", "cloudflare_request_format"):
+            for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "reference_image_sent", "cloudflare_request_format", "provider_output_constrained_to_eyebrow_mask"):
                 if key in attempt:
                     result[key] = attempt[key]
             return result

@@ -1022,6 +1022,68 @@ def test_final_design_reads_ai_management_image_provider(tmp_path, monkeypatch):
 
 
 
+
+def test_ai_provider_output_is_constrained_to_eyebrow_mask(tmp_path, monkeypatch):
+    import base64
+    import json
+    from io import BytesIO as _BytesIO
+    from PIL import Image
+    from giso.buti_ai.eyebrow import final_design, image_generation
+    from giso.buti_ai import ai_models as mirror_ai_models
+
+    original = tmp_path / "face.jpg"
+    source_color = (218, 178, 148)
+    Image.new("RGB", (640, 820), source_color).save(original, "JPEG")
+    output = _BytesIO()
+    Image.new("RGB", (640, 820), (0, 0, 0)).save(output, "PNG")
+    output_b64 = base64.b64encode(output.getvalue()).decode("ascii")
+
+    monkeypatch.setattr(final_design, "EYEBROW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(final_design, "FINAL_DESIGN_DIR", str(tmp_path / "final"))
+    monkeypatch.setattr(
+        mirror_ai_models,
+        "configured_image_provider_dicts",
+        lambda limit=3: [
+            {
+                "id": "ai_mirror_cf1_1",
+                "label": "مدیریت AI: cf1 #1",
+                "kind": "cloudflare",
+                "endpoint": "https://api.cloudflare.com/client/v4/accounts/acct-1/ai/run/@cf/black-forest-labs/flux-2-klein-4b",
+                "model": "@cf/black-forest-labs/flux-2-klein-4b",
+                "api_key": "secret-token",
+                "headers": {},
+                "extra": {"source": "ai_management"},
+            }
+        ],
+    )
+
+    class FakeResponse:
+        ok = True
+        status_code = 200
+        headers = {"content-type": "application/json"}
+        content = b""
+
+        def __init__(self):
+            self._payload = {"result": {"image": output_b64}}
+            self.text = json.dumps(self._payload)
+
+        def json(self):
+            return self._payload
+
+    monkeypatch.setattr(image_generation.requests, "post", lambda *a, **k: FakeResponse())
+
+    result = image_generation.generate_final_design(_sample_final_candidate(), env=None)
+
+    assert result["ok"] is True
+    assert result["provider_output_constrained_to_eyebrow_mask"] is True
+    assert result["mask_used"] is True
+    saved = Image.open(tmp_path / result["filename"]).convert("RGB")
+    outside = saved.getpixel((20, 20))
+    inside = saved.getpixel((238, 266))
+    assert all(abs(outside[i] - source_color[i]) < 18 for i in range(3))
+    assert sum(inside) < 80
+
+
 def test_cloudflare_non_photo_edit_models_are_not_called_with_multipart():
     import pytest
     from giso.buti_ai.eyebrow import image_generation

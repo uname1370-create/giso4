@@ -318,7 +318,9 @@ def build_design_prompt(candidate):
         "Use the provided eyebrow pixel mask when the API request includes one; white mask pixels are the editable eyebrow area and black pixels must be preserved. "
         "Prompt text and ROI coordinates are only descriptive metadata, not a substitute for the mask. "
         "Edit ONLY the two eyebrow regions: brow hairs, shape, fill, tail, arch, and very local brow shadow if needed. "
-        "Do not change identity, face shape, eyes, eyelids, lashes, skin texture, hair, makeup, lips, nose, lighting, camera angle, background, jewelry, clothes, or expression. "
+        "Hard constraint: every pixel outside the two eyebrow hair regions must remain identical to the original photo. "
+        "Do not change identity, face shape, eyes, eyelids, lashes, eye color, skin texture, hair, makeup, lips, nose, lighting, camera angle, background, jewelry, clothes, or expression. "
+        "Do not add eyeliner, mascara, eye shadow, extra eyelashes, eye retouching, skin smoothing, or glam makeup. "
         "Keep pores, shadows and natural asymmetry realistic. No beauty filter, no new face, no illustration, no heavy retouching. "
         f"Selected service: {service_label}. "
         f"Selected eyebrow model: {model_label}. Final design label: {style_label}. "
@@ -339,7 +341,7 @@ def generate_python_guided_design(candidate):
         return {"ok": False, "message": "برای طراحی عکس نهایی، عکس واقعی لازم است.", "status": "missing_photo"}
 
     try:
-        from PIL import Image, ImageDraw, ImageFilter
+        from PIL import Image, ImageChops, ImageDraw, ImageFilter
     except Exception:
         return {"ok": False, "message": "کتابخانه پردازش تصویر در دسترس نیست.", "status": "pillow_missing"}
 
@@ -369,6 +371,18 @@ def generate_python_guided_design(candidate):
         blur = float(params.get("blur") or 0)
         if blur > 0:
             overlay = overlay.filter(ImageFilter.GaussianBlur(radius=blur))
+
+        # Safety gate: even the non-AI guide must only touch eyebrow-mask pixels,
+        # never eyelids/lashes/eye makeup around the brow.
+        try:
+            mask_info = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
+            mask_path = str(mask_info.get("path") or detection.get("mask_path") or "").strip()
+            if mask_info.get("ok") and mask_path and os.path.exists(mask_path):
+                mask = Image.open(mask_path).convert("L").resize((w, h), Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
+                mask = mask.point(lambda px: 255 if int(px) >= 128 else 0).filter(ImageFilter.GaussianBlur(radius=0.65))
+                overlay.putalpha(ImageChops.multiply(overlay.getchannel("A"), mask))
+        except Exception:
+            pass
 
         composed = Image.alpha_composite(base.convert("RGBA"), overlay).convert("RGB")
         os.makedirs(FINAL_DESIGN_DIR, exist_ok=True)
