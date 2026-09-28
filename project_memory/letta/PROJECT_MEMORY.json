@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Project Memory and local Letta setup are prepared for handoff. The product scenario آینه ابرو گیسو has been documented in Project Memory, but no Giso feature/refactor/migration/scenario has been executed.",
+  "status": "Project Memory contains the آینه ابرو گیسو scenario and the modular Buti AI MVP technical design. No functional Giso code has been changed for this scenario.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -109,7 +109,9 @@
       "project_memory/letta/PROJECT_MEMORY.md",
       "project_memory/letta/PROJECT_MEMORY.json",
       "project_memory/letta/BOOTSTRAP_PROMPT.md",
-      "project_memory/letta/UPDATE_TEMPLATE.md"
+      "project_memory/letta/UPDATE_TEMPLATE.md",
+      "project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md",
+      "project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md"
     ]
   },
   "mcp_notes": {
@@ -154,7 +156,9 @@
     "Did not modify giso/, web/, bot_edu/, or main.py.",
     "Did not execute any scenario.",
     "Documented آینه ابرو گیسو scenario in project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md.",
-    "Documented modular Buti AI ownership rule for Beauty Mirror: keep feature code primarily in giso/buti_ai/."
+    "Documented modular Buti AI ownership rule for Beauty Mirror: keep feature code primarily in giso/buti_ai/.",
+    "Committed and pushed Project Memory scenario for آینه ابرو گیسو to arena/01a0e0b8-giso4.",
+    "Documented technical MVP design for modular Buti AI in project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md."
   ],
   "next_action": [
     "Run git status --short --branch before work.",
@@ -165,7 +169,9 @@
     "Wait for user to specify the real final scenario.",
     "Do not execute sena.md or any other scenario until explicitly instructed.",
     "Persist updated Project Memory safely before implementation.",
-    "Next implementation design must start from giso/buti_ai/ as the owner module."
+    "Next implementation design must start from giso/buti_ai/ as the owner module.",
+    "Read project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md before code implementation.",
+    "Ask for or confirm explicit user approval before changing functional Giso code for Buti AI."
   ],
   "update_protocol": [
     "Update PROJECT_MEMORY.md and PROJECT_MEMORY.json after meaningful work.",
@@ -220,7 +226,9 @@
       "Do not refactor/split giso/bot.py",
       "Keep Beauty Mirror-specific code in giso/buti_ai/ as owner module",
       "Use shared modules only as thin integrations",
-      "Do stages in the documented order"
+      "Do stages in the documented order",
+      "Do not implement code until user explicitly approves functional Giso changes",
+      "Technical MVP design is documentation only until approval"
     ],
     "technical_module_name": "Buti AI / buti_ai",
     "owner_module": "giso/buti_ai/",
@@ -233,6 +241,10 @@
       "Image preview or transparent fallback",
       "Beauty center/reservation integration",
       "Panels, stats, wallet, and later expansion"
-    ]
+    ],
+    "technical_design_file": "project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md",
+    "stage_1_memory_persisted_commit": "0a6c3c9ca1698aa517475d8415bdbef8e911470e",
+    "stage_2_technical_design_status": "documented_only_no_code_changes",
+    "next_code_stage_requires_user_approval": true
   }
 }

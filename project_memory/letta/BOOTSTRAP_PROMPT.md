@@ -7,6 +7,7 @@ Read these repo-local files first:
 1. `project_memory/letta/PROJECT_MEMORY.md`
 2. `project_memory/letta/PROJECT_MEMORY.json`
 3. `project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md`
+4. `project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md`
 4. `project_memory/letta/UPDATE_TEMPLATE.md`
 5. `tools/letta/README.md`
 
@@ -62,3 +63,4 @@ Beauty Mirror modularity rule:
 - Treat `giso/buti_ai/` as the owner module for آینه زیبایی گیسو / Buti AI.
 - Do not scatter mirror-specific routes, services, templates, prompt orchestration, or state across unrelated Giso modules.
 - Use other Giso modules only through thin integrations and follow the documented stage order.
+- `project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md` — technical MVP plan for modular Buti AI implementation. It is documentation only; no Giso code implementation has started yet.

@@ -260,6 +260,7 @@ Project Agent guidance:
 - Created instructions for future Letta Project Agent creation/import.
 - Did not modify `giso/`, `web/`, `bot_edu/`, or `main.py`.
 - Did not execute any scenario.
+- Documented the technical MVP design for Buti AI in `project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md`.
 
 ---
 
@@ -271,11 +272,19 @@ Scenario file:
 project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md
 ```
 
+
+Technical MVP design file:
+
+```text
+project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md
+```
+
 Current status:
 
-- Product/UX scenario is documented only.
+- Product/UX scenario is documented.
+- Technical MVP design is documented.
 - No Giso code has been changed for this scenario yet.
-- This scenario should be implemented only after explicit user approval.
+- This scenario should be implemented only after explicit user approval for code changes.
 
 Scenario summary:
 
@@ -333,8 +342,9 @@ Before real Giso work:
 2. Read `project_memory/letta/PROJECT_MEMORY.md` and `PROJECT_MEMORY.json`.
 3. If using Letta Local, create/reuse an agent named `giso4-project-memory` and import/refresh the Project Memory files.
 4. Carefully decide how to reconcile local branch with remote `origin/arena/01a0e0b8-giso4`, because local `graphify-out/` is untracked while remote tracks Graphify output.
-5. Wait for the user to specify the real final scenario.
-6. Do not execute `sena.md` or any other scenario until explicitly instructed.
+5. Read `project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md` before code implementation.
+6. Wait for explicit user approval before functional Giso code changes.
+7. Do not execute `sena.md` or any other scenario until explicitly instructed.
 
 ---
 
