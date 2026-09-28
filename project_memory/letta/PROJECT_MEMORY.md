@@ -838,3 +838,59 @@ Boundary:
 - Shared Giso AI/Vision was only used through the existing thin integration (`call_vision_with_fallback`).
 - No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
 
+---
+
+## 26. Buti AI Phase 4.1 — Final Eyebrow Choice, Auth Gate, and Python Guided Final Design
+
+Status:
+
+- User approved starting the next step after the final-image design discussion.
+- Implemented the safe first part of final design: user final choice, login/register gate, Python guided final design output, and storage.
+
+Changed behavior:
+
+- After Phase 3 analysis results, users now see an `انتخاب نهایی` panel.
+- Users can accept the Giso recommendation or choose another scored eyebrow model.
+- The final-design button stores the selected final style in session.
+- If the user is not authenticated, `/analysis/mirror/eyebrow/final` shows a Buti AI auth gate with login/register buttons and `next` return URLs.
+- If authenticated, the final page generates a Python/Pillow guided eyebrow composite on the uploaded photo.
+- Final design metadata is saved in a new `buti_ai_final_designs` table.
+- The final page shows before/after, selected model, recommended model, do/avoid notes, and links to centers/reservation.
+
+Important limitation:
+
+- This phase does NOT claim real AI image-generation final output.
+- The current final image is a safe Python guided composite (`python_guided_composite` / `pillow_brow_overlay_v1`).
+- Real image-generation provider chaining remains the next step after the user supplies/approves the 3 image-generation models.
+
+Changed files:
+
+```text
+giso/buti_ai/eyebrow/final_design.py
+giso/buti_ai/routes.py
+giso/buti_ai/schema.py
+giso/buti_ai/services.py
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/templates/buti_ai/eyebrow_final_auth.html
+giso/buti_ai/templates/buti_ai/eyebrow_final_design.html
+giso/buti_ai/static/buti_ai.css
+giso/tests/test_buti_ai_phase1.py
+```
+
+Code commit:
+
+```text
+027e785dc37d9d9177964938c04dc6625a528b83 feat: add Buti AI eyebrow final design step
+```
+
+Validation before commit:
+
+- `python3 -m py_compile giso/buti_ai/eyebrow/*.py giso/buti_ai/routes.py giso/buti_ai/services.py giso/buti_ai/schema.py giso/tests/test_buti_ai_phase1.py` passed.
+- Targeted pytest passed: `7 passed, 1 warning`.
+- `git diff --check` passed.
+
+Boundary:
+
+- Changes stayed inside Buti AI-owned module/templates/static assets plus Buti AI tests.
+- No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
+
