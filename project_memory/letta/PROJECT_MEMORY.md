@@ -782,3 +782,59 @@ Boundary:
 - No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
 - Real final AI image generation is still not implemented; current output remains analysis + guided proposal/preview.
 
+---
+
+## 25. Buti AI Phase 3 — Structured Eyebrow AI Analysis and Model Scoring
+
+Status:
+
+- User approved implementing the detailed Stage 3 AI-analysis improvement.
+- This phase strengthens the existing Giso vision integration rather than adding a new external AI path.
+
+Changed behavior:
+
+- Expanded `PHOTO_QUALITY_PROMPT` rules for clearer user-facing quality messages.
+- Rebuilt the eyebrow analysis prompt to request structured JSON with:
+  - face/eye/brow analysis,
+  - all eyebrow-model scores from 0 to 100,
+  - recommended style,
+  - recommended change level,
+  - short final reason,
+  - score cards,
+  - do/avoid lists,
+  - confidence.
+- Added safe normalization/fallback logic for style scores, face analysis, score cards, and short reason.
+- Added UI sections in the result page for:
+  - `امتیاز مدل‌ها`, showing every eyebrow model with percent score, reason, selected/recommended badges,
+  - `تحلیل چهره و ابرو`, showing face shape, eye-brow balance, density, symmetry, arch, and tail status.
+- Kept the flow truthful: no real final generated image is claimed; output remains analysis + guided proposal.
+
+Changed files:
+
+```text
+giso/buti_ai/eyebrow/ai.py
+giso/buti_ai/eyebrow/prompts.py
+giso/buti_ai/eyebrow/result.py
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+giso/tests/test_buti_ai_phase1.py
+```
+
+Code commit:
+
+```text
+5f0ed9c824cb60936fc83879e486e3923b4481ce feat: enhance Buti AI eyebrow analysis scoring
+```
+
+Validation before commit:
+
+- `python3 -m py_compile giso/buti_ai/eyebrow/*.py giso/buti_ai/routes.py giso/tests/test_buti_ai_phase1.py` passed.
+- Targeted pytest passed: `6 passed, 1 warning`.
+- `git diff --check` passed.
+
+Boundary:
+
+- Product logic remained inside `giso/buti_ai/eyebrow/`.
+- Shared Giso AI/Vision was only used through the existing thin integration (`call_vision_with_fallback`).
+- No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
+

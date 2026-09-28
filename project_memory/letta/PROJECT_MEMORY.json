@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 2.6 completed, validated, committed, and pushed: eyebrow journey copy is shorter/hook-oriented, eyebrow page now uses top hero + mini-flow, upload is a separate guided section with full-face sample, and result has simple score cards. Real final image generation is still not implemented.",
+  "status": "Buti AI Phase 3 completed, validated, committed, and pushed: eyebrow AI prompt now requests structured face/brow analysis and model scores; result UI displays model-score and face-analysis sections. Real final generated image is still not implemented.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -25,10 +25,10 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "clean after Phase 2.6 code push before memory commit"
+      "clean after Phase 3 code push before memory commit"
     ],
-    "phase_2_6_code_commit": "3fef62e998de66cf8665689716e58c0ac7fe117f",
-    "phase_2_6_note": "Buti AI-owned UX/copy/static-image/result-score refinement; tests and preview checks passed before commit.",
+    "phase_3_code_commit": "5f0ed9c824cb60936fc83879e486e3923b4481ce",
+    "phase_3_note": "Structured eyebrow AI prompt/result scoring implemented inside Buti AI; validation passed before commit.",
     "forbidden_paths_modified": false,
     "protected_paths_note": "No changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/."
   },
@@ -214,7 +214,8 @@
     "Updated eyebrow model cards to use image samples instead of CSS-only brow lines.",
     "Kept upload as a separate panel and renamed its heading to عکس چهره برای تحلیل.",
     "Committed and pushed Buti AI Phase 2.5 realistic brow samples as 38c3418ab9fc3c2cd3b43761ddeec997e4fa029c.",
-    "Committed and pushed Buti AI Phase 2.6 catchy eyebrow journey refinement as 3fef62e998de66cf8665689716e58c0ac7fe117f."
+    "Committed and pushed Buti AI Phase 2.6 catchy eyebrow journey refinement as 3fef62e998de66cf8665689716e58c0ac7fe117f.",
+    "Committed and pushed Buti AI Phase 3 structured eyebrow AI analysis/scoring as 5f0ed9c824cb60936fc83879e486e3923b4481ce."
   ],
   "next_action": [
     "Run git status --short --branch before future work.",
@@ -225,7 +226,8 @@
     "Do not claim real generated before/after image is implemented until a verified image-generation provider/workflow is added and tested.",
     "Future next product steps require explicit user approval: real image-generation provider, deeper center reservation/lead flow, panels/stats, wallet/credits, or other services under آینه زیبایی گیسو.",
     "Before any Buti AI code change, read CODE_BOUNDARY_RULES_BUTI_AI.md and confirm code ownership/location.",
-    "If user approves visuals, next step can refine actual AI analysis depth or future real image-generation/virtual try-on, but do not claim final generated image until implemented."
+    "If user approves visuals, next step can refine actual AI analysis depth or future real image-generation/virtual try-on, but do not claim final generated image until implemented.",
+    "Next Buti AI step should be user-approved: final-choice confirmation/locked recommendation, guided final design handoff, or reservation/center lead flow; do not claim real final image generation until implemented."
   ],
   "update_protocol": [
     "Update PROJECT_MEMORY.md and PROJECT_MEMORY.json after meaningful work.",
@@ -237,7 +239,7 @@
   "active_product_scenario": {
     "name": "آینه ابرو گیسو",
     "file": "project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md",
-    "status": "phase_2_6_eyebrow_journey_refined_tests_passed",
+    "status": "phase_3_ai_analysis_scoring_implemented_tests_passed",
     "summary_path": [
       "ورود سایت",
       "آینه زیبایی گیسو",
@@ -394,7 +396,8 @@
       "giso/buti_ai/static/brows/combination.jpg",
       "giso/buti_ai/static/brows/giso_suggested.jpg"
     ],
-    "phase_2_6_status": "catchy_copy_top_hero_guided_upload_score_cards_validated_committed_pushed"
+    "phase_2_6_status": "catchy_copy_top_hero_guided_upload_score_cards_validated_committed_pushed",
+    "phase_3_status": "structured_eyebrow_ai_analysis_scoring_validated_committed_pushed"
   },
   "validations": [
     "py_compile passed for giso/buti_ai Python files after Phase 1 changes.",
