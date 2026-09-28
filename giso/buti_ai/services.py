@@ -69,21 +69,62 @@ def save_final_design(user_id, candidate, generation):
         return None
 
 
-def add_to_waitlist(phone_number, city, service_type):
-    """ثبت شماره و تقاضای کاربر در لیست انتظار شهرستان‌ها."""
+def save_service_waitlist(user_id, phone_number, city, service_type, source="", payload=None):
+    """ثبت درخواست کاربر وقتی برای خدمت انتخابی مرکز فعال نداریم."""
     try:
+        import json
+
         clean_phone = normalize_phone(phone_number)
-        conn = get_giso_db_conn()
+        if not clean_phone:
+            return False, "شماره موبایل معتبر وارد کن.", None
+        city = " ".join(str(city or "").split())[:80] or "مشهد"
+        service_type = " ".join(str(service_type or "").split())[:60]
+        if not service_type:
+            return False, "نوع خدمت مشخص نیست.", None
+        source = " ".join(str(source or "").split())[:80]
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        payload_json = json.dumps(payload or {}, ensure_ascii=False)
+        conn = get_giso_db_conn()
         cur = conn.execute(
             """
-            INSERT INTO buti_ai_waitlist (phone_number, city, service_type, created_at)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO buti_ai_waitlist (
+                user_id, phone_number, city, service_type, source, status, payload_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, 'open', ?, ?)
             """,
-            (clean_phone, city.strip(), service_type.strip(), now_str)
+            (user_id, clean_phone, city, service_type, source, payload_json, now_str),
         )
         conn.commit()
-        return cur.lastrowid
+        return True, "درخواستت ثبت شد. وقتی مرکز فعال ابرو اضافه شود، اطلاع می‌دهیم.", cur.lastrowid
     except Exception as e:
-        logger.error("Error adding to buti_ai waitlist: %s", e)
-        return None
+        logger.error("Error saving buti_ai service waitlist: %s", e)
+        return False, "ثبت درخواست انجام نشد. لطفاً کمی بعد دوباره تلاش کن.", None
+
+
+def waitlist_interest_count(service_type, city=""):
+    """تعداد درخواست‌های باز برای یک خدمت؛ برای نمایش تقاضا و تصمیم محصول."""
+    try:
+        conn = get_giso_db_conn()
+        service_type = str(service_type or "").strip()
+        city = str(city or "").strip()
+        if city:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM buti_ai_waitlist WHERE service_type=? AND city=? AND status='open'",
+                (service_type, city),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM buti_ai_waitlist WHERE service_type=? AND status='open'",
+                (service_type,),
+            ).fetchone()
+        return int(row[0] if row else 0)
+    except Exception as e:
+        logger.error("Error counting buti_ai waitlist: %s", e)
+        return 0
+
+
+def add_to_waitlist(phone_number, city, service_type):
+    """ثبت شماره و تقاضای کاربر در لیست انتظار شهرستان‌ها؛ سازگار با کد قدیمی."""
+    ok, _message, row_id = save_service_waitlist(
+        None, phone_number, city, service_type, source="legacy_waitlist", payload={},
+    )
+    return row_id if ok else None

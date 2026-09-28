@@ -16,6 +16,13 @@ from giso.buti_ai.eyebrow import (
     initial_form_values,
     process_eyebrow_submission,
 )
+from giso.buti_ai.eyebrow.centers import (
+    BEAUTY_CENTER_BROW_SERVICE,
+    BUTI_EYEBROW_SERVICE,
+    active_eyebrow_centers,
+    user_default_city,
+    user_default_phone,
+)
 from giso.buti_ai.eyebrow.final_design import (
     FINAL_DESIGN_SESSION_KEY,
     get_final_candidate,
@@ -25,7 +32,7 @@ from giso.buti_ai.eyebrow.final_design import (
 from giso.buti_ai.eyebrow.image_generation import generate_final_design
 from giso.buti_ai.eyebrow.upload import EYEBROW_UPLOAD_DIR
 from giso.buti_ai.schema import init_buti_ai_db
-from giso.buti_ai.services import save_final_design
+from giso.buti_ai.services import save_final_design, save_service_waitlist, waitlist_interest_count
 
 
 def _safe_current_user_id():
@@ -145,7 +152,57 @@ def eyebrow_uploaded_file(filename):
     return send_from_directory(EYEBROW_UPLOAD_DIR, filename)
 
 
-@buti_ai_bp.route("/eyebrow/centers", methods=["GET"])
+@buti_ai_bp.route("/eyebrow/centers", methods=["GET", "POST"])
 def eyebrow_centers():
-    """اتصال نازک به مراکز زیبایی؛ مالک منطق مرکز همچنان beauty_centers است."""
-    return redirect(url_for("beauty_centers.list_centers", service="eyebrow"))
+    """بعد از طراحی نهایی: مرکز فعال ابرو یا ثبت درخواست انتظار.
+
+    اگر مرکز فعال برای خدمت ابرو داریم، کاربر را به لیست مراکز با فیلتر صحیح
+    `brow` می‌فرستیم. اگر نداریم، کاربر به صفحه خالی نمی‌رسد؛ درخواستش ثبت
+    می‌شود تا بعداً برای جذب/فعال‌سازی مرکز و اطلاع‌رسانی استفاده شود.
+    """
+    init_buti_ai_db()
+    city = (request.values.get("city") or user_default_city(current_user)).strip() or "مشهد"
+    centers = active_eyebrow_centers(city=city, limit=1)
+    if request.method == "GET" and centers:
+        return redirect(url_for("beauty_centers.list_centers", service=BEAUTY_CENTER_BROW_SERVICE, city=city))
+
+    candidate = get_final_candidate(session)
+    saved = False
+    waitlist_message = ""
+    waitlist_error = ""
+    if request.method == "POST":
+        phone = request.form.get("phone") or user_default_phone(current_user)
+        payload = {
+            "candidate": candidate,
+            "final_design_id": candidate.get("final_design_id") if isinstance(candidate, dict) else None,
+            "has_generation": bool(isinstance(candidate, dict) and candidate.get("generation")),
+        }
+        ok, message, _row_id = save_service_waitlist(
+            _safe_current_user_id(),
+            phone,
+            city,
+            BUTI_EYEBROW_SERVICE,
+            source="eyebrow_no_active_center",
+            payload=payload,
+        )
+        if ok:
+            saved = True
+            waitlist_message = message
+        else:
+            waitlist_error = message
+
+    demand_count = waitlist_interest_count(BUTI_EYEBROW_SERVICE, city=city)
+    return render_template(
+        "buti_ai/eyebrow_centers_empty.html",
+        candidate=candidate,
+        city=city,
+        default_phone=user_default_phone(current_user),
+        saved=saved,
+        waitlist_message=waitlist_message,
+        waitlist_error=waitlist_error,
+        demand_count=demand_count,
+        register_center_url=url_for("beauty_centers.register_center")
+        if getattr(current_user, "is_authenticated", False)
+        else url_for("login", next=url_for("beauty_centers.register_center")),
+        centers_url=url_for("beauty_centers.list_centers", service=BEAUTY_CENTER_BROW_SERVICE, city=city),
+    )

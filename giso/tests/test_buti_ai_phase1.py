@@ -452,3 +452,72 @@ def test_final_selection_change_clears_cached_generation():
         assert candidate["final_style"] == "natural"
         assert "generation" not in candidate
         assert "final_design_id" not in candidate
+
+
+def _cleanup_buti_ai_waitlist():
+    init_buti_ai_db()
+    with get_giso_db_conn() as conn:
+        conn.execute("DELETE FROM buti_ai_waitlist WHERE service_type=?", ("eyebrow",))
+        conn.commit()
+
+
+def test_eyebrow_centers_redirects_to_active_brow_centers(monkeypatch):
+    from giso.buti_ai import routes as buti_routes
+
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(buti_routes, "active_eyebrow_centers", lambda city="", limit=1: [{"id": 7}])
+
+    response = client.get("/analysis/mirror/eyebrow/centers?city=مشهد", follow_redirects=False)
+
+    assert response.status_code in (302, 303)
+    assert "/beauty-centers" in response.headers["Location"]
+    assert "service=brow" in response.headers["Location"]
+
+
+def test_eyebrow_centers_no_active_center_shows_waitlist(monkeypatch):
+    from giso.buti_ai import routes as buti_routes
+
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(buti_routes, "active_eyebrow_centers", lambda city="", limit=1: [])
+    _cleanup_buti_ai_waitlist()
+
+    response = client.get("/analysis/mirror/eyebrow/centers?city=مشهد")
+
+    assert response.status_code == 200
+    text = response.get_data(as_text=True)
+    assert "فعلاً مرکز فعال ابرو پیدا نکردیم" in text
+    assert "ثبت درخواست ابرو" in text
+    assert "ثبت مرکز زیبایی برای خدمت ابرو" in text
+
+
+def test_eyebrow_centers_waitlist_post_saves_interest(monkeypatch):
+    from giso.buti_ai import routes as buti_routes
+
+    app = create_app()
+    client = app.test_client()
+    monkeypatch.setattr(buti_routes, "active_eyebrow_centers", lambda city="", limit=1: [])
+    _cleanup_buti_ai_waitlist()
+
+    page = client.get("/analysis/mirror/eyebrow/centers?city=مشهد")
+    token = re.search(r'name="csrf_token" value="([^"]+)"', page.get_data(as_text=True)).group(1)
+    response = client.post(
+        "/analysis/mirror/eyebrow/centers",
+        data={"csrf_token": token, "city": "مشهد", "phone": "09123456789"},
+    )
+
+    assert response.status_code == 200
+    text = response.get_data(as_text=True)
+    assert "درخواستت ثبت شد" in text
+    with get_giso_db_conn() as conn:
+        row = conn.execute(
+            "SELECT phone_number, city, service_type, source, status FROM buti_ai_waitlist WHERE service_type=? ORDER BY id DESC LIMIT 1",
+            ("eyebrow",),
+        ).fetchone()
+    assert row is not None
+    assert row["phone_number"] == "+989123456789"
+    assert row["city"] == "مشهد"
+    assert row["source"] == "eyebrow_no_active_center"
+    assert row["status"] == "open"
+    _cleanup_buti_ai_waitlist()
