@@ -12,8 +12,12 @@ from giso.buti_ai.eyebrow.prompts import PHOTO_QUALITY_PROMPT, eyebrow_analysis_
 logger = logging.getLogger("giso_buti_ai_eyebrow_ai")
 
 
-def _call_assigned_vision_json(image_path, prompt, max_tokens=1000):
-    """اولویت اختصاصی آینه ابرو از مدیریت AI؛ اگر خالی بود None."""
+def _call_assigned_vision_json(image_path, prompt, max_tokens=1000, limit=None):
+    """اولویت اختصاصی آینه ابرو از مدیریت AI؛ اگر خالی بود None.
+
+    برای بررسی اولیه عکس می‌توان limit=1 داد تا فقط یک مدل AI استفاده شود
+    و بقیه کنترل‌ها کدنویسی/اعتبارسنجی سبک بمانند.
+    """
     try:
         from giso.async_compat import run_async_safe
         from giso.ai_brain import ask_ai_vision
@@ -28,11 +32,15 @@ def _call_assigned_vision_json(image_path, prompt, max_tokens=1000):
         return None
 
     errors = []
+    tried = 0
     for item in chain:
         provider = item.get("provider_name") or ""
         model = item.get("model_name") or ""
         if not provider or not model:
             continue
+        if limit is not None and tried >= int(limit or 1):
+            break
+        tried += 1
         try:
             result = run_async_safe(ask_ai_vision(provider, image_path, prompt, model=model, max_tokens=max_tokens))
         except Exception as exc:
@@ -51,14 +59,20 @@ def _call_assigned_vision_json(image_path, prompt, max_tokens=1000):
     return {"ok": False, "error": "؛ ".join(errors[-3:]) or "assigned_vision_failed"}
 
 
-def _call_vision_json(image_path, prompt, max_tokens=1000):
+def _call_vision_json(image_path, prompt, max_tokens=1000, assigned_limit=None, global_fallback=True):
     """فراخوانی موتور vision موجود با اولویت مدل اختصاصی آینه ابرو."""
     try:
-        assigned = _call_assigned_vision_json(image_path, prompt, max_tokens=max_tokens)
+        assigned = _call_assigned_vision_json(image_path, prompt, max_tokens=max_tokens, limit=assigned_limit)
         if assigned and assigned.get("ok"):
+            return assigned
+        if assigned and not global_fallback:
             return assigned
     except Exception as exc:
         logger.debug("Buti AI assigned vision failed before fallback: %s", exc)
+        if not global_fallback:
+            return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:180]}"}
+    if not global_fallback:
+        return {"ok": False, "error": "assigned_vision_unavailable"}
     try:
         from giso.analysis import call_vision_with_fallback
 
@@ -79,7 +93,11 @@ def check_photo_quality(image_path):
             "reasons": ["no_image"],
         }
 
-    result = _call_vision_json(image_path, PHOTO_QUALITY_PROMPT, max_tokens=700)
+    try:
+        result = _call_vision_json(image_path, PHOTO_QUALITY_PROMPT, max_tokens=700, assigned_limit=1, global_fallback=False)
+    except TypeError:
+        # تست‌های قدیمی این تابع داخلی را با امضای ساده monkeypatch می‌کنند.
+        result = _call_vision_json(image_path, PHOTO_QUALITY_PROMPT, max_tokens=700)
     if not result.get("ok"):
         return {
             "status": "ai_unavailable",

@@ -2,11 +2,11 @@
 
 {% block title %}طراحی عکس نهایی ابرو گیسو{% endblock %}
 {% block meta %}
-<meta name="description" content="طراحی عکس نهایی ابرو در آینه ابرو گیسو؛ پیش‌نمایش هوشمند و راهنمای مراجعه به مرکز تخصصی.">
+<meta name="description" content="طراحی عکس نهایی ابرو در آینه ابرو گیسو؛ مشاهده طراحی و راهنمای مراجعه به مرکز تخصصی.">
 {% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=16">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=18">
 {% endblock %}
 
 {% block content %}
@@ -46,8 +46,7 @@
                 <input class="bti-compare-range" type="range" min="0" max="100" value="50" aria-label="میزان نمایش طراحی عکس نهایی">
             </div>
             <div class="bti-compare-actions">
-                <a class="bti-secondary-action bti-zoom-action" href="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename) }}" target="_blank" rel="noopener">بزرگنمایی طراحی</a>
-                <a class="bti-ghost-action" href="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename) }}" target="_blank" rel="noopener">مشاهده عکس اصلی</a>
+                <button class="bti-secondary-action bti-zoom-action" type="button" data-bti-lightbox-image="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename) }}">بزرگنمایی طراحی</button>
             </div>
             <p>خط وسط را بکش؛ سمت راست عکس اصلی و سمت چپ طراحی نهایی را نشان می‌دهد.</p>
         </div>
@@ -129,10 +128,10 @@
 
         <section class="bti-final-centers" aria-label="مراکز پیشنهادی ابرو">
             <header>
-                <span>مرحله ۶: اجرای طرح</span>
+                <span>بعد از طراحی: انتخاب مرکز</span>
                 <div>
                     <h3>مراکز پیشنهادی برای خدمات ابرو</h3>
-                    <p>این مراکز خدمت ابرو را در گیسو ثبت کرده‌اند. قبل از انجام کار، مدل، قیمت، مراقبت و محدودیت‌ها را با مرکز چک کن.</p>
+                    <p>مرحله بعد: مرکز اجرای ابرو. این مراکز خدمت ابرو را در گیسو ثبت کرده‌اند. قبل از انجام کار، مدل، قیمت، مراقبت و محدودیت‌ها را با مرکز چک کن.</p>
                 </div>
             </header>
 
@@ -206,11 +205,11 @@
             {% if center_suggestions %}
             <a class="bti-primary-action" href="{{ centers_url }}">مشاهده همه مراکز ابرو</a>
             {% else %}
-            <a class="bti-primary-action" href="#btiFinalWaitlist">ثبت درخواست مرکز ابرو</a>
+            <a class="bti-primary-action" href="#btiFinalWaitlist">ثبت اطلاع‌رسانی مرکز ابرو</a>
             {% endif %}
             <a class="bti-secondary-action" href="{{ url_for('buti_ai.eyebrow_wizard') }}">شروع دوباره</a>
         </div>
     </section>
 </main>
-<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=15" defer></script>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=18" defer></script>
 {% endblock %}

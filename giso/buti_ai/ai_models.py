@@ -293,8 +293,9 @@ def provider_model_options() -> Dict[str, Any]:
 
     providers: List[Dict[str, Any]] = []
     all_models: List[str] = []
+    image_candidates: List[Dict[str, str]] = []
     if list_ai_providers is None:
-        return {"providers": providers, "models": all_models}
+        return {"providers": providers, "models": all_models, "image_candidates": image_candidates[:30]}
 
     try:
         rows = list_ai_providers() or []
@@ -309,6 +310,9 @@ def provider_model_options() -> Dict[str, Any]:
         for model in models:
             if model not in all_models:
                 all_models.append(model)
+            model_l = str(model or "").lower()
+            if any(token in model_l for token in ("flux", "image", "diffusion", "sdxl", "dall-e", "gpt-image", "imagen", "kandinsky", "stable")):
+                image_candidates.append({"provider": name, "model": model, "hint": "احتمالاً مدل تصویر"})
         base_url = str(_row_get(row, "api_root", "") or _row_get(row, "base_url", "") or "")
         providers.append({
             "name": name,
@@ -319,7 +323,7 @@ def provider_model_options() -> Dict[str, Any]:
             "models": models,
             "cloudflare_account_id": cloudflare_account_id_from_url(base_url) if cloudflare_account_id_from_url else "",
         })
-    return {"providers": providers, "models": all_models}
+    return {"providers": providers, "models": all_models, "image_candidates": image_candidates[:30]}
 
 
 def panel_slots_context() -> Dict[str, Any]:
@@ -354,6 +358,8 @@ def panel_slots_context() -> Dict[str, Any]:
         "providers": options.get("providers", []),
         "model_options": options.get("models", []),
         "readiness": readiness_status(),
+        "image_candidates": options.get("image_candidates", []),
+        "recommended_image_model": DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL,
     }
 
 

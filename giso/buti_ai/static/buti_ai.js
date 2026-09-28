@@ -12,6 +12,46 @@
     btn.classList.toggle('is-disabled', !enabled);
   }
 
+  function setUploadScanning(active, label) {
+    var zone = document.getElementById('btiUploadZone');
+    var scanLabel = document.getElementById('btiUploadScanLabel');
+    if (zone) zone.classList.toggle('is-analyzing', !!active);
+    if (scanLabel) scanLabel.textContent = label || (active ? 'در حال آنالیز عکس...' : 'عکس آماده ادامه است');
+  }
+
+  function showFinalLoading(imageSrc, message) {
+    var existing = document.querySelector('.bti-final-loading-overlay');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.className = 'bti-final-loading-overlay';
+    overlay.innerHTML = '' +
+      '<div class="bti-final-loading-card">' +
+      '  <div class="bti-final-loading-photo">' +
+      (imageSrc ? '<img src="' + imageSrc.replace(/"/g, '&quot;') + '" alt="عکس در حال پردازش">' : '<i class="fas fa-wand-magic-sparkles"></i>') +
+      '    <span class="bti-laser-scan" aria-hidden="true"></span>' +
+      '  </div>' +
+      '  <strong>' + (message || 'در حال ساخت طراحی عکس نهایی...') + '</strong>' +
+      '  <small>عکس و مدل انتخابی حفظ شده؛ لطفاً چند لحظه صبر کن.</small>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function () { overlay.classList.add('is-visible'); });
+  }
+
+  function openImageLightbox(src) {
+    if (!src) return;
+    var old = document.querySelector('.bti-image-lightbox');
+    if (old) old.remove();
+    var box = document.createElement('div');
+    box.className = 'bti-image-lightbox';
+    box.innerHTML = '<button type="button" aria-label="بستن">×</button><img src="' + src.replace(/"/g, '&quot;') + '" alt="بزرگنمایی طراحی">';
+    function close() { box.remove(); document.removeEventListener('keydown', onKey); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    box.addEventListener('click', function (event) { if (event.target === box || event.target.tagName === 'BUTTON') close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(box);
+    requestAnimationFrame(function () { box.classList.add('is-visible'); });
+  }
+
   function setCheckState(kind, message, checks, warnings) {
     var box = document.getElementById('btiUploadChecks');
     var status = document.getElementById('btiUploadCheckStatus');
@@ -50,7 +90,8 @@
     var tokenInput = document.querySelector('input[name="csrf_token"]');
     var formData = new FormData();
     formData.append('photo', file);
-    setCheckState('is-loading', 'در حال بررسی اولیه عکس...', {}, []);
+    setCheckState('is-loading', 'در حال آنالیز عکس...', {}, []);
+    setUploadScanning(true, 'در حال آنالیز عکس...');
     setAnalyzeEnabled(false);
     try {
       var response = await fetch('/analysis/mirror/eyebrow/validate-photo', {
@@ -62,13 +103,16 @@
       if (result.valid) {
         var kind = result.warnings && result.warnings.length ? 'is-warn' : 'is-ok';
         setCheckState(kind, result.message || 'عکس برای طراحی مناسب است.', result.checks || {}, result.warnings || []);
+        setUploadScanning(false, 'عکس آماده طراحی است');
         setAnalyzeEnabled(true);
       } else {
         setCheckState('is-bad', result.message || 'این عکس برای طراحی مناسب نیست.', result.checks || {}, []);
+        setUploadScanning(false, 'این عکس مناسب نیست؛ عکس دیگری انتخاب کن');
         setAnalyzeEnabled(false);
       }
     } catch (error) {
       setCheckState('is-warn', 'بررسی اولیه کامل نشد؛ اگر عکس واضح است می‌توانی ادامه بدهی.', {}, []);
+      setUploadScanning(false, 'عکس انتخاب شد');
       setAnalyzeEnabled(true);
     }
   }
@@ -76,15 +120,28 @@
   ready(function () {
     var input = document.getElementById('btiEyebrowPhoto');
     var text = document.getElementById('btiUploadText');
+    var fileName = document.getElementById('btiUploadFileName');
     var preview = document.getElementById('btiUploadPreview');
+    var previewFrame = document.getElementById('btiUploadPreviewFrame');
+    var placeholder = document.getElementById('btiUploadPlaceholder');
+    var changeBtn = document.getElementById('btiChangePhotoBtn');
+    var zone = document.getElementById('btiUploadZone');
     var form = input ? input.closest('form') : null;
     setAnalyzeEnabled(false);
+    if (changeBtn && input) {
+      changeBtn.addEventListener('click', function () { input.click(); });
+    }
     if (input && text) {
       input.addEventListener('change', function () {
         var file = input.files && input.files[0];
         if (!file) {
           text.textContent = 'انتخاب عکس';
-          if (preview) { preview.hidden = true; preview.removeAttribute('src'); }
+          if (fileName) fileName.textContent = 'عکسی انتخاب نشده';
+          if (preview) { preview.removeAttribute('src'); }
+          if (previewFrame) previewFrame.hidden = true;
+          if (placeholder) placeholder.hidden = false;
+          if (changeBtn) changeBtn.hidden = true;
+          if (zone) zone.classList.remove('has-preview', 'is-analyzing');
           setAnalyzeEnabled(false);
           return;
         }
@@ -100,13 +157,17 @@
           setAnalyzeEnabled(false);
           return;
         }
-        text.textContent = 'عکس انتخاب شد: ' + file.name;
+        text.textContent = 'عکس انتخاب شد';
+        if (fileName) fileName.textContent = file.name;
         if (preview) {
           var url = URL.createObjectURL(file);
           preview.src = url;
-          preview.hidden = false;
           preview.onload = function () { URL.revokeObjectURL(url); };
         }
+        if (previewFrame) previewFrame.hidden = false;
+        if (placeholder) placeholder.hidden = true;
+        if (changeBtn) changeBtn.hidden = false;
+        if (zone) zone.classList.add('has-preview');
         validateEyebrowPhoto(file);
       });
     }
@@ -116,9 +177,26 @@
         if (btn && btn.disabled) {
           event.preventDefault();
           alert('لطفاً اول یک عکس واضح انتخاب کن تا بررسی اولیه انجام شود.');
+          return;
         }
+        var src = preview && preview.src ? preview.src : '';
+        showFinalLoading(src, 'در حال ساخت طراحی عکس نهایی...');
       });
     }
+
+    document.querySelectorAll('[data-bti-final-build-form]').forEach(function (buildForm) {
+      buildForm.addEventListener('submit', function () {
+        showFinalLoading(buildForm.getAttribute('data-bti-loading-image') || '', 'در حال ساخت طراحی عکس نهایی...');
+      });
+    });
+    document.querySelectorAll('[data-bti-final-loading-link]').forEach(function (link) {
+      link.addEventListener('click', function () {
+        showFinalLoading(link.getAttribute('data-bti-loading-image') || '', 'در حال آماده‌سازی طراحی نهایی...');
+      });
+    });
+    document.querySelectorAll('[data-bti-lightbox-image]').forEach(function (btn) {
+      btn.addEventListener('click', function () { openImageLightbox(btn.getAttribute('data-bti-lightbox-image')); });
+    });
 
     var styleOptions = Array.prototype.slice.call(document.querySelectorAll('.bti-style-option, .bti-style-row, .bti-style-choice'));
     styleOptions.forEach(function (option) {

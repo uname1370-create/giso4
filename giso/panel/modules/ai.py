@@ -139,6 +139,12 @@ def handle_config():
             ok = bool(res.get("ok"))
             added = int(res.get("added") or 0)
             message = f"{added} اسلات خالی آینه زیبایی به‌صورت خودکار تنظیم شد." if ok else "تنظیم خودکار مدل‌های آینه زیبایی انجام نشد."
+        elif action == "repair_beauty_mirror_image_models":
+            from giso.buti_ai.ai_models import repair_legacy_cloudflare_eyebrow_image_slots
+            res = repair_legacy_cloudflare_eyebrow_image_slots()
+            ok = bool(res.get("ok"))
+            changed = int(res.get("changed") or 0)
+            message = f"{changed} اسلات طراحی عکس ابرو بررسی/اصلاح شد." if ok else "اصلاح اسلات‌های طراحی عکس انجام نشد."
     except Exception as e:
         ok = False
         message = f"خطا در اجرای تغییر: {e}"

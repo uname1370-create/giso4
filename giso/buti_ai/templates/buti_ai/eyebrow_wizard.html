@@ -11,7 +11,7 @@
 
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=15">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=18">
 {% endblock %}
 
 {% block content %}
@@ -93,7 +93,7 @@
             </div>
         </form>
         {% elif flow_step == 'upload' %}
-        <form class="bti-eyebrow-form bti-eyebrow-form-separated bti-eyebrow-form-clean" method="post" enctype="multipart/form-data" action="{{ url_for('buti_ai.eyebrow_upload') }}">
+        <form class="bti-eyebrow-form bti-eyebrow-form-separated bti-eyebrow-form-clean" method="post" enctype="multipart/form-data" action="{{ url_for('buti_ai.eyebrow_upload') }}" data-bti-upload-form>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <section class="bti-form-panel bti-step-panel bti-selection-summary-panel">
                 <div class="bti-form-panel-head">
@@ -116,25 +116,37 @@
                 </div>
                 <div class="bti-upload-layout bti-upload-layout-redesigned">
                     <div class="bti-upload-action-card">
-                        <label class="bti-upload-zone" for="btiEyebrowPhoto">
-                            <img id="btiUploadPreview" class="bti-upload-preview" alt="پیش‌نمایش عکس انتخاب‌شده" hidden>
-                            <i class="fas fa-cloud-arrow-up"></i>
-                            <b id="btiUploadText">انتخاب عکس</b>
-                            <small>jpg، png یا webp؛ عکس واقعی و واضح</small>
+                        <label class="bti-upload-zone" id="btiUploadZone" for="btiEyebrowPhoto">
+                            <span class="bti-upload-placeholder" id="btiUploadPlaceholder">
+                                <i class="fas fa-cloud-arrow-up"></i>
+                                <b id="btiUploadText">انتخاب عکس</b>
+                                <small>jpg، png یا webp؛ عکس واقعی و واضح</small>
+                            </span>
+                            <span class="bti-upload-preview-frame" id="btiUploadPreviewFrame" hidden>
+                                <img id="btiUploadPreview" class="bti-upload-preview" alt="پیش‌نمایش عکس انتخاب‌شده">
+                                <span class="bti-laser-scan" aria-hidden="true"></span>
+                                <em id="btiUploadScanLabel">در حال آنالیز عکس...</em>
+                            </span>
                             <input id="btiEyebrowPhoto" type="file" name="photo" accept="image/jpeg,image/png,image/webp" required>
                         </label>
-                        <div class="bti-upload-guide-card">
-                            <b>برای نتیجه بهتر:</b>
+                        <div class="bti-upload-under-actions">
+                            <button class="bti-secondary-action bti-change-photo" id="btiChangePhotoBtn" type="button" hidden>تغییر عکس</button>
+                            <span id="btiUploadFileName">عکسی انتخاب نشده</span>
+                        </div>
+                    </div>
+                    <div class="bti-upload-side-card">
+                        <div class="bti-upload-sample-card is-compact">
+                            <img src="{{ url_for('buti_ai.static', filename='brows/upload_face_only.jpg') }}" alt="نمونه عکس مناسب برای طراحی ابرو">
+                            <div>
+                                <b>نمونه عکس مناسب</b>
+                                <span>صورت کامل، نور کافی، ابروها واضح</span>
+                            </div>
+                        </div>
+                        <div class="bti-upload-guide-card is-compact">
+                            <b>برای نتیجه بهتر</b>
                             <span>نور کافی</span>
                             <span>صورت روبه‌رو</span>
                             <span>بدون فیلتر</span>
-                        </div>
-                    </div>
-                    <div class="bti-upload-sample-card">
-                        <img src="{{ url_for('buti_ai.static', filename='brows/upload_face_only.jpg') }}" alt="نمونه عکس مناسب برای طراحی ابرو">
-                        <div>
-                            <b>عکس مناسب</b>
-                            <span>صورت کامل، نور کافی، ابروها واضح</span>
                         </div>
                     </div>
                 </div>
@@ -203,7 +215,7 @@
                 <h3>همان مدل انتخابی طراحی می‌شود</h3>
             </div>
             <p class="bti-final-choice-lead">مدل نهایی از انتخاب مرحله اول می‌آید و با مدل دیگری جایگزین نمی‌شود.</p>
-            <form method="post" action="{{ url_for('buti_ai.eyebrow_finalize_choice') }}">
+            <form method="post" action="{{ url_for('buti_ai.eyebrow_finalize_choice') }}" data-bti-final-build-form data-bti-loading-image="{% if result.preview and result.preview.before_filename %}{{ url_for('buti_ai.eyebrow_uploaded_file', filename=result.preview.before_filename) }}{% endif %}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="final_style" value="{{ result.selected_style_key }}">
                 <div class="bti-final-choice-list" role="group" aria-label="مدل نهایی ابرو">
@@ -216,7 +228,7 @@
                     </label>
                 </div>
                 <div class="bti-final-choice-actions">
-                    <button class="bti-primary-action" type="submit">طراحی عکس نهایی</button>
+                    <button class="bti-primary-action" type="submit">ادامه به طراحی عکس نهایی</button>
                     <small>برای ساخت طراحی عکس نهایی، ورود یا ثبت‌نام لازم است.</small>
                 </div>
             </form>
@@ -238,5 +250,5 @@
     </section>
     {% endif %}
 </main>
-<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=15" defer></script>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=18" defer></script>
 {% endblock %}
