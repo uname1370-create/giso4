@@ -2341,3 +2341,20 @@
     line-height: 1.8;
     font-size: .78rem;
 }
+
+.bti-selection-summary-panel {
+    border-color: rgba(255,173,18,.22);
+    background: linear-gradient(135deg, rgba(255,173,18,.07), rgba(255,255,255,.025));
+}
+
+.bti-selection-summary-panel .bti-secondary-action {
+    width: fit-content;
+}
+
+.bti-center-match-reason {
+    margin: 8px 0 10px;
+    color: #e7d7b5;
+    line-height: 1.8;
+    font-size: .86rem;
+    font-weight: 800;
+}

@@ -3,8 +3,10 @@
 import os
 import re
 from io import BytesIO
+from pathlib import Path
 
 os.environ.setdefault("SECRET_KEY", "arena-test-secret-for-buti-ai-tests-32chars")
+ROOT = Path(__file__).resolve().parents[2]
 
 from giso.app import create_app
 from giso.base import get_giso_db_conn
@@ -75,42 +77,114 @@ def test_buti_ai_routes_and_analysis_card_are_rendered_from_module():
     assert "کدام مدل به سلیقه‌ات نزدیک‌تر است؟" in eyebrow_text
     assert "میکروبلیدینگ ظریف" in eyebrow_text
     assert "شیدینگ پودری" in eyebrow_text
-    assert "کیفیت عکس بررسی می‌شود" in eyebrow_text
+    assert "اول کیفیت عکس بررسی می‌شود" not in eyebrow_text
     assert "نمونه بدون عکس" not in eyebrow_text
     assert "bti-eyebrow-hero-photo" not in eyebrow_text
-    assert eyebrow_text.find("bti-upload-action-card") < eyebrow_text.find("bti-upload-sample-card")
+
+    token = re.search(r'name="csrf_token" value="([^"]+)"', eyebrow_text).group(1)
+    selected = client.post(
+        "/analysis/mirror/eyebrow/model",
+        data={"csrf_token": token, "style": "natural", "change_level": "medium"},
+        follow_redirects=True,
+    )
+    upload_text = selected.get_data(as_text=True)
+    assert selected.status_code == 200
+    assert "عکس واضح صورت را بفرست" in upload_text
+    assert "اول کیفیت عکس بررسی می‌شود" in upload_text
+    assert "نمونه بدون عکس" not in upload_text
+    assert upload_text.find("bti-upload-action-card") < upload_text.find("bti-upload-sample-card")
 
     ping = client.get("/analysis/mirror/ping")
     assert ping.status_code == 200
     assert ping.get_json()["module"] == "buti_ai_ready"
 
 
-def test_buti_ai_eyebrow_demo_post_with_csrf():
+def test_buti_ai_eyebrow_real_photo_step_flow_with_csrf(monkeypatch):
     app = create_app()
     _cleanup_buti_ai_sessions()
     client = app.test_client()
 
+    monkeypatch.setattr(eyebrow_flow, "check_photo_quality", lambda path: {
+        "status": "ai_checked", "ok": True, "message": "عکس مناسب است.", "checks": {}, "reasons": []
+    })
+    monkeypatch.setattr(eyebrow_flow, "analyze_eyebrow_photo", lambda path, style, change: {
+        "status": "ai_analyzed",
+        "ok": True,
+        "message": "تحلیل هوشمند ابرو انجام شد.",
+        "data": {
+            "recommended_style": "microblading",
+            "change_level": "medium",
+            "short_reason": "برای تست مسیر واقعی مناسب است.",
+            "why": "فرم ابرو با تغییر متوسط بهتر دیده می‌شود.",
+            "do": ["قوس ملایم"],
+            "avoid": ["تیره‌کردن زیاد"],
+            "style_scores": [],
+            "score_cards": [],
+            "face_analysis": {},
+        },
+        "provider": "test-provider",
+        "model": "test-model",
+    })
+
     page = client.get("/analysis/mirror/eyebrow")
     assert page.status_code == 200
     token = re.search(r'name="csrf_token" value="([^"]+)"', page.get_data(as_text=True)).group(1)
+    step = client.post(
+        "/analysis/mirror/eyebrow/model",
+        data={"csrf_token": token, "style": "microblading", "change_level": "medium"},
+        follow_redirects=True,
+    )
+    assert step.status_code == 200
+    upload_text = step.get_data(as_text=True)
+    assert "انتخاب شما" in upload_text
+    assert "میکروبلیدینگ ظریف" in upload_text
+    token = re.search(r'name="csrf_token" value="([^"]+)"', upload_text).group(1)
+    photo = (ROOT / "giso/buti_ai/static/brows/upload_face_sample.jpg").read_bytes()
 
     response = client.post(
-        "/analysis/mirror/eyebrow",
-        data={
-            "csrf_token": token,
-            "style": "microblading",
-            "change_level": "medium",
-            "demo_mode": "1",
-        },
+        "/analysis/mirror/eyebrow/upload",
+        data={"csrf_token": token, "photo": (BytesIO(photo), "real-face.jpg")},
+        content_type="multipart/form-data",
     )
     assert response.status_code == 200
     text = response.get_data(as_text=True)
     assert "پیشنهاد گیسو" in text
     assert "میکروبلیدینگ ظریف" in text
     assert "کیفیت عکس" in text
-    assert "مرحله ۵: مراکز و رزرو" in text
+    assert "ادامه به طراحی نهایی کار" in text
 
     _cleanup_buti_ai_sessions()
+
+
+
+
+def test_eyebrow_upload_rejects_fake_and_large_files(tmp_path):
+    from werkzeug.datastructures import FileStorage
+    from giso.buti_ai.eyebrow import upload
+
+    fake = FileStorage(stream=BytesIO(b"not a real image"), filename="face.jpg", content_type="image/jpeg")
+    bad = upload.save_eyebrow_photo(fake, upload_dir=str(tmp_path))
+    assert bad["ok"] is False
+    assert bad["reason"] == "bad_content"
+
+    large = FileStorage(
+        stream=BytesIO(b"x" * (upload.MAX_UPLOAD_BYTES + 1)),
+        filename="face.jpg",
+        content_type="image/jpeg",
+    )
+    too_large = upload.save_eyebrow_photo(large, upload_dir=str(tmp_path))
+    assert too_large["ok"] is False
+    assert too_large["reason"] == "too_large"
+
+    valid = FileStorage(
+        stream=BytesIO((ROOT / "giso/buti_ai/static/brows/upload_face_sample.jpg").read_bytes()),
+        filename="face.jpg",
+        content_type="image/jpeg",
+    )
+    saved = upload.save_eyebrow_photo(valid, upload_dir=str(tmp_path))
+    assert saved["ok"] is True
+    assert saved["filename"].endswith(".jpg")
+    assert (tmp_path / saved["filename"]).exists()
 
 
 def test_eyebrow_ai_helpers_parse_quality_and_analysis(monkeypatch):
@@ -411,7 +485,7 @@ def test_final_design_cloudflare_provider_success_saves_ai_output(tmp_path, monk
         assert "acct-1" in url
         assert headers["Authorization"] == "Bearer secret-token"
         assert "input_image_0" in files
-        assert data["prompt"].startswith("Edit only the two eyebrow regions")
+        assert "Edit ONLY the two eyebrow regions" in data["prompt"]
         return FakeResponse()
 
     monkeypatch.setattr(image_generation.requests, "post", fake_post)
@@ -564,14 +638,29 @@ def test_service_demand_records_pre_need_without_phone():
         conn.commit()
 
 
+
+def test_eyebrow_center_suggestions_are_ranked_and_explain_reservation():
+    from giso.buti_ai.eyebrow.centers import enrich_eyebrow_center_suggestions
+
+    centers = [
+        {"name": "عمومی", "city": "تهران", "services": [], "service_labels": [], "feedback": {}},
+        {"name": "ابرو مشهد", "city": "مشهد", "services": ["brow"], "service_labels": ["خدمات ابرو"], "feedback": {"score100": 90, "label": "عالی"}},
+    ]
+    result = enrich_eyebrow_center_suggestions(centers, {"final_label": "میکروبلیدینگ ظریف"}, city="مشهد")
+    assert result[0]["name"] == "ابرو مشهد"
+    assert "خدمات ابرو" in result[0]["mirror_tags"]
+    assert "میکروبلیدینگ ظریف" in result[0]["mirror_match_reason"]
+
 def _render_final_design_template(center_suggestions):
     from flask import render_template
+    from giso.buti_ai.eyebrow.centers import enrich_eyebrow_center_suggestions
 
     app = create_app()
+    candidate = _sample_final_candidate()
     with app.test_request_context("/analysis/mirror/eyebrow/final"):
         return render_template(
             "buti_ai/eyebrow_final_design.html",
-            candidate=_sample_final_candidate(),
+            candidate=candidate,
             generation={
                 "ok": True,
                 "filename": "final/final_eyebrow_test.jpg",
@@ -580,7 +669,7 @@ def _render_final_design_template(center_suggestions):
                 "message": "طراحی نهایی کار راهنما آماده شد.",
             },
             center_city="مشهد",
-            center_suggestions=center_suggestions,
+            center_suggestions=enrich_eyebrow_center_suggestions(center_suggestions, candidate=candidate, city="مشهد"),
             center_demand_count=4,
             centers_url="/beauty-centers?service=brow&city=مشهد",
             register_center_url="/beauty-centers/register",
@@ -598,14 +687,18 @@ def test_final_design_template_shows_inline_center_suggestions():
             "type_label": "سالن زیبایی",
             "image_path": "",
             "price_level_label": "متعادل",
-            "feedback": {"label": "رضایت خوب"},
+            "feedback": {"label": "رضایت خوب", "score100": 85},
+            "services": ["brow"],
+            "service_labels": ["خدمات ابرو"],
         }
     ])
 
     assert "مراکز پیشنهادی برای خدمات ابرو" in html
     assert "مرکز ابروی تست" in html
+    assert "رزرو/بررسی زمان" in html
     assert "مشاهده مرکز" in html
     assert "مشاهده همه مراکز ابرو" in html
+    assert "برای اجرای" in html
     assert "راهنمای هوشمند قبل از انتخاب مرکز" in html
     assert "این تصویر، راهنمای هوشمند/پیش‌نمایش طراحی نهایی کار است" in html
     assert "طراحی راهنمای امن آماده شد" in html

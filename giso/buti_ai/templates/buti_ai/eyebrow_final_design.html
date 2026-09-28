@@ -144,21 +144,21 @@
                         <span>{{ center.type_label or 'مرکز زیبایی' }}</span>
                         <h4>{{ center.name }}</h4>
                         <p><i class="fas fa-location-dot"></i>{{ center.city or center_city }}{% if center.region %}، {{ center.region }}{% endif %}</p>
+                        <p class="bti-center-match-reason">{{ center.mirror_match_reason }}</p>
                         <div class="bti-center-tags">
-                            <em>ابرو</em>
+                            {% for tag in center.mirror_tags %}<em>{{ tag }}</em>{% endfor %}
                             {% if center.price_level_label %}<em>{{ center.price_level_label }}</em>{% endif %}
-                            {% if center.feedback and center.feedback.label %}<em>{{ center.feedback.label }}</em>{% endif %}
                         </div>
                     </div>
                     <div class="bti-center-card-actions">
-                        <a class="bti-primary-action" href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}">مشاهده مرکز</a>
-                        <a class="bti-secondary-action" href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}#reserve">بررسی رزرو</a>
+                        <a class="bti-primary-action" href="{{ url_for('beauty_reservations.reserve', slug=center.slug) }}">رزرو/بررسی زمان</a>
+                        <a class="bti-secondary-action" href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}">مشاهده مرکز</a>
                     </div>
                 </article>
                 {% endfor %}
             </div>
             <div class="bti-centers-more-row">
-                <span>برای انتخاب بهتر، چند مرکز را مقایسه کن و فقط به عکس پیش‌نمایش اکتفا نکن.</span>
+                <span>برای انتخاب بهتر، چند مرکز را مقایسه کن؛ قیمت، مراقبت و امکان اجرای مدل انتخابی را قبل از رزرو بپرس.</span>
                 <a class="bti-secondary-action" href="{{ centers_url }}">مشاهده همه مراکز ابرو</a>
             </div>
             {% else %}

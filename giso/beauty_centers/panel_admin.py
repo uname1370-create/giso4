@@ -39,6 +39,12 @@ def _dashboard(conn) -> dict:
         except Exception:
             return 0
 
+    def rows_opt(sql, args=()):
+        try:
+            return [dict(r) for r in conn.execute(sql, args).fetchall()]
+        except Exception:
+            return []
+
     totals = {
         "total": q1("SELECT COUNT(*) FROM beauty_centers"),
         "pending": q1("SELECT COUNT(*) FROM beauty_centers WHERE status IN ('pending_review','reviewing')"),
@@ -60,7 +66,33 @@ def _dashboard(conn) -> dict:
         GROUP BY c.id ORDER BY c.views_count DESC,c.id DESC LIMIT 20
     """).fetchall()]
     event_rows = [dict(r) for r in conn.execute("SELECT event_type,COUNT(*) count FROM beauty_center_events WHERE created_at>=datetime('now','localtime','-30 days') GROUP BY event_type ORDER BY count DESC").fetchall()]
-    return {"totals": totals, "performance": performance, "events": event_rows}
+    demand_by_city = rows_opt("""
+        SELECT city, SUM(waitlist_count) waitlist_count, SUM(pre_need_count) pre_need_count,
+               SUM(waitlist_count + pre_need_count) total_count
+        FROM (
+            SELECT city, COUNT(*) waitlist_count, 0 pre_need_count
+            FROM buti_ai_waitlist WHERE service_type='eyebrow' AND status='open' GROUP BY city
+            UNION ALL
+            SELECT city, 0 waitlist_count, COUNT(*) pre_need_count
+            FROM buti_ai_service_demand WHERE service_type='eyebrow' AND status='open' GROUP BY city
+        ) GROUP BY city ORDER BY total_count DESC, city LIMIT 20
+    """)
+    demand_recent = rows_opt("""
+        SELECT * FROM (
+            SELECT city, source, phone_number, created_at, 'waitlist' kind
+            FROM buti_ai_waitlist WHERE service_type='eyebrow'
+            UNION ALL
+            SELECT city, source, '' phone_number, created_at, 'pre_need' kind
+            FROM buti_ai_service_demand WHERE service_type='eyebrow'
+        ) ORDER BY created_at DESC LIMIT 30
+    """)
+    return {
+        "totals": totals,
+        "performance": performance,
+        "events": event_rows,
+        "eyebrow_demand_by_city": demand_by_city,
+        "eyebrow_demand_recent": demand_recent,
+    }
 
 
 def context(tab: str = "requests") -> dict:

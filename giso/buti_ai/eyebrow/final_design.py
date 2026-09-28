@@ -27,6 +27,21 @@ STYLE_RENDER = {
 }
 
 
+
+def _render_params_for_candidate(candidate):
+    final_style = normalize_style_key((candidate or {}).get("final_style"))
+    params = dict(STYLE_RENDER.get(final_style, STYLE_RENDER["giso_suggested"]))
+    change_key = normalize_change_level((candidate or {}).get("change_key"))
+    if change_key == "very_natural":
+        params["alpha"] = max(70, int(params["alpha"] * 0.82))
+        params["width"] = max(2, int(params["width"] * 0.86))
+        params["shade"] = float(params.get("shade") or 0) * 0.75
+    elif change_key == "clear":
+        params["alpha"] = min(165, int(params["alpha"] * 1.12))
+        params["width"] = max(2, int(params["width"] * 1.08))
+        params["shade"] = min(0.42, float(params.get("shade") or 0) * 1.18)
+    return params
+
 def _clean_text(value, fallback="", limit=220):
     text = str(value or "").strip() or fallback
     return text[:limit]
@@ -193,15 +208,16 @@ def _draw_brow(draw, cx, cy, length, arch, color, params, flip=False, mode="comb
 
 
 def build_design_prompt(candidate):
-    """پرامپت پیشنهادی برای مرحله image-generation واقعی آینده."""
+    """پرامپت دقیق برای provider تصویر؛ فقط ناحیه ابرو و حفظ هویت کاربر."""
     style_label = candidate.get("final_label") or _style_label(candidate.get("final_style"))
     return (
-        "Edit only the two eyebrow regions of the original customer face photo. "
-        "Preserve identity, eyes, skin texture, lighting, background and facial geometry. "
-        f"Selected brow design: {style_label}. "
-        f"Change level: {candidate.get('change_label', '')}. "
-        f"Reason: {candidate.get('short_reason', '')}. "
-        "Final image must look like the same original photo after a professional eyebrow design, not a new face."
+        "Photorealistic image edit of the ORIGINAL customer face photo. "
+        "Edit ONLY the two eyebrow regions. Do not change identity, face shape, eyes, eyelids, skin texture, hair, makeup, lighting, camera angle, background, or expression. "
+        "Keep pores, shadows and natural asymmetry realistic. No beauty filter, no new face, no illustration, no heavy retouching. "
+        f"Eyebrow design to preview: {style_label}. "
+        f"Requested change level: {candidate.get('change_label', '')}. "
+        f"User-facing reason: {candidate.get('short_reason', '')}. "
+        "The result should look like the same photo after a professional eyebrow consultation preview; subtle, wearable, and salon-realistic."
     )
 
 
@@ -217,7 +233,7 @@ def generate_python_guided_design(candidate):
         return {"ok": False, "message": "کتابخانه پردازش تصویر در دسترس نیست.", "status": "pillow_missing"}
 
     final_style = normalize_style_key(candidate.get("final_style"))
-    params = STYLE_RENDER.get(final_style, STYLE_RENDER["giso_suggested"])
+    params = _render_params_for_candidate(candidate)
 
     try:
         base = Image.open(src).convert("RGB")
@@ -234,7 +250,8 @@ def generate_python_guided_design(candidate):
         left_cx = w * 0.385
         right_cx = w * 0.615
         alpha = int(params["alpha"])
-        color = (48, 30, 21, alpha)
+        # رنگ و شفافیت عمداً ملایم است تا خروجی fallback شبیه راهنمای مشاوره بماند، نه اجرای قطعی.
+        color = (46, 29, 21, alpha)
         mode = "combination" if final_style in ("combination", "giso_suggested") else final_style
 
         _draw_brow(draw, left_cx, y, brow_len, arch, color, params, flip=False, mode=mode)

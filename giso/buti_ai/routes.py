@@ -16,10 +16,12 @@ from giso.buti_ai.eyebrow import (
     initial_form_values,
     process_eyebrow_submission,
 )
+from giso.buti_ai.eyebrow.options import normalize_change_level, normalize_style_key
 from giso.buti_ai.eyebrow.centers import (
     BEAUTY_CENTER_BROW_SERVICE,
     BUTI_EYEBROW_SERVICE,
     active_eyebrow_centers,
+    enrich_eyebrow_center_suggestions,
     user_default_city,
     user_default_phone,
 )
@@ -39,6 +41,48 @@ from giso.buti_ai.services import (
     total_service_interest_count,
 )
 
+
+
+EYEBROW_SELECTION_SESSION_KEY = "buti_ai_eyebrow_selection"
+
+
+def _selection_from_form(form):
+    form = form or {}
+    return {
+        "style": normalize_style_key(form.get("style")),
+        "change_level": normalize_change_level(form.get("change_level")),
+    }
+
+
+def _current_selection():
+    selection = session.get(EYEBROW_SELECTION_SESSION_KEY)
+    if not isinstance(selection, dict):
+        selection = initial_form_values()
+    return {
+        "style": normalize_style_key(selection.get("style")),
+        "change_level": normalize_change_level(selection.get("change_level")),
+    }
+
+
+def _state_with_selection(step="model", error_message=""):
+    return {
+        "result": None,
+        "form_values": _current_selection(),
+        "error_message": error_message or "",
+        "flow_step": step,
+    }
+
+
+def _render_eyebrow_wizard(state):
+    return render_template(
+        "buti_ai/eyebrow_wizard.html",
+        styles=EYEBROW_STYLES,
+        change_levels=CHANGE_LEVELS,
+        form_values=state["form_values"],
+        result=state["result"],
+        error_message=state["error_message"],
+        flow_step=state.get("flow_step") or ("result" if state.get("result") else "model"),
+    )
 
 def _safe_current_user_id():
     """شناسه کاربر لاگین‌شده بدون وابستگی route به مدل کاربر."""
@@ -70,33 +114,64 @@ def mirror_home():
 
 @buti_ai_bp.route("/eyebrow", methods=["GET", "POST"])
 def eyebrow_wizard():
-    """جریان آینه ابرو: انتخاب سبک، بررسی عکس، تحلیل هوشمند و پیش‌نمایش امن."""
+    """مرحله انتخاب مدل ابرو؛ آپلود عکس در route جدا انجام می‌شود."""
     init_buti_ai_db()
-    state = {
-        "result": None,
-        "form_values": initial_form_values(),
-        "error_message": "",
-    }
-
     if request.method == "POST":
+        # سازگاری با فرم/تست‌های قدیمی: اگر عکس مستقیم ارسال شد، همان‌جا تحلیل شود.
+        selection = _selection_from_form(request.form)
+        session[EYEBROW_SELECTION_SESSION_KEY] = selection
+        session.modified = True
+        merged_form = dict(request.form)
+        merged_form.update(selection)
         state = process_eyebrow_submission(
-            request.form,
+            merged_form,
             request.files,
             user_id=_safe_current_user_id(),
         )
+        state["flow_step"] = "result" if state.get("result") else "upload"
         if state.get("result"):
             store_final_candidate(session, state.get("result"), state.get("photo_status"))
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
+        return _render_eyebrow_wizard(state)
 
-    return render_template(
-        "buti_ai/eyebrow_wizard.html",
-        styles=EYEBROW_STYLES,
-        change_levels=CHANGE_LEVELS,
-        form_values=state["form_values"],
-        result=state["result"],
-        error_message=state["error_message"],
+    session[EYEBROW_SELECTION_SESSION_KEY] = initial_form_values()
+    session.modified = True
+    return _render_eyebrow_wizard(_state_with_selection("model"))
+
+
+@buti_ai_bp.route("/eyebrow/model", methods=["POST"])
+def eyebrow_model_selection():
+    """ثبت مرحله انتخاب مدل/شدت تغییر و رفتن به آپلود عکس."""
+    init_buti_ai_db()
+    selection = _selection_from_form(request.form)
+    session[EYEBROW_SELECTION_SESSION_KEY] = selection
+    session.modified = True
+    return redirect(url_for("buti_ai.eyebrow_upload"))
+
+
+@buti_ai_bp.route("/eyebrow/upload", methods=["GET", "POST"])
+def eyebrow_upload():
+    """مرحله مستقل آپلود عکس و تحلیل آینه ابرو."""
+    init_buti_ai_db()
+    selection = _current_selection()
+    if request.method == "GET":
+        return _render_eyebrow_wizard(_state_with_selection("upload"))
+
+    merged_form = dict(request.form)
+    merged_form["style"] = selection["style"]
+    merged_form["change_level"] = selection["change_level"]
+    state = process_eyebrow_submission(
+        merged_form,
+        request.files,
+        user_id=_safe_current_user_id(),
     )
+    state["flow_step"] = "result" if state.get("result") else "upload"
+    if state.get("result"):
+        store_final_candidate(session, state.get("result"), state.get("photo_status"))
+    if state.get("flash_message"):
+        flash(state["flash_message"], state.get("flash_category") or "info")
+    return _render_eyebrow_wizard(state)
 
 
 @buti_ai_bp.route("/eyebrow/finalize", methods=["POST"])
@@ -161,7 +236,11 @@ def eyebrow_final_design():
         session.modified = True
 
     center_city = (request.args.get("city") or user_default_city(current_user)).strip() or "مشهد"
-    center_suggestions = active_eyebrow_centers(city=center_city, limit=3)
+    center_suggestions = enrich_eyebrow_center_suggestions(
+        active_eyebrow_centers(city=center_city, limit=3),
+        candidate=candidate,
+        city=center_city,
+    )
     if not center_suggestions:
         demand_key = ":".join([
             "eyebrow_final_no_center",
