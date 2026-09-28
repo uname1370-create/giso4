@@ -12,8 +12,53 @@ from giso.buti_ai.eyebrow.prompts import PHOTO_QUALITY_PROMPT, eyebrow_analysis_
 logger = logging.getLogger("giso_buti_ai_eyebrow_ai")
 
 
+def _call_assigned_vision_json(image_path, prompt, max_tokens=1000):
+    """اولویت اختصاصی آینه ابرو از مدیریت AI؛ اگر خالی بود None."""
+    try:
+        from giso.async_compat import run_async_safe
+        from giso.ai_brain import ask_ai_vision
+        from giso.analysis import _is_ai_refusal, _parse_ai_json
+        from giso.buti_ai.ai_models import configured_vision_chain
+    except Exception as exc:
+        logger.debug("Buti AI assigned vision unavailable: %s", exc)
+        return None
+
+    chain = configured_vision_chain()
+    if not chain:
+        return None
+
+    errors = []
+    for item in chain:
+        provider = item.get("provider_name") or ""
+        model = item.get("model_name") or ""
+        if not provider or not model:
+            continue
+        try:
+            result = run_async_safe(ask_ai_vision(provider, image_path, prompt, model=model, max_tokens=max_tokens))
+        except Exception as exc:
+            result = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        if result and result.get("ok"):
+            text = result.get("text", "") or ""
+            if _is_ai_refusal(text):
+                errors.append(f"{provider}/{model}: refused")
+                continue
+            parsed = _parse_ai_json(text)
+            if parsed is not None:
+                return {"ok": True, "provider": provider, "model": model, "data": parsed, "text": text}
+            errors.append(f"{provider}/{model}: json")
+        else:
+            errors.append(f"{provider}/{model}: {(result or {}).get('error', 'error')}")
+    return {"ok": False, "error": "؛ ".join(errors[-3:]) or "assigned_vision_failed"}
+
+
 def _call_vision_json(image_path, prompt, max_tokens=1000):
-    """فراخوانی موتور vision موجود بدون پخش کردن منطق Buti AI در analysis.py."""
+    """فراخوانی موتور vision موجود با اولویت مدل اختصاصی آینه ابرو."""
+    try:
+        assigned = _call_assigned_vision_json(image_path, prompt, max_tokens=max_tokens)
+        if assigned and assigned.get("ok"):
+            return assigned
+    except Exception as exc:
+        logger.debug("Buti AI assigned vision failed before fallback: %s", exc)
     try:
         from giso.analysis import call_vision_with_fallback
 

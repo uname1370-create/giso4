@@ -6,7 +6,7 @@
 {% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=12">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=13">
 {% endblock %}
 
 {% block content %}
@@ -32,15 +32,20 @@
         </header>
 
         {% if generation.ok %}
-        <div class="bti-before-after bti-final-before-after" aria-label="قبل و طرح نهایی">
-            <article>
-                <header><span>قبل</span><b>عکس اصلی</b></header>
-                <img src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename) }}" alt="عکس اصلی کاربر">
-            </article>
-            <article>
-                <header><span>طرح نهایی</span><b>{{ candidate.final_label }}</b></header>
-                <img src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename) }}" alt="طرح نهایی راهنمای ابرو">
-            </article>
+        <div class="bti-compare-card" aria-label="مقایسه قبل و بعد طرح نهایی">
+            <div class="bti-compare-slider" data-bti-compare style="--bti-compare-pos: 50%;">
+                <img class="bti-compare-img bti-compare-before" src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename) }}" alt="عکس اصلی کاربر">
+                <div class="bti-compare-after-wrap">
+                    <img class="bti-compare-img bti-compare-after" src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename) }}" alt="طرح نهایی راهنمای ابرو">
+                </div>
+                <span class="bti-compare-label is-before">قبل</span>
+                <span class="bti-compare-label is-after">طراحی نهایی</span>
+                <button class="bti-compare-handle" type="button" aria-label="کشیدن خط مقایسه قبل و بعد">
+                    <i class="fas fa-arrows-left-right"></i>
+                </button>
+                <input class="bti-compare-range" type="range" min="0" max="100" value="50" aria-label="میزان نمایش طراحی نهایی">
+            </div>
+            <p>خط وسط را بکش تا تفاوت عکس اصلی و طراحی نهایی را دقیق‌تر ببینی.</p>
         </div>
         {% else %}
         <div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ generation.message }}</div>
@@ -64,6 +69,14 @@
                 </span>
             </div>
         </div>
+        {% endif %}
+
+        {% if generation and (generation.fallback_used or generation.status == 'guided_fallback_ready') %}
+        <form class="bti-retry-ai-form" method="post" action="{{ url_for('buti_ai.eyebrow_final_retry') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <span>عکس و انتخابت ذخیره است.</span>
+            <button class="bti-secondary-action" type="submit">تلاش دوباره با مدل‌های AI</button>
+        </form>
         {% endif %}
 
         <div class="bti-final-design-grid">
@@ -182,4 +195,5 @@
         </div>
     </section>
 </main>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=13" defer></script>
 {% endblock %}

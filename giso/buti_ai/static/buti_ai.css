@@ -2063,3 +2063,163 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Phase 5 — مقایسه قبل/بعد طرح نهایی با اسلایدر کشیدنی */
+.bti-compare-card {
+    margin: 16px 0 10px;
+    padding: clamp(10px, 2vw, 16px);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 26px;
+    background:
+        radial-gradient(600px 260px at 50% 0%, rgba(255,173,18,.11), transparent 62%),
+        rgba(255,255,255,.035);
+    box-shadow: 0 24px 70px rgba(0,0,0,.32);
+}
+
+.bti-compare-slider {
+    --bti-compare-pos: 50%;
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    background: #080808;
+    min-height: 360px;
+    aspect-ratio: 4 / 5;
+    isolation: isolate;
+    touch-action: none;
+}
+
+.bti-compare-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center 34%;
+    user-select: none;
+    pointer-events: none;
+}
+
+.bti-compare-before {
+    z-index: 1;
+}
+
+.bti-compare-after-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    overflow: hidden;
+    clip-path: inset(0 calc(100% - var(--bti-compare-pos)) 0 0);
+    box-shadow: 16px 0 32px rgba(0,0,0,.22);
+}
+
+.bti-compare-after {
+    width: 100%;
+    min-width: 100%;
+    max-width: none;
+}
+
+.bti-compare-slider::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    background: linear-gradient(180deg, rgba(0,0,0,.16), transparent 28%, transparent 70%, rgba(0,0,0,.34));
+    pointer-events: none;
+}
+
+.bti-compare-label {
+    position: absolute;
+    z-index: 4;
+    top: 14px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    color: #111;
+    background: rgba(255,173,18,.94);
+    font-weight: 1000;
+    font-size: .82rem;
+    box-shadow: 0 12px 30px rgba(0,0,0,.26);
+}
+
+.bti-compare-label.is-before { right: 14px; }
+.bti-compare-label.is-after { left: 14px; }
+
+.bti-compare-handle {
+    position: absolute;
+    z-index: 5;
+    top: 50%;
+    left: var(--bti-compare-pos);
+    transform: translate(-50%, -50%);
+    width: 54px;
+    height: 54px;
+    display: grid;
+    place-items: center;
+    border: 2px solid rgba(255,255,255,.92);
+    border-radius: 50%;
+    color: #111;
+    background: linear-gradient(135deg, #ffd77a, var(--bti-gold));
+    box-shadow: 0 16px 44px rgba(0,0,0,.35);
+    cursor: ew-resize;
+}
+
+.bti-compare-handle::before,
+.bti-compare-handle::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    width: 2px;
+    height: 999px;
+    background: rgba(255,255,255,.92);
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.bti-compare-handle::before { bottom: 100%; }
+.bti-compare-handle::after { top: 100%; }
+
+.bti-compare-range {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: ew-resize;
+}
+
+.bti-compare-card p {
+    margin: 10px 4px 0;
+    color: var(--bti-muted);
+    line-height: 1.8;
+    font-weight: 800;
+    text-align: center;
+}
+
+.bti-retry-ai-form {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255,173,18,.18);
+    border-radius: 18px;
+    background: rgba(255,173,18,.065);
+    color: var(--bti-muted);
+}
+
+.bti-retry-ai-form span {
+    color: #f4e7c4;
+    font-weight: 900;
+}
+
+@media (max-width: 720px) {
+    .bti-compare-slider {
+        min-height: 300px;
+        aspect-ratio: 3 / 4;
+    }
+    .bti-retry-ai-form {
+        display: grid;
+    }
+}

@@ -122,6 +122,17 @@ def handle_config():
             scope=str(request.form.get("scope","spend") or "spend").strip().lower()
             set_giso_config("ai_user_credit_scope", scope if scope in ("spend","cash") else "spend")
             ok=True;message="تنظیمات اعتبار هوش مصنوعی ذخیره شد."
+        elif action == "save_beauty_mirror_model":
+            from giso.buti_ai.ai_models import save_model_assignment
+            ok, message = save_model_assignment(
+                request.form.get("task_key", ""),
+                request.form.get("priority", "1"),
+                request.form.get("provider_name", ""),
+                request.form.get("model_name", ""),
+                enabled=request.form.get("enabled") == "1",
+                image_kind=request.form.get("image_kind", ""),
+                endpoint_override=request.form.get("endpoint_override", ""),
+            )
     except Exception as e:
         ok = False
         message = f"خطا در اجرای تغییر: {e}"
@@ -187,8 +198,9 @@ def handle_provider_add():
         flash("نام سرویس و کلید API الزامی هستند.", "warning")
         return redirect(url_for("panel.ai"))
 
-    from giso.ai_models_registry import get_provider as _reg_provider
+    from giso.ai_models_registry import get_provider as _reg_provider, normalize_provider_name as _normalize_pname
     import json as _json
+    name = _normalize_pname(name)
     registry_data = _reg_provider(name)
 
     if registry_data:
@@ -226,6 +238,16 @@ def handle_provider_add():
     if name == "gemini":
         from giso.ai_brain import _normalize_gemini_base_url
         base_url = _normalize_gemini_base_url(base_url)
+    if name == "cloudflare":
+        try:
+            from giso.ai_brain import normalize_cloudflare_api_root
+            base_url = normalize_cloudflare_api_root(
+                base_url, request.form.get("account_id", ""), require_account=True
+            )
+            kind = "cloudflare"
+        except ValueError as cf_error:
+            flash(str(cf_error), "warning")
+            return redirect(url_for("panel.ai"))
     if base_url and not _valid_base_url(base_url):
         flash("Base URL نامعتبر است (باید با http:// یا https:// شروع شود).", "warning")
         return redirect(url_for("panel.ai"))
@@ -621,6 +643,7 @@ def context():
                     prov = get_ai_provider(pname)
                     if prov:
                         row["base_url"] = str(prov["base_url"] or "")
+                        row["api_root"] = str(prov["api_root"] or "")
                         row["use_proxy"] = bool(prov["use_proxy"])
                         row["has_api_key"] = bool(str(prov["api_key"] or "").strip())
                         # فاز ۲: ستون‌های جدید جدول پروایدرها
@@ -643,6 +666,12 @@ def context():
                         if pname.lower() == "gemini":
                             row["effective_base_url"] = _effective_base_url("gemini", row["base_url"])
                             row["connects_via_worker"] = "workers.dev" in (row["effective_base_url"] or "").lower()
+                        if pname.lower() == "cloudflare":
+                            try:
+                                from giso.ai_brain import cloudflare_account_id_from_url
+                                row["cloudflare_account_id"] = cloudflare_account_id_from_url(row.get("api_root") or row.get("base_url") or "")
+                            except Exception:
+                                row["cloudflare_account_id"] = ""
                 except Exception:
                     pass
                 rows.append(row)
@@ -652,11 +681,20 @@ def context():
         try:
             from giso.ai_models_registry import PROVIDERS as _REG_PROVIDERS
             data["registry_options"] = [
-                {"name": n, "display": d.get("display_name", n)}
+                {
+                    "name": n,
+                    "display": (d.get("display_name", n) + (" / cf" if n == "cloudflare" else "")),
+                }
                 for n, d in _REG_PROVIDERS.items()
             ]
         except Exception:
             data["registry_options"] = []
+        try:
+            from giso.buti_ai.ai_models import panel_slots_context
+            data["beauty_mirror"] = panel_slots_context()
+        except Exception as mirror_exc:
+            logger.error(f"panel ai beauty mirror context: {mirror_exc}")
+            data["beauty_mirror"] = {"slots": [], "providers": [], "model_options": []}
         data["policies"] = {
             "user": get_role_policy("user"),
             "admin": get_role_policy("admin"),

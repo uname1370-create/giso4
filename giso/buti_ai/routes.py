@@ -111,6 +111,22 @@ def eyebrow_finalize_choice():
     return redirect(url_for("buti_ai.eyebrow_final_design"))
 
 
+@buti_ai_bp.route("/eyebrow/final/retry", methods=["POST"])
+def eyebrow_final_retry():
+    """تلاش دوباره برای ساخت طراحی نهایی بدون از دست دادن عکس و انتخاب کاربر."""
+    init_buti_ai_db()
+    candidate = get_final_candidate(session)
+    if not candidate:
+        flash("برای تلاش دوباره، اول عکس را تحلیل کن.", "warning")
+        return redirect(url_for("buti_ai.eyebrow_wizard"))
+    candidate.pop("generation", None)
+    candidate.pop("final_design_id", None)
+    session[FINAL_DESIGN_SESSION_KEY] = candidate
+    session.modified = True
+    flash("عکس و انتخابت حفظ شد؛ دوباره سراغ مدل‌های طراحی نهایی می‌رویم.", "info")
+    return redirect(url_for("buti_ai.eyebrow_final_design"))
+
+
 @buti_ai_bp.route("/eyebrow/final", methods=["GET"])
 def eyebrow_final_design():
     """صفحه طراحی نهایی: گیت ورود و ساخت طرح راهنمای پایتونی."""

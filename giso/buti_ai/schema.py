@@ -71,6 +71,12 @@ def init_buti_ai_db():
         _ensure_column(conn, "buti_ai_waitlist", "source", "source TEXT DEFAULT ''")
         _ensure_column(conn, "buti_ai_waitlist", "status", "status TEXT DEFAULT 'open'")
         _ensure_column(conn, "buti_ai_waitlist", "payload_json", "payload_json TEXT DEFAULT ''")
+        try:
+            from giso.buti_ai.ai_models import init_buti_ai_model_assignments
+
+            init_buti_ai_model_assignments(conn)
+        except Exception as model_exc:
+            logger.error("Failed to initialize buti_ai model assignments: %s", model_exc)
         conn.commit()
     except Exception as e:
         logger.error("Failed to initialize buti_ai tables: %s", e)

@@ -611,6 +611,7 @@ _LEGACY_AI_MENU_TEXTS = {
 _LEGACY_AI_STATES = {
     "wait_ai_add_name",
     "wait_ai_add_key",
+    "wait_ai_add_cloudflare_account",
     "wait_ai_add_base_url",
     "wait_ai_edit_val",
     "wait_ai_del_select",
@@ -1601,16 +1602,27 @@ async def _run_async(token=None, test_mode=False):
             return True
 
         if state_str == "wait_ai_add_name":
-            name = text.strip().lower()
-            if not name:
+            raw_name = text.strip().lower()
+            if not raw_name:
                 await msg.reply_text("❌ نام نمی‌تواند خالی باشد.")
                 return True
+            try:
+                from giso.ai_models_registry import normalize_provider_name
+                name = normalize_provider_name(raw_name)
+            except Exception:
+                name = raw_name
             known = name in PROVIDERS_REGISTRY
-            _ai_temp_data[uid] = {"name": name, "unknown": not known}
+            is_cloudflare = name == "cloudflare"
+            _ai_temp_data[uid] = {"name": name, "raw_name": raw_name, "unknown": not known, "cloudflare": is_cloudflare}
             _user_states[uid] = "wait_ai_add_key"
-            step_txt = "۲/۲ — پروایدر شناخته‌شده" if known else "۲/۳ — پروایدر ناشناخته"
+            if is_cloudflare:
+                step_txt = "۲/۳ — Cloudflare Workers AI شناخته شد"
+                key_label = "API Token"
+            else:
+                step_txt = "۲/۲ — پروایدر شناخته‌شده" if known else "۲/۳ — پروایدر ناشناخته"
+                key_label = "API Key"
             await msg.reply_text(
-                f"{step_txt}: لطفاً API Key برای پروایدر «{name}» را ارسال کنید (یا `-` برای خالی):",
+                f"{step_txt}: لطفاً {key_label} برای پروایدر «{name}» را ارسال کنید (یا `-` برای خالی):",
                 reply_markup=ReplyKeyboardMarkup([["🔙 بازگشت"]], resize_keyboard=True),
             )
             return True
@@ -1618,7 +1630,18 @@ async def _run_async(token=None, test_mode=False):
         if state_str == "wait_ai_add_key":
             name = _ai_temp_data.get(uid, {}).get("name", "openai")
             unknown = _ai_temp_data.get(uid, {}).get("unknown", False)
+            is_cloudflare = _ai_temp_data.get(uid, {}).get("cloudflare", False)
             api_key = "" if text.strip() == "-" else text.strip()
+
+            if is_cloudflare:
+                _ai_temp_data[uid]["api_key"] = api_key
+                _user_states[uid] = "wait_ai_add_cloudflare_account"
+                await msg.reply_text(
+                    "۳/۳ — لطفاً Account ID کلودفلر را ارسال کنید.\n"
+                    "نمونه آدرس ساخته‌شده: https://api.cloudflare.com/client/v4/accounts/ACCOUNT_ID/ai/run",
+                    reply_markup=ReplyKeyboardMarkup([["🔙 بازگشت"]], resize_keyboard=True),
+                )
+                return True
 
             if unknown:
                 _ai_temp_data[uid]["api_key"] = api_key
@@ -1667,6 +1690,58 @@ async def _run_async(token=None, test_mode=False):
                 f"🤖 نام: {name}\n"
                 f"📌 نوع: {kind}\n"
                 f"🌐 پروکسی Gemini: {'فعال' if use_proxy else 'غیرفعال'}\n"
+                f"🎯 مدل انتخابی: {res.get('selected') or '—'}\n"
+                f"📊 وضعیت اتصال: {st_fa}"
+            )
+            if res.get("error") and not str(res.get("status", "")).startswith("ok"):
+                msg_res += f"\n⚠️ خطا: {res.get('error')}"
+            await msg.reply_text(msg_res, reply_markup=_admin_ai_kb())
+            return True
+
+
+        if state_str == "wait_ai_add_cloudflare_account":
+            account_raw = "" if text.strip() == "-" else text.strip()
+            name = _ai_temp_data.get(uid, {}).get("name", "cloudflare")
+            api_key = _ai_temp_data.get(uid, {}).get("api_key", "")
+            _user_states.pop(uid, None)
+            _ai_temp_data.pop(uid, None)
+            try:
+                from giso.ai_brain import normalize_cloudflare_api_root
+                api_root = normalize_cloudflare_api_root("", account_raw, require_account=True)
+            except Exception as exc:
+                await msg.reply_text(f"❌ Account ID کلودفلر نامعتبر است: {str(exc)[:120]}", reply_markup=_admin_ai_kb())
+                return True
+
+            reg = PROVIDERS_REGISTRY.get("cloudflare", {})
+            kind = "cloudflare"
+            timeout = reg.get("timeout", 25)
+            ok = add_ai_provider(
+                name="cloudflare", kind=kind, api_key=api_key, base_url=api_root,
+                api_root=api_root, timeout=timeout, is_iranian=False,
+                use_proxy=False, enabled=True, replace=True
+            )
+            if not ok:
+                await msg.reply_text("❌ ذخیرهٔ Cloudflare ناموفق بود.", reply_markup=_admin_ai_kb())
+                return True
+
+            try:
+                from giso.ai_brain import save_provider_to_env
+                save_provider_to_env(
+                    name="cloudflare", api_key=api_key, base_url=api_root,
+                    model="", enabled=True, proxy=False,
+                    iranian=False, timeout=timeout,
+                )
+            except Exception as e:
+                logger.debug(f"save_provider_to_env (add cloudflare): {e}")
+
+            await msg.reply_text("⏳ در حال تست سلامت Cloudflare…")
+            res = await check_ai_provider("cloudflare")
+            st_fa = "سالم ✅" if str(res.get("status", "")).startswith("ok") else str(res.get("status", "خطا ❌"))
+            msg_res = (
+                "✅ Cloudflare با موفقیت اضافه شد\n\n"
+                "🤖 نام: cloudflare / cf\n"
+                "📌 نوع: cloudflare\n"
+                f"🔗 API Root: {api_root}\n"
                 f"🎯 مدل انتخابی: {res.get('selected') or '—'}\n"
                 f"📊 وضعیت اتصال: {st_fa}"
             )
@@ -1919,7 +1994,7 @@ async def _run_async(token=None, test_mode=False):
             await msg.reply_text(
                 "➕ افزودن پروایدر جدید\n"
                 "━━━━━━━━━━━━━━━━\n\n"
-                "۱/۲ — لطفاً نام پروایدر را وارد کنید (gemini، groq، openrouter، avalai):",
+                "۱/۲ — نام پروایدر را وارد کنید یا ساده بنویسید (gemini، groq، openrouter، cloudflare/cf، avalai):",
                 reply_markup=ReplyKeyboardMarkup([["🔙 بازگشت"]], resize_keyboard=True),
             )
             return True

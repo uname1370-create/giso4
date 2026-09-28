@@ -262,9 +262,42 @@ def _numbered_model_providers(env: Optional[Dict[str, str]]) -> List[ImageProvid
     return providers
 
 
-def configured_image_providers(env: Optional[Dict[str, str]] = None) -> List[ImageProviderConfig]:
-    """برگرداندن providerهای تصویرسازی فعال؛ بدون لو دادن کلیدها."""
+def _ai_management_providers() -> List[ImageProviderConfig]:
+    """خواندن مدل‌های تصویرسازی آینه ابرو از مدیریت AI سوپرادمین."""
+    try:
+        from giso.buti_ai.ai_models import configured_image_provider_dicts
+    except Exception as exc:
+        logger.debug("Buti AI management image providers unavailable: %s", exc)
+        return []
     providers: List[ImageProviderConfig] = []
+    for item in configured_image_provider_dicts(limit=3):
+        try:
+            providers.append(
+                ImageProviderConfig(
+                    id=str(item.get("id") or "ai_mirror_image"),
+                    label=str(item.get("label") or item.get("id") or "AI Management"),
+                    kind=str(item.get("kind") or "openai_image_edit"),
+                    endpoint=str(item.get("endpoint") or ""),
+                    model=str(item.get("model") or ""),
+                    api_key=str(item.get("api_key") or ""),
+                    headers=_normal_headers(item.get("headers")),
+                    extra=item.get("extra") if isinstance(item.get("extra"), dict) else {},
+                )
+            )
+        except Exception:
+            continue
+    return [p for p in providers if p.endpoint and (p.api_key or _truthy(p.extra.get("allow_no_auth")))]
+
+
+def configured_image_providers(env: Optional[Dict[str, str]] = None) -> List[ImageProviderConfig]:
+    """برگرداندن providerهای تصویرسازی فعال؛ بدون لو دادن کلیدها.
+
+    در اجرای واقعی (`env is None`) اول تنظیمات پنل «مدیریت AI» خوانده می‌شود.
+    در تست‌ها/فراخوانی‌های env-محور، رفتار قدیمی ثابت می‌ماند.
+    """
+    providers: List[ImageProviderConfig] = []
+    if env is None:
+        providers.extend(_ai_management_providers())
     providers.extend(_cloudflare_providers(env))
     providers.extend(_numbered_model_providers(env))
     providers.extend(_json_configured_providers(env))
@@ -669,10 +702,12 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
     if fallback.get("ok"):
         if providers:
             fallback["status"] = "guided_fallback_ready"
-            fallback["message"] = "مدل تصویرسازی پاسخ نداد؛ طرح راهنمای امن آماده شد."
+            fallback["message"] = "مدل‌های تصویرسازی جواب ندادند؛ عکس و انتخاب شما حفظ شد و فعلاً طرح راهنمای امن نمایش داده می‌شود. کمی بعد می‌توانید دوباره تلاش کنید."
         else:
             fallback["status"] = "guided_final_ready"
-            fallback["message"] = "مدل تصویرسازی هنوز تنظیم نشده؛ طرح راهنمای امن آماده شد."
+            fallback["message"] = "مدل تصویرسازی هنوز در مدیریت AI تنظیم نشده؛ عکس و انتخاب شما حفظ شد و طرح راهنمای امن آماده شد."
+    elif providers:
+        fallback["message"] = "فعلاً طراحی نهایی آماده نشد؛ عکس و انتخاب شما حفظ شد. لطفاً چند دقیقه بعد دوباره تلاش کنید."
     return fallback
 
 

@@ -577,3 +577,94 @@ def test_final_design_template_shows_inline_waitlist_when_no_centers():
     assert "درخواست‌های باز مشهد برای ابرو: 4" in html
     assert "ثبت مرکز زیبایی برای خدمت ابرو" in html
     assert "راهنمای هوشمند قبل از انتخاب مرکز" in html
+
+
+def test_cloudflare_cf_alias_and_account_root_builder():
+    from giso.ai_models_registry import normalize_provider_name
+    from giso.ai_brain import (
+        cloudflare_account_id_from_url,
+        normalize_cloudflare_api_root,
+    )
+
+    assert normalize_provider_name("cf") == "cloudflare"
+    assert normalize_provider_name("Cloudflare Workers AI") == "cloudflare"
+    root = normalize_cloudflare_api_root("", "ba0fec1e8a6deda27719c582e4d8eb9d", require_account=True)
+    assert root == "https://api.cloudflare.com/client/v4/accounts/ba0fec1e8a6deda27719c582e4d8eb9d/ai/run"
+    assert cloudflare_account_id_from_url(root) == "ba0fec1e8a6deda27719c582e4d8eb9d"
+    assert normalize_cloudflare_api_root("", root, require_account=True) == root
+    assert normalize_cloudflare_api_root("https://api.cloudflare.com/client/v4/accounts/acct/ai", "") == "https://api.cloudflare.com/client/v4/accounts/acct/ai/run"
+
+
+def test_final_design_reads_ai_management_image_provider(tmp_path, monkeypatch):
+    import base64
+    import json
+    from io import BytesIO as _BytesIO
+    from PIL import Image
+    from giso.buti_ai.eyebrow import final_design, image_generation
+    from giso.buti_ai import ai_models as mirror_ai_models
+
+    original = tmp_path / "face.jpg"
+    Image.new("RGB", (640, 820), (218, 178, 148)).save(original, "JPEG")
+    output = _BytesIO()
+    Image.new("RGB", (360, 460), (205, 160, 132)).save(output, "PNG")
+    output_b64 = base64.b64encode(output.getvalue()).decode("ascii")
+
+    monkeypatch.setattr(final_design, "EYEBROW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(final_design, "FINAL_DESIGN_DIR", str(tmp_path / "final"))
+    monkeypatch.setattr(
+        mirror_ai_models,
+        "configured_image_provider_dicts",
+        lambda limit=3: [
+            {
+                "id": "ai_mirror_cloudflare_1",
+                "label": "مدیریت AI: cloudflare #1",
+                "kind": "cloudflare",
+                "endpoint": "https://api.cloudflare.com/client/v4/accounts/acct-1/ai/run/@cf/test-image",
+                "model": "@cf/test-image",
+                "api_key": "secret-token",
+                "headers": {},
+                "extra": {"source": "ai_management"},
+            }
+        ],
+    )
+
+    class FakeResponse:
+        ok = True
+        status_code = 200
+        headers = {"content-type": "application/json"}
+        content = b""
+
+        def __init__(self):
+            self._payload = {"result": {"image": output_b64}}
+            self.text = json.dumps(self._payload)
+
+        def json(self):
+            return self._payload
+
+    calls = []
+
+    def fake_post(url, headers=None, data=None, files=None, timeout=None, json=None):
+        calls.append({"url": url, "headers": headers or {}, "files": files or {}})
+        return FakeResponse()
+
+    monkeypatch.setattr(image_generation.requests, "post", fake_post)
+
+    result = image_generation.generate_final_design(_sample_final_candidate(), env=None)
+
+    assert calls
+    assert calls[0]["url"].endswith("/ai/run/@cf/test-image")
+    assert result["ok"] is True
+    assert result["provider"] == "ai_mirror_cloudflare_1"
+    assert result["model"] == "@cf/test-image"
+    assert result["fallback_used"] is False
+    assert (tmp_path / result["filename"]).exists()
+
+
+def test_final_design_template_uses_drag_compare_slider():
+    from pathlib import Path
+
+    tpl = Path("giso/buti_ai/templates/buti_ai/eyebrow_final_design.html").read_text(encoding="utf-8")
+    assert "data-bti-compare" in tpl
+    assert "bti-compare-handle" in tpl
+    assert "bti-before-after bti-final-before-after" not in tpl
+    assert "eyebrow_final_retry" in tpl

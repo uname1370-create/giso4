@@ -119,8 +119,8 @@ PROVIDERS = {
         "name": "cloudflare",
         "display_name": "Cloudflare Workers AI",
         "kind": "cloudflare",
-        "base_url": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai",
-        "api_root": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai",
+        "base_url": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run",
+        "api_root": "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run",
         "timeout": 25,
         "is_iranian": False,
         "supports_vision": True,
@@ -135,6 +135,11 @@ PROVIDERS = {
             {"id": "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "is_free": True, "context": 128000, "source": "hardcoded"},
             {"id": "@cf/mistral/mistral-7b-instruct", "is_free": True, "context": 32000, "source": "hardcoded"},
             {"id": "@cf/qwen/qwen-3-8b", "is_free": True, "context": 32000, "source": "hardcoded"},
+        ],
+        "image_models": [
+            {"id": "@cf/black-forest-labs/flux-2-klein-4b", "is_free": True, "context": 0, "source": "hardcoded"},
+            {"id": "@cf/black-forest-labs/flux-1-schnell", "is_free": True, "context": 0, "source": "hardcoded"},
+            {"id": "@cf/stabilityai/stable-diffusion-xl-base-1.0", "is_free": True, "context": 0, "source": "hardcoded"},
         ],
     },
     "gemini": {
@@ -207,14 +212,27 @@ def get_provider(name: str):
     return PROVIDERS.get(normalize_provider_name(name))
 
 
+PROVIDER_ALIASES = {
+    "cf": "cloudflare",
+    "cloud flare": "cloudflare",
+    "cloudflare ai": "cloudflare",
+    "cloudflare workers": "cloudflare",
+    "cloudflare workers ai": "cloudflare",
+    "workers ai": "cloudflare",
+    "worker ai": "cloudflare",
+}
+
+
 def normalize_provider_name(name: str) -> str:
     """نرمال‌سازی نام پروایدر به کلید رجیستری.
 
-    نام‌های نمایشی مثل «hugging face» یا «cloudflare workers ai» (با فاصله)
-    به کلید استاندارد (`huggingface`، `cloudflare`) نگاشت می‌شوند تا مدل‌های
-    رجیستری برای آن‌ها پیدا شود. اگر معادلی نبود، همان نام تمیز برمی‌گردد.
+    نام‌های نمایشی یا کوتاه مثل «cf»، «cloudflare workers ai» و
+    «hugging face» به کلید استاندارد (`cloudflare`، `huggingface`) نگاشت
+    می‌شوند تا مدل‌ها و تنظیمات پیش‌فرض رجیستری پیدا شود.
     """
     cleaned = " ".join(str(name or "").strip().lower().split())
+    if cleaned in PROVIDER_ALIASES:
+        return PROVIDER_ALIASES[cleaned]
     if cleaned in PROVIDERS:
         return cleaned
     compact = cleaned.replace(" ", "")
@@ -245,6 +263,17 @@ def get_text_models(name: str, free_only: bool = False) -> list:
     if not provider:
         return []
     models = provider.get("text_models", [])
+    if free_only:
+        return [m for m in models if m.get("is_free")]
+    return models
+
+
+def get_image_models(name: str, free_only: bool = False) -> list:
+    """لیست مدل‌های تصویرساز یک پروایدر؛ فعلاً برای آینه زیبایی مصرف می‌شود."""
+    provider = get_provider(name)
+    if not provider:
+        return []
+    models = provider.get("image_models", [])
     if free_only:
         return [m for m in models if m.get("is_free")]
     return models
@@ -283,6 +312,15 @@ def get_best_text_model(name: str):
     return all_text[0]["id"] if all_text else None
 
 
+def get_best_image_model(name: str):
+    """بهترین مدل تصویرساز یک پروایدر (اول رایگان)."""
+    free = get_image_models(name, free_only=True)
+    if free:
+        return free[0]["id"]
+    all_images = get_image_models(name, free_only=False)
+    return all_images[0]["id"] if all_images else None
+
+
 def legacy_registry() -> dict:
     """
     تبدیل رجیستری جدید به فرمت PROVIDERS_REGISTRY قدیمی
@@ -306,7 +344,8 @@ def legacy_registry() -> dict:
 __all__ = [
     "MODALITY_VISION", "MODALITY_TEXT", "MODALITY_BOTH",
     "SOURCE_HARDCODED", "SOURCE_DISCOVERED", "SOURCE_MANUAL_JSON",
-    "PROVIDERS", "get_provider", "get_vision_models", "get_text_models",
-    "get_all_providers", "get_free_providers", "get_best_vision_model",
-    "get_best_text_model", "legacy_registry",
+    "PROVIDERS", "PROVIDER_ALIASES", "get_provider", "get_vision_models",
+    "get_text_models", "get_image_models", "get_all_providers",
+    "get_free_providers", "get_best_vision_model", "get_best_text_model",
+    "get_best_image_model", "normalize_provider_name", "legacy_registry",
 ]

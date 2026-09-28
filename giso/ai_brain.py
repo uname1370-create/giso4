@@ -217,6 +217,9 @@ def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
         base_url = _normalize_gemini_base_url(base_url)
         if not api_root or _is_google_gemini_host(api_root):
             api_root = base_url
+    if str(name or "").lower() == "cloudflare":
+        base_url = normalize_cloudflare_api_root(base_url, "", require_account=False) or base_url
+        api_root = normalize_cloudflare_api_root(api_root or base_url, "", require_account=False) or api_root or base_url
     conn = get_conn()
     # پیش‌فرض رایگان: اگر ادمین مدلی نداد، رجیستری پر می‌کند (مورد ۸ دستور start/1.md)
     reg_models, reg_selected = default_models_for_provider(name)
@@ -338,6 +341,77 @@ def _normalize_gemini_base_url(url: str) -> str:
     if not u or _is_google_gemini_host(u):
         return GEMINI_DEFAULT_BASE_URL
     return u
+
+
+def normalize_cloudflare_account_id(account_id: str) -> str:
+    """پاکسازی Account ID کلودفلر؛ اگر URL کامل دادند، ID را از آن بیرون می‌کشد."""
+    raw = str(account_id or "").strip()
+    if not raw:
+        return ""
+    import re
+    embedded = re.search(r"/accounts/([^/]+)/ai(?:/run)?", raw)
+    if embedded:
+        raw = embedded.group(1)
+    cleaned = re.sub(r"[^A-Za-z0-9_-]", "", raw)
+    return cleaned[:120]
+
+
+def cloudflare_account_id_from_url(url: str) -> str:
+    """استخراج account id از آدرس‌های Cloudflare Workers AI."""
+    import re
+    match = re.search(r"/accounts/([^/]+)/ai(?:/run)?", str(url or ""))
+    if not match:
+        return ""
+    value = match.group(1)
+    if "{" in value or "}" in value:
+        return ""
+    return normalize_cloudflare_account_id(value)
+
+
+def cloudflare_api_root_from_account_id(account_id: str) -> str:
+    """ساخت آدرس run کلودفلر از Account ID."""
+    account_id = normalize_cloudflare_account_id(account_id)
+    if not account_id:
+        return ""
+    return f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run"
+
+
+def normalize_cloudflare_api_root(base_url: str = "", account_id: str = "", require_account: bool = False) -> str:
+    """یکسان‌سازی آدرس Cloudflare Workers AI روی endpoint درست `/ai/run`.
+
+    اگر Account ID جدا داده شود، همیشه آدرس امن رسمی ساخته می‌شود. اگر URL
+    قدیمی با `/ai` داده شده باشد، به `/ai/run` تبدیل می‌شود.
+    """
+    from urllib.parse import urlparse
+
+    account_id = normalize_cloudflare_account_id(account_id)
+    if account_id:
+        return cloudflare_api_root_from_account_id(account_id)
+    root = str(base_url or "").strip().rstrip("/")
+    if not root:
+        if require_account:
+            raise ValueError("برای Cloudflare، Account ID الزامی است.")
+        return ""
+    if "{account_id}" in root:
+        if require_account:
+            raise ValueError("برای Cloudflare، Account ID را جدا وارد کن تا در آدرس جایگزین شود.")
+        return root
+    parsed = urlparse(root)
+    if parsed.scheme != "https" or parsed.hostname != "api.cloudflare.com":
+        if require_account:
+            raise ValueError("آدرس Cloudflare باید از api.cloudflare.com باشد یا Account ID جدا وارد شود.")
+        return root
+    if "/client/v4/accounts/" not in parsed.path:
+        if require_account:
+            raise ValueError("آدرس Cloudflare باید شامل /client/v4/accounts/{account_id}/ai/run باشد.")
+        return root
+    if root.endswith("/ai"):
+        return root + "/run"
+    if "/ai/run" in parsed.path:
+        # اگر مسیر کامل‌تر بود، فقط تا /ai/run نگه دار.
+        before, _sep, _after = root.partition("/ai/run")
+        return before + "/ai/run"
+    return root
 
 
 def _gemini_openai_base() -> str:
@@ -1442,6 +1516,8 @@ __all__ = [
     "check_ai_provider", "check_all_ai_providers",
     "ask_ai", "ask_ai_vision", "ask_ai_fast", "PROVIDERS_REGISTRY",
     "GEMINI_DEFAULT_BASE_URL", "_effective_base_url", "_normalize_gemini_base_url",
+    "normalize_cloudflare_account_id", "cloudflare_account_id_from_url",
+    "cloudflare_api_root_from_account_id", "normalize_cloudflare_api_root",
     "load_providers_from_env", "sync_env_providers_to_db", "save_provider_to_env",
     "refresh_models", "bulk_import_models", "seed_registry_providers", "_col",
 ]
