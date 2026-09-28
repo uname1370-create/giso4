@@ -491,3 +491,263 @@
     .bti-pmu-card:hover,
     .bti-style-row:hover { transform: none; }
 }
+
+/* Phase 2.4 — جداکردن دقیق مراحل صفحه آینه ابرو و افزودن نمونه فرم ابرو */
+.bti-eyebrow-stage-separated {
+    grid-template-columns: 320px minmax(0, 1fr);
+    align-items: start;
+}
+
+.bti-eyebrow-form-separated {
+    display: grid;
+    gap: 16px;
+}
+
+.bti-eyebrow-form-separated .bti-form-panel + .bti-form-panel {
+    margin-top: 0;
+}
+
+.bti-step-panel {
+    position: relative;
+    overflow: hidden;
+}
+
+.bti-step-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: linear-gradient(180deg, transparent, rgba(255,173,18,.76), transparent);
+    opacity: .9;
+}
+
+.bti-model-panel {
+    border-color: rgba(255, 173, 18, .22);
+}
+
+.bti-style-sample-list {
+    display: grid;
+    gap: 12px;
+}
+
+.bti-style-choice {
+    position: relative;
+    min-height: 142px;
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 18px;
+    background: #101010;
+    cursor: pointer;
+    transition: border-color .18s ease, background .18s ease, transform .18s ease;
+}
+
+.bti-style-choice:hover,
+.bti-style-choice:has(input:checked),
+.bti-style-choice.is-selected {
+    border-color: rgba(255,173,18,.62);
+    background: linear-gradient(135deg, rgba(255,173,18,.10), rgba(255,255,255,.035));
+    transform: translateY(-1px);
+}
+
+.bti-style-choice input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.bti-style-info {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-content: center;
+    align-items: center;
+    gap: 12px;
+    padding-left: 4px;
+}
+
+.bti-style-info em {
+    grid-column: 2;
+    width: fit-content;
+    padding: 5px 8px;
+    border-radius: 999px;
+    color: #111;
+    background: var(--bti-gold);
+    font-size: .72rem;
+    font-style: normal;
+    font-weight: 950;
+}
+
+.bti-brow-sample {
+    flex: 0 0 190px;
+    position: relative;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at 50% 44%, rgba(255, 205, 130, .24), transparent 38%),
+        linear-gradient(135deg, #1b1512, #0b0b0b 68%);
+}
+
+.bti-brow-sample::before {
+    content: "";
+    position: absolute;
+    width: 86px;
+    height: 102px;
+    border-radius: 50% 50% 44% 44%;
+    border: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.035);
+}
+
+.bti-brow-sample .brow {
+    position: absolute;
+    top: 45%;
+    width: 52px;
+    height: 18px;
+    border-top: 5px solid #3b2319;
+    border-radius: 80% 60% 35% 35%;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,.35));
+}
+
+.bti-brow-sample .brow-right {
+    right: 36px;
+    transform: rotate(-8deg);
+}
+
+.bti-brow-sample .brow-left {
+    left: 36px;
+    transform: rotate(8deg) scaleX(-1);
+}
+
+.bti-brow-sample small {
+    position: absolute;
+    bottom: 10px;
+    right: 50%;
+    transform: translateX(50%);
+    padding: 4px 8px;
+    border-radius: 999px;
+    color: #111;
+    background: rgba(255,173,18,.92);
+    font-size: .70rem;
+    font-weight: 950;
+    white-space: nowrap;
+}
+
+.bti-style-choice.is-style-natural .brow {
+    width: 48px;
+    border-top-width: 4px;
+    border-color: #4a2f21;
+}
+
+.bti-style-choice.is-style-microblading .brow {
+    width: 54px;
+    border-top-style: double;
+    border-color: #332017;
+}
+
+.bti-style-choice.is-style-powder .brow {
+    width: 58px;
+    border-top-width: 7px;
+    border-color: rgba(50,31,22,.86);
+    opacity: .86;
+}
+
+.bti-style-choice.is-style-combination .brow {
+    width: 60px;
+    border-top-width: 6px;
+    border-color: #2f1d15;
+}
+
+.bti-style-choice.is-style-giso_suggested .brow {
+    width: 53px;
+    border-top-width: 5px;
+    border-color: #3b241a;
+}
+
+.bti-change-panel {
+    border-color: rgba(255,255,255,.12);
+    background: linear-gradient(135deg, #171717, #111);
+}
+
+.bti-upload-panel-separated {
+    border-color: rgba(37, 211, 154, .18);
+    background: linear-gradient(135deg, rgba(37,211,154,.045), #151515 60%);
+}
+
+.bti-upload-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, .95fr) minmax(220px, .75fr);
+    gap: 14px;
+    align-items: stretch;
+}
+
+.bti-upload-guide-card {
+    display: grid;
+    align-content: center;
+    gap: 8px;
+    padding: 15px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    background: rgba(255,255,255,.035);
+}
+
+.bti-upload-guide-card b {
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.bti-upload-guide-card span {
+    display: inline-flex;
+    width: fit-content;
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: #d7d7d7;
+    background: rgba(255,255,255,.06);
+    font-size: .82rem;
+    font-weight: 850;
+}
+
+.bti-submit-separated {
+    margin-top: 0;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 18px;
+    background: rgba(255,255,255,.025);
+}
+
+@media (max-width: 1060px) {
+    .bti-eyebrow-stage-separated {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 820px) {
+    .bti-style-choice {
+        flex-direction: column;
+    }
+
+    .bti-brow-sample {
+        min-height: 130px;
+        flex-basis: auto;
+        width: 100%;
+    }
+
+    .bti-upload-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 620px) {
+    .bti-style-info {
+        grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .bti-style-choice {
+        min-height: auto;
+    }
+}

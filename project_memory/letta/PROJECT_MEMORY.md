@@ -656,3 +656,41 @@ Boundary:
 - Backend/AI flow remains unchanged.
 - Only Buti AI-owned flow metadata, templates, static CSS/JS, and memory docs changed.
 - No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
+
+---
+
+## 22. Buti AI Phase 2.4 — Separated Eyebrow Flow Steps
+
+Status:
+
+- User approved the stepper/service-card direction but said the eyebrow page still mixed model selection, change level, and upload.
+- UI was updated so each eyebrow step is visually separate.
+
+Changed UX:
+
+- Eyebrow model selection is now its own panel.
+- Each eyebrow model row has text/description on the right and a visual eyebrow sample on the left.
+- Change level is now its own separate panel.
+- Photo upload moved into its own separate panel with upload guidance.
+- Submit actions are visually separated from the step panels.
+
+Changed files:
+
+```text
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+giso/buti_ai/static/buti_ai.js
+```
+
+Validation:
+
+- `py_compile` passed for Buti AI modules and tests.
+- Targeted pytest passed: `6 passed, 1 warning`.
+- `git diff --check` passed.
+- Live curl checks returned HTTP 200 for `/analysis`, `/analysis/mirror`, and `/analysis/mirror/eyebrow`.
+
+Boundary:
+
+- Frontend/UI-only within Buti AI templates/static assets.
+- Backend/AI flow unchanged.
+- No protected/unrelated path changes.
