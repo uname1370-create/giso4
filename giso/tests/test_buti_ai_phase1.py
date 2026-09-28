@@ -615,7 +615,7 @@ def test_final_design_cloudflare_provider_success_saves_ai_output(tmp_path, monk
     env = {
         "CLOUDFLARE_API_TOKEN_1": "secret-token",
         "CLOUDFLARE_ACCOUNT_ID_1": "acct-1",
-        "CLOUDFLARE_MODEL": "@cf/test-model",
+        "CLOUDFLARE_MODEL": "@cf/black-forest-labs/flux-2-klein-4b",
         "BUTI_AI_IMAGE_TIMEOUT_SECONDS": "5",
     }
 
@@ -625,7 +625,7 @@ def test_final_design_cloudflare_provider_success_saves_ai_output(tmp_path, monk
     assert result["ok"] is True
     assert result["provider"] == "cloudflare_1"
     assert result["provider_label"] == "Cloudflare 1"
-    assert result["model"] == "@cf/test-model"
+    assert result["model"] == "@cf/black-forest-labs/flux-2-klein-4b"
     assert result["status"] == "ai_final_ready"
     assert result["fallback_used"] is False
     assert result["attempts"][0]["ok"] is True
@@ -976,8 +976,8 @@ def test_final_design_reads_ai_management_image_provider(tmp_path, monkeypatch):
                 "id": "ai_mirror_cloudflare_1",
                 "label": "مدیریت AI: cloudflare #1",
                 "kind": "cloudflare",
-                "endpoint": "https://api.cloudflare.com/client/v4/accounts/acct-1/ai/run/@cf/test-image",
-                "model": "@cf/test-image",
+                "endpoint": "https://api.cloudflare.com/client/v4/accounts/acct-1/ai/run/@cf/black-forest-labs/flux-2-klein-4b",
+                "model": "@cf/black-forest-labs/flux-2-klein-4b",
                 "api_key": "secret-token",
                 "headers": {},
                 "extra": {"source": "ai_management"},
@@ -1009,16 +1009,34 @@ def test_final_design_reads_ai_management_image_provider(tmp_path, monkeypatch):
     result = image_generation.generate_final_design(_sample_final_candidate(), env=None)
 
     assert calls
-    assert calls[0]["url"].endswith("/ai/run/@cf/test-image")
+    assert calls[0]["url"].endswith("/ai/run/@cf/black-forest-labs/flux-2-klein-4b")
     assert "input_image_0" in calls[0]["files"]
     assert "mask" not in calls[0]["files"]
     assert "Selected eyebrow model: کامبینیشن" in calls[0]["data"]["prompt"]
     assert "Edit ONLY the two eyebrow regions" in calls[0]["data"]["prompt"]
     assert result["ok"] is True
     assert result["provider"] == "ai_mirror_cloudflare_1"
-    assert result["model"] == "@cf/test-image"
+    assert result["model"] == "@cf/black-forest-labs/flux-2-klein-4b"
     assert result["fallback_used"] is False
     assert (tmp_path / result["filename"]).exists()
+
+
+
+def test_cloudflare_non_photo_edit_models_are_not_called_with_multipart():
+    import pytest
+    from giso.buti_ai.eyebrow import image_generation
+
+    provider = image_generation.ImageProviderConfig(
+        id="bad_cf_sdxl",
+        label="SDXL",
+        kind="cloudflare",
+        endpoint="https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0",
+        model="@cf/stabilityai/stable-diffusion-xl-base-1.0",
+        api_key="secret",
+    )
+    with pytest.raises(image_generation.ImageProviderError) as exc:
+        image_generation._call_provider(provider, "missing.jpg", "", {}, "prompt", 5)
+    assert "flux-2-klein-4b" in str(exc.value)
 
 
 def test_final_design_template_uses_drag_compare_slider():
@@ -1055,14 +1073,14 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
     result = ai_models.auto_configure_for_provider("cf")
 
     assert result["ok"] is True
-    assert result["added"] == 4
+    assert result["added"] == 2
     rows = ai_models.list_model_assignments()
-    assert len(rows) == 4
+    assert len(rows) == 2
     analysis = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_ANALYSIS]
     images = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_IMAGE_DESIGN]
     assert analysis[0]["provider_name"] == "cloudflare"
     assert "vision" in analysis[0]["model_name"]
-    assert [int(r["priority"]) for r in images] == [1, 2, 3]
+    assert [int(r["priority"]) for r in images] == [1]
     assert images[0]["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b"
     assert images[0]["image_kind"] == "cloudflare"
     assert "@cf/runwayml/stable-diffusion-v1-5-inpainting" not in [r["model_name"] for r in images]
@@ -1070,6 +1088,51 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
 
     second = ai_models.auto_configure_for_provider("cloudflare")
     assert second["added"] == 0
+
+
+
+def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, monkeypatch):
+    import sqlite3
+    from giso.buti_ai import ai_models
+
+    db_path = tmp_path / "mirror_cf_accounts.db"
+
+    def connect():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    monkeypatch.setattr(ai_models, "get_giso_db_conn", connect)
+    ai_models.init_buti_ai_model_assignments()
+
+    r1 = ai_models.auto_configure_for_provider("cf1")
+    r2 = ai_models.auto_configure_for_provider("cf2")
+    r3 = ai_models.auto_configure_for_provider("cf3")
+
+    assert r1["added"] == 2  # analysis + image slot 1
+    assert r2["added"] == 1  # image slot 2
+    assert r3["added"] == 1  # image slot 3
+    rows = ai_models.list_model_assignments()
+    images = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_IMAGE_DESIGN]
+    assert [int(r["priority"]) for r in images] == [1, 2, 3]
+    assert [r["provider_name"] for r in images] == ["cf1", "cf2", "cf3"]
+    assert all(r["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b" for r in images)
+    assert all(r["image_kind"] == "cloudflare" for r in images)
+
+    ok, _ = ai_models.save_model_assignment(
+        ai_models.TASK_EYEBROW_IMAGE_DESIGN,
+        2,
+        "cloudflare",
+        "@cf/stabilityai/stable-diffusion-xl-base-1.0",
+        image_kind="cloudflare",
+    )
+    assert ok is True
+    over = ai_models.auto_configure_for_provider("cf2", overwrite=True)
+    assert over["added"] == 1
+    rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_IMAGE_DESIGN)
+    slot2 = [r for r in rows if int(r["priority"]) == 2][0]
+    assert slot2["provider_name"] == "cf2"
+    assert slot2["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b"
 
 
 

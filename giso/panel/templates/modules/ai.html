@@ -40,23 +40,26 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <select name="name" data-provider-name>
                     <option value="">— انتخاب پروایدر یا نام دلخواه —</option>
-                    <option value="cf">⚡ cf — Cloudflare سریع (فقط API Token + Account ID)</option>
+                    <option value="cf">⚡ cf — Cloudflare اصلی (جایگزین/ویرایش همین رکورد)</option>
+                    <option value="cf1">⚡ cf1 — Cloudflare اکانت ۱</option>
+                    <option value="cf2">⚡ cf2 — Cloudflare اکانت ۲</option>
+                    <option value="cf3">⚡ cf3 — Cloudflare اکانت ۳</option>
                     {% for opt in ai.get('registry_options', []) %}
-                    <option value="{{ opt.name }}">{{ opt.display }}</option>
+                    {% if opt.name != 'cloudflare' %}<option value="{{ opt.name }}">{{ opt.display }}</option>{% endif %}
                     {% endfor %}
                 </select>
-                <input type="text" name="custom_name" data-hide-for-cf placeholder="نام ساده/دلخواه؛ مثلاً cf برای Cloudflare" dir="ltr">
+                <input type="text" name="custom_name" data-hide-for-cf placeholder="نام دلخواه؛ مثلاً openai2 یا my-provider" dir="ltr">
                 <input type="text" name="api_key" data-cf-required placeholder="کلید API / Token* (الزامی)" dir="ltr" required>
-                <input type="text" name="account_id" data-cf-account placeholder="Cloudflare Account ID فقط برای cf/cloudflare" dir="ltr">
+                <input type="text" name="account_id" data-cf-account placeholder="Cloudflare Account ID فقط برای cf/cf1/cf2/cf3" dir="ltr">
                 <input type="text" name="proxy_url" data-hide-for-cf placeholder="پروکسی SOCKS5 (اختیاری): socks5://... — خالی = مستقیم" dir="ltr">
                 <input type="text" name="selected_model" data-hide-for-cf placeholder="مدل دلخواه (اختیاری) — مثال: model-name" dir="ltr">
                 <div class="pnl-card" data-cf-help style="grid-column:1/-1;background:#f8fbff;border-color:#cfe4ff;display:none;">
-                    <b>⚡ افزودن سریع Cloudflare با cf</b>
-                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">فقط دو مقدار بده: <b>API Token</b> و <b>Account ID</b>. گیسو خودش این آدرس را می‌سازد:</p>
+                    <b>⚡ افزودن سریع Cloudflare با cf1 / cf2 / cf3</b>
+                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">برای هر اکانت Cloudflare یک نام جدا انتخاب کن و فقط دو مقدار بده: <b>API Token</b> و <b>Account ID</b>. گیسو خودش این آدرس را می‌سازد:</p>
                     <code dir="ltr" style="display:block;margin-top:6px;white-space:normal;">https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run</code>
                     <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">مدل پیش‌فرض طراحی عکس نهایی ابرو: <code dir="ltr">@cf/black-forest-labs/flux-2-klein-4b</code></p>
                 </div>
-                <small class="pnl-muted" style="grid-column:1/-1;">اگر پروایدر را <b>Cloudflare / cf</b> انتخاب کنی، کافی است API Token و Account ID را بدهی؛ آدرس <span dir="ltr">/ai/run</span> خودکار ساخته می‌شود و مدل تصویر پیش‌فرض برای آینه ابرو تنظیم می‌شود.</small>
+                <small class="pnl-muted" style="grid-column:1/-1;">برای چند اکانت Cloudflare از <b>cf1</b>، <b>cf2</b>، <b>cf3</b> استفاده کن؛ هرکدام Token و Account ID خودش را می‌گیرد و به اسلات همان شماره در طراحی نهایی ابرو وصل می‌شود.</small>
                 <details style="grid-column:1/-1;" data-hide-for-cf>
                     <summary style="cursor:pointer;">⚙️ تنظیمات پیشرفته (اختیاری — خالی = از رجیستری)</summary>
                     <div class="pnl-grid-form" style="margin-top:8px;">
@@ -450,10 +453,11 @@
     function apply(){
       var value=norm(select && select.value);
       var custom=norm(form.querySelector('[name="custom_name"]') && form.querySelector('[name="custom_name"]').value);
-      var isCf=(value==='cf'||value==='cloudflare'||custom==='cf'||custom==='cloudflare');
+      function isCfName(v){ return v==='cf'||v==='cloudflare'||/^cf[1-3]$/.test(v); }
+      var isCf=(isCfName(value)||isCfName(custom));
       hideItems.forEach(function(el){ el.style.display=isCf?'none':''; });
       if(help) help.style.display=isCf?'block':'none';
-      if(account){ account.required=!!isCf; account.placeholder=isCf?'Cloudflare Account ID*':'Cloudflare Account ID فقط برای cf/cloudflare'; }
+      if(account){ account.required=!!isCf; account.placeholder=isCf?'Cloudflare Account ID*':'Cloudflare Account ID فقط برای cf/cf1/cf2/cf3'; }
     }
     if(select) select.addEventListener('change',apply);
     var custom=form.querySelector('[name="custom_name"]');

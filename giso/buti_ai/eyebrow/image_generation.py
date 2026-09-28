@@ -410,6 +410,18 @@ def _looks_like_base64(text: str) -> bool:
     return re.fullmatch(r"[A-Za-z0-9+/=\s]+", compact) is not None
 
 
+def _post_request(url: str, disable_env_proxy: bool = False, **kwargs) -> requests.Response:
+    """POST helper; Cloudflare image calls should not inherit broken system proxies."""
+    if disable_env_proxy and getattr(requests.post, "__module__", "").startswith("requests"):
+        session = requests.Session()
+        session.trust_env = False
+        try:
+            return session.post(url, **kwargs)
+        finally:
+            session.close()
+    return requests.post(url, **kwargs)
+
+
 def _extract_image_value(value: Any, depth: int = 0) -> Optional[str]:
     """استخراج تصویر از پاسخ‌های رایج: data URI، url، b64_json، result.image."""
     if depth > 5 or value is None:
@@ -486,6 +498,11 @@ def _parse_response_image(response: requests.Response) -> str:
 
 
 def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_path: str, prompt: str, timeout: int) -> str:
+    if str(provider.model or "").strip() != DEFAULT_CLOUDFLARE_MODEL:
+        raise ImageProviderError(
+            "این مدل Cloudflare برای طراحی عکس نهایی ابرو با عکس ورودی پشتیبانی‌شده نیست؛ "
+            "مدل @cf/black-forest-labs/flux-2-klein-4b را انتخاب کن."
+        )
     width, height = _output_size_for_cloudflare(source_path)
     photo_bytes, photo_mime, photo_ext = _image_bytes_for_provider(source_path, MAX_PROVIDER_INPUT_SIDE, square=False)
     files = {
@@ -505,8 +522,9 @@ def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_
         "width": str(width),
         "height": str(height),
     }
-    response = requests.post(
+    response = _post_request(
         provider.endpoint,
+        disable_env_proxy=True,
         headers=_authorization_headers(provider),
         data=data,
         files=files,
@@ -624,8 +642,9 @@ def _call_cloudflare_inpainting(provider: ImageProviderConfig, source_path: str,
         "reference_image_sent": False,
         "cloudflare_request_format": "json_image_and_mask_byte_arrays",
     }
-    response = requests.post(
+    response = _post_request(
         provider.endpoint,
+        disable_env_proxy=True,
         headers={**_authorization_headers(provider), "Content-Type": "application/json"},
         json=payload,
         timeout=timeout,

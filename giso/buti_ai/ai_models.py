@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -76,6 +77,25 @@ def _row_get(row: Any, key: str, default: Any = "") -> Any:
     except Exception:
         pass
     return default
+
+
+def _is_cloudflare_provider_name(provider_name: str) -> bool:
+    name = str(provider_name or "").strip().lower()
+    return name == "cloudflare" or re.fullmatch(r"cf[1-3]", name) is not None
+
+
+def _cloudflare_slot_priority(provider_name: str) -> int:
+    match = re.fullmatch(r"cf([0-9]+)", str(provider_name or "").strip().lower())
+    if not match:
+        return 0
+    try:
+        return max(1, min(int(TASK_DEFS[TASK_EYEBROW_IMAGE_DESIGN]["slots"]), int(match.group(1))))
+    except Exception:
+        return 0
+
+
+def _registry_family_for_provider(provider_name: str) -> str:
+    return "cloudflare" if _is_cloudflare_provider_name(provider_name) else str(provider_name or "").strip().lower()
 
 
 def _cloudflare_image_kind_for_model(model_name: str, image_kind: str = "") -> str:
@@ -236,7 +256,7 @@ def _models_for_provider_row(row: Any) -> List[str]:
     try:
         from giso.ai_models_registry import get_image_models, get_text_models, get_vision_models
 
-        name = _row_get(row, "name", "")
+        name = _registry_family_for_provider(_row_get(row, "name", ""))
         for group in (get_image_models(name), get_vision_models(name), get_text_models(name)):
             for item in group:
                 _add_unique(models, item)
@@ -583,11 +603,15 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
     except Exception as exc:
         return {"ok": False, "added": 0, "items": [], "error": str(exc)[:160]}
 
-    provider_name = normalize_provider_name(provider_name)
+    provider_name = str(provider_name or "").strip().lower()
+    provider_name = provider_name if _is_cloudflare_provider_name(provider_name) else normalize_provider_name(provider_name)
+    registry_family = _registry_family_for_provider(provider_name)
     added: List[Dict[str, Any]] = []
 
-    vision_model = get_best_vision_model(provider_name)
-    if vision_model and (overwrite or _slot_is_empty(TASK_EYEBROW_ANALYSIS, 1)):
+    vision_model = get_best_vision_model(registry_family)
+    account_slot = _cloudflare_slot_priority(provider_name)
+    analysis_overwrite = bool(overwrite and (not account_slot or account_slot == 1))
+    if vision_model and (analysis_overwrite or _slot_is_empty(TASK_EYEBROW_ANALYSIS, 1)):
         ok, _message = save_model_assignment(
             TASK_EYEBROW_ANALYSIS,
             1,
@@ -598,10 +622,16 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
         if ok:
             added.append({"task": TASK_EYEBROW_ANALYSIS, "priority": 1, "model": vision_model})
 
-    for priority, item in enumerate(_model_items(get_image_models(provider_name), limit=3, auto_assign_only=True), start=1):
+    image_items = _model_items(get_image_models(registry_family), limit=3, auto_assign_only=True)
+    if account_slot and image_items:
+        image_items = [image_items[0]]
+        priorities = [account_slot]
+    else:
+        priorities = list(range(1, len(image_items) + 1))
+    for priority, item in zip(priorities, image_items):
         model = item["id"]
-        image_kind = item.get("image_kind") or ("cloudflare" if provider_name == "cloudflare" else "")
-        if provider_name == "cloudflare":
+        image_kind = item.get("image_kind") or ("cloudflare" if registry_family == "cloudflare" else "")
+        if registry_family == "cloudflare":
             image_kind = _cloudflare_image_kind_for_model(model, image_kind)
         if not (overwrite or _slot_is_empty(TASK_EYEBROW_IMAGE_DESIGN, priority)):
             continue

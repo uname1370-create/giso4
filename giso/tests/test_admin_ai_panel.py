@@ -77,7 +77,8 @@ def test_admin_ai_panel_read_only_view():
     html = r2.get_data(as_text=True)
     assert 'مدیریت هوش مصنوعی' in html
     assert 'اسم نمایشی مشاور هوشمند' in html
-    assert 'cf — Cloudflare سریع' in html
+    assert 'cf1 — Cloudflare اکانت ۱' in html
+    assert 'cf2 — Cloudflare اکانت ۲' in html
     assert '@cf/black-forest-labs/flux-2-klein-4b' in html
     assert 'data-cf-account' in html
     print('PASS  نمای AI برای سوپرادمین کامل و برای ادمین مسدود است')
@@ -144,6 +145,54 @@ def test_superadmin_can_add_ai_provider_from_web():
         except Exception:
             pass
 
+
+
+
+def test_superadmin_can_add_cf1_cf2_cf3_as_distinct_cloudflare_providers_from_web():
+    import re as _re
+    import tempfile as _tf
+    from pathlib import Path as _P
+    import giso.ai_brain as _ab
+    from giso.ai_brain import cloudflare_account_id_from_url, get_ai_provider
+    from giso.buti_ai import ai_models
+
+    app = create_app()
+    client = app.test_client()
+    _cleanup(app)
+    with app.app_context():
+        db.session.add(User(phone=SUPER_PHONE, password_hash="hash", name="سوپر وب"))
+        db.session.commit()
+    _login_and_verify(client, phone=SUPER_PHONE)
+    html = client.get('/admin/ai').get_data(as_text=True)
+    token = _re.search(r'name="csrf_token" value="([^"]+)"', html).group(1)
+    _tmp_env = _P(_tf.mkdtemp()) / ".env"
+    _orig_env = _ab._ENV_PATH
+    _ab._ENV_PATH = _tmp_env
+    try:
+        for slot in (1, 2, 3):
+            r = client.post('/admin/ai/provider/add', data={
+                'csrf_token': token,
+                'name': f'cf{slot}',
+                'api_key': f'FAKE_CF_TOKEN_{slot}',
+                'account_id': f'acct-{slot}',
+            })
+            assert r.status_code == 302
+
+        rows = [get_ai_provider(f'cf{i}') for i in (1, 2, 3)]
+        assert all(rows), rows
+        assert [r['kind'] for r in rows] == ['cloudflare', 'cloudflare', 'cloudflare']
+        assert [cloudflare_account_id_from_url(r['base_url']) for r in rows] == ['acct-1', 'acct-2', 'acct-3']
+
+        image_rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_IMAGE_DESIGN)
+        image_rows = [r for r in image_rows if r['provider_name'] in {'cf1', 'cf2', 'cf3'}]
+        assert [(int(r['priority']), r['provider_name']) for r in image_rows] == [(1, 'cf1'), (2, 'cf2'), (3, 'cf3')]
+        assert all(r['model_name'] == '@cf/black-forest-labs/flux-2-klein-4b' for r in image_rows)
+    finally:
+        _ab._ENV_PATH = _orig_env
+        try:
+            _tmp_env.unlink()
+        except Exception:
+            pass
 
 
 def _run():

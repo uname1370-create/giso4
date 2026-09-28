@@ -206,8 +206,13 @@ def handle_provider_add():
 
     from giso.ai_models_registry import get_provider as _reg_provider, normalize_provider_name as _normalize_pname
     import json as _json
-    name = _normalize_pname(name)
-    registry_data = _reg_provider(name)
+    import re as _re
+    raw_name = name
+    cf_slot_name = _re.fullmatch(r"cf[1-3]", raw_name or "") is not None
+    is_cf_instance = raw_name == "cf" or raw_name == "cloudflare" or cf_slot_name
+    provider_family = "cloudflare" if is_cf_instance else _normalize_pname(raw_name)
+    name = raw_name if cf_slot_name else provider_family
+    registry_data = _reg_provider(provider_family)
 
     if registry_data:
         base_url = (request.form.get("base_url") or "").strip() or registry_data["base_url"]
@@ -221,7 +226,7 @@ def handle_provider_add():
         text_models = registry_data.get("text_models", [])
         from giso.ai_models_registry import get_best_vision_model, get_best_text_model
         model = (request.form.get("selected_model") or "").strip() \
-            or get_best_vision_model(name) or get_best_text_model(name) or ""
+            or get_best_vision_model(provider_family) or get_best_text_model(provider_family) or ""
         models_source = "registry"
     else:
         base_url = (request.form.get("base_url") or "").strip()
@@ -245,7 +250,7 @@ def handle_provider_add():
         from giso.ai_brain import _normalize_gemini_base_url
         base_url = _normalize_gemini_base_url(base_url)
     cloudflare_image_model = ""
-    if name == "cloudflare":
+    if is_cf_instance:
         try:
             from giso.ai_brain import normalize_cloudflare_api_root
             from giso.ai_models_registry import get_best_text_model, get_best_vision_model, get_image_models
@@ -268,7 +273,7 @@ def handle_provider_add():
     if name == "gemini":
         use_proxy = False
     proxy_url = (request.form.get("proxy_url") or "").strip()
-    if name == "cloudflare":
+    if is_cf_instance:
         use_proxy = False
         proxy_url = ""
     proxy_type = _proxy_type_of(proxy_url)
@@ -296,12 +301,12 @@ def handle_provider_add():
                 pass
             try:
                 from giso.buti_ai.ai_models import auto_configure_for_provider
-                auto_res = auto_configure_for_provider(name, overwrite=(name == "cloudflare"))
+                auto_res = auto_configure_for_provider(name, overwrite=(name == "cloudflare" or cf_slot_name))
                 if auto_res.get("added"):
                     flash(f"🪞 {auto_res['added']} اسلات آینه زیبایی خودکار تنظیم شد.", "success")
-                if name == "cloudflare" and cloudflare_image_model:
+                if is_cf_instance and cloudflare_image_model:
                     flash(
-                        f"⚡ Cloudflare/cf آماده شد؛ آدرس run خودکار ساخته شد و مدل طراحی عکس ابرو «{cloudflare_image_model}» است.",
+                        f"⚡ {name} آماده شد؛ آدرس run خودکار ساخته شد و مدل طراحی عکس ابرو «{cloudflare_image_model}» است.",
                         "success",
                     )
             except Exception as auto_exc:
