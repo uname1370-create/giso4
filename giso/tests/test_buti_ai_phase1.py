@@ -1011,7 +1011,10 @@ def test_final_design_reads_ai_management_image_provider(tmp_path, monkeypatch):
     assert calls
     assert calls[0]["url"].endswith("/ai/run/@cf/black-forest-labs/flux-2-klein-4b")
     assert "input_image_0" in calls[0]["files"]
+    assert "input_image_1" not in calls[0]["files"]
     assert "mask" not in calls[0]["files"]
+    assert int(calls[0]["data"]["width"]) <= 1024
+    assert int(calls[0]["data"]["height"]) <= 1024
     assert "Selected eyebrow model: کامبینیشن" in calls[0]["data"]["prompt"]
     assert "Edit ONLY the two eyebrow regions" in calls[0]["data"]["prompt"]
     assert result["ok"] is True
@@ -1077,6 +1080,7 @@ def test_ai_provider_output_is_constrained_to_eyebrow_mask(tmp_path, monkeypatch
     assert result["ok"] is True
     assert result["provider_output_constrained_to_eyebrow_mask"] is True
     assert result["mask_used"] is True
+    assert result["mask_filename"].startswith("masks/")
     saved = Image.open(tmp_path / result["filename"]).convert("RGB")
     outside = saved.getpixel((20, 20))
     inside = saved.getpixel((238, 266))
@@ -1108,6 +1112,8 @@ def test_final_design_template_uses_drag_compare_slider():
     assert "data-bti-compare" in tpl
     assert "bti-compare-handle" in tpl
     assert "بزرگنمایی طراحی" in tpl
+    assert "مشاهده ماسک ابرو" in tpl
+    assert "provider_output_constrained_to_eyebrow_mask" in tpl
     assert "attempt.error" in tpl
     assert "bti-before-after bti-final-before-after" not in tpl
     assert "eyebrow_final_retry" in tpl
@@ -1116,6 +1122,7 @@ def test_final_design_template_uses_drag_compare_slider():
     assert "width: min(100%, 780px)" in css
     assert "object-fit: contain" in css
     assert "direction: ltr" in css
+    assert "bti-mask-debug-link" in css
 
 
 def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path, monkeypatch):
@@ -1151,6 +1158,44 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
     second = ai_models.auto_configure_for_provider("cloudflare")
     assert second["added"] == 0
 
+
+
+
+def test_repair_legacy_cloudflare_slots_replaces_json_only_models(tmp_path, monkeypatch):
+    import sqlite3
+    from giso.buti_ai import ai_models
+    import giso.ai_brain as ai_brain
+
+    db_path = tmp_path / "mirror_repair_slots.db"
+
+    def connect():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    monkeypatch.setattr(ai_models, "get_giso_db_conn", connect)
+    providers = {
+        "cloudflare": {"name": "cloudflare", "kind": "cloudflare", "api_key": "t1", "enabled": 1, "base_url": "https://api.cloudflare.com/client/v4/accounts/a1/ai/run"},
+        "cf2": {"name": "cf2", "kind": "cloudflare", "api_key": "t2", "enabled": 1, "base_url": "https://api.cloudflare.com/client/v4/accounts/a2/ai/run"},
+        "cf3": {"name": "cf3", "kind": "cloudflare", "api_key": "t3", "enabled": 1, "base_url": "https://api.cloudflare.com/client/v4/accounts/a3/ai/run"},
+    }
+    monkeypatch.setattr(ai_brain, "get_ai_provider", lambda name: providers.get(str(name or "").lower()))
+
+    ai_models.init_buti_ai_model_assignments()
+    ai_models.save_model_assignment(ai_models.TASK_EYEBROW_IMAGE_DESIGN, 1, "cloudflare", "@cf/black-forest-labs/flux-2-klein-4b", image_kind="cloudflare")
+    ai_models.save_model_assignment(ai_models.TASK_EYEBROW_IMAGE_DESIGN, 2, "cloudflare", "@cf/black-forest-labs/flux-1-schnell", image_kind="cloudflare")
+    ai_models.save_model_assignment(ai_models.TASK_EYEBROW_IMAGE_DESIGN, 3, "cloudflare", "@cf/stabilityai/stable-diffusion-xl-base-1.0", image_kind="cloudflare")
+
+    repaired = ai_models.repair_legacy_cloudflare_eyebrow_image_slots()
+
+    assert repaired["ok"] is True
+    assert repaired["changed"] == 2
+    rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_IMAGE_DESIGN, only_enabled=True)
+    assert [(int(r["priority"]), r["provider_name"], r["model_name"]) for r in rows] == [
+        (1, "cloudflare", "@cf/black-forest-labs/flux-2-klein-4b"),
+        (2, "cf2", "@cf/black-forest-labs/flux-2-klein-4b"),
+        (3, "cf3", "@cf/black-forest-labs/flux-2-klein-4b"),
+    ]
 
 
 def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, monkeypatch):

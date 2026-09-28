@@ -19,8 +19,13 @@ logger = logging.getLogger("giso_buti_ai_models")
 
 TASK_EYEBROW_ANALYSIS = "eyebrow_analysis"
 TASK_EYEBROW_IMAGE_DESIGN = "eyebrow_image_design"
+DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b"
 CLOUDFLARE_INPAINTING_MODEL = "@cf/runwayml/stable-diffusion-v1-5-inpainting"
 CLOUDFLARE_INPAINTING_KINDS = {"cloudflare_inpainting", "cloudflare_inpaint", "inpainting", "mask_inpainting"}
+LEGACY_UNSUPPORTED_CLOUDFLARE_FINAL_MODELS = {
+    "@cf/black-forest-labs/flux-1-schnell",
+    "@cf/stabilityai/stable-diffusion-xl-base-1.0",
+}
 
 TASK_DEFS: Dict[str, Dict[str, Any]] = {
     TASK_EYEBROW_ANALYSIS: {
@@ -106,6 +111,15 @@ def _cloudflare_image_kind_for_model(model_name: str, image_kind: str = "") -> s
     if str(model_name or "").strip() == CLOUDFLARE_INPAINTING_MODEL:
         return "cloudflare_inpainting"
     return "cloudflare"
+
+
+def _is_supported_cloudflare_final_model(model_name: str, image_kind: str = "") -> bool:
+    """Only documented/safe Cloudflare models enter final eyebrow generation."""
+    model = str(model_name or "").strip()
+    kind = _cloudflare_image_kind_for_model(model, image_kind)
+    if kind in CLOUDFLARE_INPAINTING_KINDS:
+        return model == CLOUDFLARE_INPAINTING_MODEL
+    return model == DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL
 
 
 def init_buti_ai_model_assignments(conn=None) -> None:
@@ -310,6 +324,10 @@ def provider_model_options() -> Dict[str, Any]:
 
 def panel_slots_context() -> Dict[str, Any]:
     """ساخت داده ساده برای تب «مدل‌های آینه زیبایی» در پنل."""
+    try:
+        repair_legacy_cloudflare_eyebrow_image_slots()
+    except Exception as exc:
+        logger.debug("legacy Cloudflare eyebrow slot repair for panel skipped: %s", exc)
     assignments = assignment_map()
     options = provider_model_options()
     slots: List[Dict[str, Any]] = []
@@ -387,12 +405,82 @@ def _openai_image_endpoint(row: Any, override: str = "") -> str:
     return base + "/images/edits"
 
 
+def repair_legacy_cloudflare_eyebrow_image_slots() -> Dict[str, Any]:
+    """Fix old auto-slots that used Cloudflare text-to-image JSON models for photo editing.
+
+    Older configs could leave slot 2/3 as flux-1-schnell or SDXL. Those endpoints
+    expect JSON and fail for the current photo-edit flow. If cf2/cf3 providers
+    exist, map each slot to that account with the safe FLUX 2 model; otherwise
+    disable the unsupported extra slot so the user does not see repeated JSON
+    errors in final design.
+    """
+    try:
+        from giso.ai_brain import get_ai_provider
+    except Exception as exc:
+        return {"ok": False, "changed": 0, "error": str(exc)[:120]}
+
+    changed: List[Dict[str, Any]] = []
+    for row in list_model_assignments(TASK_EYEBROW_IMAGE_DESIGN):
+        try:
+            priority = int(row.get("priority") or 1)
+        except Exception:
+            priority = 1
+        provider_name = str(row.get("provider_name") or "").strip().lower()
+        model_name = str(row.get("model_name") or "").strip()
+        image_kind = str(row.get("image_kind") or "").strip().lower()
+        provider = get_ai_provider(provider_name)
+        provider_kind = str(_row_get(provider, "kind", "") or "").strip().lower()
+        is_cf = provider_kind == "cloudflare" or _is_cloudflare_provider_name(provider_name)
+        if not is_cf:
+            continue
+        effective_kind = _cloudflare_image_kind_for_model(model_name, image_kind)
+        if effective_kind in CLOUDFLARE_INPAINTING_KINDS:
+            continue
+        if _is_supported_cloudflare_final_model(model_name, image_kind):
+            continue
+        if model_name not in LEGACY_UNSUPPORTED_CLOUDFLARE_FINAL_MODELS and not model_name.startswith("@cf/"):
+            continue
+
+        slot_provider_name = f"cf{priority}" if 1 <= priority <= int(TASK_DEFS[TASK_EYEBROW_IMAGE_DESIGN]["slots"]) else ""
+        slot_provider = get_ai_provider(slot_provider_name) if slot_provider_name else None
+        target_provider = provider_name
+        enabled = False
+        if slot_provider and str(_row_get(slot_provider, "kind", "") or "").strip().lower() == "cloudflare" and str(_row_get(slot_provider, "api_key", "") or "").strip():
+            target_provider = slot_provider_name
+            enabled = True
+        elif priority == 1 and provider and str(_row_get(provider, "api_key", "") or "").strip():
+            enabled = True
+        ok, _message = save_model_assignment(
+            TASK_EYEBROW_IMAGE_DESIGN,
+            priority,
+            target_provider,
+            DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL,
+            enabled=enabled,
+            image_kind="cloudflare",
+        )
+        if ok:
+            changed.append({
+                "priority": priority,
+                "from_provider": provider_name,
+                "to_provider": target_provider,
+                "from_model": model_name,
+                "to_model": DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL,
+                "enabled": enabled,
+            })
+    return {"ok": True, "changed": len(changed), "items": changed}
+
+
 def configured_image_provider_dicts(limit: int = 3) -> List[Dict[str, Any]]:
     """providerهای تصویرسازی آینه ابرو از مدیریت AI، بدون لاگ‌کردن کلیدها."""
     try:
         from giso.ai_brain import get_ai_provider
     except Exception:
         return []
+
+    try:
+        repair_legacy_cloudflare_eyebrow_image_slots()
+    except Exception as exc:
+        logger.debug("legacy Cloudflare eyebrow slot repair skipped: %s", exc)
 
     providers: List[Dict[str, Any]] = []
     for row in list_model_assignments(TASK_EYEBROW_IMAGE_DESIGN, only_enabled=True):
@@ -411,12 +499,14 @@ def configured_image_provider_dicts(limit: int = 3) -> List[Dict[str, Any]]:
         provider_kind = str(_row_get(provider, "kind", "") or "").strip().lower()
         image_kind = str(row.get("image_kind") or "").strip().lower()
         endpoint = ""
-        if provider_kind == "cloudflare" or provider_name == "cloudflare":
+        if provider_kind == "cloudflare" or _is_cloudflare_provider_name(provider_name):
             root = _cloudflare_run_root(provider)
             if not root:
                 continue
-            endpoint = root.rstrip("/") + "/" + model_name
             image_kind = _cloudflare_image_kind_for_model(model_name, image_kind)
+            if not _is_supported_cloudflare_final_model(model_name, image_kind):
+                continue
+            endpoint = root.rstrip("/") + "/" + model_name
         else:
             endpoint = _openai_image_endpoint(provider, row.get("endpoint_override", ""))
             image_kind = image_kind or "openai_image_edit"
@@ -455,6 +545,11 @@ def readiness_status() -> Dict[str, Any]:
             "warnings": [],
         }
 
+    try:
+        repair_legacy_cloudflare_eyebrow_image_slots()
+    except Exception as exc:
+        logger.debug("legacy Cloudflare eyebrow slot repair for readiness skipped: %s", exc)
+
     issues: List[str] = []
     warnings: List[str] = []
 
@@ -476,7 +571,10 @@ def readiness_status() -> Dict[str, Any]:
             return f"پروایدر «{provider_name}» API Key/Token ندارد."
         if image_task:
             kind = str(_row_get(provider, "kind", "") or "").strip().lower()
-            if kind == "cloudflare" or provider_name == "cloudflare":
+            if kind == "cloudflare" or _is_cloudflare_provider_name(provider_name):
+                safe_kind = _cloudflare_image_kind_for_model(model_name, "")
+                if not _is_supported_cloudflare_final_model(model_name, safe_kind):
+                    return "این مدل Cloudflare برای طراحی عکس نهایی ابرو پشتیبانی نمی‌شود؛ از flux-2-klein-4b یا مدل inpainting واقعی استفاده کن."
                 if not _cloudflare_run_root(provider):
                     return "Cloudflare Account ID یا API Root درست تنظیم نشده است."
             elif not _openai_image_endpoint(provider, endpoint_override):
@@ -679,6 +777,7 @@ def auto_configure_defaults(overwrite: bool = False) -> Dict[str, Any]:
 
 __all__ = [
     "CLOUDFLARE_INPAINTING_MODEL",
+    "DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL",
     "TASK_EYEBROW_ANALYSIS",
     "TASK_EYEBROW_IMAGE_DESIGN",
     "TASK_DEFS",
@@ -689,6 +788,7 @@ __all__ = [
     "readiness_status",
     "auto_configure_for_provider",
     "auto_configure_defaults",
+    "repair_legacy_cloudflare_eyebrow_image_slots",
     "configured_vision_chain",
     "configured_image_provider_dicts",
 ]

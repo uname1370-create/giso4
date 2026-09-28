@@ -6,10 +6,11 @@ Runs four services as independent subprocesses:
   1) bot_edu/bot.py   — always (Bale + Telegram)
   2) web/app.py       — always (port 5000)
   3) giso/app.py      — always (port 5001)
-  4) giso/bot.py      — only when GISO_BOT_TOKEN is set OR when
+  4) giso/bot.py      — only when enabled and GISO_BOT_TOKEN is set OR when
                         bot_token appears in giso_config (bot.db).
-                        The watcher checks every 10s and starts/stops
-                        the giso bot as needed.
+                        Set GISO_BOT_ENABLED=0 or GISO_DISABLE_BALE_BOT=1
+                        for local website-only runs. The watcher checks
+                        every 10s and starts/stops the giso bot as needed.
 
 All services run in their own working directory to avoid import-name
 conflicts (e.g. bot.py existing in both bot_edu/ and giso/).
@@ -68,6 +69,17 @@ def _mask(token: str) -> str:
         return ""
     t = str(token).strip()
     return t if len(t) <= 14 else f"{t[:10]}...{t[-6:]}"
+
+
+def _truthy_env(name: str, default: str = "") -> bool:
+    return str(os.environ.get(name, default) or "").strip().lower() in {"1", "true", "yes", "on", "y"}
+
+
+def _giso_bot_enabled() -> bool:
+    if _truthy_env("GISO_DISABLE_BALE_BOT"):
+        return False
+    raw = str(os.environ.get("GISO_BOT_ENABLED", "1") or "1").strip().lower()
+    return raw not in {"0", "false", "off", "no", "n"}
 
 
 def _env():
@@ -250,6 +262,17 @@ def _giso_bot_watcher():
     current_token = ""
     while True:
         try:
+            if not _giso_bot_enabled():
+                if proc is not None and proc.poll() is None:
+                    logger.info("GISO_BOT_ENABLED=0 یا GISO_DISABLE_BALE_BOT=1 — stopping giso-bot.")
+                    _terminate(proc)
+                    proc = None
+                    _clear_pid()
+                current_token = ""
+                if _shutdown.wait(10):
+                    break
+                continue
+
             # Token priority: env override → db
             token = (os.environ.get("GISO_BOT_TOKEN") or _read_giso_token_from_db() or "").strip()
 
@@ -344,7 +367,7 @@ def main():
     print("  🌐 Main website:   http://127.0.0.1:5000")
     print("  🎀 Giso website:   http://127.0.0.1:5001")
     print("  🤖 Bot-edu:        Bale bot (always)")
-    print("  💇‍♀️ Giso bot:       Activate via admin panel → auto-starts")
+    print("  💇‍♀️ Giso bot:       Activate via admin panel → auto-starts" if _giso_bot_enabled() else "  💇‍♀️ Giso bot:       disabled locally (GISO_BOT_ENABLED=0)")
     print("═" * 60)
     print("  Press Ctrl+C to stop everything")
     print()

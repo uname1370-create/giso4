@@ -389,6 +389,15 @@ def generate_python_guided_design(candidate):
         out_name = f"final/final_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.jpg"
         out_path = os.path.join(EYEBROW_UPLOAD_DIR, out_name)
         composed.save(out_path, "JPEG", quality=88, optimize=True)
+        mask_info = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
+        mask_filename = ""
+        try:
+            mask_path = os.path.abspath(str(mask_info.get("path") or detection.get("mask_path") or ""))
+            upload_root = os.path.abspath(EYEBROW_UPLOAD_DIR)
+            if mask_path.startswith(upload_root + os.sep):
+                mask_filename = os.path.relpath(mask_path, upload_root).replace(os.sep, "/")
+        except Exception:
+            mask_filename = ""
         return {
             "ok": True,
             "filename": out_name,
@@ -398,6 +407,8 @@ def generate_python_guided_design(candidate):
             "prompt": build_design_prompt(candidate),
             "eyebrow_detection_method": detection_method,
             "eyebrow_detection": detection,
+            "mask_filename": mask_filename,
+            "mask_used": bool(mask_filename),
             "ai_inpainting": False,
             "is_ai_generated": False,
             "fallback_type": "non_ai_guided_fallback",

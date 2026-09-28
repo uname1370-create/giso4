@@ -6,7 +6,7 @@
 {% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=15">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=16">
 {% endblock %}
 
 {% block content %}
@@ -71,7 +71,7 @@
                     {% endif %}
                 </b>
                 <span>
-                    عکس و انتخابت حفظ شده است. {% if generation.ai_inpainting %}این خروجی با ماسک واقعی ابرو ساخته شده{% else %}اگر نسخه راهنما باشد، AI Inpainting واقعی نیست{% endif %} و اجرای دقیق باید با متخصص انجام شود.
+                    عکس و انتخابت حفظ شده است. {% if generation.ai_inpainting %}این خروجی با ماسک واقعی ابرو ساخته شده{% elif generation.provider_output_constrained_to_eyebrow_mask %}خروجی AI فقط داخل محدوده ابرو روی عکس اصلی اعمال شده{% else %}اگر نسخه راهنما باشد، AI Inpainting واقعی نیست{% endif %} و اجرای دقیق باید با متخصص انجام شود.
                 </span>
                 {% if generation.attempts %}
                 <details class="bti-provider-technical">
@@ -84,6 +84,9 @@
                         </li>
                         {% endfor %}
                     </ul>
+                    {% if generation.mask_filename %}
+                    <a class="bti-mask-debug-link" href="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.mask_filename) }}" target="_blank" rel="noopener">مشاهده ماسک ابرو</a>
+                    {% endif %}
                 </details>
                 {% endif %}
             </div>
@@ -125,7 +128,7 @@
             {% if generation and generation.ai_inpainting %}
             <span>این تصویر با AI Inpainting و ماسک واقعی ابرو ساخته شده؛ بااین‌حال نتیجه فقط پیش‌نمایش طراحی است و اجرای دقیق باید با متخصص کنترل شود.</span>
             {% elif generation and generation.provider and generation.provider != 'python_guided_composite' and not generation.fallback_used %}
-            <span>این تصویر، پیش‌نمایش هوشمند طراحی عکس نهایی در گیسو است. برای اجرای دقیق، بررسی فرم نهایی، رنگ و تکنیک، نتیجه را به مرکز متخصص ابرو نشان بده.</span>
+            <span>این تصویر، پیش‌نمایش AI طراحی عکس نهایی در گیسو است و خروجی فقط روی محدوده ابرو اعمال شده؛ برای اجرای دقیق، فرم نهایی، رنگ و تکنیک را با مرکز متخصص ابرو کنترل کن.</span>
             {% else %}
             <span>این تصویر، راهنمای غیر AI/پیش‌نمایش طراحی عکس نهایی است؛ AI Inpainting واقعی نیست. برای طراحی دقیق و انجام کار، از مراکز زیبایی ارائه‌دهنده ابرو کمک بگیر.</span>
             {% endif %}

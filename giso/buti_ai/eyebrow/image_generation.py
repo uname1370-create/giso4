@@ -359,10 +359,26 @@ def _output_size_for_cloudflare(path: str) -> Tuple[int, int]:
         w, h = 1024, 1024
     if w <= 0 or h <= 0:
         w, h = 1024, 1024
-    scale = min(1.0, 1536.0 / max(w, h))
+    try:
+        max_side = int(float(_env_value(None, "CLOUDFLARE_IMAGE_OUTPUT_MAX_SIDE") or 1024))
+    except Exception:
+        max_side = 1024
+    max_side = max(512, min(1536, max_side))
+    scale = min(1.0, float(max_side) / max(w, h))
     out_w = int(round((w * scale) / 8) * 8)
     out_h = int(round((h * scale) / 8) * 8)
-    return max(256, min(1536, out_w)), max(256, min(1536, out_h))
+    return max(256, min(max_side, out_w)), max(256, min(max_side, out_h))
+
+
+def _upload_relative_path(path: str) -> str:
+    try:
+        base = os.path.abspath(final_design.EYEBROW_UPLOAD_DIR)
+        absolute = os.path.abspath(str(path or ""))
+        if absolute.startswith(base + os.sep):
+            return os.path.relpath(absolute, base).replace(os.sep, "/")
+    except Exception:
+        pass
+    return ""
 
 
 def _reference_image_path(candidate: Dict[str, Any]) -> str:
@@ -508,7 +524,8 @@ def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_
     files = {
         "input_image_0": (f"customer-face.{photo_ext}", photo_bytes, photo_mime),
     }
-    if reference_path:
+    send_reference = bool(provider.extra.get("send_reference_image")) or _truthy(_env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE"))
+    if reference_path and send_reference:
         ref_bytes, ref_mime, ref_ext = _image_bytes_for_provider(reference_path, MAX_PROVIDER_INPUT_SIDE, square=True)
         files["input_image_1"] = (f"technique-macro.{ref_ext}", ref_bytes, ref_mime)
 
@@ -521,6 +538,12 @@ def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_
         "guidance": guidance,
         "width": str(width),
         "height": str(height),
+    }
+    provider.extra["_last_request_meta"] = {
+        "reference_image_sent": bool(reference_path and send_reference),
+        "cloudflare_request_format": "multipart_prompt_input_image_0",
+        "cloudflare_output_width": width,
+        "cloudflare_output_height": height,
     }
     response = _post_request(
         provider.endpoint,
@@ -639,6 +662,7 @@ def _call_cloudflare_inpainting(provider: ImageProviderConfig, source_path: str,
         "mask_coverage_ratio": coverage,
         "mask_polarity": MASK_POLARITY,
         "mask_source_method": detection.get("method"),
+        "mask_filename": _upload_relative_path(mask_path),
         "reference_image_sent": False,
         "cloudflare_request_format": "json_image_and_mask_byte_arrays",
     }
@@ -835,6 +859,7 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
                 "mask_coverage_ratio": mask_info.get("coverage_ratio"),
                 "mask_polarity": mask_info.get("polarity") or MASK_POLARITY,
                 "mask_source_method": detection.get("method") if isinstance(detection, dict) else "",
+                "mask_filename": _upload_relative_path(str(mask_info.get("path") or detection.get("mask_path") or "")),
             })
         else:
             ai_image.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
@@ -849,6 +874,16 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
         raise ImageProviderError(f"خروجی provider تصویر معتبر نبود: {str(exc)[:120]}") from exc
 
 
+def _friendly_provider_error(exc: Exception) -> str:
+    raw = str(exc or "").strip() or "provider failed"
+    low = raw.lower()
+    if "read timed out" in low or "timeout" in low or "timed out" in low:
+        return "مدل دیر جواب داد و زمان درخواست تمام شد؛ کمی بعد دوباره تلاش کن."
+    if "request body is not valid json" in low:
+        return "این مدل برای مسیر طراحی عکس نهایی فعلی مناسب نیست و باید از اسلات ابرو حذف شود."
+    return raw[:280]
+
+
 def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") -> Dict[str, Any]:
     item = {
         "provider": provider.id,
@@ -861,7 +896,7 @@ def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") 
     }
     meta = provider.extra.get("_last_request_meta") if isinstance(provider.extra, dict) else None
     if isinstance(meta, dict):
-        for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "reference_image_sent", "cloudflare_request_format", "provider_output_constrained_to_eyebrow_mask"):
+        for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "mask_filename", "reference_image_sent", "cloudflare_request_format", "cloudflare_output_width", "cloudflare_output_height", "provider_output_constrained_to_eyebrow_mask"):
             if key in meta:
                 item[key] = meta[key]
     if error:
@@ -921,13 +956,13 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 "configured_provider_count": len(providers),
                 "message": "طراحی عکس نهایی با AI Inpainting و ماسک واقعی ابرو آماده شد." if ai_inpainting else "طراحی عکس نهایی با AI آماده شد و فقط داخل محدوده ابرو روی عکس اصلی اعمال شد.",
             }
-            for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "reference_image_sent", "cloudflare_request_format", "provider_output_constrained_to_eyebrow_mask"):
+            for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "mask_filename", "reference_image_sent", "cloudflare_request_format", "cloudflare_output_width", "cloudflare_output_height", "provider_output_constrained_to_eyebrow_mask"):
                 if key in attempt:
                     result[key] = attempt[key]
             return result
         except Exception as exc:
             ms = int((time.monotonic() - started) * 1000)
-            safe_error = str(exc)[:280] or "provider failed"
+            safe_error = _friendly_provider_error(exc)
             attempts.append(_attempt(provider, False, ms, safe_error))
             logger.info(
                 "Buti AI image provider failed provider=%s model=%s ms=%s error=%s",

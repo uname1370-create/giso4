@@ -2644,3 +2644,13 @@
         grid-template-columns: 1fr;
     }
 }
+
+.bti-mask-debug-link {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 8px;
+    color: #ffe1a3;
+    font-weight: 900;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+}
