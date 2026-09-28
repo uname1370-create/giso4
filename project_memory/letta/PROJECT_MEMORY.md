@@ -431,3 +431,50 @@ Validation note:
 - Full Flask test-client GET checks passed for `/analysis`, `/analysis/mirror`, `/analysis/mirror/`, `/analysis/mirror/eyebrow`, `/analysis/mirror/ping`, and Buti AI static CSS/JS.
 - POST demo/fallback check passed for `/analysis/mirror/eyebrow` with CSRF and `demo_mode=1`.
 - Live preview server curl checks returned HTTP 200 for `/analysis`, `/analysis/mirror`, `/analysis/mirror/eyebrow`, and Buti AI CSS.
+
+---
+
+## 17. Buti AI Phase 1.5 — Internal Eyebrow Structure
+
+Status:
+
+- Phase 1.5 refactor completed after user approval.
+- The eyebrow scenario logic was separated from `giso/buti_ai/routes.py` into an internal package:
+
+```text
+giso/buti_ai/eyebrow/
+```
+
+New structure:
+
+```text
+giso/buti_ai/eyebrow/__init__.py
+giso/buti_ai/eyebrow/options.py
+giso/buti_ai/eyebrow/upload.py
+giso/buti_ai/eyebrow/result.py
+giso/buti_ai/eyebrow/flow.py
+```
+
+Responsibilities:
+
+- `options.py` — eyebrow styles, change levels, defaults, normalization.
+- `upload.py` — Buti AI-owned upload validation/saving/compression helpers.
+- `result.py` — MVP text result construction.
+- `flow.py` — scenario orchestration for the eyebrow wizard and mirror service list.
+- `routes.py` — now stays route/controller focused.
+
+Tests added:
+
+```text
+giso/tests/test_buti_ai_phase1.py
+```
+
+Validation:
+
+- Python compile passed for Buti AI modules and the new test file.
+- `pytest -q giso/tests/test_buti_ai_phase1.py` passed: `3 passed, 1 warning`.
+
+Boundary:
+
+- No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
+- This refactor is structural only: no AI vision, no image generation preview, and no UI polish beyond existing Phase 1.

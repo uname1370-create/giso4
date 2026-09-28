@@ -492,3 +492,44 @@ giso/templates/analysis_home.html
 
 این تغییر فقط include نازک است تا کارت آینه از `giso/buti_ai/` خوانده شود.
 
+---
+
+## 12. وضعیت اجرای فاز ۱.۵ — تکمیل ساختار داخلی
+
+فاز ۱.۵ اجرا شد تا قبل از بهتر کردن UI/UX، ساختار داخلی سناریوی ابرو تمیز شود.
+
+تغییر اصلی:
+
+- منطق ابرو از `giso/buti_ai/routes.py` جدا شد.
+- پکیج داخلی زیر ساخته شد:
+
+```text
+giso/buti_ai/eyebrow/
+```
+
+تقسیم مسئولیت:
+
+- `options.py`: گزینه‌های ابرو و میزان تغییر.
+- `upload.py`: ذخیره امن عکس در مسیر runtime خود Buti AI.
+- `result.py`: ساخت نتیجه متنی MVP.
+- `flow.py`: orchestration سناریو و سرویس‌های صفحه آینه.
+- `routes.py`: فقط کنترلر و render/redirect/flash.
+
+تست:
+
+```text
+giso/tests/test_buti_ai_phase1.py
+```
+
+وضعیت تست:
+
+```text
+3 passed, 1 warning
+```
+
+هنوز انجام نشده:
+
+- بهبود نهایی UI/UX،
+- تحلیل واقعی AI،
+- بررسی کیفیت عکس با AI،
+- preview تصویری قبل/بعد.

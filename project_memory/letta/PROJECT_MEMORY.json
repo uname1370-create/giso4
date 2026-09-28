@@ -5,7 +5,7 @@
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 1 eyebrow MVP has started and route sanity checks passed: mirror card is owned by giso/buti_ai, /analysis/mirror renders a landing page, and /analysis/mirror/eyebrow renders/posts a text-fallback wizard. AI vision/preview is not implemented yet.",
+  "status": "Buti AI Phase 1.5 completed: eyebrow logic is split into giso/buti_ai/eyebrow/, routes.py is controller-focused, and new Buti AI tests passed. UI polish/AI vision/image preview are not implemented yet.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -173,7 +173,10 @@
     "Moved the analysis-page mirror card source into giso/buti_ai/templates/buti_ai/_analysis_mirror_card.html with only a thin include from giso/templates/analysis_home.html.",
     "Added Buti AI landing page and eyebrow MVP wizard routes/templates/static assets.",
     "Kept Phase 1 as text fallback only; no AI vision or image preview implemented yet.",
-    "Validated Buti AI Phase 1 GET routes and POST demo flow using Flask test client in a temporary venv."
+    "Validated Buti AI Phase 1 GET routes and POST demo flow using Flask test client in a temporary venv.",
+    "Completed Buti AI Phase 1.5 structural refactor.",
+    "Moved eyebrow options/upload/result/flow logic out of giso/buti_ai/routes.py into giso/buti_ai/eyebrow/.",
+    "Added giso/tests/test_buti_ai_phase1.py for module and route/demo POST contracts."
   ],
   "next_action": [
     "Run git status --short --branch before work.",
@@ -191,7 +194,9 @@
     "For every Buti AI implementation step, confirm code location and protected areas before editing.",
     "After user review of Phase 1 UI, decide whether to add AI photo quality check and eyebrow analysis prompts.",
     "Do not add image preview generation until MVP wizard is accepted.",
-    "Review Phase 1 UI in browser/live preview if desired."
+    "Review Phase 1 UI in browser/live preview if desired.",
+    "Next Buti AI step should be either UI/UX polish on the existing eyebrow wizard or AI photo quality check inside giso/buti_ai/eyebrow/.",
+    "Keep routes.py controller-focused; place future eyebrow scenario logic in giso/buti_ai/eyebrow/."
   ],
   "update_protocol": [
     "Update PROJECT_MEMORY.md and PROJECT_MEMORY.json after meaningful work.",
@@ -300,13 +305,26 @@
       "image preview generation",
       "deep reservation/panel integration"
     ],
-    "phase_1_preview_status": "live_preview_started_on_port_5001_and_curl_checks_passed"
+    "phase_1_preview_status": "live_preview_started_on_port_5001_and_curl_checks_passed",
+    "phase_1_5_status": "completed_structure_refactor_tests_passed",
+    "phase_1_5_files": [
+      "giso/buti_ai/eyebrow/__init__.py",
+      "giso/buti_ai/eyebrow/options.py",
+      "giso/buti_ai/eyebrow/upload.py",
+      "giso/buti_ai/eyebrow/result.py",
+      "giso/buti_ai/eyebrow/flow.py",
+      "giso/tests/test_buti_ai_phase1.py"
+    ],
+    "phase_1_5_boundary_note": "Structural refactor only. No protected paths changed and no AI vision/image preview/UI polish implemented.",
+    "routes_py_role": "controller_only_for_buti_ai_routes; scenario logic belongs in giso/buti_ai/eyebrow/"
   },
   "validations": [
     "py_compile passed for giso/buti_ai Python files after Phase 1 changes.",
     "Temporary venv /tmp/giso4-venv installed requirements for validation only; it is outside the repo.",
     "Full Flask test-client GET checks passed for /analysis, /analysis/mirror, /analysis/mirror/, /analysis/mirror/eyebrow, /analysis/mirror/ping, and Buti AI static CSS/JS.",
     "POST demo/fallback check passed for /analysis/mirror/eyebrow with CSRF and demo_mode=1.",
-    "Live preview/curl checks returned HTTP 200 for /analysis, /analysis/mirror, /analysis/mirror/eyebrow, and Buti AI CSS."
+    "Live preview/curl checks returned HTTP 200 for /analysis, /analysis/mirror, /analysis/mirror/eyebrow, and Buti AI CSS.",
+    "py_compile passed for giso/buti_ai modules and giso/tests/test_buti_ai_phase1.py after Phase 1.5.",
+    "PYTHONPATH=/home/user/giso4 SECRET_KEY=... .arena/venv/bin/python -m pytest -q giso/tests/test_buti_ai_phase1.py passed: 3 passed, 1 warning."
   ]
 }
