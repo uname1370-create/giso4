@@ -556,6 +556,7 @@ def _call_json_image(provider: ImageProviderConfig, source_path: str, reference_
         "service": "eyebrows",
         "styleKey": normalize_style_key(candidate.get("final_style")),
         "style": candidate.get("final_label") or "",
+        "eyebrowRegions": (candidate.get("eyebrow_detection") or {}).get("regions") if isinstance(candidate.get("eyebrow_detection"), dict) else [],
         "imageBase64": _data_uri_for_path(source_path, max_side=1024),
     }
     if reference_path:
@@ -651,11 +652,12 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
     اگر provider تصویر تنظیم نشده باشد یا همه providerها شکست بخورند، خروجی
     `generate_python_guided_design` ساخته می‌شود تا تجربه کاربر قطع نشود.
     """
-    candidate = candidate or {}
+    candidate = dict(candidate or {})
     source_path = final_design.source_image_path(candidate)
     if not source_path:
         return {"ok": False, "message": "برای طراحی عکس نهایی، عکس واقعی لازم است.", "status": "missing_photo"}
 
+    eyebrow_detection = final_design.ensure_eyebrow_detection(candidate)
     prompt = final_design.build_design_prompt(candidate)
     providers = configured_image_providers(env)
     reference_path = _reference_image_path(candidate)
@@ -677,6 +679,8 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 "model": provider.model,
                 "status": "ai_final_ready",
                 "prompt": prompt,
+                "eyebrow_detection_method": eyebrow_detection.get("method") if isinstance(eyebrow_detection, dict) else "",
+                "eyebrow_detection": eyebrow_detection,
                 "attempts": attempts,
                 "fallback_used": False,
                 "configured_provider_count": len(providers),

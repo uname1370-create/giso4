@@ -97,9 +97,9 @@
                 <small>میزان تغییر: {{ candidate.change_label }}</small>
             </article>
             <article>
-                <span>پیشنهاد گیسو</span>
-                <p>{{ candidate.recommended_label }}</p>
-                <small>انتخاب نهایی شما ذخیره شد.</small>
+                <span>مدل انتخاب‌شده</span>
+                <p>{{ candidate.selected_label or candidate.final_label }}</p>
+                <small>همین مدل در طراحی نهایی استفاده شده است.</small>
             </article>
             <article>
                 <span>بهتر است</span>

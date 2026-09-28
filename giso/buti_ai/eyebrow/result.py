@@ -231,11 +231,11 @@ def build_eyebrow_result(style_key, change_key, photo_status, demo_mode=False,
     selected_change_key = normalize_change_level(change_key)
     ai_data = (ai_analysis or {}).get("data") or {}
 
-    recommended_style_key = normalize_style_key(ai_data.get("recommended_style") or selected_style_key)
-    result_change_key = normalize_change_level(
-        ai_data.get("recommended_change_level") or ai_data.get("change_level") or selected_change_key
-    )
-    style = EYEBROW_STYLES[recommended_style_key]
+    ai_recommended_style_key = normalize_style_key(ai_data.get("recommended_style") or selected_style_key)
+    # مدل و شدت انتخاب‌شده کاربر Single Source of Truth هستند؛ AI دیگر مدل را عوض نمی‌کند.
+    recommended_style_key = selected_style_key
+    result_change_key = selected_change_key
+    style = EYEBROW_STYLES[selected_style_key]
     change_label = CHANGE_LEVELS.get(result_change_key, CHANGE_LEVELS[DEFAULT_CHANGE_LEVEL])
 
     fallback_do = style.get("do", [])
@@ -252,8 +252,9 @@ def build_eyebrow_result(style_key, change_key, photo_status, demo_mode=False,
         ai_data,
         style_scores,
     )
+    ai_reason_allowed = ai_recommended_style_key == selected_style_key
     short_reason = _clean_text(
-        ai_data.get("short_reason") or ai_data.get("why"),
+        (ai_data.get("short_reason") or ai_data.get("why")) if ai_reason_allowed else "",
         style.get("why", ""),
         180,
     )
@@ -261,6 +262,7 @@ def build_eyebrow_result(style_key, change_key, photo_status, demo_mode=False,
     return {
         "style_key": recommended_style_key,
         "selected_style_key": selected_style_key,
+        "ai_recommended_style_key": ai_recommended_style_key,
         "style": style,
         "change_key": result_change_key,
         "selected_change_key": selected_change_key,
@@ -278,10 +280,10 @@ def build_eyebrow_result(style_key, change_key, photo_status, demo_mode=False,
             "برای تحلیل دقیق‌تر، عکس واضح روبه‌رو و نور مناسب لازم است.",
             180,
         ),
-        "why": _clean_text(ai_data.get("why"), style.get("why", ""), 220),
+        "why": _clean_text(ai_data.get("why") if ai_reason_allowed else "", style.get("why", ""), 220),
         "short_reason": short_reason,
-        "do": _clean_list(ai_data.get("do"), fallback_do, limit=3),
-        "avoid": _clean_list(ai_data.get("avoid"), fallback_avoid, limit=3),
+        "do": _clean_list(ai_data.get("do") if ai_reason_allowed else [], fallback_do, limit=3),
+        "avoid": _clean_list(ai_data.get("avoid") if ai_reason_allowed else [], fallback_avoid, limit=3),
         "alternative_styles": _clean_list(ai_data.get("alternative_styles"), [], limit=2),
         "score_cards": score_cards,
         "style_scores": style_scores,

@@ -122,7 +122,7 @@ def eyebrow_wizard():
     """مرحله انتخاب مدل ابرو؛ آپلود عکس در route جدا انجام می‌شود."""
     init_buti_ai_db()
     if request.method == "POST":
-        # سازگاری با فرم/تست‌های قدیمی: اگر عکس مستقیم ارسال شد، همان‌جا تحلیل شود.
+        # سازگاری با فرم/تست‌های قدیمی: اگر عکس مستقیم ارسال شد، همان‌جا آماده طراحی نهایی شود.
         selection = _selection_from_form(request.form)
         session[EYEBROW_SELECTION_SESSION_KEY] = selection
         session.modified = True
@@ -133,9 +133,12 @@ def eyebrow_wizard():
             request.files,
             user_id=_safe_current_user_id(),
         )
-        state["flow_step"] = "result" if state.get("result") else "upload"
+        state["flow_step"] = "upload"
         if state.get("result"):
             store_final_candidate(session, state.get("result"), state.get("photo_status"))
+            if state.get("flash_message"):
+                flash(state["flash_message"], state.get("flash_category") or "info")
+            return redirect(url_for("buti_ai.eyebrow_final_design"))
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
         return _render_eyebrow_wizard(state)
@@ -157,7 +160,7 @@ def eyebrow_model_selection():
 
 @buti_ai_bp.route("/eyebrow/upload", methods=["GET", "POST"])
 def eyebrow_upload():
-    """مرحله مستقل آپلود عکس و تحلیل آینه ابرو."""
+    """مرحله مستقل آپلود عکس؛ پس از اعتبارسنجی مستقیم وارد طراحی نهایی می‌شود."""
     init_buti_ai_db()
     selection = _current_selection()
     if request.method == "GET":
@@ -171,9 +174,12 @@ def eyebrow_upload():
         request.files,
         user_id=_safe_current_user_id(),
     )
-    state["flow_step"] = "result" if state.get("result") else "upload"
+    state["flow_step"] = "upload"
     if state.get("result"):
         store_final_candidate(session, state.get("result"), state.get("photo_status"))
+        if state.get("flash_message"):
+            flash(state["flash_message"], state.get("flash_category") or "info")
+        return redirect(url_for("buti_ai.eyebrow_final_design"))
     if state.get("flash_message"):
         flash(state["flash_message"], state.get("flash_category") or "info")
     return _render_eyebrow_wizard(state)
@@ -204,7 +210,7 @@ def eyebrow_validate_photo():
         return jsonify({
             "valid": bool(valid),
             "status": quality.get("status"),
-            "message": quality.get("message") or ("عکس برای تحلیل مناسب است." if valid else "این عکس برای تحلیل دقیق مناسب نیست."),
+            "message": quality.get("message") or ("عکس برای طراحی مناسب است." if valid else "این عکس برای طراحی دقیق مناسب نیست."),
             "warnings": warnings,
             "checks": {
                 "face_visible": checks.get("face_visible"),
@@ -227,7 +233,7 @@ def eyebrow_finalize_choice():
     init_buti_ai_db()
     candidate = get_final_candidate(session)
     if not candidate:
-        flash("اول عکس را تحلیل کن، بعد مدل نهایی را انتخاب کن.", "warning")
+        flash("اول مدل را انتخاب کن و عکس را آپلود کن، بعد طراحی نهایی را بساز.", "warning")
         return redirect(url_for("buti_ai.eyebrow_wizard"))
 
     candidate = update_final_selection(session, request.form.get("final_style"))
@@ -244,7 +250,7 @@ def eyebrow_final_retry():
     init_buti_ai_db()
     candidate = get_final_candidate(session)
     if not candidate:
-        flash("برای تلاش دوباره، اول عکس را تحلیل کن.", "warning")
+        flash("برای تلاش دوباره، اول مدل را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.eyebrow_wizard"))
     candidate.pop("generation", None)
     candidate.pop("final_design_id", None)
@@ -260,7 +266,7 @@ def eyebrow_final_design():
     init_buti_ai_db()
     candidate = get_final_candidate(session)
     if not candidate:
-        flash("برای طراحی نهایی، اول تحلیل ابرو را انجام بده.", "warning")
+        flash("برای طراحی نهایی، اول مدل ابرو را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.eyebrow_wizard"))
 
     final_url = url_for("buti_ai.eyebrow_final_design")

@@ -4,7 +4,7 @@
 {% block meta %}
 <meta name="description" content="آینه ابرو گیسو؛ قبل از هزینه، مدل ابروی مناسب چهره‌ات را با یک عکس واضح بررسی کن.">
 <meta property="og:title" content="آینه ابرو گیسو">
-<meta property="og:description" content="مدل ابرو را انتخاب کن؛ بعد در مرحله جداگانه عکس واضح بفرست و پیشنهاد ساده گیسو را ببین.">
+<meta property="og:description" content="مدل ابرو را انتخاب کن؛ بعد عکس واضح بفرست تا همان مدل وارد طراحی عکس نهایی شود.">
 <link rel="canonical" href="{{ url_for('buti_ai.eyebrow_wizard', _external=True) }}">
 <meta property="og:url" content="{{ url_for('buti_ai.eyebrow_wizard', _external=True) }}">
 {% endblock %}
@@ -32,7 +32,7 @@
             <span class="is-done"><b>۱</b> انتخاب خدمت</span>
             <span class="{{ 'is-done' if flow_step in ['upload','result'] else 'is-active' }}"><b>۲</b> انتخاب مدل</span>
             <span class="{{ 'is-active' if flow_step == 'upload' else ('is-done' if flow_step == 'result' else '') }}"><b>۳</b> آپلود عکس</span>
-            <span class="{{ 'is-active' if flow_step == 'result' else '' }}"><b>۴</b> تحلیل و پیشنهاد</span>
+            <span class="{{ 'is-active' if flow_step == 'result' else '' }}"><b>۴</b> آماده طراحی</span>
             <span><b>۵</b> طراحی نهایی و رزرو</span>
         </nav>
 
@@ -59,7 +59,7 @@
                                 <b>{{ item.label }}</b>
                                 <small>{{ item.summary }}</small>
                             </span>
-                            {% if key == 'giso_suggested' %}<em>پیشنهاد امن</em>{% endif %}
+                            {% if key == 'giso_suggested' %}<em>انتخاب امن</em>{% endif %}
                         </span>
                         <span class="bti-brow-sample">
                             <img src="{{ url_for('buti_ai.static', filename='brows/' ~ key ~ '.jpg') }}" alt="نمونه {{ item.label }}">
@@ -111,7 +111,7 @@
                     <span>آپلود عکس</span>
                     <div>
                         <h2>عکس واضح صورت را بفرست</h2>
-                        <p>اول کیفیت عکس بررسی می‌شود؛ بعد تحلیل ابرو و پیشنهاد مدل انجام می‌شود.</p>
+                        <p>اول کیفیت عکس بررسی می‌شود؛ بعد همان مدل انتخابی تو مستقیم وارد طراحی نهایی می‌شود.</p>
                     </div>
                 </div>
                 <div class="bti-upload-layout bti-upload-layout-redesigned">
@@ -131,7 +131,7 @@
                         </div>
                     </div>
                     <div class="bti-upload-sample-card">
-                        <img src="{{ url_for('buti_ai.static', filename='brows/upload_face_only.jpg') }}" alt="نمونه عکس مناسب برای تحلیل ابرو">
+                        <img src="{{ url_for('buti_ai.static', filename='brows/upload_face_only.jpg') }}" alt="نمونه عکس مناسب برای طراحی ابرو">
                         <div>
                             <b>عکس مناسب</b>
                             <span>صورت کامل، نور کافی، ابروها واضح</span>
@@ -149,16 +149,16 @@
 
             <div class="bti-step-actions">
                 <a class="bti-secondary-action bti-step-back" href="{{ url_for('buti_ai.eyebrow_wizard') }}">بازگشت به انتخاب مدل</a>
-                <button class="bti-primary-action bti-step-next is-disabled" id="btiAnalyzeBtn" type="submit" disabled>تحلیل و پیشنهاد</button>
+                <button class="bti-primary-action bti-step-next is-disabled" id="btiAnalyzeBtn" type="submit" disabled>ادامه به طراحی عکس نهایی</button>
             </div>
         </form>
         {% elif flow_step == 'result' %}
         <div class="bti-form-panel bti-step-panel bti-selection-summary-panel">
             <div class="bti-form-panel-head">
-                <span>تحلیل آماده شد</span>
+                <span>عکس آماده شد</span>
                 <div>
-                    <h2>تحلیل آماده است</h2>
-                    <p>پیشنهاد کوتاه گیسو را ببین؛ بعد اگر خواستی طراحی عکس نهایی را بساز.</p>
+                    <h2>همان مدل انتخابی آماده طراحی است</h2>
+                    <p>مدل دیگری پیشنهاد نمی‌شود؛ گیسو همان مدلی را طراحی می‌کند که تو انتخاب کرده‌ای.</p>
                 </div>
             </div>
             <div class="bti-hero-actions">
@@ -172,50 +172,48 @@
     {% if result %}
     <section class="bti-shell bti-result-board" id="result">
         <header class="bti-result-header bti-result-header-simple">
-            <span>تحلیل و پیشنهاد</span>
-            <h2>پیشنهاد گیسو: {{ result.style.icon }} {{ result.style.label }}</h2>
-            <p>خلاصه ساده بر اساس عکس، فرم صورت و ساختار ابرو.</p>
+            <span>آماده طراحی</span>
+            <h2>مدل انتخابی شما: {{ result.style.icon }} {{ result.style.label }}</h2>
+            <p>عکس بررسی اولیه شد و همان مدل انتخابی وارد طراحی نهایی می‌شود.</p>
         </header>
 
-        <section class="bti-simple-analysis-card" aria-label="خلاصه تحلیل ابرو">
+        <section class="bti-simple-analysis-card" aria-label="خلاصه آماده‌سازی طراحی ابرو">
             <article>
                 <span>تأیید اولیه عکس</span>
                 <b>{{ result.quality.message or 'عکس دریافت شد.' }}</b>
-                <small>{% if result.quality.status == 'ai_checked' %}نور، زاویه و وضوح بررسی شد.{% else %}اگر بررسی هوشمند در دسترس نباشد، نتیجه راهنما نمایش داده می‌شود.{% endif %}</small>
+                <small>{% if result.quality.status == 'ai_checked' %}نور، زاویه و وضوح بررسی شد.{% else %}اگر بررسی هوشمند در دسترس نباشد، عکس واضح همچنان می‌تواند وارد طراحی شود.{% endif %}</small>
             </article>
             <article class="is-main">
-                <span>پیشنهاد گیسو</span>
+                <span>مدل انتخابی</span>
                 <h3>{{ result.style.icon }} {{ result.style.label }}</h3>
                 <p>{{ result.short_reason }}</p>
                 <small>میزان تغییر: {{ result.change_label }}</small>
             </article>
             <article>
-                <span>جزئیات کوتاه عکس</span>
-                <p>{{ result.current_brow_summary }}</p>
-                <small>فرم صورت: {{ result.face_shape }}</small>
+                <span>محل ابرو</span>
+                <p>{% if result.eyebrow_detection and result.eyebrow_detection.ok %}محدوده ابرو روی عکس تشخیص داده شد.{% else %}اگر تشخیص دقیق ممکن نباشد، طراحی با راهنمای حفظ چهره ادامه پیدا می‌کند.{% endif %}</p>
+                <small>{% if result.eyebrow_detection %}روش: {{ result.eyebrow_detection.method }}{% else %}روش: —{% endif %}</small>
             </article>
         </section>
 
         {% if result.preview and result.preview.available %}
         <section class="bti-final-choice-board" id="btiFinalChoice" aria-label="انتخاب نهایی مدل ابرو">
             <div class="bti-section-title-row">
-                <span>انتخاب نهایی</span>
-                <h3>مدل نهایی را انتخاب کن</h3>
+                <span>تأیید مدل</span>
+                <h3>همان مدل انتخابی طراحی می‌شود</h3>
             </div>
-            <p class="bti-final-choice-lead">مدل نهایی را تأیید کن تا در مرحله بعد طراحی عکس نهایی ساخته شود.</p>
+            <p class="bti-final-choice-lead">مدل نهایی از انتخاب مرحله اول می‌آید و با مدل دیگری جایگزین نمی‌شود.</p>
             <form method="post" action="{{ url_for('buti_ai.eyebrow_finalize_choice') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="bti-final-choice-list" role="radiogroup" aria-label="انتخاب نهایی مدل ابرو">
-                    {% for item in result.style_scores %}
-                    <label class="{{ 'is-recommended' if item.is_recommended else '' }}">
-                        <input type="radio" name="final_style" value="{{ item.style_key }}" {{ 'checked' if item.is_recommended else '' }}>
+                <input type="hidden" name="final_style" value="{{ result.selected_style_key }}">
+                <div class="bti-final-choice-list" role="group" aria-label="مدل نهایی ابرو">
+                    <label class="is-recommended">
                         <span>
-                            <b>{{ item.label }}</b>
-                            <small>{{ item.score }}٪ تناسب با عکس</small>
+                            <b>{{ result.style.label }}</b>
+                            <small>مدل انتخاب‌شده کاربر</small>
                         </span>
-                        {% if item.is_recommended %}<em>پیشنهاد گیسو</em>{% endif %}
+                        <em>انتخاب شما</em>
                     </label>
-                    {% endfor %}
                 </div>
                 <div class="bti-final-choice-actions">
                     <button class="bti-primary-action" type="submit">طراحی عکس نهایی</button>

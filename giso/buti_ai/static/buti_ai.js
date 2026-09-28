@@ -61,10 +61,10 @@
       var result = await response.json();
       if (result.valid) {
         var kind = result.warnings && result.warnings.length ? 'is-warn' : 'is-ok';
-        setCheckState(kind, result.message || 'عکس برای تحلیل مناسب است.', result.checks || {}, result.warnings || []);
+        setCheckState(kind, result.message || 'عکس برای طراحی مناسب است.', result.checks || {}, result.warnings || []);
         setAnalyzeEnabled(true);
       } else {
-        setCheckState('is-bad', result.message || 'این عکس برای تحلیل مناسب نیست.', result.checks || {}, []);
+        setCheckState('is-bad', result.message || 'این عکس برای طراحی مناسب نیست.', result.checks || {}, []);
         setAnalyzeEnabled(false);
       }
     } catch (error) {

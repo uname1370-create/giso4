@@ -84,7 +84,7 @@ def check_photo_quality(image_path):
         return {
             "status": "ai_unavailable",
             "ok": None,
-            "message": "بررسی هوشمند عکس فعلاً در دسترس نیست؛ عکس دریافت شد و نتیجه راهنما نمایش داده می‌شود.",
+            "message": "بررسی هوشمند عکس فعلاً در دسترس نیست؛ اگر عکس واضح است می‌توانی وارد طراحی شوی.",
             "checks": {},
             "reasons": [result.get("error", "ai_unavailable")],
         }
@@ -94,7 +94,7 @@ def check_photo_quality(image_path):
     return {
         "status": "ai_checked",
         "ok": ok,
-        "message": data.get("message") or ("عکس برای تحلیل مناسب است." if ok else "این عکس برای تحلیل دقیق مناسب نیست."),
+        "message": data.get("message") or ("عکس برای طراحی مناسب است." if ok else "این عکس برای طراحی دقیق مناسب نیست."),
         "checks": {
             "face_visible": data.get("face_visible"),
             "eyebrows_visible": data.get("eyebrows_visible"),

@@ -11,6 +11,7 @@ import os
 import uuid
 from datetime import datetime
 
+from giso.buti_ai.eyebrow.landmarks import detect_eyebrow_regions, proportional_fallback_regions
 from giso.buti_ai.eyebrow.options import CHANGE_LEVELS, EYEBROW_STYLES, normalize_change_level, normalize_style_key
 from giso.buti_ai.eyebrow.upload import EYEBROW_UPLOAD_DIR
 
@@ -93,10 +94,13 @@ def build_final_candidate(result, photo_status):
     """خلاصه کوچک و امن برای نگهداری در session."""
     result = result or {}
     photo_status = photo_status or {}
-    recommended_style = normalize_style_key(result.get("style_key"))
-    selected_style = normalize_style_key(result.get("selected_style_key") or recommended_style)
-    change_key = normalize_change_level(result.get("change_key") or result.get("selected_change_key"))
+    selected_style = normalize_style_key(result.get("selected_style_key") or result.get("style_key"))
+    # مدل انتخاب‌شده کاربر تنها منبع حقیقت طراحی نهایی است؛ recommended فقط سازگاری قدیمی است.
+    recommended_style = selected_style
+    change_key = normalize_change_level(result.get("selected_change_key") or result.get("change_key"))
     filename = _safe_filename(photo_status.get("filename") or (result.get("preview") or {}).get("before_filename"))
+    selected_meta = EYEBROW_STYLES[selected_style]
+    eyebrow_detection = result.get("eyebrow_detection") if isinstance(result.get("eyebrow_detection"), dict) else {}
     return {
         "session_id": result.get("session_id"),
         "photo_filename": filename,
@@ -105,17 +109,18 @@ def build_final_candidate(result, photo_status):
         "service_label": result.get("service_label") or "آینه ابرو گیسو / طراحی هوشمند ابرو",
         "selected_style": selected_style,
         "selected_label": _style_label(selected_style),
-        "final_style": recommended_style,
-        "final_label": _style_label(recommended_style),
+        "final_style": selected_style,
+        "final_label": _style_label(selected_style),
         "change_key": change_key,
         "change_label": CHANGE_LEVELS.get(change_key, CHANGE_LEVELS["very_natural"]),
-        "short_reason": _clean_text(result.get("short_reason") or result.get("why"), EYEBROW_STYLES[recommended_style].get("why", ""), 180),
-        "why": _clean_text(result.get("why"), EYEBROW_STYLES[recommended_style].get("why", ""), 240),
+        "short_reason": _clean_text(result.get("short_reason") or result.get("why"), selected_meta.get("why", ""), 180),
+        "why": _clean_text(result.get("why"), selected_meta.get("why", ""), 240),
         "current_brow_summary": _clean_text(result.get("current_brow_summary"), "", 180),
         "do": [str(x)[:90] for x in (result.get("do") or [])[:3]],
         "avoid": [str(x)[:90] for x in (result.get("avoid") or [])[:3]],
         "style_scores": _style_score_items(result),
         "face_analysis": result.get("face_analysis") or {},
+        "eyebrow_detection": eyebrow_detection,
         "ai_is_real": bool(result.get("ai_is_real")),
         "created_at": datetime.utcnow().isoformat(timespec="seconds"),
     }
@@ -133,10 +138,15 @@ def get_final_candidate(session_obj):
     return candidate if isinstance(candidate, dict) else {}
 
 
-def update_final_selection(session_obj, final_style_key):
+def update_final_selection(session_obj, final_style_key=None):
+    """سازگاری با route قدیمی finalize؛ مدل نهایی از انتخاب اولیه کاربر می‌آید."""
     candidate = get_final_candidate(session_obj)
-    previous_style = normalize_style_key(candidate.get("final_style") or candidate.get("recommended_style"))
-    final_style = normalize_style_key(final_style_key or candidate.get("recommended_style"))
+    previous_style = normalize_style_key(candidate.get("final_style") or candidate.get("selected_style"))
+    final_style = normalize_style_key(candidate.get("selected_style") or final_style_key or candidate.get("recommended_style"))
+    candidate["selected_style"] = final_style
+    candidate["selected_label"] = _style_label(final_style)
+    candidate["recommended_style"] = final_style
+    candidate["recommended_label"] = _style_label(final_style)
     candidate["final_style"] = final_style
     candidate["final_label"] = _style_label(final_style)
     if final_style != previous_style:
@@ -161,6 +171,66 @@ def _source_path(candidate):
 def source_image_path(candidate):
     """مسیر امن عکس اصلی برای مصرف providerهای تصویرسازی داخل Buti AI."""
     return _source_path(candidate or {})
+
+
+def ensure_eyebrow_detection(candidate):
+    """اگر ROI ابرو در candidate نیست، از روی عکس آن را تشخیص می‌دهد."""
+    candidate = candidate if isinstance(candidate, dict) else {}
+    existing = candidate.get("eyebrow_detection")
+    if isinstance(existing, dict) and existing.get("regions"):
+        return existing
+    src = _source_path(candidate)
+    if not src:
+        return {}
+    detection = detect_eyebrow_regions(src, allow_fallback=False)
+    candidate["eyebrow_detection"] = detection
+    return detection
+
+
+def _eyebrow_region_text(candidate):
+    detection = candidate.get("eyebrow_detection") if isinstance(candidate, dict) else {}
+    if not isinstance(detection, dict) or not detection.get("regions"):
+        return "No reliable eyebrow ROI was detected; infer the two natural eyebrow regions from the original face photo and leave all non-eyebrow areas unchanged."
+    image_w = detection.get("image_width") or "?"
+    image_h = detection.get("image_height") or "?"
+    chunks = []
+    for region in (detection.get("regions") or [])[:2]:
+        try:
+            chunks.append(
+                f"{region.get('side')}: x={int(region.get('x') or 0)}, y={int(region.get('y') or 0)}, "
+                f"w={int(region.get('width') or 0)}, h={int(region.get('height') or 0)}"
+            )
+        except Exception:
+            continue
+    method = detection.get("method") or "unknown"
+    return f"Detected eyebrow ROI on original image {image_w}x{image_h} using {method}: " + "; ".join(chunks)
+
+
+def _scaled_regions_for_image(candidate, image_w, image_h):
+    detection = ensure_eyebrow_detection(candidate)
+    method = str((detection or {}).get("method") or "not_detected")
+    regions = (detection or {}).get("regions") or []
+    source_w = float((detection or {}).get("image_width") or image_w or 1)
+    source_h = float((detection or {}).get("image_height") or image_h or 1)
+    if not regions:
+        detection = proportional_fallback_regions(image_w, image_h)
+        method = detection.get("method", "proportional_fallback")
+        regions = detection.get("regions") or []
+        source_w = float(image_w or 1)
+        source_h = float(image_h or 1)
+    sx = float(image_w or 1) / max(1.0, source_w)
+    sy = float(image_h or 1) / max(1.0, source_h)
+    scaled = []
+    for region in regions[:2]:
+        scaled.append({
+            "side": region.get("side") or "",
+            "x": float(region.get("x") or 0) * sx,
+            "y": float(region.get("y") or 0) * sy,
+            "width": max(8.0, float(region.get("width") or 0) * sx),
+            "height": max(8.0, float(region.get("height") or 0) * sy),
+            "confidence": float(region.get("confidence") or 0),
+        })
+    return scaled, method, detection
 
 
 def _brow_curve(cx, cy, length, arch, flip=False, steps=30):
@@ -225,6 +295,7 @@ def build_design_prompt(candidate):
     current_brows = _prompt_text(candidate.get("current_brow_summary"))
     recommendation = _prompt_text(candidate.get("do") or candidate.get("short_reason"))
     avoid = _prompt_text(candidate.get("avoid"))
+    region_text = _eyebrow_region_text(candidate)
     return (
         "Photorealistic image edit of the ORIGINAL customer face photo. "
         "The selected beauty service is intelligent eyebrow design preview; apply the selected eyebrow model precisely to the natural brow location. "
@@ -234,7 +305,8 @@ def build_design_prompt(candidate):
         f"Selected service: {service_label}. "
         f"Selected eyebrow model: {model_label}. Final design label: {style_label}. "
         f"Requested change level: {candidate.get('change_label', '')}. "
-        f"Current eyebrow analysis: {current_brows}. "
+        f"Eyebrow edit region: {region_text}. "
+        f"Current eyebrow notes: {current_brows}. "
         f"Face-fit notes: {face_notes}. "
         f"Recommendation to follow: {recommendation}. "
         f"Avoid: {avoid}. "
@@ -243,7 +315,7 @@ def build_design_prompt(candidate):
 
 
 def generate_python_guided_design(candidate):
-    """ساخت تصویر راهنمای نهایی با Pillow؛ فقط روی ناحیه تقریبی ابرو overlay می‌گذارد."""
+    """ساخت تصویر راهنمای نهایی با Pillow روی ROI تشخیص‌داده‌شده ابرو."""
     src = _source_path(candidate)
     if not src:
         return {"ok": False, "message": "برای طراحی عکس نهایی، عکس واقعی لازم است.", "status": "missing_photo"}
@@ -263,20 +335,18 @@ def generate_python_guided_design(candidate):
         overlay = Image.new("RGBA", (w, h), (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
-        # موقعیت تقریبی و امن برای عکس روبه‌رو. خروجی راهنماست؛ نه جایگزین ماسک حرفه‌ای AI.
-        face_w = min(w * 0.58, h * 0.46)
-        brow_len = max(58, face_w * 0.27)
-        arch = max(10, h * 0.024)
-        y = h * 0.355
-        left_cx = w * 0.385
-        right_cx = w * 0.615
+        regions, detection_method, detection = _scaled_regions_for_image(candidate, w, h)
         alpha = int(params["alpha"])
         # رنگ و شفافیت عمداً ملایم است تا خروجی fallback شبیه راهنمای مشاوره بماند، نه اجرای قطعی.
         color = (46, 29, 21, alpha)
         mode = "combination" if final_style in ("combination", "giso_suggested") else final_style
 
-        _draw_brow(draw, left_cx, y, brow_len, arch, color, params, flip=False, mode=mode)
-        _draw_brow(draw, right_cx, y, brow_len, arch, color, params, flip=True, mode=mode)
+        for idx, region in enumerate(regions[:2]):
+            brow_len = max(42.0, float(region.get("width") or 0) * 0.96)
+            arch = max(7.0, float(region.get("height") or 0) * 0.38)
+            cx = float(region.get("x") or 0) + float(region.get("width") or 0) / 2.0
+            cy = float(region.get("y") or 0) + float(region.get("height") or 0) * 0.52
+            _draw_brow(draw, cx, cy, brow_len, arch, color, params, flip=(idx == 1), mode=mode)
 
         blur = float(params.get("blur") or 0)
         if blur > 0:
@@ -294,6 +364,8 @@ def generate_python_guided_design(candidate):
             "model": "pillow_brow_overlay_v1",
             "status": "guided_final_ready",
             "prompt": build_design_prompt(candidate),
+            "eyebrow_detection_method": detection_method,
+            "eyebrow_detection": detection,
             "message": "طراحی عکس نهایی راهنما آماده شد.",
         }
     except Exception as exc:
