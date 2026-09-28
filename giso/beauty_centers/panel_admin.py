@@ -32,6 +32,13 @@ def _settings() -> dict:
 
 def _dashboard(conn) -> dict:
     q1 = lambda sql, args=(): int((conn.execute(sql, args).fetchone()[0] or 0))
+
+    def qopt(sql, args=()):
+        try:
+            return q1(sql, args)
+        except Exception:
+            return 0
+
     totals = {
         "total": q1("SELECT COUNT(*) FROM beauty_centers"),
         "pending": q1("SELECT COUNT(*) FROM beauty_centers WHERE status IN ('pending_review','reviewing')"),
@@ -41,7 +48,10 @@ def _dashboard(conn) -> dict:
         "unanswered": q1("SELECT COUNT(*) FROM beauty_center_conversations c WHERE c.status='active' AND EXISTS(SELECT 1 FROM beauty_center_messages m WHERE m.conversation_id=c.id AND m.sender_user_id=c.user_id AND m.is_read=0)"),
         "active_promotions": q1("SELECT COUNT(*) FROM beauty_center_promotions WHERE status='active' AND (expires_at='' OR expires_at>datetime('now','localtime'))"),
         "promotion_revenue": q1("SELECT COALESCE(SUM(amount),0) FROM beauty_center_promotions WHERE status<>'cancelled'"),
+        "eyebrow_waitlist": qopt("SELECT COUNT(*) FROM buti_ai_waitlist WHERE service_type='eyebrow' AND status='open'"),
+        "eyebrow_pre_need": qopt("SELECT COUNT(*) FROM buti_ai_service_demand WHERE service_type='eyebrow' AND status='open'"),
     }
+    totals["eyebrow_interest"] = totals.get("eyebrow_waitlist", 0) + totals.get("eyebrow_pre_need", 0)
     performance = [dict(r) for r in conn.execute("""
         SELECT c.id,c.name,c.views_count,c.contact_clicks,c.price_inquiry_clicks,c.analysis_impressions,
                COUNT(DISTINCT cv.id) conversations,

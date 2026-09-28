@@ -64,3 +64,11 @@ if __name__ == "__main__":
     test_public_card_badge_priority_and_score()
     test_discount_is_fixed_paid_package()
     test_promotion_cooldown_contracts()
+
+
+def test_admin_dashboard_shows_buti_eyebrow_demand_kpi():
+    admin = (ROOT / "giso/beauty_centers/templates/beauty_centers/admin.html").read_text(encoding="utf-8")
+    panel_admin = (ROOT / "giso/beauty_centers/panel_admin.py").read_text(encoding="utf-8")
+    assert "تقاضای آینه ابرو" in admin
+    assert "eyebrow_interest" in panel_admin
+    assert "buti_ai_service_demand" in panel_admin
