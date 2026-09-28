@@ -5,7 +5,7 @@ giso/buti_ai/routes.py — کنترلرهای وب و ای‌پی‌آی آین�
 قانون مرز کد: منطق اختصاصی Buti AI داخل همین ماژول می‌ماند. این فایل فقط
 route/controller است و منطق سناریوی ابرو در `giso/buti_ai/eyebrow/` قرار دارد.
 """
-from flask import flash, jsonify, redirect, render_template, request, url_for
+from flask import flash, jsonify, redirect, render_template, request, send_from_directory, url_for
 from flask_login import current_user
 
 from giso.buti_ai import buti_ai_bp
@@ -16,6 +16,7 @@ from giso.buti_ai.eyebrow import (
     initial_form_values,
     process_eyebrow_submission,
 )
+from giso.buti_ai.eyebrow.upload import EYEBROW_UPLOAD_DIR
 from giso.buti_ai.schema import init_buti_ai_db
 
 
@@ -49,7 +50,7 @@ def mirror_home():
 
 @buti_ai_bp.route("/eyebrow", methods=["GET", "POST"])
 def eyebrow_wizard():
-    """MVP فاز ۱ آینه ابرو: انتخاب سبک، آپلود/دمو و نتیجه متنی امن."""
+    """جریان آینه ابرو: انتخاب سبک، بررسی عکس، تحلیل هوشمند و پیش‌نمایش امن."""
     init_buti_ai_db()
     state = {
         "result": None,
@@ -74,6 +75,12 @@ def eyebrow_wizard():
         result=state["result"],
         error_message=state["error_message"],
     )
+
+
+@buti_ai_bp.route("/eyebrow/uploads/<path:filename>", methods=["GET"])
+def eyebrow_uploaded_file(filename):
+    """نمایش امن عکس‌های runtime آینه ابرو برای پیش‌نمایش همان صفحه."""
+    return send_from_directory(EYEBROW_UPLOAD_DIR, filename)
 
 
 @buti_ai_bp.route("/eyebrow/centers", methods=["GET"])

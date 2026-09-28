@@ -478,3 +478,58 @@ Boundary:
 
 - No changes to `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, `giso/analysis.py`, `giso/ai_brain.py`, or `giso/beauty_centers/`.
 - This refactor is structural only: no AI vision, no image generation preview, and no UI polish beyond existing Phase 1.
+
+---
+
+## 18. Buti AI Phase 2 — Polished Eyebrow Mirror, Photo Quality, Vision Analysis, Guided Preview
+
+Status:
+
+- Phase 2 was implemented after explicit user approval for:
+  - final/beautiful UI design,
+  - smart photo quality check,
+  - real eyebrow AI analysis through Giso's existing vision engine,
+  - before/after image or preview,
+  - then user review.
+
+New/updated eyebrow-owned files:
+
+```text
+giso/buti_ai/eyebrow/prompts.py
+giso/buti_ai/eyebrow/ai.py
+giso/buti_ai/eyebrow/preview.py
+giso/buti_ai/eyebrow/result.py
+giso/buti_ai/eyebrow/flow.py
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+giso/buti_ai/static/buti_ai.js
+giso/tests/test_buti_ai_phase1.py
+```
+
+Responsibilities added:
+
+- `prompts.py` owns Buti AI eyebrow prompts for photo-quality checking and eyebrow analysis.
+- `ai.py` keeps product logic inside `giso/buti_ai/eyebrow/` and uses only a thin import of `giso.analysis.call_vision_with_fallback`.
+- `preview.py` builds safe before/after preview data. It does not call a real image-generation provider yet.
+- `result.py` now merges AI analysis, quality report, fallback advice, and preview-ready data.
+- `flow.py` now orchestrates upload → photo quality check → eyebrow analysis → guided preview → session save.
+- The template and static assets were polished for a richer RTL Persian wizard and result page.
+
+Important product/technical note:
+
+- Smart photo-quality checking and eyebrow analysis are real vision-engine calls when a Giso vision provider is active.
+- If the vision provider is unavailable, the UI falls back transparently to guide-mode advice.
+- Before/after is currently a guided visual preview over the uploaded photo, not a real generated/edited face image.
+- There is no verified image-generation provider in the current Giso codebase, so do not claim generated before/after image is implemented until a provider/workflow is added and validated.
+
+Validation:
+
+- `python3 -m py_compile giso/buti_ai/eyebrow/*.py giso/buti_ai/routes.py giso/tests/test_buti_ai_phase1.py` passed.
+- A local test venv was recreated under `.arena/venv/` and is not tracked.
+- `PYTHONPATH=/home/user/giso4 SECRET_KEY=arena-test-secret-for-buti-ai-tests-32chars .arena/venv/bin/python -m pytest -q giso/tests/test_buti_ai_phase1.py` passed: `6 passed, 1 warning`.
+
+Boundary:
+
+- Functional ownership stayed in `giso/buti_ai/` and `giso/tests/test_buti_ai_phase1.py`.
+- `giso/analysis.py` was not modified; Buti AI only calls its existing vision function as a thin integration.
+- Protected paths `web/`, `bot_edu/`, `main.py`, `giso/bot.py`, and unrelated flows remain untouched.

@@ -341,7 +341,7 @@ AI باید بررسی کند:
   "face_shape": "",
   "current_brow_summary": "",
   "recommended_style": "natural | microblading | powder | combination | giso_suggested",
-  "change_level": "natural | medium | clear",
+  "change_level": "very_natural | medium | clear",
   "why": "",
   "do": [],
   "avoid": [],
@@ -439,7 +439,8 @@ AI باید بررسی کند:
 
 ## 9. محدودیت‌های فعلی
 
-- هنوز هیچ کدی برای این سناریو نوشته نشده است.
+- کد فازهای پایه و فاز تحلیل/preview داخل `giso/buti_ai/` پیاده شده است.
+- هنوز image generation واقعی برای ویرایش عکس قبل/بعد در Giso تأیید و وصل نشده است.
 - `sena.md` فقط منبع ایده و تحلیل است، نه سناریوی اجرایی نهایی.
 - نباید مسیر فعلی آنالیز مو/پوست خراب شود.
 - نباید `bot_edu/` یا `web/` تغییر کند.
@@ -533,3 +534,50 @@ giso/tests/test_buti_ai_phase1.py
 - تحلیل واقعی AI،
 - بررسی کیفیت عکس با AI،
 - preview تصویری قبل/بعد.
+
+---
+
+## 13. وضعیت اجرای فاز ۲ — طراحی زیباتر، کیفیت عکس، تحلیل AI و preview راهنما
+
+فاز ۲ بعد از تأیید کاربر اجرا شد.
+
+انجام‌شده:
+
+- صفحه آینه ابرو زیباتر، مرحله‌ای‌تر و واضح‌تر شد.
+- بررسی کیفیت عکس با prompt اختصاصی آینه ابرو اضافه شد.
+- تحلیل ابرو با prompt اختصاصی آینه ابرو اضافه شد.
+- اتصال AI به شکل نازک از داخل `giso/buti_ai/eyebrow/ai.py` به تابع موجود `giso.analysis.call_vision_with_fallback` انجام می‌شود.
+- اگر vision provider فعال باشد، خروجی تحلیل واقعی بر اساس عکس کاربر ساخته می‌شود.
+- اگر vision provider در دسترس نباشد، نتیجه راهنمای شفاف نمایش داده می‌شود و کاربر فریب داده نمی‌شود.
+- بخش قبل/بعد اضافه شد، اما فعلاً به صورت preview راهنما روی عکس آپلودشده است.
+
+فایل‌های جدید/مهم:
+
+```text
+giso/buti_ai/eyebrow/prompts.py
+giso/buti_ai/eyebrow/ai.py
+giso/buti_ai/eyebrow/preview.py
+giso/buti_ai/eyebrow/result.py
+giso/buti_ai/eyebrow/flow.py
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/static/buti_ai.css
+giso/buti_ai/static/buti_ai.js
+```
+
+وضعیت preview قبل/بعد:
+
+- تولید تصویر واقعی/ویرایش‌شده هنوز فعال نیست.
+- چون provider آماده image generation در کد فعلی Giso پیدا نشد، preview فعلی فقط راهنمای تصویری امن است.
+- تا زمانی که provider واقعی تصویرسازی اضافه و تست نشده، نباید در گزارش‌ها ادعا شود «عکس واقعی بعد» تولید می‌شود.
+
+وضعیت تست:
+
+```text
+6 passed, 1 warning
+```
+
+مرزها:
+
+- منطق محصول همچنان داخل `giso/buti_ai/` است.
+- `giso/analysis.py` تغییر نکرد؛ فقط تابع موجود آن فراخوانی می‌شود.
+- مسیرهای محافظت‌شده و unrelated تغییر نکردند.

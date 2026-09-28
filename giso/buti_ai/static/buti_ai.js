@@ -15,6 +15,16 @@
       });
     }
 
+    var styleOptions = Array.prototype.slice.call(document.querySelectorAll('.bti-style-option'));
+    styleOptions.forEach(function (option) {
+      var radio = option.querySelector('input[type="radio"]');
+      if (!radio) return;
+      radio.addEventListener('change', function () {
+        styleOptions.forEach(function (item) { item.classList.remove('is-selected'); });
+        option.classList.add('is-selected');
+      });
+    });
+
     if (window.location.hash !== '#result') {
       var result = document.getElementById('result');
       if (result) {

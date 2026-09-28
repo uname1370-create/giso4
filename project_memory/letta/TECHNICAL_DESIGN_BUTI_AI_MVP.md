@@ -73,9 +73,9 @@ MVP اول نباید از همان ابتدا پیچیده شود.
 
 ---
 
-## 4. ساختار پیشنهادی آینده داخل `giso/buti_ai/`
+## 4. ساختار پیشنهادی/اجراشده داخل `giso/buti_ai/`
 
-این‌ها طراحی هستند و فعلاً فایل اجرایی ساخته نشده است.
+این بخش ابتدا طراحی آینده بود. اکنون مسیر اصلی آن داخل `giso/buti_ai/` اجرا شده و جزئیات وضعیت واقعی در بخش‌های ۱۳ تا ۱۵ آمده است.
 
 ```text
 giso/buti_ai/
@@ -289,11 +289,11 @@ centers: مراکز مرتبط و رزرو
 - اتصال مراکز زیبایی: `/analysis/mirror/eyebrow/centers`
 - کارت آینه در صفحه آنالیز از template داخل Buti AI خوانده می‌شود.
 
-نکته مهم:
+نکته تاریخی فاز ۱:
 
-- هنوز AI vision و image generation اضافه نشده است.
-- خروجی فعلی، fallback/راهنمای متنی MVP است.
-- این وضعیت برای شروع تجربه کاربری و تثبیت معماری ماژول کافی است.
+- در فاز ۱ هنوز AI vision و image generation اضافه نشده بود.
+- خروجی فاز ۱، fallback/راهنمای متنی MVP بود.
+- این وضعیت برای شروع تجربه کاربری و تثبیت معماری ماژول کافی بود.
 
 ---
 
@@ -318,7 +318,74 @@ giso/buti_ai/eyebrow/
 /analysis/mirror/eyebrow/centers
 ```
 
-مرحله بعدی پیشنهادی پس از تأیید کاربر:
+این مرحله تکمیل شد و بعد از آن کاربر فاز طراحی/AI/preview را تأیید کرد.
 
-1. UI/UX polish روی همین ساختار، یا
-2. اضافه کردن quality check عکس با AI داخل همین پکیج، بدون دست زدن به تحلیل‌های مو/پوست.
+---
+
+## 15. فاز ۲ — ساختار واقعی طراحی/AI/preview
+
+بعد از تأیید کاربر، فاز ۲ روی همان ساختار ماژولار اجرا شد.
+
+ساختار واقعی جدید:
+
+```text
+giso/buti_ai/eyebrow/
+  __init__.py
+  options.py
+  upload.py
+  prompts.py
+  ai.py
+  preview.py
+  result.py
+  flow.py
+```
+
+نقش فایل‌ها:
+
+- `prompts.py`: promptهای بررسی کیفیت عکس و تحلیل ابرو.
+- `ai.py`: wrapper بسیار نازک روی `giso.analysis.call_vision_with_fallback`؛ منطق محصول و fallback داخل Buti AI می‌ماند.
+- `preview.py`: ساخت داده preview قبل/بعد راهنما؛ فعلاً image generation واقعی ندارد.
+- `result.py`: ترکیب خروجی AI، گزارش کیفیت، fallback و متن فارسی قابل نمایش.
+- `flow.py`: orchestration کامل submit شامل upload، quality check، analysis، preview و ذخیره session.
+- `routes.py`: همچنان کنترلر سبک باقی مانده است.
+
+مسیرهای واقعی:
+
+```text
+GET/POST /analysis/mirror/eyebrow
+GET      /analysis/mirror/eyebrow/uploads/<filename>
+GET      /analysis/mirror/eyebrow/centers
+```
+
+رفتار AI:
+
+- اگر vision provider فعال باشد، کیفیت عکس و تحلیل ابرو با AI انجام می‌شود.
+- اگر provider آماده نباشد، خطای خام نشان داده نمی‌شود و حالت guide/fallback نمایش داده می‌شود.
+- اگر کیفیت عکس با AI رد شود، نتیجه ساخته نمی‌شود و پیام محترمانه برای عکس نامناسب نمایش داده می‌شود.
+
+رفتار preview:
+
+- اگر عکس وجود داشته باشد، UI قبل/بعد راهنما نمایش می‌دهد.
+- این preview از همان عکس کاربر و overlay راهنما استفاده می‌کند.
+- این preview هنوز «تصویر واقعی تولیدشده یا ویرایش‌شده» نیست.
+- برای preview واقعی باید provider تصویرسازی امن اضافه شود که فقط ناحیه ابرو را تغییر دهد و هویت چهره را حفظ کند.
+
+تست:
+
+```text
+giso/tests/test_buti_ai_phase1.py
+```
+
+پوشش تست جدید:
+
+- قرارداد گزینه‌ها و routeها،
+- demo POST با CSRF،
+- parse شدن خروجی quality/analysis،
+- POST عکس با AI mocked و preview،
+- رد شدن عکس نامناسب با quality check.
+
+نتیجه آخرین اجرای هدفمند:
+
+```text
+6 passed, 1 warning
+```

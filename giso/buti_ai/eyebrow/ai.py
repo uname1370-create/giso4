@@ -1,0 +1,105 @@
+# -*- coding: utf-8 -*-
+"""اتصال کنترل‌شده آینه ابرو به موتور بینایی فعلی گیسو.
+
+این فایل منطق محصول را داخل Buti AI نگه می‌دارد و فقط از موتور مشترک
+vision به عنوان اتصال نازک استفاده می‌کند.
+"""
+import logging
+
+from giso.buti_ai.eyebrow.options import CHANGE_LEVELS, EYEBROW_STYLES, normalize_change_level, normalize_style_key
+from giso.buti_ai.eyebrow.prompts import PHOTO_QUALITY_PROMPT, eyebrow_analysis_prompt
+
+logger = logging.getLogger("giso_buti_ai_eyebrow_ai")
+
+
+def _call_vision_json(image_path, prompt, max_tokens=1000):
+    """فراخوانی موتور vision موجود بدون پخش کردن منطق Buti AI در analysis.py."""
+    try:
+        from giso.analysis import call_vision_with_fallback
+
+        return call_vision_with_fallback([image_path], prompt, max_tokens=max_tokens)
+    except Exception as exc:
+        logger.warning("Buti AI vision call failed: %s", exc)
+        return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:180]}"}
+
+
+def check_photo_quality(image_path):
+    """بررسی کیفیت عکس با AI؛ اگر provider آماده نبود، fallback شفاف برمی‌گردد."""
+    if not image_path:
+        return {
+            "status": "missing",
+            "ok": False,
+            "message": "عکسی برای بررسی دریافت نشد.",
+            "checks": {},
+            "reasons": ["no_image"],
+        }
+
+    result = _call_vision_json(image_path, PHOTO_QUALITY_PROMPT, max_tokens=700)
+    if not result.get("ok"):
+        return {
+            "status": "ai_unavailable",
+            "ok": None,
+            "message": "بررسی هوشمند عکس فعلاً در دسترس نیست؛ عکس دریافت شد و نتیجه راهنما نمایش داده می‌شود.",
+            "checks": {},
+            "reasons": [result.get("error", "ai_unavailable")],
+        }
+
+    data = result.get("data") or {}
+    ok = bool(data.get("ok"))
+    return {
+        "status": "ai_checked",
+        "ok": ok,
+        "message": data.get("message") or ("عکس برای تحلیل مناسب است." if ok else "این عکس برای تحلیل دقیق مناسب نیست."),
+        "checks": {
+            "face_visible": data.get("face_visible"),
+            "eyebrows_visible": data.get("eyebrows_visible"),
+            "lighting": data.get("lighting"),
+            "angle": data.get("angle"),
+            "sharpness": data.get("sharpness"),
+        },
+        "reasons": data.get("reasons") or [],
+        "provider": result.get("provider"),
+        "model": result.get("model"),
+    }
+
+
+def analyze_eyebrow_photo(image_path, selected_style_key, change_level_key):
+    """تحلیل ابرو با AI؛ در نبود provider، fallback شفاف می‌دهد."""
+    selected_style_key = normalize_style_key(selected_style_key)
+    change_level_key = normalize_change_level(change_level_key)
+    selected_style = EYEBROW_STYLES[selected_style_key]["label"]
+    change_level = CHANGE_LEVELS[change_level_key]
+
+    if not image_path:
+        return {
+            "status": "missing",
+            "ok": False,
+            "message": "برای تحلیل واقعی ابرو، عکس واضح لازم است.",
+            "data": {},
+        }
+
+    prompt = eyebrow_analysis_prompt(selected_style, change_level)
+    result = _call_vision_json(image_path, prompt, max_tokens=1300)
+    if not result.get("ok"):
+        return {
+            "status": "ai_unavailable",
+            "ok": None,
+            "message": "تحلیل هوشمند ابرو فعلاً در دسترس نیست؛ نتیجه راهنمای اولیه نمایش داده می‌شود.",
+            "data": {},
+            "error": result.get("error", "ai_unavailable"),
+        }
+
+    data = result.get("data") or {}
+    data["recommended_style"] = normalize_style_key(data.get("recommended_style") or selected_style_key)
+    data["change_level"] = normalize_change_level(data.get("change_level") or change_level_key)
+    for key in ("do", "avoid", "alternative_styles"):
+        if not isinstance(data.get(key), list):
+            data[key] = []
+    return {
+        "status": "ai_analyzed",
+        "ok": True,
+        "message": "تحلیل هوشمند ابرو انجام شد.",
+        "data": data,
+        "provider": result.get("provider"),
+        "model": result.get("model"),
+    }
