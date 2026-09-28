@@ -6,7 +6,7 @@
 {% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=14">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=15">
 {% endblock %}
 
 {% block content %}
@@ -45,7 +45,11 @@
                 </button>
                 <input class="bti-compare-range" type="range" min="0" max="100" value="50" aria-label="میزان نمایش طراحی عکس نهایی">
             </div>
-            <p>خط وسط را بکش تا قبل و بعد طراحی عکس نهایی را دقیق‌تر ببینی.</p>
+            <div class="bti-compare-actions">
+                <a class="bti-secondary-action bti-zoom-action" href="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename) }}" target="_blank" rel="noopener">بزرگنمایی طراحی</a>
+                <a class="bti-ghost-action" href="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename) }}" target="_blank" rel="noopener">مشاهده عکس اصلی</a>
+            </div>
+            <p>خط وسط را بکش؛ سمت راست عکس اصلی و سمت چپ طراحی نهایی را نشان می‌دهد.</p>
         </div>
         {% else %}
         <div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ generation.message }}</div>
@@ -74,7 +78,10 @@
                     <summary>جزئیات فنی تلاش مدل‌ها</summary>
                     <ul>
                         {% for attempt in generation.attempts %}
-                        <li>{{ attempt.label or attempt.provider }}{% if attempt.model %} — {{ attempt.model }}{% endif %}: {{ 'موفق' if attempt.ok else 'ناموفق' }}</li>
+                        <li class="{{ 'is-ok' if attempt.ok else 'is-failed' }}">
+                            <span>{{ attempt.label or attempt.provider }}{% if attempt.model %} — {{ attempt.model }}{% endif %}: {{ 'موفق' if attempt.ok else 'ناموفق' }}</span>
+                            {% if attempt.error %}<small>دلیل: {{ attempt.error }}</small>{% endif %}
+                        </li>
                         {% endfor %}
                     </ul>
                 </details>
@@ -209,5 +216,5 @@
         </div>
     </section>
 </main>
-<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=14" defer></script>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=15" defer></script>
 {% endblock %}

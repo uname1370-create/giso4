@@ -1027,8 +1027,15 @@ def test_final_design_template_uses_drag_compare_slider():
     tpl = Path("giso/buti_ai/templates/buti_ai/eyebrow_final_design.html").read_text(encoding="utf-8")
     assert "data-bti-compare" in tpl
     assert "bti-compare-handle" in tpl
+    assert "بزرگنمایی طراحی" in tpl
+    assert "attempt.error" in tpl
     assert "bti-before-after bti-final-before-after" not in tpl
     assert "eyebrow_final_retry" in tpl
+
+    css = Path("giso/buti_ai/static/buti_ai.css").read_text(encoding="utf-8")
+    assert "width: min(100%, 780px)" in css
+    assert "object-fit: contain" in css
+    assert "direction: ltr" in css
 
 
 def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path, monkeypatch):

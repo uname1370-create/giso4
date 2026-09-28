@@ -162,13 +162,21 @@
       if (range) {
         range.addEventListener('input', function () { setCompare(slider, range.value); });
       }
+      var activePointer = null;
       slider.addEventListener('pointerdown', function (event) {
+        activePointer = event.pointerId;
         slider.setPointerCapture && slider.setPointerCapture(event.pointerId);
+        event.preventDefault && event.preventDefault();
         setCompare(slider, valueFromPointer(slider, event));
       });
       slider.addEventListener('pointermove', function (event) {
-        if (event.buttons) setCompare(slider, valueFromPointer(slider, event));
+        if (activePointer === event.pointerId || event.buttons) {
+          event.preventDefault && event.preventDefault();
+          setCompare(slider, valueFromPointer(slider, event));
+        }
       });
+      slider.addEventListener('pointerup', function () { activePointer = null; });
+      slider.addEventListener('pointercancel', function () { activePointer = null; });
     });
   });
 })();

@@ -2553,3 +2553,94 @@
         display: grid;
     }
 }
+
+/* Final design preview sizing/zoom polish */
+.bti-final-design-board .bti-compare-card {
+    width: min(100%, 780px);
+    margin: 16px auto 10px;
+}
+
+.bti-final-design-board .bti-compare-slider {
+    width: 100%;
+    height: clamp(320px, 70vh, 680px);
+    min-height: 0;
+    max-height: 680px;
+    aspect-ratio: auto;
+    border: 1px solid rgba(255,255,255,.12);
+    background:
+        linear-gradient(45deg, rgba(255,255,255,.035) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.035) 75%),
+        linear-gradient(45deg, rgba(255,255,255,.035) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.035) 75%),
+        #070707;
+    background-position: 0 0, 12px 12px, 0 0;
+    background-size: 24px 24px, 24px 24px, auto;
+}
+
+.bti-final-design-board .bti-compare-img {
+    object-fit: contain;
+    object-position: center center;
+}
+
+.bti-final-design-board .bti-compare-after-wrap {
+    clip-path: inset(0 calc(100% - var(--bti-compare-pos)) 0 0);
+    box-shadow: 10px 0 24px rgba(0,0,0,.2);
+}
+
+.bti-final-design-board .bti-compare-range {
+    direction: ltr;
+}
+
+.bti-compare-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.bti-zoom-action {
+    min-width: 150px;
+    justify-content: center;
+}
+
+.bti-ghost-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 999px;
+    color: #f7e8c7;
+    background: rgba(255,255,255,.055);
+    font-weight: 950;
+    text-decoration: none;
+}
+
+.bti-provider-technical li {
+    margin-bottom: 6px;
+}
+
+.bti-provider-technical li small {
+    display: block;
+    margin-top: 3px;
+    color: #f0b6a8;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+    .bti-final-design-board .bti-compare-card {
+        width: 100%;
+        padding: 8px;
+        border-radius: 20px;
+    }
+    .bti-final-design-board .bti-compare-slider {
+        height: clamp(300px, 62vh, 560px);
+        border-radius: 18px;
+    }
+    .bti-compare-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+}
