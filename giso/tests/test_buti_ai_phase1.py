@@ -264,7 +264,23 @@ def test_eyebrow_photo_post_builds_ai_preview(monkeypatch):
     assert "کامبینیشن" in text
     assert "امتیاز مدل‌ها" in text
     assert "تحلیل چهره و ابرو" in text
+    assert "انتخاب نهایی" in text
+    assert "ادامه به طراحی نهایی" in text
     assert "91٪" in text
+
+    final_choice = client.post(
+        "/analysis/mirror/eyebrow/finalize",
+        data={"csrf_token": token, "final_style": "combination"},
+        follow_redirects=False,
+    )
+    assert final_choice.status_code in (302, 303)
+    assert final_choice.headers["Location"].endswith("/analysis/mirror/eyebrow/final")
+
+    auth_gate = client.get("/analysis/mirror/eyebrow/final")
+    assert auth_gate.status_code == 200
+    auth_text = auth_gate.get_data(as_text=True)
+    assert "ورود لازم است" in auth_text
+    assert "ثبت‌نام سریع" in auth_text
 
     _cleanup_buti_ai_sessions()
 
@@ -294,3 +310,27 @@ def test_eyebrow_quality_rejects_bad_photo(monkeypatch):
     assert state["result"] is None
     assert state["error_message"] == "ابروها در عکس واضح نیستند."
     assert state["quality_report"]["status"] == "ai_checked"
+
+
+def test_python_guided_final_design_generates_output_file(tmp_path, monkeypatch):
+    from PIL import Image
+    from giso.buti_ai.eyebrow import final_design
+
+    original = tmp_path / "face.jpg"
+    Image.new("RGB", (640, 820), (218, 178, 148)).save(original, "JPEG")
+    monkeypatch.setattr(final_design, "EYEBROW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(final_design, "FINAL_DESIGN_DIR", str(tmp_path / "final"))
+
+    candidate = {
+        "photo_filename": "face.jpg",
+        "final_style": "combination",
+        "final_label": "کامبینیشن",
+        "change_label": "کمی تغییر",
+        "short_reason": "دم ابرو کمی کامل‌تر شود.",
+    }
+    result = final_design.generate_python_guided_design(candidate)
+
+    assert result["ok"] is True
+    assert result["provider"] == "python_guided_composite"
+    assert result["filename"].startswith("final/final_eyebrow_")
+    assert (tmp_path / result["filename"]).exists()

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}ورود برای طراحی نهایی ابرو{% endblock %}
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=9">
+{% endblock %}
+
+{% block content %}
+<main class="bti-page bti-service-experience bti-eyebrow-flow" dir="rtl">
+    <section class="bti-shell bti-eyebrow-board bti-final-auth-board">
+        <div class="bti-board-topbar">
+            <a class="bti-board-back" href="{{ url_for('buti_ai.eyebrow_wizard') }}">بازگشت به آینه ابرو</a>
+            <div class="bti-brand-mark">
+                <span>نهایی</span>
+                <div>
+                    <b>طراحی نهایی ابرو</b>
+                    <small>Final Eyebrow Design</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="bti-final-auth-card">
+            <span>ورود لازم است</span>
+            <h1>برای ساخت طرح نهایی، وارد حساب شو</h1>
+            <p>مدل انتخاب‌شده شما حفظ شده است. بعد از ورود یا ثبت‌نام، مستقیم به طراحی نهایی برمی‌گردی.</p>
+            <div class="bti-final-summary-mini">
+                <b>مدل انتخابی:</b>
+                <strong>{{ candidate.final_label }}</strong>
+                <small>{{ candidate.short_reason }}</small>
+            </div>
+            <div class="bti-final-auth-actions">
+                <a class="bti-primary-action" href="{{ login_url }}">ورود به حساب</a>
+                <a class="bti-secondary-action" href="{{ register_url }}">ثبت‌نام سریع</a>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}

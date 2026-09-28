@@ -11,7 +11,7 @@
 
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=8">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=9">
 {% endblock %}
 
 {% block content %}
@@ -229,6 +229,43 @@
         {% endif %}
 
         {% if result.preview and result.preview.available %}
+        <section class="bti-final-choice-board" aria-label="انتخاب نهایی مدل ابرو">
+            <div class="bti-section-title-row">
+                <span>انتخاب نهایی</span>
+                <h3>مدل نهایی را انتخاب کن</h3>
+            </div>
+            <p class="bti-final-choice-lead">پیشنهاد گیسو را قبول کن یا یکی از مدل‌های دیگر را انتخاب کن؛ بعد وارد طراحی نهایی می‌شوی.</p>
+            <form method="post" action="{{ url_for('buti_ai.eyebrow_finalize_choice') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="bti-final-choice-list" role="radiogroup" aria-label="انتخاب نهایی مدل ابرو">
+                    {% for item in result.style_scores %}
+                    <label class="{{ 'is-recommended' if item.is_recommended else '' }}">
+                        <input type="radio" name="final_style" value="{{ item.style_key }}" {{ 'checked' if item.is_recommended else '' }}>
+                        <span>
+                            <b>{{ item.label }}</b>
+                            <small>{{ item.score }}٪ — {{ item.reason }}</small>
+                        </span>
+                        {% if item.is_recommended %}<em>پیشنهاد گیسو</em>{% endif %}
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="bti-final-choice-actions">
+                    <button class="bti-primary-action" type="submit">ادامه به طراحی نهایی</button>
+                    <small>برای ساخت طرح نهایی، ورود یا ثبت‌نام لازم است.</small>
+                </div>
+            </form>
+        </section>
+        {% else %}
+        <section class="bti-final-choice-board is-disabled" aria-label="طراحی نهایی نیازمند عکس">
+            <div class="bti-section-title-row">
+                <span>طراحی نهایی</span>
+                <h3>برای طراحی نهایی عکس واقعی لازم است</h3>
+            </div>
+            <p class="bti-final-choice-lead">حالت نمونه فقط برای دیدن مسیر است. برای طراحی نهایی، یک عکس واضح آپلود کن.</p>
+        </section>
+        {% endif %}
+
+        {% if result.preview and result.preview.available %}
         <div class="bti-before-after" aria-label="طرح راهنمای قبل و بعد">
             <article>
                 <header><span>قبل</span><b>عکس اصلی شما</b></header>
@@ -284,5 +321,5 @@
     </section>
     {% endif %}
 </main>
-<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=8" defer></script>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=9" defer></script>
 {% endblock %}

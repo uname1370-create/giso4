@@ -29,6 +29,25 @@ CREATE TABLE IF NOT EXISTS buti_ai_waitlist (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_buti_ai_waitlist_city ON buti_ai_waitlist(city, service_type);
+
+CREATE TABLE IF NOT EXISTS buti_ai_final_designs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER,
+    user_id INTEGER,
+    service_type TEXT NOT NULL DEFAULT 'eyebrow',
+    original_filename TEXT,
+    final_filename TEXT,
+    selected_style TEXT,
+    recommended_style TEXT,
+    change_level TEXT,
+    provider TEXT,
+    model TEXT,
+    status TEXT DEFAULT 'created',
+    prompt_json TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_buti_ai_final_designs_user ON buti_ai_final_designs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_buti_ai_final_designs_session ON buti_ai_final_designs(session_id);
 """
 
 

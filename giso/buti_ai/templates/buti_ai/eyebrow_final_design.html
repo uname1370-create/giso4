@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}طرح نهایی ابرو گیسو{% endblock %}
+{% block meta %}
+<meta name="description" content="طرح نهایی راهنمای آینه ابرو گیسو بر اساس مدل انتخاب‌شده کاربر.">
+{% endblock %}
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=9">
+{% endblock %}
+
+{% block content %}
+<main class="bti-page bti-service-experience bti-eyebrow-flow" dir="rtl">
+    <section class="bti-shell bti-result-board bti-final-design-board">
+        <div class="bti-board-topbar">
+            <a class="bti-board-back" href="{{ url_for('buti_ai.eyebrow_wizard') }}">بازگشت به آینه ابرو</a>
+            <div class="bti-brand-mark">
+                <span>طرح</span>
+                <div>
+                    <b>طرح نهایی ابرو</b>
+                    <small>Python Guided Composite</small>
+                </div>
+            </div>
+        </div>
+
+        <header class="bti-result-header">
+            <span>مرحله ۵: طراحی نهایی</span>
+            <h2>{{ candidate.final_label }}</h2>
+            <p>{{ generation.message if generation else 'طرح نهایی آماده‌سازی شد.' }}</p>
+        </header>
+
+        {% if generation.ok %}
+        <div class="bti-before-after bti-final-before-after" aria-label="قبل و طرح نهایی">
+            <article>
+                <header><span>قبل</span><b>عکس اصلی</b></header>
+                <img src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename) }}" alt="عکس اصلی کاربر">
+            </article>
+            <article>
+                <header><span>طرح نهایی</span><b>{{ candidate.final_label }}</b></header>
+                <img src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename) }}" alt="طرح نهایی راهنمای ابرو">
+            </article>
+        </div>
+        {% else %}
+        <div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ generation.message }}</div>
+        {% endif %}
+
+        <div class="bti-final-design-grid">
+            <article class="is-main">
+                <span>خلاصه انتخاب</span>
+                <h3>{{ candidate.final_label }}</h3>
+                <p>{{ candidate.short_reason }}</p>
+                <small>میزان تغییر: {{ candidate.change_label }}</small>
+            </article>
+            <article>
+                <span>پیشنهاد گیسو</span>
+                <p>{{ candidate.recommended_label }}</p>
+                <small>انتخاب نهایی شما ذخیره شد.</small>
+            </article>
+            <article>
+                <span>بهتر است</span>
+                <ul>{% for item in candidate.do %}<li>{{ item }}</li>{% endfor %}</ul>
+            </article>
+            <article>
+                <span>پرهیز کن</span>
+                <ul>{% for item in candidate.avoid %}<li>{{ item }}</li>{% endfor %}</ul>
+            </article>
+        </div>
+
+        <div class="bti-final-design-note">
+            <b>نکته:</b>
+            <span>این نسخه، طرح راهنمای پایتونی است. اتصال مدل‌های تصویرسازی واقعی در مرحله بعد با مدل‌هایی که معرفی می‌کنی انجام می‌شود.</span>
+        </div>
+
+        <div class="bti-result-actions">
+            <a class="bti-primary-action" href="{{ url_for('buti_ai.eyebrow_centers') }}">رفتن به مراکز و رزرو</a>
+            <a class="bti-secondary-action" href="{{ url_for('buti_ai.eyebrow_wizard') }}">شروع دوباره</a>
+        </div>
+    </section>
+</main>
+{% endblock %}
