@@ -6,7 +6,7 @@
 {% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=11">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=12">
 {% endblock %}
 
 {% block content %}
@@ -89,16 +89,95 @@
         </div>
 
         <div class="bti-final-design-note">
-            <b>نکته:</b>
+            <b>مهم:</b>
             {% if generation and generation.provider and generation.provider != 'python_guided_composite' and not generation.fallback_used %}
-            <span>این خروجی با provider تصویرسازی تنظیم‌شده ساخته شده و قبل از اجرای واقعی باید توسط متخصص مرکز بررسی شود.</span>
+            <span>این تصویر، پیش‌نمایش هوشمند گیسو است. برای اجرای دقیق، بررسی فرم نهایی، رنگ و تکنیک، نتیجه را به مرکز متخصص ابرو نشان بده.</span>
             {% else %}
-            <span>مدل تصویرسازی واقعی هنوز تنظیم نشده یا پاسخ نداده است؛ فعلاً نسخه راهنمای امن پایتونی نمایش داده می‌شود.</span>
+            <span>این تصویر، راهنمای هوشمند/پیش‌نمایش است؛ نه اجرای واقعی خدمات. برای طراحی دقیق و انجام کار، از مراکز زیبایی ارائه‌دهنده ابرو کمک بگیر.</span>
             {% endif %}
         </div>
 
+        <section class="bti-final-centers" aria-label="مراکز پیشنهادی ابرو">
+            <header>
+                <span>مرحله ۶: اجرای طرح</span>
+                <div>
+                    <h3>مراکز پیشنهادی برای خدمات ابرو</h3>
+                    <p>این مراکز خدمت ابرو را در گیسو ثبت کرده‌اند. قبل از انجام کار، مدل، قیمت، مراقبت و محدودیت‌ها را با مرکز چک کن.</p>
+                </div>
+            </header>
+
+            {% if center_suggestions %}
+            <div class="bti-center-card-grid">
+                {% for center in center_suggestions %}
+                <article class="bti-center-card">
+                    <div class="bti-center-card-media">
+                        {% if center.image_path %}
+                        <img src="{{ url_for('static', filename=center.image_path) }}" alt="{{ center.name }}">
+                        {% else %}
+                        <i class="fas fa-store"></i>
+                        {% endif %}
+                    </div>
+                    <div class="bti-center-card-body">
+                        <span>{{ center.type_label or 'مرکز زیبایی' }}</span>
+                        <h4>{{ center.name }}</h4>
+                        <p><i class="fas fa-location-dot"></i>{{ center.city or center_city }}{% if center.region %}، {{ center.region }}{% endif %}</p>
+                        <div class="bti-center-tags">
+                            <em>ابرو</em>
+                            {% if center.price_level_label %}<em>{{ center.price_level_label }}</em>{% endif %}
+                            {% if center.feedback and center.feedback.label %}<em>{{ center.feedback.label }}</em>{% endif %}
+                        </div>
+                    </div>
+                    <div class="bti-center-card-actions">
+                        <a class="bti-primary-action" href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}">مشاهده مرکز</a>
+                        <a class="bti-secondary-action" href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}#reserve">بررسی رزرو</a>
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            <div class="bti-centers-more-row">
+                <span>برای انتخاب بهتر، چند مرکز را مقایسه کن و فقط به عکس پیش‌نمایش اکتفا نکن.</span>
+                <a class="bti-secondary-action" href="{{ centers_url }}">مشاهده همه مراکز ابرو</a>
+            </div>
+            {% else %}
+            <article class="bti-inline-waitlist" id="btiFinalWaitlist">
+                <div>
+                    <i class="fas fa-store-slash"></i>
+                    <span>فعلاً مرکز فعال برای این خدمت ثبت نشده</span>
+                    <h4>اگر خواستی، وقتی مرکز ابرو فعال شد خبرت کنیم</h4>
+                    <p>این درخواست به آمار تقاضای مراکز زیبایی اضافه می‌شود تا گیسو بداند چند نفر دنبال خدمات ابرو هستند.</p>
+                    <small>درخواست‌های باز {{ center_city }} برای ابرو: {{ center_demand_count }}</small>
+                </div>
+                <form method="post" action="{{ url_for('buti_ai.eyebrow_centers') }}" class="bti-inline-waitlist-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <label>شهر<input name="city" value="{{ center_city }}" maxlength="80" required></label>
+                    <label>شماره موبایل<input name="phone" value="{{ default_phone }}" inputmode="tel" placeholder="0915xxxxxxx" required></label>
+                    <button class="bti-primary-action" type="submit">ثبت درخواست اطلاع‌رسانی</button>
+                </form>
+                <a class="bti-secondary-action" href="{{ register_center_url }}">ثبت مرکز زیبایی برای خدمت ابرو</a>
+            </article>
+            {% endif %}
+        </section>
+
+        <details class="bti-smart-guide">
+            <summary>
+                <i class="fas fa-robot"></i>
+                <span>راهنمای هوشمند قبل از انتخاب مرکز</span>
+                <b>باز کن</b>
+            </summary>
+            <div class="bti-smart-guide-grid">
+                <article><span>از مرکز چه بپرسم؟</span><p>بپرس این مدل با فرم صورت و جنس پوستت قابل اجرا هست یا باید نرم‌تر/طبیعی‌تر شود.</p></article>
+                <article><span>چه چیزی نشان بدهم؟</span><p>همین طرح نهایی، مدل انتخابی، میزان تغییر و عکس اصلی را به متخصص نشان بده.</p></article>
+                <article><span>قیمت و ماندگاری؟</span><p>قبل از رزرو، قیمت حدودی، جلسه ترمیم، مراقبت بعد از کار و ماندگاری را شفاف بپرس.</p></article>
+                <article><span>چه زمانی منصرف شوم؟</span><p>اگر مرکز بدون بررسی چهره و سابقه حساسیت فقط قول نتیجه قطعی داد، با احتیاط انتخاب کن.</p></article>
+            </div>
+        </details>
+
         <div class="bti-result-actions">
-            <a class="bti-primary-action" href="{{ url_for('buti_ai.eyebrow_centers') }}">رفتن به مراکز و رزرو</a>
+            {% if center_suggestions %}
+            <a class="bti-primary-action" href="{{ centers_url }}">مشاهده همه مراکز ابرو</a>
+            {% else %}
+            <a class="bti-primary-action" href="#btiFinalWaitlist">ثبت درخواست مرکز ابرو</a>
+            {% endif %}
             <a class="bti-secondary-action" href="{{ url_for('buti_ai.eyebrow_wizard') }}">شروع دوباره</a>
         </div>
     </section>

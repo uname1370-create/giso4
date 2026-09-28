@@ -139,10 +139,26 @@ def eyebrow_final_design():
         session[FINAL_DESIGN_SESSION_KEY] = candidate
         session.modified = True
 
+    center_city = (request.args.get("city") or user_default_city(current_user)).strip() or "مشهد"
+    center_suggestions = active_eyebrow_centers(city=center_city, limit=3)
+    center_demand_count = waitlist_interest_count(BUTI_EYEBROW_SERVICE, city=center_city)
+    centers_url = url_for("beauty_centers.list_centers", service=BEAUTY_CENTER_BROW_SERVICE, city=center_city)
+    register_center_url = (
+        url_for("beauty_centers.register_center")
+        if getattr(current_user, "is_authenticated", False)
+        else url_for("login", next=url_for("beauty_centers.register_center"))
+    )
+
     return render_template(
         "buti_ai/eyebrow_final_design.html",
         candidate=candidate,
         generation=generation,
+        center_city=center_city,
+        center_suggestions=center_suggestions,
+        center_demand_count=center_demand_count,
+        centers_url=centers_url,
+        register_center_url=register_center_url,
+        default_phone=user_default_phone(current_user),
     )
 
 

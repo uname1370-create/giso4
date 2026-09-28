@@ -521,3 +521,59 @@ def test_eyebrow_centers_waitlist_post_saves_interest(monkeypatch):
     assert row["source"] == "eyebrow_no_active_center"
     assert row["status"] == "open"
     _cleanup_buti_ai_waitlist()
+
+
+def _render_final_design_template(center_suggestions):
+    from flask import render_template
+
+    app = create_app()
+    with app.test_request_context("/analysis/mirror/eyebrow/final"):
+        return render_template(
+            "buti_ai/eyebrow_final_design.html",
+            candidate=_sample_final_candidate(),
+            generation={
+                "ok": True,
+                "filename": "final/final_eyebrow_test.jpg",
+                "provider": "python_guided_composite",
+                "model": "pillow_brow_overlay_v1",
+                "message": "طرح نهایی راهنما آماده شد.",
+            },
+            center_city="مشهد",
+            center_suggestions=center_suggestions,
+            center_demand_count=4,
+            centers_url="/beauty-centers?service=brow&city=مشهد",
+            register_center_url="/beauty-centers/register",
+            default_phone="09123456789",
+        )
+
+
+def test_final_design_template_shows_inline_center_suggestions():
+    html = _render_final_design_template([
+        {
+            "name": "مرکز ابروی تست",
+            "slug": "test-brow-center",
+            "city": "مشهد",
+            "region": "سجاد",
+            "type_label": "سالن زیبایی",
+            "image_path": "",
+            "price_level_label": "متعادل",
+            "feedback": {"label": "رضایت خوب"},
+        }
+    ])
+
+    assert "مراکز پیشنهادی برای خدمات ابرو" in html
+    assert "مرکز ابروی تست" in html
+    assert "مشاهده مرکز" in html
+    assert "مشاهده همه مراکز ابرو" in html
+    assert "راهنمای هوشمند قبل از انتخاب مرکز" in html
+    assert "این تصویر، راهنمای هوشمند/پیش‌نمایش است" in html
+
+
+def test_final_design_template_shows_inline_waitlist_when_no_centers():
+    html = _render_final_design_template([])
+
+    assert "فعلاً مرکز فعال برای این خدمت ثبت نشده" in html
+    assert "ثبت درخواست اطلاع‌رسانی" in html
+    assert "درخواست‌های باز مشهد برای ابرو: 4" in html
+    assert "ثبت مرکز زیبایی برای خدمت ابرو" in html
+    assert "راهنمای هوشمند قبل از انتخاب مرکز" in html
