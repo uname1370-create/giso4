@@ -116,7 +116,6 @@ AI Vision
 
 فقط اتصال به Flow جدید
 
-Beauty Preview ایده‌ای
 
 ✅ مستقل
 
