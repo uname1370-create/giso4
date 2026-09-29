@@ -569,7 +569,17 @@ def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_
     files = {
         "input_image_0": (f"customer-face.{photo_ext}", photo_bytes, photo_mime),
     }
-    send_reference = bool(provider.extra.get("send_reference_image")) or _truthy(_env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE"))
+    # Reference Image همان مدل انتخاب‌شده: تا حد ممکن واقعاً ارسال شود
+    # اگر extra صراحتاً False نباشد و reference_path وجود داشته باشد، ارسال می‌شود
+    extra_flag = provider.extra.get("send_reference_image") if isinstance(provider.extra, dict) else None
+    if extra_flag is False:
+        send_reference = False
+    elif extra_flag is True:
+        send_reference = True
+    else:
+        # پیش‌فرض جدید: reference ارسال شود، مگر اینکه env صراحتاً غیرفعال کرده باشد
+        env_disable = _env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE").lower() in {"0", "false", "off", "no"}
+        send_reference = not env_disable
     if reference_path and send_reference:
         ref_bytes, ref_mime, ref_ext = _image_bytes_for_provider(reference_path, MAX_PROVIDER_INPUT_SIDE, square=True)
         files["input_image_1"] = (f"technique-macro.{ref_ext}", ref_bytes, ref_mime)
@@ -1303,33 +1313,62 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 safe_error[:160],
             )
 
-    fallback = final_design.generate_python_guided_design(candidate)
-    fallback["attempts"] = attempts
-    fallback["configured_provider_count"] = len(providers)
-    fallback["fallback_used"] = bool(providers)
-    fallback["prompt"] = prompt
-    fallback["ai_inpainting"] = False
-    fallback["is_ai_generated"] = False
-    fallback["fallback_type"] = "non_ai_guided_fallback"
-    if fallback.get("ok"):
-        if providers:
-            fallback["status"] = "non_ai_guided_fallback_ready"
-            fallback["message"] = "خروجی مدل‌های AI برای این عکس قابل تأیید نبود؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI نمایش داده می‌شود."
-        else:
-            fallback["status"] = "non_ai_guided_preview_ready"
-            fallback["message"] = "مدل تصویرسازی هنوز در مدیریت AI تنظیم نشده؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI آماده شد."
-    elif providers:
-        fallback["message"] = "فعلاً طراحی عکس نهایی قابل نمایش نشد؛ عکس و انتخاب شما حفظ شد."
+    # اصلاح شماره 7: Python fallback نباید به عنوان طراحی نهایی AI نمایش داده شود
+    # اگر همه CFها شکست خوردند -> AI FAILED
+    # generate_python_guided_design فقط برای Debug داخلی باقی می‌ماند و در مسیر production استفاده نمی‌شود
+    # مگر اینکه env BUTI_AI_ALLOW_PYTHON_FALLBACK=1 تنظیم شده باشد (برای تست داخلی)
+    allow_python_fallback = _truthy(_env_value(env, "BUTI_AI_ALLOW_PYTHON_FALLBACK"))
+    if allow_python_fallback:
+        fallback = final_design.generate_python_guided_design(candidate)
+        fallback["attempts"] = attempts
+        fallback["configured_provider_count"] = len(providers)
+        fallback["fallback_used"] = bool(providers)
+        fallback["prompt"] = prompt
+        fallback["ai_inpainting"] = False
+        fallback["is_ai_generated"] = False
+        fallback["fallback_type"] = "non_ai_guided_fallback"
+        if fallback.get("ok"):
+            if providers:
+                fallback["status"] = "non_ai_guided_fallback_ready"
+                fallback["message"] = "خروجی مدل‌های AI برای این عکس قابل تأیید نبود؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI نمایش داده می‌شود."
+            else:
+                fallback["status"] = "non_ai_guided_preview_ready"
+                fallback["message"] = "مدل تصویرسازی هنوز در مدیریت AI تنظیم نشده؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI آماده شد."
+        elif providers:
+            fallback["message"] = "فعلاً طراحی عکس نهایی قابل نمایش نشد؛ عکس و انتخاب شما حفظ شد."
+        _beauty_log(
+            "[FINAL]",
+            "fallback_final_ready" if fallback.get("ok") else "fallback_final_failed",
+            final_path=fallback.get("filename"),
+            is_ai_generated=False,
+            status=fallback.get("status"),
+            configured_provider_count=len(providers),
+            fallback_used=fallback.get("fallback_used"),
+        )
+        return fallback
+
+    # مسیر اصلی production: AI FAILED
     _beauty_log(
         "[FINAL]",
-        "fallback_final_ready" if fallback.get("ok") else "fallback_final_failed",
-        final_path=fallback.get("filename"),
+        "ai_failed_all_providers",
         is_ai_generated=False,
-        status=fallback.get("status"),
+        status="ai_failed",
         configured_provider_count=len(providers),
-        fallback_used=fallback.get("fallback_used"),
+        attempts_count=len(attempts),
     )
-    return fallback
+    return {
+        "ok": False,
+        "status": "ai_failed",
+        "message": "AI FAILED - هر سه مدل CF1, CF2, CF3 برای این عکس ناموفق بودند. لطفاً دوباره تلاش کن یا عکس واضح‌تری بفرست.",
+        "attempts": attempts,
+        "configured_provider_count": len(providers),
+        "fallback_used": False,
+        "ai_inpainting": False,
+        "is_ai_generated": False,
+        "prompt": prompt,
+        "eyebrow_detection": eyebrow_detection,
+        "eyebrow_detection_method": eyebrow_detection.get("method") if isinstance(eyebrow_detection, dict) else "",
+    }
 
 
 __all__ = [

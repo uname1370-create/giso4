@@ -252,7 +252,7 @@ def eyebrow_model_selection():
 
 @buti_ai_bp.route("/eyebrow/upload", methods=["GET", "POST"])
 def eyebrow_upload():
-    """مرحله مستقل آپلود عکس؛ پس از اعتبارسنجی، پیش‌نمایش واقعی عکس را نشان می‌دهد."""
+    """مرحله مستقل آپلود عکس؛ بعد از آپلود مستقیم به طراحی نهایی می‌رود (4 مرحله‌ای)."""
     init_buti_ai_db()
     selection = _current_selection()
     if request.method == "GET":
@@ -266,15 +266,18 @@ def eyebrow_upload():
         request.files,
         user_id=_safe_current_user_id(),
     )
-    state["flow_step"] = "result" if state.get("result") else "upload"
+    # برای 4 مرحله‌ای شدن، دیگر flow_step=result نمایش داده نمی‌شود
+    # بعد از آپلود موفق مستقیم به /eyebrow/final می‌رویم
     if state.get("result"):
         candidate = store_final_candidate(session, state.get("result"), state.get("photo_status"))
         _log_preview_candidate(candidate, source="upload_route")
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
-        return _render_eyebrow_wizard(state)
+        return redirect(url_for("buti_ai.eyebrow_final_design"))
     if state.get("flash_message"):
         flash(state["flash_message"], state.get("flash_category") or "info")
+    # در صورت خطا، همان صفحه آپلود با پیام خطا
+    state["flow_step"] = "upload"
     return _render_eyebrow_wizard(state)
 
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """ارکستریشن سناریوی آینه ابرو؛ بدون وابستگی مستقیم به Flask routeها."""
-from giso.buti_ai.eyebrow.ai import check_photo_quality
+from giso.buti_ai.eyebrow.ai import analyze_eyebrow_photo, check_photo_quality
 from giso.buti_ai.eyebrow.landmarks import detect_eyebrow_regions
 from giso.buti_ai.eyebrow.options import initial_form_values, normalize_change_level, normalize_style_key
 from giso.buti_ai.eyebrow.preview import build_before_after_preview
@@ -121,6 +121,20 @@ def process_eyebrow_submission(form, files, user_id=None):
             if quality_report.get("status") == "ai_checked" and quality_report.get("ok") is False:
                 error_message = quality_report.get("message") or "این عکس برای طراحی دقیق مناسب نیست."
             else:
+                # Flow مطلوب: Quality Check -> AI Eyebrow Analysis -> Detection -> Mask
+                try:
+                    ai_analysis = analyze_eyebrow_photo(
+                        photo_status.get("path"),
+                        style_key,
+                        change_key,
+                    )
+                except Exception:
+                    ai_analysis = {
+                        "status": "ai_unavailable",
+                        "ok": None,
+                        "message": "تحلیل هوشمند در دسترس نیست.",
+                        "data": {},
+                    }
                 eyebrow_detection = detect_eyebrow_regions(photo_status.get("path"), allow_fallback=False)
                 result = build_eyebrow_result(
                     style_key,

@@ -23,14 +23,14 @@
                 <div>
                     <b>طراحی عکس نهایی ابرو</b>
                     <small>
-                        {% if generation and generation.ai_inpainting and generation.is_ai_generated %}AI Inpainting با ماسک ابرو{% elif generation and generation.fallback_used %}نسخه راهنمای غیر AI بعد از تلاش مدل{% elif generation and generation.is_ai_generated %}ساخته‌شده با مدل AI{% else %}راهنمای غیر AI{% endif %}
+                        {% if generation and generation.status == 'ai_failed' %}AI FAILED - تلاش مجدد{% elif generation and generation.ai_inpainting and generation.is_ai_generated %}AI Inpainting با ماسک ابرو{% elif generation and generation.fallback_used %}نسخه راهنمای غیر AI بعد از تلاش مدل{% elif generation and generation.is_ai_generated %}ساخته‌شده با مدل AI{% else %}AI FAILED{% endif %}
                     </small>
                 </div>
             </div>
         </div>
 
         <header class="bti-result-header">
-            <span>مرحله ۵: طراحی عکس نهایی</span>
+            <span>مرحله ۴: طراحی عکس نهایی</span>
             <h2>{{ candidate.final_label }}</h2>
             <p>{{ generation.message if generation else 'طراحی عکس نهایی آماده‌سازی شد.' }}</p>
         </header>
@@ -56,6 +56,15 @@
         </div>
         {% else %}
         <div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ generation.message }}</div>
+        {% if generation and generation.status == 'ai_failed' %}
+        <div class="bti-final-retry" style="margin:16px 0;">
+            <form method="post" action="{{ url_for('buti_ai.eyebrow_final_retry') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="bti-primary-action" type="submit">تلاش مجدد با CF1 → CF2 → CF3</button>
+            </form>
+            <a class="bti-secondary-action" href="{{ url_for('buti_ai.eyebrow_upload') }}" style="margin-top:8px;display:inline-block;">آپلود عکس جدید</a>
+        </div>
+        {% endif %}
         {% endif %}
 
         {% if generation %}
@@ -63,18 +72,24 @@
             <i class="fas fa-wand-magic-sparkles"></i>
             <div>
                 <b>
-                    {% if generation.ai_inpainting and generation.is_ai_generated %}
+                    {% if generation.status == 'ai_failed' %}
+                    AI FAILED - هر سه مدل ناموفق بودند
+                    {% elif generation.ai_inpainting and generation.is_ai_generated %}
                     طراحی با AI Inpainting و ماسک واقعی ابرو آماده شد
                     {% elif generation.fallback_used %}
                     خروجی AI قابل استفاده نبود؛ نسخه راهنمای غیر AI نمایش داده شد
                     {% elif generation.is_ai_generated %}
                     طراحی عکس نهایی با مدل AI و تغییر قابل مشاهده ابرو آماده شد
                     {% else %}
-                    طراحی راهنمای غیر AI آماده شد
+                    AI FAILED - طراحی با AI انجام نشد
                     {% endif %}
                 </b>
                 <span>
+                    {% if generation.status == 'ai_failed' %}
+                    عکس و انتخابت حفظ شده است. هر سه مدل CF1, CF2, CF3 تلاش کردند ولی خروجی معتبر تولید نشد. لطفاً دوباره تلاش کن یا عکس واضح‌تری بفرست. Python fallback نمایش داده نمی‌شود.
+                    {% else %}
                     عکس و انتخابت حفظ شده است. {% if generation.ai_inpainting and generation.is_ai_generated %}این خروجی با ماسک واقعی ابرو ساخته شده{% elif generation.is_ai_generated and generation.provider_output_constrained_to_eyebrow_mask %}خروجی AI فقط داخل محدوده واقعی ابرو روی عکس اصلی اعمال شده و تغییر ROI تأیید شده{% else %}این نسخه AI واقعی نیست و به‌عنوان راهنمای غیر AI نمایش داده می‌شود{% endif %} و اجرای دقیق باید با متخصص انجام شود.
+                    {% endif %}
                 </span>
                 {% if generation.attempts %}
                 <details class="bti-provider-technical">
@@ -121,12 +136,14 @@
 
         <div class="bti-final-design-note">
             <b>مهم:</b>
-            {% if generation and generation.ai_inpainting and generation.is_ai_generated %}
+            {% if generation and generation.status == 'ai_failed' %}
+            <span>AI FAILED - هر سه مدل CF1, CF2, CF3 ناموفق بودند. هیچ تصویر Python/Pillow به عنوان طراحی نهایی نمایش داده نمی‌شود. لطفاً دوباره تلاش کن.</span>
+            {% elif generation and generation.ai_inpainting and generation.is_ai_generated %}
             <span>این تصویر با AI Inpainting و ماسک واقعی ابرو ساخته شده؛ بااین‌حال نتیجه فقط پیش‌نمایش طراحی است و اجرای دقیق باید با متخصص کنترل شود.</span>
             {% elif generation and generation.is_ai_generated and not generation.fallback_used %}
             <span>این تصویر، طراحی عکس نهایی AI در گیسو است؛ خروجی فقط بعد از تأیید تغییر قابل مشاهده داخل ابرو نمایش داده شده و بیرون از mask حفظ شده است.</span>
             {% else %}
-            <span>این تصویر، راهنمای غیر AI برای طراحی عکس نهایی است؛ AI Inpainting واقعی نیست. برای طراحی دقیق و انجام کار، از مراکز زیبایی ارائه‌دهنده ابرو کمک بگیر.</span>
+            <span>AI FAILED - این تصویر AI واقعی نیست و نمایش داده نمی‌شود.</span>
             {% endif %}
         </div>
 
