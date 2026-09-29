@@ -57,13 +57,15 @@ MAX_SAVE_SIDE = 1600
 MAX_PROVIDER_INPUT_SIDE = 512
 MAX_INPAINTING_INPUT_SIDE = 512
 MAX_DIFF_SAMPLE_PIXELS = 260_000
-# سخت‌گیرانه‌تر برای جلوگیری از artifact روی چشم/صورت (تصویر کاربر با حجاب)
+# سخت‌گیرانه‌تر برای جلوگیری از artifact روی چشم/صورت و ماسک سفید (تصویر کاربر با حجاب)
 MIN_VISIBLE_EYEBROW_MEAN_DELTA = 5.0
+MAX_VISIBLE_EYEBROW_MEAN_DELTA = 38.0
 MIN_VISIBLE_EYEBROW_CHANGED_RATIO = 0.022
 VISIBLE_EYEBROW_PIXEL_DELTA = 9.0
 MAX_OUTSIDE_MASK_MEAN_DELTA = 0.85
 MAX_OUTSIDE_MASK_P99_DELTA = 4.5
 MAX_OUTSIDE_CHANGED_RATIO = 0.018
+MAX_INSIDE_WHITE_RATIO = 0.18
 
 
 class ImageProviderError(RuntimeError):
@@ -875,18 +877,18 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
         coverage = float(mask_info.get("coverage_ratio") or 0)
     except Exception:
         coverage = 0.0
-    if coverage <= 0 or coverage > 0.06:
+    if coverage <= 0 or coverage > 0.04:
         raise ImageProviderError("mask ابرو برای ذخیره خروجی AI ایمن نیست؛ محدوده ویرایش بیش از حد وسیع/نامعتبر است")
     try:
         mask = Image.open(mask_path).convert("L").resize(size, Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
-        # Binary core + tiny feather + slight erosion: only brow pixels editable, avoid eye/eyelid
+        # Binary core + stronger erosion to prevent white halo, only brow pixels editable
         mask = mask.point(lambda px: 255 if int(px) >= 128 else 0)
-        # Erode slightly to avoid including eyelashes/eye
+        # Erode more to avoid eyelashes/eye and white halo artifact
         try:
-            mask = mask.filter(ImageFilter.MinFilter(size=3))
+            mask = mask.filter(ImageFilter.MinFilter(size=5))
         except Exception:
             pass
-        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.55))
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.45))
         _beauty_log(
             "[EYEBROW_MASK]",
             "provider_mask_ready",
@@ -971,6 +973,20 @@ def _visible_eyebrow_diff_metrics(base, final_image, mask) -> Dict[str, Any]:
     outside_mean = sum(outside_deltas) / outside_pixels if outside_pixels else 0.0
     inside_changed_ratio = float(changed_inside) / float(max(1, inside_pixels))
     outside_changed_ratio = float(changed_outside) / float(max(1, outside_pixels))
+    # بررسی ماسک سفید: اگر داخل ماسک خیلی سفید باشد، خروجی نامعتبر است (مشکل تصویر کاربر)
+    white_inside = 0
+    try:
+        final_px_for_white = final_image.load()
+        mask_px_for_white = mask.load()
+        for y in range(0, height, stride):
+            for x in range(0, width, stride):
+                if int(mask_px_for_white[x, y]) >= 128:
+                    r, g, b = final_px_for_white[x, y]
+                    if r > 235 and g > 235 and b > 235:
+                        white_inside += 1
+    except Exception:
+        white_inside = 0
+    white_ratio = float(white_inside) / float(max(1, inside_pixels))
     metrics = {
         "diff_stride": int(stride),
         "inside_mask_sampled_pixels": int(inside_pixels),
@@ -978,6 +994,7 @@ def _visible_eyebrow_diff_metrics(base, final_image, mask) -> Dict[str, Any]:
         "inside_mean_delta": round(float(inside_mean), 4),
         "inside_p95_delta": round(_percentile(inside_deltas, 0.95), 4),
         "inside_changed_ratio": round(float(inside_changed_ratio), 6),
+        "inside_white_ratio": round(float(white_ratio), 6),
         "outside_mean_delta": round(float(outside_mean), 4),
         "outside_p99_delta": round(_percentile(outside_deltas, 0.99), 4),
         "outside_changed_ratio": round(float(outside_changed_ratio), 6),
@@ -990,6 +1007,8 @@ def _visible_eyebrow_diff_metrics(base, final_image, mask) -> Dict[str, Any]:
             or inside_changed_ratio >= MIN_VISIBLE_EYEBROW_CHANGED_RATIO
         )
         and metrics["inside_p95_delta"] >= VISIBLE_EYEBROW_PIXEL_DELTA
+        and inside_mean <= MAX_VISIBLE_EYEBROW_MEAN_DELTA
+        and white_ratio <= MAX_INSIDE_WHITE_RATIO
     )
     safe_outside = (
         outside_pixels > 0
@@ -1012,12 +1031,18 @@ def _validate_provider_visible_change(base, final_image, mask) -> Dict[str, Any]
         mask_size=f"{mask.size[0]}x{mask.size[1]}",
         inside_mean_delta=metrics.get("inside_mean_delta"),
         inside_changed_ratio=metrics.get("inside_changed_ratio"),
+        inside_white_ratio=metrics.get("inside_white_ratio"),
         outside_mean_delta=metrics.get("outside_mean_delta"),
         outside_p99_delta=metrics.get("outside_p99_delta"),
         eyebrow_roi_changed=metrics.get("eyebrow_roi_changed"),
         outside_mask_preserved=metrics.get("outside_mask_preserved"),
     )
     if not metrics.get("eyebrow_roi_changed"):
+        # اگر سفید زیاد باشد، پیام دقیق‌تر
+        if float(metrics.get("inside_white_ratio") or 0) > MAX_INSIDE_WHITE_RATIO:
+            raise ImageProviderError("خروجی AI داخل ابرو ماسک سفید تولید کرد و رد شد")
+        if float(metrics.get("inside_mean_delta") or 0) > MAX_VISIBLE_EYEBROW_MEAN_DELTA:
+            raise ImageProviderError("خروجی AI تغییر بیش از حد شدید داخل ابرو داشت و رد شد")
         raise ImageProviderError("خروجی AI در محدوده واقعی ابرو تغییر قابل مشاهده ایجاد نکرد")
     if not metrics.get("outside_mask_preserved"):
         raise ImageProviderError("خروجی AI بیرون از mask ابرو تغییر ناخواسته داشت و رد شد")
