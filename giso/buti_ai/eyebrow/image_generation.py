@@ -1016,6 +1016,8 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
             "provider_raw_height": int(provider_image.height or 0),
         }
         final_image = provider_image
+        base_for_validation = None
+        mask_for_validation = None
         if source_path and candidate is not None:
             base = Image.open(source_path).convert("RGB")
             base.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
@@ -1023,6 +1025,8 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
             mask, detection = _provider_eyebrow_mask_for_save(source_path, candidate, base.size)
             final_image = Image.composite(final_image, base, mask)
             diff_meta = _validate_provider_visible_change(base, final_image, mask)
+            base_for_validation = base.copy()
+            mask_for_validation = mask.copy()
             mask_info = detection.get("mask") if isinstance(detection, dict) and isinstance(detection.get("mask"), dict) else {}
             meta.update({
                 "provider_output_constrained_to_eyebrow_mask": True,
@@ -1044,15 +1048,28 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
         if final_image.width <= 0 or final_image.height <= 0:
             raise ImageProviderError("ابعاد خروجی provider نامعتبر بود")
         os.makedirs(final_design.FINAL_DESIGN_DIR, exist_ok=True)
-        filename = f"final/ai_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.jpg"
+        # PNG keeps every pixel outside the eyebrow mask identical after save; JPEG
+        # recompression can touch face/skin/background outside the ROI.
+        filename = f"final/ai_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.png"
         out_path = os.path.join(final_design.EYEBROW_UPLOAD_DIR, filename)
-        tmp_path = f"{out_path}.tmp-{uuid.uuid4().hex[:8]}.jpg"
-        final_image.save(tmp_path, "JPEG", quality=94, optimize=True, subsampling=0)
+        tmp_path = f"{out_path}.tmp-{uuid.uuid4().hex[:8]}.png"
+        final_image.save(tmp_path, "PNG", optimize=True)
         try:
             with Image.open(tmp_path) as saved_probe:
                 saved_probe.verify()
             with Image.open(tmp_path) as saved_image:
                 saved_w, saved_h = saved_image.size
+                if base_for_validation is not None and mask_for_validation is not None:
+                    saved_diff_meta = _validate_provider_visible_change(
+                        base_for_validation,
+                        saved_image.convert("RGB"),
+                        mask_for_validation,
+                    )
+                    for diff_key, diff_value in saved_diff_meta.items():
+                        meta[f"saved_{diff_key}"] = diff_value
+                    meta["saved_file_diff_validated"] = True
+        except ImageProviderError:
+            raise
         except Exception as exc:
             raise ImageProviderError("فایل ذخیره‌شده خروجی AI قابل خواندن نبود") from exc
         if int(saved_w or 0) <= 0 or int(saved_h or 0) <= 0:
@@ -1128,7 +1145,8 @@ def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") 
             "inside_p95_delta", "inside_changed_ratio", "inside_mask_sampled_pixels",
             "outside_mean_delta", "outside_p99_delta", "outside_changed_ratio",
             "provider_raw_width", "provider_raw_height", "saved", "readable",
-            "final_width", "final_height", "final_filename",
+            "final_width", "final_height", "final_filename", "saved_file_diff_validated",
+            "saved_eyebrow_roi_changed", "saved_outside_mask_preserved",
         ):
             if key in meta:
                 item[key] = meta[key]
@@ -1237,7 +1255,8 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 "inside_p95_delta", "inside_changed_ratio", "inside_mask_sampled_pixels",
                 "outside_mean_delta", "outside_p99_delta", "outside_changed_ratio",
                 "provider_raw_width", "provider_raw_height", "saved", "readable",
-                "final_width", "final_height", "final_filename",
+                "final_width", "final_height", "final_filename", "saved_file_diff_validated",
+                "saved_eyebrow_roi_changed", "saved_outside_mask_preserved",
             ):
                 if key in attempt:
                     result[key] = attempt[key]
