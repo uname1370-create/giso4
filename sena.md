@@ -364,10 +364,6 @@ Wallet
 
 اعتبار و هزینه
 
-beauty-preview
-
-ایده و Flow پیش‌نمایش
-
 7. چه چیزهایی نیاز به تغییر ساختاری دارد؟
 
 مورد
@@ -2075,15 +2071,8 @@ ask_ai_vision(pname, image_paths[0], ...)
 * `AGENTS.md` وجود ندارد.
 * سیستم Memory برای Agent وجود ندارد.
 * چیزی با نام `memory` یا `agent-memory` داخل پروژه نیست.
-* `beauty-preview` هم در tree فعلی این branch وجود ندارد.
 * فقط Agentهای موجود، مربوط به `bot_edu/ai_mentor/agents` هستند و Agent توسعه‌دهنده Giso نیستند.
 
-در تاریخچه کلی repo دو commit مربوط به Beauty Preview پیدا می‌شود:
-
-* `91878a7...` → Jev structured vision gate
-* `eb55bcb...` → Jev post-render quality gate
-
-اما این‌ها در تاریخچه repo هستند و **در tree فعلی branch هدف دیده نمی‌شوند**. پس نباید Agent جدید برود این‌ها را مبنای کار فعلی Giso فرض کند.
 
 ---
 
@@ -2146,8 +2135,7 @@ Giso
  ├── Architecture Rules
  │    ├── bot_edu locked
  │    ├── web locked
- │    └── beauty-preview independent
- │
+  │
  └── Decisions
       ├── current hair/skin Analysis untouched
       ├── Beauty Mirror new layer
