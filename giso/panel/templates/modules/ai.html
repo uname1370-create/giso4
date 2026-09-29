@@ -237,111 +237,187 @@
     </section>
 
 
-    <!-- ═══ تب آینه زیبایی: مدل‌های اختصاصی Buti AI ═══ -->
+    <!-- ═══ تب آینه زیبایی: مدل‌های اختصاصی Buti AI — نسخه ساده Pro ═══ -->
     <section class="pnl-pane" id="pane-beauty-mirror">
         <div class="pnl-card">
-            <h3>🪞 مدل‌های آینه گیسو</h3>
-            <p class="pnl-muted">
-                این بخش فقط مدل‌های اختصاصی آینه گیسو را نگه می‌دارد؛ مدل بررسی عکس از مدل طراحی تصویر جداست. اسلات ۱ مدل اصلی است و اسلات‌های بعدی fallback هستند.
+            <h3>🪞 آینه گیسو — تنظیم حرفه‌ای ساده</h3>
+            <p class="pnl-muted" style="line-height:1.9;">
+                اسلات ۱ مدل اصلی است، اسلات ۲ و ۳ فقط fallback هستند. این تنظیمات فقط روی مسیر آینه گیسو اثر دارد، نه روی مشاور عمومی یا ربات.
             </p>
             {% set bm = ai.get('beauty_mirror', {}) %}
-            <div class="pnl-card" style="margin:10px 0 14px;background:#f8fbff;border-color:#cfe4ff;">
-                <h4 style="margin:0 0 8px;">{{ bm.get('scope_label') or 'فقط آینه گیسو / Buti AI' }}</h4>
-                <p class="pnl-muted" style="margin:0;line-height:1.9;">{{ bm.get('scope_note') or 'این تنظیمات فقط برای مسیر آینه گیسو مصرف می‌شود.' }}</p>
-            </div>
             {% set ready = bm.get('readiness', {}) %}
-            <div class="pnl-card" style="margin:10px 0 14px;background:{{ '#edfdf5' if ready.get('ready') else '#fff8df' }};border-color:{{ '#a9e9c9' if ready.get('ready') else '#ead39a' }};">
-                <h4 style="margin:0 0 8px;">وضعیت آمادگی آینه گیسو</h4>
-                <div class="pnl-btn-row" style="gap:8px;align-items:center;">
-                    <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('ready') else 'pnl-badge-off' }}">{{ 'آماده' if ready.get('ready') else 'ناقص' }}</span>
+            <div class="pnl-card" style="margin:12px 0;background:{{ '#edfdf5' if ready.get('ready') else '#fff8df' }};border-color:{{ '#a9e9c9' if ready.get('ready') else '#ead39a' }};">
+                <div class="pnl-btn-row" style="gap:8px;align-items:center;flex-wrap:wrap;">
+                    <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('ready') else 'pnl-badge-off' }}">{{ '✅ آماده' if ready.get('ready') else '⚠️ ناقص' }}</span>
                     <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('analysis_ready') else 'pnl-badge-off' }}">تحلیل عکس: {{ 'آماده' if ready.get('analysis_ready') else 'ناقص' }}</span>
-                    <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('image_ready') else 'pnl-badge-off' }}">طراحی تصویر: {{ ready.get('image_ready_count', 0) }} مدل</span>
-                    <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('validation_ready') else 'pnl-badge-off' }}">اعتبارسنجی خروجی: {{ 'آماده' if ready.get('validation_ready') else 'پیشنهادی' }}</span>
-                </div>
-                {% if ready.get('service_image_status') %}
-                <div class="pnl-btn-row" style="gap:6px;margin-top:8px;align-items:center;">
-                    {% set service_labels = {'eyebrow':'ابرو','nail':'ناخن','lip_shading':'لب','hair_color':'رنگ مو'} %}
-                    {% for service_key, status in ready.get('service_image_status', {}).items() %}
-                    <span class="pnl-badge {{ 'pnl-badge-ok' if status.get('ready') else 'pnl-badge-off' }}">{{ service_labels.get(service_key, service_key) }}: {{ status.get('ready_count', 0) }}</span>
-                    {% endfor %}
-                </div>
-                {% endif %}
-                {% if ready.get('issues') %}<ul class="pnl-muted" style="margin:8px 0 0;line-height:1.9;">{% for item in ready.get('issues') %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
-                {% if ready.get('warnings') %}<ul class="pnl-muted" style="margin:8px 0 0;line-height:1.9;">{% for item in ready.get('warnings') %}<li>⚠️ {{ item }}</li>{% endfor %}</ul>{% endif %}
-            </div>
-            <div class="pnl-card" style="margin:10px 0 14px;background:#f8fbff;border-color:#cfe4ff;">
-                <h4 style="margin:0 0 8px;">مدل طراحی عکس آینه گیسو</h4>
-                <p class="pnl-muted" style="margin:0;line-height:1.9;">مدل پیشنهادی کم‌هزینه فعلی: <code dir="ltr">{{ bm.get('recommended_image_model') }}</code>. برای اکانت‌های جدا، cf1/cf2/cf3 را بساز تا هر اسلات با همین مدل امن پر شود.</p>
-                {% if bm.get('image_candidates') %}
-                <details style="margin-top:8px;">
-                    <summary style="cursor:pointer;">مدل‌های تصویری احتمالی پیدا‌شده در AI Management</summary>
-                    <div class="pnl-muted" style="margin-top:8px;display:grid;gap:6px;">
-                        {% for item in bm.get('image_candidates', [])[:8] %}
-                        <code dir="ltr">{{ item.provider }} / {{ item.model }}</code>
+                    <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('image_ready') else 'pnl-badge-off' }}">طراحی: {{ ready.get('image_ready_count', 0) }} مدل</span>
+                    {% if ready.get('service_image_status') %}
+                        {% set service_labels = {'eyebrow':'ابرو','nail':'ناخن','lip_shading':'لب','hair_color':'رنگ مو'} %}
+                        {% for service_key, status in ready.get('service_image_status', {}).items() %}
+                            {% if service_key == 'eyebrow' %}
+                            <span class="pnl-badge {{ 'pnl-badge-ok' if status.get('ready') else 'pnl-badge-off' }}">ابرو: {{ status.get('ready_count', 0) }}</span>
+                            {% endif %}
                         {% endfor %}
-                    </div>
+                    {% endif %}
+                </div>
+                {% if ready.get('issues') or ready.get('warnings') %}
+                <details style="margin-top:10px;">
+                    <summary style="cursor:pointer;">جزئیات خطاها / هشدارها</summary>
+                    {% if ready.get('issues') %}<ul class="pnl-muted" style="margin:8px 0 0;line-height:1.9;">{% for item in ready.get('issues') %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+                    {% if ready.get('warnings') %}<ul class="pnl-muted" style="margin:8px 0 0;line-height:1.9;">{% for item in ready.get('warnings') %}<li>⚠️ {{ item }}</li>{% endfor %}</ul>{% endif %}
                 </details>
                 {% endif %}
+                <p class="pnl-muted" style="margin:10px 0 0;line-height:1.8;">
+                    مدل پیشنهادی: <code dir="ltr">{{ bm.get('recommended_image_model') or '@cf/black-forest-labs/flux-2-klein-4b' }}</code>
+                    — برای ۳ اکانت جدا، cf1/cf2/cf3 بساز.
+                </p>
             </div>
-            <div class="pnl-btn-row" style="margin:10px 0 14px;gap:8px;">
+
+            <div class="pnl-btn-row" style="margin:12px 0;gap:8px;">
                 <form method="POST" action="{{ url_for('panel.ai_config') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="ai_action" value="seed_beauty_mirror_models">
-                    <button class="pnl-btn pnl-btn-outline pnl-btn-sm">✨ پرکردن خودکار اسلات‌های خالی</button>
+                    <button class="pnl-btn pnl-btn-gold">✨ پرکردن خودکار اسلات‌های خالی</button>
                 </form>
-                <form method="POST" action="{{ url_for('panel.ai_config') }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="ai_action" value="repair_beauty_mirror_image_models">
-                    <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🛠 اصلاح مدل‌های ناسازگار طراحی عکس</button>
-                </form>
+                <details style="display:inline-block;">
+                    <summary class="pnl-btn pnl-btn-outline pnl-btn-sm" style="list-style:none;cursor:pointer;">⚙️ پیشرفته</summary>
+                    <div style="margin-top:8px;display:flex;gap:8px;">
+                        <form method="POST" action="{{ url_for('panel.ai_config') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="ai_action" value="repair_beauty_mirror_image_models">
+                            <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🛠 اصلاح مدل‌های ناسازگار</button>
+                        </form>
+                    </div>
+                </details>
             </div>
+
             <datalist id="beautyMirrorModelList">
                 {% for model in bm.get('model_options', []) %}
                 <option value="{{ model }}"></option>
                 {% endfor %}
             </datalist>
-            <div class="pnl-grid-2" style="margin-top:12px;">
+
+            <!-- فقط ابرو — اصلی ترین سرویس -->
+            <h4 style="margin:18px 0 8px;">💎 ابرو — اصلی (۳ اسلات)</h4>
+            <div class="pnl-grid-2" style="margin-top:8px;">
                 {% for slot in bm.get('slots', []) %}
-                <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-card pnl-stack-form" style="margin:0;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="ai_action" value="save_beauty_mirror_model">
-                    <input type="hidden" name="task_key" value="{{ slot.task_key }}">
-                    <input type="hidden" name="priority" value="{{ slot.priority }}">
-                    <h4 style="margin:0 0 4px;">{{ slot.task_label }} — {{ slot.slot_label }}</h4>
-                    <small class="pnl-muted">{{ slot.task_help }}</small>
-                    <label>پروایدر</label>
-                    <select name="provider_name" required>
-                        <option value="">انتخاب پروایدر</option>
-                        {% for p in bm.get('providers', []) %}
-                        <option value="{{ p.name }}" {% if slot.provider_name==p.name %}selected{% endif %}>
-                            {{ p.name }}{% if not p.enabled %} — غیرفعال{% endif %}{% if not p.has_api_key %} — بدون کلید{% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <label>نام مدل</label>
-                    <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" placeholder="مثلاً @cf/black-forest-labs/flux-2-klein-4b" required>
-                    {% if slot.task_kind == 'image' %}
-                    <label>نوع فراخوانی تصویر</label>
-                    <select name="image_kind">
-                        <option value="cloudflare" {% if not slot.image_kind or slot.image_kind=='cloudflare' %}selected{% endif %}>Cloudflare FLUX عکس‌ورودی</option>
-                        <option value="cloudflare_inpainting" {% if slot.image_kind=='cloudflare_inpainting' %}selected{% endif %}>Cloudflare Inpainting با mask</option>
-                        <option value="openai_image_edit" {% if slot.image_kind=='openai_image_edit' %}selected{% endif %}>سرویس سفارشی سازگار با OpenAI image edit</option>
-                        <option value="multipart" {% if slot.image_kind=='multipart' %}selected{% endif %}>پیشرفته: multipart سفارشی</option>
-                        <option value="json_image" {% if slot.image_kind=='json_image' %}selected{% endif %}>پیشرفته: JSON image سفارشی</option>
-                    </select>
-                    <details>
-                        <summary style="cursor:pointer;">تنظیم پیشرفته endpoint تصویر</summary>
-                        <label>Endpoint سفارشی تصویر، اختیاری</label>
-                        <input type="text" name="endpoint_override" value="{{ slot.endpoint_override }}" dir="ltr" placeholder="برای سرویس ایرانی/سفارشی اگر endpoint جدا دارد">
-                    </details>
+                    {% if slot.task_key == 'eyebrow_image_design' %}
+                    <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-card pnl-stack-form" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="ai_action" value="save_beauty_mirror_model">
+                        <input type="hidden" name="task_key" value="{{ slot.task_key }}">
+                        <input type="hidden" name="priority" value="{{ slot.priority }}">
+                        <h4 style="margin:0 0 6px;">{{ slot.slot_label }} {% if slot.priority==1 %}<span class="pnl-badge pnl-badge-ok">اصلی</span>{% else %}<span class="pnl-badge pnl-badge-off">جایگزین {{ slot.priority }}</span>{% endif %}</h4>
+                        <label>پروایدر</label>
+                        <select name="provider_name" required>
+                            <option value="">انتخاب</option>
+                            {% for p in bm.get('providers', []) %}
+                            <option value="{{ p.name }}" {% if slot.provider_name==p.name %}selected{% endif %}>{{ p.name }}{% if not p.enabled %} — غیرفعال{% endif %}{% if not p.has_api_key %} — بدون کلید{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <label>مدل</label>
+                        <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" placeholder="@cf/black-forest-labs/flux-2-klein-4b" required>
+                        <label class="pnl-check"><input type="checkbox" name="enabled" value="1" {% if slot.enabled %}checked{% endif %}> فعال</label>
+                        <details>
+                            <summary style="cursor:pointer;font-size:12px;">تنظیمات پیشرفته تصویر</summary>
+                            <select name="image_kind" style="margin-top:6px;">
+                                <option value="cloudflare" {% if not slot.image_kind or slot.image_kind=='cloudflare' %}selected{% endif %}>Cloudflare FLUX</option>
+                                <option value="cloudflare_inpainting" {% if slot.image_kind=='cloudflare_inpainting' %}selected{% endif %}>Cloudflare Inpainting</option>
+                                <option value="openai_image_edit" {% if slot.image_kind=='openai_image_edit' %}selected{% endif %}>OpenAI سازگار</option>
+                                <option value="multipart" {% if slot.image_kind=='multipart' %}selected{% endif %}>multipart سفارشی</option>
+                                <option value="json_image" {% if slot.image_kind=='json_image' %}selected{% endif %}>JSON سفارشی</option>
+                            </select>
+                            <label style="margin-top:6px;">Endpoint سفارشی (اختیاری)</label>
+                            <input type="text" name="endpoint_override" value="{{ slot.endpoint_override }}" dir="ltr" placeholder="خالی بگذار">
+                        </details>
+                        <button class="pnl-btn pnl-btn-gold pnl-btn-sm" style="margin-top:8px;">💾 ذخیره</button>
+                    </form>
                     {% endif %}
-                    <label class="pnl-check"><input type="checkbox" name="enabled" value="1" {% if slot.enabled %}checked{% endif %}> فعال باشد</label>
-                    <button class="pnl-btn pnl-btn-gold pnl-btn-sm">💾 ذخیره این اسلات</button>
-                </form>
-                {% else %}
-                <div class="pnl-empty"><p>هنوز داده مدل‌های آینه گیسو آماده نیست.</p></div>
                 {% endfor %}
             </div>
+
+            <!-- تحلیل عکس و اعتبارسنجی — یک ردیف ساده -->
+            <h4 style="margin:22px 0 8px;">🔍 تحلیل و اعتبارسنجی (۲ اسلات)</h4>
+            <div class="pnl-grid-2">
+                {% for slot in bm.get('slots', []) %}
+                    {% if slot.task_key in ('eyebrow_analysis','mirror_output_validation') and slot.priority==1 %}
+                    <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-card pnl-stack-form" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="ai_action" value="save_beauty_mirror_model">
+                        <input type="hidden" name="task_key" value="{{ slot.task_key }}">
+                        <input type="hidden" name="priority" value="{{ slot.priority }}">
+                        <h4 style="margin:0 0 6px;">{{ slot.task_label }}</h4>
+                        <label>پروایدر</label>
+                        <select name="provider_name" required>
+                            <option value="">انتخاب</option>
+                            {% for p in bm.get('providers', []) %}
+                            <option value="{{ p.name }}" {% if slot.provider_name==p.name %}selected{% endif %}>{{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <label>مدل</label>
+                        <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" required>
+                        <label class="pnl-check"><input type="checkbox" name="enabled" value="1" {% if slot.enabled %}checked{% endif %}> فعال</label>
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">💾 ذخیره</button>
+                    </form>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- سایر خدمات — مخفی پیش‌فرض -->
+            <details style="margin-top:20px;">
+                <summary style="cursor:pointer;font-weight:bold;">🎨 سایر خدمات: ناخن، لب، رنگ مو (پیشرفته)</summary>
+                <div class="pnl-grid-2" style="margin-top:12px;">
+                    {% for slot in bm.get('slots', []) %}
+                        {% if slot.task_key not in ('eyebrow_image_design','eyebrow_analysis','mirror_output_validation') %}
+                        <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-card pnl-stack-form" style="margin:0;opacity:0.95;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="ai_action" value="save_beauty_mirror_model">
+                            <input type="hidden" name="task_key" value="{{ slot.task_key }}">
+                            <input type="hidden" name="priority" value="{{ slot.priority }}">
+                            <h4 style="margin:0 0 4px;font-size:13px;">{{ slot.task_label }} — {{ slot.slot_label }}</h4>
+                            <select name="provider_name" required>
+                                <option value="">پروایدر</option>
+                                {% for p in bm.get('providers', []) %}
+                                <option value="{{ p.name }}" {% if slot.provider_name==p.name %}selected{% endif %}>{{ p.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" placeholder="مدل" required style="margin-top:6px;">
+                            <input type="hidden" name="image_kind" value="{{ slot.image_kind or 'cloudflare' }}">
+                            <input type="hidden" name="endpoint_override" value="{{ slot.endpoint_override }}">
+                            <label class="pnl-check"><input type="checkbox" name="enabled" value="1" {% if slot.enabled %}checked{% endif %}> فعال</label>
+                            <button class="pnl-btn pnl-btn-outline pnl-btn-sm">💾 ذخیره</button>
+                        </form>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </details>
+
+            <!-- fallback های اضافی تحلیل — مخفی -->
+            <details style="margin-top:12px;">
+                <summary style="cursor:pointer;">📦 Fallback های تحلیل (اولویت ۲ و ۳)</summary>
+                <div class="pnl-grid-2" style="margin-top:12px;">
+                    {% for slot in bm.get('slots', []) %}
+                        {% if slot.task_key in ('eyebrow_analysis','mirror_output_validation') and slot.priority>1 %}
+                        <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-card pnl-stack-form" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="ai_action" value="save_beauty_mirror_model">
+                            <input type="hidden" name="task_key" value="{{ slot.task_key }}">
+                            <input type="hidden" name="priority" value="{{ slot.priority }}">
+                            <h4 style="margin:0 0 4px;">{{ slot.task_label }} — {{ slot.slot_label }}</h4>
+                            <select name="provider_name" required>
+                                <option value="">پروایدر</option>
+                                {% for p in bm.get('providers', []) %}
+                                <option value="{{ p.name }}" {% if slot.provider_name==p.name %}selected{% endif %}>{{ p.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" required style="margin-top:6px;">
+                            <label class="pnl-check"><input type="checkbox" name="enabled" value="1" {% if slot.enabled %}checked{% endif %}> فعال</label>
+                            <button class="pnl-btn pnl-btn-outline pnl-btn-sm">💾 ذخیره</button>
+                        </form>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </details>
         </div>
     </section>
 
