@@ -57,11 +57,13 @@ MAX_SAVE_SIDE = 1600
 MAX_PROVIDER_INPUT_SIDE = 512
 MAX_INPAINTING_INPUT_SIDE = 512
 MAX_DIFF_SAMPLE_PIXELS = 260_000
-MIN_VISIBLE_EYEBROW_MEAN_DELTA = 4.0
-MIN_VISIBLE_EYEBROW_CHANGED_RATIO = 0.018
-VISIBLE_EYEBROW_PIXEL_DELTA = 8.0
-MAX_OUTSIDE_MASK_MEAN_DELTA = 1.25
-MAX_OUTSIDE_MASK_P99_DELTA = 6.0
+# سخت‌گیرانه‌تر برای جلوگیری از artifact روی چشم/صورت (تصویر کاربر با حجاب)
+MIN_VISIBLE_EYEBROW_MEAN_DELTA = 5.0
+MIN_VISIBLE_EYEBROW_CHANGED_RATIO = 0.022
+VISIBLE_EYEBROW_PIXEL_DELTA = 9.0
+MAX_OUTSIDE_MASK_MEAN_DELTA = 0.85
+MAX_OUTSIDE_MASK_P99_DELTA = 4.5
+MAX_OUTSIDE_CHANGED_RATIO = 0.018
 
 
 class ImageProviderError(RuntimeError):
@@ -569,17 +571,10 @@ def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_
     files = {
         "input_image_0": (f"customer-face.{photo_ext}", photo_bytes, photo_mime),
     }
-    # Reference Image همان مدل انتخاب‌شده: تا حد ممکن واقعاً ارسال شود
-    # اگر extra صراحتاً False نباشد و reference_path وجود داشته باشد، ارسال می‌شود
-    extra_flag = provider.extra.get("send_reference_image") if isinstance(provider.extra, dict) else None
-    if extra_flag is False:
-        send_reference = False
-    elif extra_flag is True:
-        send_reference = True
-    else:
-        # پیش‌فرض جدید: reference ارسال شود، مگر اینکه env صراحتاً غیرفعال کرده باشد
-        env_disable = _env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE").lower() in {"0", "false", "off", "no"}
-        send_reference = not env_disable
+    # Reference Image همان مدل: برای flux-2-klein به صورت پیش‌فرض ارسال نمی‌شود تا API موجود خراب نشود و artifact ایجاد نکند
+    # برای providerهای multipart/json_image در توابع دیگر ارسال می‌شود
+    # فقط اگر extra.send_reference_image=True یا env CLOUDFLARE_SEND_REFERENCE_IMAGE=1 باشد ارسال می‌شود
+    send_reference = bool(provider.extra.get("send_reference_image")) or _truthy(_env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE"))
     if reference_path and send_reference:
         ref_bytes, ref_mime, ref_ext = _image_bytes_for_provider(reference_path, MAX_PROVIDER_INPUT_SIDE, square=True)
         files["input_image_1"] = (f"technique-macro.{ref_ext}", ref_bytes, ref_mime)
@@ -589,6 +584,11 @@ def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_
         "prompt": (
             f"{prompt} ROLE: IMAGE 0 is the customer-face authority; "
             "IMAGE 1 if present is only a technique swatch, never a face source."
+        ),
+        "negative_prompt": (
+            "new face, changed identity, changed eyes, changed eyelids, changed eyelashes, red streak, white overlay, "
+            "eye artifact, forehead artifact, skin retouching, hair change, hijab change, background change, "
+            "makeup change outside eyebrows, distorted face, cartoon, illustration, blurry, low quality"
         ),
         "guidance": guidance,
         "width": str(width),
@@ -655,7 +655,7 @@ def _prepare_cloudflare_inpainting_assets(source_path: str, mask_path: str) -> T
     coverage = float(mask_pixels) / float(total_pixels)
     if mask_pixels <= 0:
         raise ImageProviderError("mask واقعی ابرو خالی است؛ inpainting متوقف شد")
-    if coverage > 0.18:
+    if coverage > 0.12:
         raise ImageProviderError("mask ابرو بیش از حد وسیع است؛ برای حفظ صورت inpainting متوقف شد")
 
     image_out = BytesIO()
@@ -678,6 +678,8 @@ def _real_eyebrow_mask_for_candidate(source_path: str, candidate: Dict[str, Any]
         raise ImageProviderError("برای Cloudflare Inpainting، mask واقعی ابرو در دسترس نیست")
     if mask.get("is_fallback") or mask.get("real_mask") is False or str(detection.get("method") or "") == "proportional_fallback":
         raise ImageProviderError("mask نسبتی/fallback برای AI Inpainting واقعی استفاده نمی‌شود")
+    if detection.get("plausible") is False:
+        raise ImageProviderError("mask ابرو از نظر هندسی نامعتبر است")
     return detection, mask_path
 
 
@@ -867,17 +869,24 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
         raise ImageProviderError("خروجی AI ذخیره نشد؛ mask ابرو برای حفظ چشم/مژه ساخته نشد")
     if mask_info.get("is_fallback") or mask_info.get("real_mask") is False or bool(detection.get("is_fallback")):
         raise ImageProviderError("خروجی AI پذیرفته نشد؛ mask fallback/نسبتی برای ادعای AI واقعی استفاده نمی‌شود")
+    if detection.get("plausible") is False:
+        raise ImageProviderError("خروجی AI پذیرفته نشد؛ محدوده ابرو از نظر هندسی نامعتبر است")
     try:
         coverage = float(mask_info.get("coverage_ratio") or 0)
     except Exception:
         coverage = 0.0
-    if coverage <= 0 or coverage > 0.08:
+    if coverage <= 0 or coverage > 0.06:
         raise ImageProviderError("mask ابرو برای ذخیره خروجی AI ایمن نیست؛ محدوده ویرایش بیش از حد وسیع/نامعتبر است")
     try:
         mask = Image.open(mask_path).convert("L").resize(size, Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
-        # Binary core + tiny feather: only brow pixels are editable; edge remains natural.
+        # Binary core + tiny feather + slight erosion: only brow pixels editable, avoid eye/eyelid
         mask = mask.point(lambda px: 255 if int(px) >= 128 else 0)
-        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.65))
+        # Erode slightly to avoid including eyelashes/eye
+        try:
+            mask = mask.filter(ImageFilter.MinFilter(size=3))
+        except Exception:
+            pass
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.55))
         _beauty_log(
             "[EYEBROW_MASK]",
             "provider_mask_ready",
@@ -986,6 +995,7 @@ def _visible_eyebrow_diff_metrics(base, final_image, mask) -> Dict[str, Any]:
         outside_pixels > 0
         and outside_mean <= MAX_OUTSIDE_MASK_MEAN_DELTA
         and metrics["outside_p99_delta"] <= MAX_OUTSIDE_MASK_P99_DELTA
+        and outside_changed_ratio <= MAX_OUTSIDE_CHANGED_RATIO
     )
     metrics["eyebrow_roi_changed"] = bool(visible)
     metrics["outside_mask_preserved"] = bool(safe_outside)

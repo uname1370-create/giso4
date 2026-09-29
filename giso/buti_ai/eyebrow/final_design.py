@@ -331,10 +331,22 @@ def _draw_brow(draw, cx, cy, length, arch, color, params, flip=False, mode="comb
 
 
 def build_design_prompt(candidate):
-    """پرامپت دقیق برای provider تصویر؛ فقط ناحیه ابرو و حفظ هویت کاربر."""
-    style_label = candidate.get("final_label") or _style_label(candidate.get("final_style"))
+    """پرامپت دقیق برای provider تصویر؛ فقط ناحیه ابرو و حفظ هویت کاربر + مدل انتخابی کاربر."""
+    final_style_key = normalize_style_key(candidate.get("final_style"))
+    style_label = candidate.get("final_label") or _style_label(final_style_key)
     service_label = candidate.get("service_label") or "intelligent eyebrow design"
     model_label = candidate.get("selected_label") or style_label
+    selected_style_key = normalize_style_key(candidate.get("selected_style") or final_style_key)
+
+    # توضیح دقیق هر مدل برای AI تا مدل انتخابی درست اعمال شود
+    STYLE_ENGLISH = {
+        "natural": "natural soft eyebrow, keep own hair, light grooming, very natural, no heavy fill",
+        "microblading": "microblading fine hair strokes, ultra-fine individual brow hairs, natural hair-like strokes, no blocky fill, focus on sparse areas",
+        "powder": "powder shading ombre, soft gradient powder, slightly more filled tail, mild makeup look, not blocky front",
+        "combination": "combination: fine hair strokes at front + soft powder shading at tail, balanced, controlled",
+        "giso_suggested": "balanced safe suggestion, natural with slight improvement, keep identity",
+    }
+    style_en = STYLE_ENGLISH.get(selected_style_key, STYLE_ENGLISH.get(final_style_key, ""))
 
     def _prompt_text(value):
         if isinstance(value, dict):
@@ -348,25 +360,33 @@ def build_design_prompt(candidate):
     style_instructions = _prompt_text(candidate.get("do") or candidate.get("short_reason"))
     avoid = _prompt_text(candidate.get("avoid"))
     region_text = _eyebrow_region_text(candidate)
+
+    # Prompt بسیار سخت‌گیرانه برای جلوگیری از artifact روی چشم (مشکل تصویر کاربر با حجاب)
     return (
         "Photorealistic image edit of the ORIGINAL customer face photo. "
-        "The selected beauty service is intelligent eyebrow design preview; apply ONLY the user-selected eyebrow model to the natural brow location. "
-        "Use the provided eyebrow pixel mask when the API request includes one; white mask pixels are the editable eyebrow area and black pixels must be preserved. "
+        "CRITICAL: The user-selected eyebrow model MUST be respected exactly. "
+        f"User selected style key: {selected_style_key}. Style English: {style_en}. "
+        f"Selected eyebrow model label: {model_label}. Final design label: {style_label}. "
+        "You must apply ONLY this selected model, no other model. "
+        "If user selected powder, do powder shading, not microblading. If natural, keep natural. "
+        "Use the provided eyebrow pixel mask when the API request includes one; white mask pixels are the editable eyebrow area and black pixels must be preserved 100%. "
         "Prompt text and ROI coordinates are only descriptive metadata, not a substitute for the mask. "
-        "Edit ONLY the two eyebrow regions: brow hairs, shape, fill, tail, arch, and very local brow shadow if needed. "
-        "Hard constraint: every pixel outside the two eyebrow hair regions must remain identical to the original photo. "
+        "Edit ONLY the two eyebrow hair regions: brow hairs, shape, fill, tail, arch, and very local brow shadow if needed. "
+        "Hard constraint 1: every pixel outside the two eyebrow hair regions must remain IDENTICAL to original photo. No change to eyes, eyelids, eyelashes, eye color, iris, pupils, skin, nose, lips, hair, hijab, background, lighting, camera angle, jewelry, clothes, expression. "
+        "Hard constraint 2: EYES MUST NOT BE TOUCHED. Do not create red streaks, white overlays, or any artifact on eyes. Eyes must stay exactly as original. "
+        "Hard constraint 3: If you change pixels outside eyebrows, output will be REJECTED by validation. "
         "Do not change identity, face shape, eyes, eyelids, lashes, eye color, skin texture, hair, makeup, lips, nose, lighting, camera angle, background, jewelry, clothes, or expression. "
         "Do not add eyeliner, mascara, eye shadow, extra eyelashes, eye retouching, skin smoothing, or glam makeup. "
-        "Keep pores, shadows and natural asymmetry realistic. No beauty filter, no new face, no illustration, no heavy retouching. "
+        "Keep pores, shadows and natural asymmetry realistic. No beauty filter, no new face, no illustration, no heavy retouching, no cartoon, no distorted face. "
         f"Selected service: {service_label}. "
-        f"Selected eyebrow model: {model_label}. Final design label: {style_label}. "
         f"Requested change level: {candidate.get('change_label', '')}. "
         f"Real eyebrow location: {region_text}. "
         f"Current eyebrow notes: {current_brows}. "
         f"Face preservation notes: {face_notes}. "
         f"Selected-style instructions: {style_instructions}. "
         f"Avoid: {avoid}. "
-        "The result should look like the same photo after a professional eyebrow consultation preview; subtle, wearable, and salon-realistic."
+        "The result should look like the same photo after a professional eyebrow consultation preview; subtle, wearable, and salon-realistic. "
+        "Output must be clean, no artifacts, no colored streaks on forehead or eyes."
     )
 
 

@@ -193,23 +193,79 @@ def _method_confidence_label(method: str) -> str:
     return "unknown"
 
 
+def _is_plausible_eyebrow_pair(regions: List[Dict[str, Any]], image_w: int, image_h: int) -> bool:
+    """بررسی سریع که دو ROI ابرو از نظر هندسی معقول هستند و چشم را درگیر نمی‌کنند."""
+    if len(regions) < 2 or image_w <= 0 or image_h <= 0:
+        return False
+    try:
+        ordered = sorted(regions, key=lambda r: r.get("cx", 0))
+        left, right = ordered[0], ordered[1]
+        lx, ly, lw, lh = float(left.get("x") or 0), float(left.get("y") or 0), float(left.get("width") or 0), float(left.get("height") or 0)
+        rx, ry, rw, rh = float(right.get("x") or 0), float(right.get("y") or 0), float(right.get("width") or 0), float(right.get("height") or 0)
+        lcx, lcy = float(left.get("cx") or (lx + lw/2)), float(left.get("cy") or (ly + lh/2))
+        rcx, rcy = float(right.get("cx") or (rx + rw/2)), float(right.get("cy") or (ry + rh/2))
+
+        # باید در نیمه بالایی تصویر باشند (ابرو بالای چشم است) - سخت‌گیرانه برای جلوگیری از تشخیص چشم به عنوان ابرو
+        if lcy > image_h * 0.45 or rcy > image_h * 0.45:
+            return False
+        if ly > image_h * 0.42 or ry > image_h * 0.42:
+            return False
+        # نباید خیلی بالا هم باشند (حجاب/پیشانی)
+        if lcy < image_h * 0.15 or rcy < image_h * 0.15:
+            return False
+
+        # چپ باید چپ وسط باشد، راست راست وسط
+        if lcx >= image_w * 0.5 or rcx <= image_w * 0.5:
+            return False
+
+        # فاصله افقی معقول
+        dist = abs(rcx - lcx)
+        if dist < image_w * 0.15 or dist > image_w * 0.6:
+            return False
+
+        # تقارن عمودی
+        if abs(lcy - rcy) > image_h * 0.08:
+            return False
+
+        # اندازه معقول
+        for w, h in ((lw, lh), (rw, rh)):
+            if w < image_w * 0.05 or w > image_w * 0.38:
+                return False
+            if h < image_h * 0.01 or h > image_h * 0.13:
+                return False
+
+        # نباید خیلی هم‌پوشانی داشته باشند
+        if not (rx > lx + lw * 0.15 or lx > rx + rw * 0.15):
+            # اگر هم‌پوشانی افقی زیاد، احتمال تشخیص اشتباه
+            if abs(lcx - rcx) < image_w * 0.12:
+                return False
+
+        return True
+    except Exception:
+        return False
+
+
 def _ok(method: str, image_w: int, image_h: int, regions: List[Dict[str, Any]], confidence: float) -> Dict[str, Any]:
     ordered = sorted(regions, key=lambda r: r.get("cx", 0))
     for idx, region in enumerate(ordered):
         region["side"] = "left" if idx == 0 else "right"
         _ensure_region_polygon(region, image_w, image_h)
     fallback_only = method == "proportional_fallback"
+    plausible = _is_plausible_eyebrow_pair(ordered[:2], image_w, image_h) if len(ordered) >= 2 else False
+    # اگر fallback نیست و plausible نیست، ok=False تا detector بعدی امتحان شود
+    ok_flag = len(ordered) >= 2 and (fallback_only or plausible)
     return {
-        "ok": len(ordered) >= 2,
-        "method": method,
+        "ok": ok_flag,
+        "method": method if ok_flag else f"{method}_implausible",
         "confidence": round(float(confidence), 3),
         "confidence_label": _method_confidence_label(method),
-        "detection_reliable": not fallback_only and len(ordered) >= 2,
+        "detection_reliable": not fallback_only and ok_flag and plausible,
         "is_fallback": fallback_only,
+        "plausible": plausible,
         "image_width": int(image_w),
         "image_height": int(image_h),
-        "regions": ordered[:2],
-        "mask": {"ok": False, "reason": "not_generated"},
+        "regions": ordered[:2] if ok_flag else [],
+        "mask": {"ok": False, "reason": "not_generated" if ok_flag else "implausible_regions"},
         "mask_width": 0,
         "mask_height": 0,
         "mask_path": "",
