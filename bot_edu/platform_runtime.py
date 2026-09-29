@@ -15,6 +15,15 @@ from config import (
 
 logger = logging.getLogger(__name__)
 
+
+def _on_polling_network_error(err) -> None:
+    """قطعیهای گذرا شبکه را کوتاه لاگ کن؛ حلقهٔ polling خودش retry میکند."""
+    logger.warning(
+        "↻ قطعی موقت اتصال polling تلگرام (%s: %s) — تلاش خودکار بعدی...",
+        type(err).__name__, str(err)[:160],
+    )
+
+
 # اپ زندهٔ تلگرام (اگر در حال اجرا باشد) — توسط bot.py و همین ماژول ست می‌شود
 _STATE = {"app": None, "proxy": None, "builder": None}
 
@@ -187,7 +196,7 @@ async def start_telegram() -> tuple:
 
     try:
         await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
+        await app.updater.start_polling(drop_pending_updates=True, error_callback=_on_polling_network_error)
     except Exception as e:
         logger.error(f"خطا هنگام شروع polling تلگرام: {e}")
         try:

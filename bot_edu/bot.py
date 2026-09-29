@@ -43,7 +43,44 @@ logging.basicConfig(
 for _noisy_logger in ("httpx", "httpcore", "telegram.request"):
     logging.getLogger(_noisy_logger).setLevel(logging.WARNING)
 
+
+class _TelegramPollingNoiseFilter(logging.Filter):
+    """کاهش لاگ تکراری polling وقتی شبکه/proxy اتصال را قطع میکند."""
+
+    def filter(self, record):
+        try:
+            message = record.getMessage()
+        except Exception:
+            message = ""
+        if ("Error while getting Updates" not in message
+                and "Exception happened while polling for updates" not in message):
+            return True
+        error_text = message
+        if record.exc_info:
+            try:
+                error = record.exc_info[1]
+                error_text += f" {type(error).__name__}: {error}"
+            except Exception:
+                pass
+        noisy_network_error = any(
+            part in error_text
+            for part in ("RemoteProtocolError", "NetworkError",
+                         "Server disconnected without sending a response")
+        )
+        return not noisy_network_error
+
+
+logging.getLogger("telegram.ext.Updater").addFilter(_TelegramPollingNoiseFilter())
+
 logger = logging.getLogger(__name__)
+
+
+def _on_polling_network_error(err) -> None:
+    """قطعیهای گذرا شبکه را کوتاه لاگ کن؛ حلقهٔ polling خودش retry میکند."""
+    logger.warning(
+        "↻ قطعی موقت اتصال polling (%s: %s) — تلاش خودکار بعدی...",
+        type(err).__name__, str(err)[:160],
+    )
 
 
 def _on_edubot_shutdown():
@@ -300,7 +337,8 @@ async def _start_polling(app, name: str, already_initialized: bool = False) -> b
             await app.initialize()
         await app.start()
         await app.updater.start_polling(
-            allowed_updates=Update.ALL_TYPES, drop_pending_updates=True
+            allowed_updates=Update.ALL_TYPES, drop_pending_updates=True,
+            error_callback=_on_polling_network_error,
         )
         return True
     except Exception as e:
