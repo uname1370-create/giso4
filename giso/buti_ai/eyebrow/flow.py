@@ -117,34 +117,30 @@ def process_eyebrow_submission(form, files, user_id=None):
         if not photo_status.get("ok"):
             error_message = photo_status.get("message") or "عکس دریافت نشد."
         else:
-            quality_report = check_photo_quality(photo_status.get("path"))
-            if quality_report.get("status") == "ai_checked" and quality_report.get("ok") is False:
-                error_message = quality_report.get("message") or "این عکس برای طراحی دقیق مناسب نیست."
-            else:
-                # Flow مطلوب: Quality Check -> AI Eyebrow Analysis -> Detection -> Mask
-                try:
-                    ai_analysis = analyze_eyebrow_photo(
-                        photo_status.get("path"),
-                        style_key,
-                        change_key,
-                    )
-                except Exception:
-                    ai_analysis = {
-                        "status": "ai_unavailable",
-                        "ok": None,
-                        "message": "تحلیل هوشمند در دسترس نیست.",
-                        "data": {},
-                    }
-                eyebrow_detection = detect_eyebrow_regions(photo_status.get("path"), allow_fallback=False)
-                result = build_eyebrow_result(
-                    style_key,
-                    change_key,
-                    photo_status,
-                    demo_mode=False,
-                    quality_report=quality_report,
-                    ai_analysis=ai_analysis,
-                )
-                result["eyebrow_detection"] = eyebrow_detection
+            # تست طراحی نهایی: تحلیل هوشمند موقتاً غیرفعال — فقط عکس و تشخیص ابرو
+            quality_report = {
+                "status": "analysis_disabled_for_test",
+                "ok": True,
+                "message": "عکس دریافت شد؛ تحلیل هوشمند موقتاً غیرفعال است تا طراحی نهایی تست شود.",
+                "checks": {"face_visible": True, "eyebrows_visible": True},
+                "reasons": [],
+            }
+            ai_analysis = {
+                "status": "ai_disabled_for_test",
+                "ok": None,
+                "message": "تحلیل هوشمند موقتاً غیرفعال است.",
+                "data": {},
+            }
+            eyebrow_detection = detect_eyebrow_regions(photo_status.get("path"), allow_fallback=False)
+            result = build_eyebrow_result(
+                style_key,
+                change_key,
+                photo_status,
+                demo_mode=False,
+                quality_report=quality_report,
+                ai_analysis=ai_analysis,
+            )
+            result["eyebrow_detection"] = eyebrow_detection
 
     if result:
         result["preview"] = build_before_after_preview(photo_status, result)

@@ -96,7 +96,7 @@
     formData.append('photo', file);
     setCheckState('is-loading', 'در حال آنالیز عکس...', {}, []);
     setUploadScanning(true, 'در حال آنالیز عکس...');
-    setAnalyzeEnabled(false);
+    setAnalyzeEnabled(true);
     try {
       var response = await fetch(validateUrl || '/analysis/mirror/eyebrow/validate-photo', {
         method: 'POST',
@@ -110,9 +110,10 @@
         setUploadScanning(false, 'عکس آماده طراحی است');
         setAnalyzeEnabled(true);
       } else {
-        setCheckState('is-bad', result.message || 'این عکس برای طراحی مناسب نیست.', result.checks || {}, []);
-        setUploadScanning(false, 'این عکس مناسب نیست؛ عکس دیگری انتخاب کن');
-        setAnalyzeEnabled(false);
+        // Non-blocking for final design test
+        setCheckState('is-warn', (result.message || 'بررسی اولیه کامل نیست') + ' — برای تست طراحی نهایی می‌توانی ادامه بدهی.', result.checks || {}, []);
+        setUploadScanning(false, 'عکس انتخاب شد — ادامه بده');
+        setAnalyzeEnabled(true);
       }
     } catch (error) {
       setCheckState('is-warn', 'بررسی اولیه کامل نشد؛ اگر عکس واضح است می‌توانی ادامه بدهی.', {}, []);
@@ -167,15 +168,35 @@
         text.textContent = 'عکس انتخاب شد';
         if (fileName) fileName.textContent = file.name;
         if (preview) {
-          var url = URL.createObjectURL(file);
-          preview.src = url;
-          preview.onload = function () { URL.revokeObjectURL(url); };
+          try {
+            var url = URL.createObjectURL(file);
+            preview.src = url;
+            preview.onload = function () { URL.revokeObjectURL(url); };
+          } catch (e) {
+            var reader = new FileReader();
+            reader.onload = function (ev) { preview.src = ev.target.result; };
+            reader.readAsDataURL(file);
+          }
+          preview.style.display = 'block';
+          preview.removeAttribute('hidden');
         }
-        if (previewFrame) previewFrame.hidden = false;
-        if (placeholder) placeholder.hidden = true;
+        if (previewFrame) {
+          previewFrame.hidden = false;
+          previewFrame.style.display = 'block';
+          previewFrame.removeAttribute('hidden');
+        }
+        if (placeholder) {
+          placeholder.hidden = true;
+          placeholder.style.display = 'none';
+        }
         if (changeBtn) changeBtn.hidden = false;
         if (zone) zone.classList.add('has-preview');
-        validateEyebrowPhoto(file, form ? form.getAttribute('data-bti-validate-url') : '');
+        // Fix: always enable next button, validation non-blocking for final design test
+        setAnalyzeEnabled(true);
+        setUploadScanning(false, 'عکس آماده است — ادامه بده');
+        try {
+          validateEyebrowPhoto(file, form ? form.getAttribute('data-bti-validate-url') : '');
+        } catch (e) {}
       });
     }
     if (form) {
