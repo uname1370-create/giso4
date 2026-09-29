@@ -147,6 +147,46 @@ def _safe_current_user_id():
     return None
 
 
+def _compact_generation_for_session(generation):
+    """Keep Flask cookie-session small; full generation is saved in DB/render context."""
+    if not isinstance(generation, dict):
+        return {}
+    keep_keys = (
+        "ok", "filename", "provider", "provider_label", "kind", "model", "status",
+        "is_ai_generated", "ai_inpainting", "fallback_type", "service_key", "message",
+        "mask_used", "mask_filename", "fallback_used", "configured_provider_count",
+        "real_ai_blocked_reason", "saved", "readable", "final_width", "final_height",
+        "provider_output_constrained_to_eyebrow_mask",
+        "provider_output_constrained_to_service_mask",
+        "visible_in_mask_change", "outside_preserved", "in_mask_diff_ratio",
+        "outside_mask_diff_ratio", "mask_coverage_ratio",
+    )
+    compact = {key: generation.get(key) for key in keep_keys if key in generation}
+    validation = generation.get("validation") if isinstance(generation.get("validation"), dict) else {}
+    if validation:
+        compact["validation"] = {
+            key: validation.get(key)
+            for key in (
+                "ok", "service_key", "in_mask_diff_ratio", "outside_mask_diff_ratio",
+                "mask_coverage_ratio", "visible_in_mask_change", "outside_preserved", "message"
+            )
+            if key in validation
+        }
+    attempts = generation.get("attempts") if isinstance(generation.get("attempts"), list) else []
+    if attempts:
+        small_attempts = []
+        for item in attempts[:3]:
+            if not isinstance(item, dict):
+                continue
+            small_attempts.append({
+                key: item.get(key)
+                for key in ("id", "label", "kind", "model", "ok", "ms", "error", "stage")
+                if key in item
+            })
+        compact["attempts"] = small_attempts
+    return compact
+
+
 @buti_ai_bp.route("/ping", methods=["GET"])
 def ping():
     """تست سلامت ماژول آینه زیبایی گیسو."""
@@ -346,6 +386,7 @@ def eyebrow_final_design():
         if generation.get("ok") and not candidate.get("final_design_id"):
             design_id = save_final_design(_safe_current_user_id(), candidate, generation)
             candidate["final_design_id"] = design_id
+        candidate["generation"] = _compact_generation_for_session(generation)
         session[FINAL_DESIGN_SESSION_KEY] = candidate
         session.modified = True
 
@@ -554,6 +595,43 @@ def _store_new_service_candidate(service_key, result, photo_status):
 def _get_new_service_candidate(service_key):
     candidate = session.get(_new_service_candidate_key(service_key))
     return candidate if isinstance(candidate, dict) else None
+
+
+def _rebuild_new_service_candidate_from_finalize_form(service_key):
+    """Recover final candidate from hidden upload result fields if session was lost/truncated."""
+    form = request.values or {}
+    filename = os.path.basename(str(form.get("photo_filename") or ""))
+    if not filename:
+        return None
+    try:
+        module = generic_service.service_module(service_key)
+        upload_root = os.path.abspath(getattr(module, "UPLOAD_DIR"))
+        photo_path = os.path.abspath(os.path.join(upload_root, filename))
+        if not photo_path.startswith(upload_root + os.sep) or not os.path.exists(photo_path):
+            return None
+        style_key = generic_service.normalize_model_key(
+            service_key,
+            form.get("selected_style") or form.get("final_style") or form.get("style"),
+        )
+        change_key = generic_service.normalize_change_level(form.get("change_key") or form.get("change_level"))
+        detection = module.detect_regions(photo_path, allow_fallback=True)
+        photo_status = {"ok": True, "filename": filename, "path": photo_path}
+        result = generic_service.build_result(
+            service_key,
+            style_key,
+            change_key,
+            photo_status,
+            detection=detection,
+            quality_report={
+                "status": "session_recovered",
+                "ok": True,
+                "message": "عکس قبلاً دریافت شده بود و طراحی ادامه پیدا کرد.",
+            },
+        )
+        return _store_new_service_candidate(service_key, result, photo_status)
+    except Exception as exc:
+        _beauty_route_log("[BUTI_SERVICE_FINAL]", "candidate_recovery_failed", service_key=service_key, error=str(exc)[:120])
+        return None
 
 
 def _update_new_service_final_selection(service_key):
@@ -777,6 +855,8 @@ def generic_service_finalize_choice(service_slug):
         return redirect(url_for("buti_ai.mirror_home"))
     candidate = _get_new_service_candidate(service_key)
     if not candidate:
+        candidate = _rebuild_new_service_candidate_from_finalize_form(service_key)
+    if not candidate:
         flash("اول مدل را انتخاب کن و عکس را آپلود کن، بعد طراحی نهایی را بساز.", "warning")
         return redirect(url_for("buti_ai.generic_service_wizard", service_slug=slug_for_service(service_key)))
     candidate = _update_new_service_final_selection(service_key)
@@ -795,10 +875,18 @@ def generic_service_final_design(service_slug):
         return redirect(url_for("buti_ai.mirror_home"))
     candidate = _get_new_service_candidate(service_key)
     if not candidate:
+        candidate = _rebuild_new_service_candidate_from_finalize_form(service_key)
+    if not candidate:
         flash("برای طراحی نهایی، اول مدل را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.generic_service_wizard", service_slug=slug_for_service(service_key)))
 
-    final_url = url_for("buti_ai.generic_service_final_design", service_slug=slug_for_service(service_key))
+    final_url = url_for(
+        "buti_ai.generic_service_final_design",
+        service_slug=slug_for_service(service_key),
+        photo_filename=candidate.get("photo_filename") or "",
+        selected_style=candidate.get("selected_style") or candidate.get("final_style") or "",
+        change_level=candidate.get("change_key") or "",
+    )
     if not getattr(current_user, "is_authenticated", False):
         return render_template(
             "buti_ai/generic_final_auth.html",
@@ -826,6 +914,7 @@ def generic_service_final_design(service_slug):
         if generation.get("ok") and not candidate.get("final_design_id"):
             design_id = save_final_design(_safe_current_user_id(), candidate, generation)
             candidate["final_design_id"] = design_id
+        candidate["generation"] = _compact_generation_for_session(generation)
         session[_new_service_candidate_key(service_key)] = candidate
         session.modified = True
 

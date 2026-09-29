@@ -119,10 +119,23 @@ def _try_detect_hair_by_color(image_path: str) -> Dict[str, Any]:
     face_cy = (face[1] + face[3]) / 2.0
     face_rx = max(1.0, (face[2] - face[0]) / 2.0)
     face_ry = max(1.0, (face[3] - face[1]) / 2.0)
+    skin_like = 0
+    sampled = 0
+    step = max(3, min(w, h) // 90)
+    for yy in range(face[1], face[3], step):
+        for xx in range(face[0], face[2], step):
+            if xx < 0 or yy < 0 or xx >= w or yy >= h:
+                continue
+            rr, gg, bb = px[xx, yy]
+            sampled += 1
+            if rr > 95 and gg > 55 and bb > 35 and rr > bb and (max(rr, gg, bb) - min(rr, gg, bb)) > 14:
+                skin_like += 1
+    protect_face_ellipse = sampled > 0 and (skin_like / float(sampled)) >= 0.18
     for y in range(roi[1], roi[3]):
         for x in range(roi[0], roi[2]):
-            # protect central face/neck area aggressively
-            if ((x - face_cx) / face_rx) ** 2 + ((y - face_cy) / face_ry) ** 2 <= 1.0:
+            # protect central face/neck area only when a skin-like face is visible;
+            # back-view hair photos should keep the central hair mass editable.
+            if protect_face_ellipse and ((x - face_cx) / face_rx) ** 2 + ((y - face_cy) / face_ry) ** 2 <= 1.0:
                 continue
             r, g, b = px[x, y]
             brightness = (r + g + b) / 3.0
@@ -132,6 +145,45 @@ def _try_detect_hair_by_color(image_path: str) -> Dict[str, Any]:
             if brown_dark or warm_hair:
                 mask.putpixel((x, y), 255)
     mask = mask.filter(ImageFilter.MedianFilter(size=5)).filter(ImageFilter.MaxFilter(size=7)).filter(ImageFilter.MinFilter(size=5))
+    # Keep cohesive hair components close to the subject, not blurred side/background
+    # patches. This prevents face-frame from painting vertical bars on the scene.
+    raw_px = mask.load()
+    visited = [[False] * w for _ in range(h)]
+    components = []
+    for yy in range(roi[1], roi[3]):
+        for xx in range(roi[0], roi[2]):
+            if visited[yy][xx] or raw_px[xx, yy] <= 0:
+                continue
+            stack = [(xx, yy)]
+            visited[yy][xx] = True
+            xs_comp, ys_comp = [], []
+            while stack:
+                cx, cy = stack.pop()
+                xs_comp.append(cx); ys_comp.append(cy)
+                for nx, ny in ((cx - 1, cy), (cx + 1, cy), (cx, cy - 1), (cx, cy + 1)):
+                    if nx < roi[0] or nx >= roi[2] or ny < roi[1] or ny >= roi[3] or visited[ny][nx]:
+                        continue
+                    visited[ny][nx] = True
+                    if raw_px[nx, ny] > 0:
+                        stack.append((nx, ny))
+            area = len(xs_comp)
+            if area < max(20, int(w * h * 0.00035)):
+                continue
+            x0c, x1c, y0c, y1c = min(xs_comp), max(xs_comp), min(ys_comp), max(ys_comp)
+            cx_norm = ((x0c + x1c) / 2.0) / float(max(1, w))
+            edge_penalty = 0.45 if (x0c <= roi[0] + 2 or x1c >= roi[2] - 2) else 1.0
+            center_score = max(0.15, 1.0 - abs(cx_norm - 0.5) * 1.45)
+            score = area * center_score * edge_penalty
+            components.append({"area": area, "score": score, "bbox": (x0c, y0c, x1c, y1c), "points": list(zip(xs_comp, ys_comp))})
+    if components:
+        components.sort(key=lambda item: item["score"], reverse=True)
+        best_score = float(components[0]["score"] or 1)
+        kept = [c for c in components if c["score"] >= best_score * 0.34][:3]
+        component_mask = Image.new("L", (w, h), 0)
+        for comp in kept:
+            for xx, yy in comp["points"]:
+                component_mask.putpixel((xx, yy), 255)
+        mask = component_mask.filter(ImageFilter.MaxFilter(size=5)).filter(ImageFilter.MinFilter(size=3))
     pixels_xy = [(x, y) for y in range(roi[1], roi[3]) for x in range(roi[0], roi[2]) if mask.getpixel((x, y)) > 0]
     if not pixels_xy:
         raise ValueError("hair_pixels_empty")
@@ -152,6 +204,7 @@ def _try_detect_hair_by_color(image_path: str) -> Dict[str, Any]:
         "image_width": w,
         "image_height": h,
         "regions": [{"side": "hair", "x": x0, "y": y0, "width": x1 - x0 + 1, "height": y1 - y0 + 1, "source": "color_hair_segmentation_v1", "confidence": 0.68}],
+        "face_protection_applied": bool(protect_face_ellipse),
         "_mask_image": mask,
     }
 
@@ -210,6 +263,76 @@ def ensure_mask(image_path: str, detection: Dict[str, Any]) -> Dict[str, Any]:
         return detection
 
 
+def refine_detection_for_style(image_path: str, detection: Dict[str, Any], style_key: str = "") -> Dict[str, Any]:
+    """Return a style-specific edit mask for provider-backed generation.
+
+    Face-frame/مانی‌پیس must not recolor the whole hair mass; it only gets two
+    narrow side lock masks. Other styles keep the service hair mask.
+    """
+    style = STYLES.get(str(style_key or DEFAULT_STYLE), STYLES[DEFAULT_STYLE])
+    if style.get("mode") != "face_frame":
+        return detection
+    try:
+        from PIL import Image, ImageDraw, ImageChops, ImageFilter
+        detection = dict(detection or {})
+        mask_info = dict(detection.get("mask") or {})
+        src_mask = str(mask_info.get("path") or detection.get("mask_path") or "")
+        if not src_mask or not os.path.exists(src_mask):
+            return detection
+        mask = Image.open(src_mask).convert("L")
+        w, h = mask.size
+        frame_mask = Image.new("L", (w, h), 0)
+        draw = ImageDraw.Draw(frame_mask)
+        regions = detection.get("regions") if isinstance(detection.get("regions"), list) else []
+        if regions:
+            r = regions[0]
+            x = int(r.get("x") or w * 0.18)
+            y = int(r.get("y") or h * 0.05)
+            rw = int(r.get("width") or w * 0.64)
+            rh = int(r.get("height") or h * 0.55)
+        else:
+            x, y, rw, rh = int(w * 0.18), int(h * 0.05), int(w * 0.64), int(h * 0.55)
+        strip_w = max(8, int(rw * 0.11))
+        for bx in (x + int(rw * 0.22), x + int(rw * 0.67)):
+            draw.rounded_rectangle(
+                (bx, y + int(rh * 0.05), bx + strip_w, y + int(rh * 0.96)),
+                radius=max(8, strip_w // 2),
+                fill=255,
+            )
+        frame_mask = frame_mask.filter(ImageFilter.GaussianBlur(radius=max(1, int(min(w, h) * 0.004))))
+        refined = ImageChops.multiply(mask, frame_mask).point(lambda px: 255 if int(px) > 12 else 0)
+        pixels = sum(1 for px in refined.getdata() if px > 0)
+        if pixels <= 0:
+            return detection
+        mask_dir = os.path.join(os.path.dirname(os.path.abspath(image_path)), "masks")
+        os.makedirs(mask_dir, exist_ok=True)
+        mask_path = os.path.join(mask_dir, os.path.splitext(os.path.basename(image_path))[0] + "_hair_face_frame_mask.png")
+        refined.save(mask_path, "PNG", optimize=True)
+        mask_info.update({
+            "path": mask_path,
+            "kind": "hair_face_frame_mask",
+            "coverage_ratio": round(pixels / float(max(1, w * h)), 6),
+            "pixel_count": pixels,
+            "width": w,
+            "height": h,
+        })
+        detection["mask"] = mask_info
+        detection["mask_path"] = mask_path
+        detection["style_mask"] = "face_frame"
+        detection["regions"] = [{
+            "side": "face_frame",
+            "x": x + int(rw * 0.22),
+            "y": y + int(rh * 0.05),
+            "width": int(rw * 0.56),
+            "height": int(rh * 0.91),
+            "source": "style_refined_face_frame_mask",
+            "confidence": detection.get("confidence") or 0.62,
+        }]
+        return detection
+    except Exception:
+        return detection
+
+
 def _source_path(candidate: Dict[str, Any]) -> str:
     filename = os.path.basename(str(candidate.get("photo_filename") or ""))
     if not filename:
@@ -252,37 +375,57 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
     if not src:
         return {"ok": False, "status": "missing_photo", "message": "برای طراحی رنگ مو، عکس واقعی لازم است."}
     try:
-        from PIL import Image, ImageDraw, ImageEnhance
+        from PIL import Image, ImageDraw, ImageEnhance, ImageChops, ImageFilter
         base = Image.open(src).convert("RGB")
         base.thumbnail((1400, 1400))
         style_key = str(candidate.get("final_style") or DEFAULT_STYLE)
         style = STYLES.get(style_key, STYLES[DEFAULT_STYLE])
         detection = candidate.get("detection") if isinstance(candidate.get("detection"), dict) else detect_regions(src, allow_fallback=True)
+        detection = refine_detection_for_style(src, detection, style_key)
         mask = _mask_for_size(detection, base.size)
         color = tuple(style.get("color") or (120, 80, 48))
+        mode = style.get("mode")
+        blend_alpha = 0.32 if mode == "full_tone" else (0.24 if mode in {"strands", "balayage"} else 0.42)
         tint = Image.new("RGB", base.size, color)
         # Preserve texture by blending color layer with original contrast.
-        colored = Image.blend(base, tint, 0.34)
-        colored = ImageEnhance.Contrast(colored).enhance(1.04)
+        colored = Image.blend(base, tint, blend_alpha)
+        colored = ImageEnhance.Contrast(colored).enhance(1.05)
         overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
-        mode = style.get("mode")
+        effect_mask = mask
+        w, h = base.size
         if mode in {"strands", "balayage", "face_frame"}:
-            w, h = base.size
-            line_color = color + (145,)
+            line_color = color + (155,)
             if mode == "face_frame":
-                xs = [int(w * 0.34), int(w * 0.66)]
-                for x in xs:
-                    draw.line((x, int(h * 0.10), x + (16 if x < w / 2 else -16), int(h * 0.58)), fill=line_color, width=max(5, w // 42))
+                # Only side/front strands should change. On back-view photos this
+                # prevents the selected face-frame model from becoming a full wig.
+                frame_mask = Image.new("L", base.size, 0)
+                frame_draw = ImageDraw.Draw(frame_mask)
+                regions = detection.get("regions") if isinstance(detection.get("regions"), list) else []
+                if regions:
+                    r = regions[0]
+                    sx = w / float(max(1, detection.get("image_width") or w))
+                    sy = h / float(max(1, detection.get("image_height") or h))
+                    x = int(float(r.get("x") or w * 0.2) * sx)
+                    y = int(float(r.get("y") or h * 0.05) * sy)
+                    rw = int(float(r.get("width") or w * 0.6) * sx)
+                    rh = int(float(r.get("height") or h * 0.5) * sy)
+                else:
+                    x, y, rw, rh = int(w * 0.18), int(h * 0.05), int(w * 0.64), int(h * 0.55)
+                strip_w = max(8, int(rw * 0.16))
+                for bx in (x + int(rw * 0.06), x + int(rw * 0.78)):
+                    frame_draw.rounded_rectangle((bx, y + int(rh * 0.08), bx + strip_w, y + rh), radius=max(8, strip_w // 2), fill=235)
+                    draw.line((bx + strip_w // 2, y + int(rh * 0.05), bx + strip_w // 3, y + int(rh * 0.94)), fill=line_color, width=max(4, strip_w // 3))
+                effect_mask = ImageChops.multiply(mask, frame_mask.filter(ImageFilter.GaussianBlur(radius=2.0)))
             else:
                 for idx, x in enumerate(range(int(w * 0.25), int(w * 0.78), max(18, w // 14))):
                     y0 = int(h * (0.18 + (idx % 3) * 0.03))
-                    y1 = int(h * (0.52 + (idx % 2) * 0.04))
+                    y1 = int(h * (0.56 + (idx % 2) * 0.05))
                     if mode == "balayage":
-                        y0 = int(h * 0.30)
-                    draw.line((x, y0, x + int(w * 0.04), y1), fill=line_color, width=max(3, w // 75))
+                        y0 = int(h * 0.32)
+                    draw.line((x, y0, x + int(w * 0.04), y1), fill=line_color, width=max(3, w // 82))
             colored = Image.alpha_composite(colored.convert("RGBA"), overlay).convert("RGB")
-        composed = Image.composite(colored, base, mask).convert("RGB")
+        composed = Image.composite(colored, base, effect_mask).convert("RGB")
         os.makedirs(FINAL_DIR, exist_ok=True)
         filename = f"final/final_hair_color_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.png"
         out_path = os.path.join(UPLOAD_DIR, filename)

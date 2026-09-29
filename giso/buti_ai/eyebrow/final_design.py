@@ -20,11 +20,11 @@ FINAL_DESIGN_DIR = os.path.join(EYEBROW_UPLOAD_DIR, "final")
 
 
 STYLE_RENDER = {
-    "natural": {"alpha": 105, "width": 6, "shade": 0.18, "strokes": 10, "blur": 1.2},
-    "microblading": {"alpha": 135, "width": 3, "shade": 0.05, "strokes": 22, "blur": 0.6},
-    "powder": {"alpha": 125, "width": 11, "shade": 0.34, "strokes": 4, "blur": 2.2},
-    "combination": {"alpha": 140, "width": 8, "shade": 0.22, "strokes": 16, "blur": 1.3},
-    "giso_suggested": {"alpha": 118, "width": 7, "shade": 0.16, "strokes": 14, "blur": 1.0},
+    "natural": {"alpha": 112, "width": 6, "shade": 0.14, "strokes": 11, "blur": 0.9},
+    "microblading": {"alpha": 140, "width": 3, "shade": 0.04, "strokes": 24, "blur": 0.4},
+    "powder": {"alpha": 132, "width": 10, "shade": 0.26, "strokes": 4, "blur": 1.5},
+    "combination": {"alpha": 142, "width": 8, "shade": 0.18, "strokes": 16, "blur": 0.85},
+    "giso_suggested": {"alpha": 126, "width": 7, "shade": 0.15, "strokes": 14, "blur": 0.75},
 }
 
 
@@ -408,15 +408,35 @@ def generate_python_guided_design(candidate):
         if blur > 0:
             overlay = overlay.filter(ImageFilter.GaussianBlur(radius=blur))
 
-        # Safety gate: even the non-AI guide must only touch eyebrow-mask pixels,
-        # never eyelids/lashes/eye makeup around the brow.
+        # Safety gate: the guide stays around the brow ROI, but we dilate the
+        # local design mask a little so the user sees a real selected style
+        # (combination/powder/microblading), not just a thin debug mask line.
         try:
+            guide_mask = Image.new("L", (w, h), 0)
+            guide_draw = ImageDraw.Draw(guide_mask)
+            for region in regions[:2]:
+                x = float(region.get("x") or 0)
+                y = float(region.get("y") or 0)
+                rw = float(region.get("width") or 0)
+                rh = float(region.get("height") or 0)
+                pad_x = max(4.0, rw * 0.07)
+                pad_top = max(2.0, rh * 0.18)
+                pad_bottom = max(4.0, rh * 0.34)
+                guide_draw.rounded_rectangle(
+                    (int(x - pad_x), int(y - pad_top), int(x + rw + pad_x), int(y + rh + pad_bottom)),
+                    radius=max(3, int(max(4.0, rh * 0.38))),
+                    fill=255,
+                )
             mask_info = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
             mask_path = str(mask_info.get("path") or detection.get("mask_path") or "").strip()
             if mask_info.get("ok") and mask_path and os.path.exists(mask_path):
-                mask = Image.open(mask_path).convert("L").resize((w, h), Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
-                mask = mask.point(lambda px: 255 if int(px) >= 128 else 0).filter(ImageFilter.GaussianBlur(radius=0.65))
-                overlay.putalpha(ImageChops.multiply(overlay.getchannel("A"), mask))
+                real_mask = Image.open(mask_path).convert("L").resize((w, h), Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
+                real_mask = real_mask.point(lambda px: 255 if int(px) >= 96 else 0)
+                # Dilation keeps it local while preventing a hairline-only result.
+                real_mask = real_mask.filter(ImageFilter.MaxFilter(size=7))
+                guide_mask = ImageChops.lighter(guide_mask, real_mask)
+            guide_mask = guide_mask.filter(ImageFilter.GaussianBlur(radius=0.9))
+            overlay.putalpha(ImageChops.multiply(overlay.getchannel("A"), guide_mask))
         except Exception:
             pass
 

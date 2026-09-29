@@ -1346,7 +1346,7 @@ def test_final_design_template_uses_drag_compare_slider():
     assert "data-bti-compare" in tpl
     assert "bti-compare-handle" in tpl
     assert "بزرگنمایی طراحی" in tpl
-    assert "مشاهده ماسک ابرو" in tpl
+    assert "محدوده تغییر ابرو کنترل شد" in tpl
     assert "provider_output_constrained_to_eyebrow_mask" in tpl
     assert "attempt.error" in tpl
     assert "bti-before-after bti-final-before-after" not in tpl

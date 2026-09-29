@@ -402,6 +402,11 @@ def generate_final_design(service_key: str, module: Any, candidate: Dict[str, An
     detection = candidate.get("detection") if isinstance(candidate.get("detection"), dict) else {}
     if not detection or not detection.get("regions"):
         detection = module.detect_regions(source_path, allow_fallback=False)
+    if hasattr(module, "refine_detection_for_style"):
+        try:
+            detection = module.refine_detection_for_style(source_path, detection, candidate.get("final_style") or candidate.get("selected_style") or "")
+        except Exception:
+            pass
     candidate["detection"] = detection
     mask_path, mask_info = _mask_path_and_info(detection)
     try:

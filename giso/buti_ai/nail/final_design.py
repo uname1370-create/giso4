@@ -109,6 +109,107 @@ def _nail_boxes(w: int, h: int) -> List[Dict[str, Any]]:
     return boxes
 
 
+def _detect_nail_boxes_by_color(image_path: str) -> List[Dict[str, Any]]:
+    """Find visible nail plates/tips in real hand photos using conservative color blobs."""
+    try:
+        from PIL import Image
+        image = Image.open(image_path).convert("RGB")
+        w, h = image.size
+        # Work on a smaller copy for cheap connected components.
+        max_side = 420
+        scale = min(1.0, float(max_side) / float(max(w, h)))
+        sw, sh = max(1, int(w * scale)), max(1, int(h * scale))
+        small = image.resize((sw, sh), Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
+        px = small.load()
+        visited = [[False] * sw for _ in range(sh)]
+
+        def is_nail_pixel(x: int, y: int) -> bool:
+            # Nails/tips in salon photos are usually brighter/smoother than skin.
+            r, g, b = px[x, y]
+            mx, mn = max(r, g, b), min(r, g, b)
+            sat = mx - mn
+            bright_tip = r >= 205 and g >= 190 and b >= 178 and sat <= 72
+            pink_plate = r >= 172 and g >= 115 and b >= 112 and (r - g) >= 18 and (g - b) <= 42 and sat >= 18
+            glossy_light = mx >= 218 and sat <= 38
+            upper_hand_area = y <= int(sh * 0.72)
+            return upper_hand_area and (bright_tip or pink_plate or glossy_light)
+
+        comps = []
+        for y in range(0, sh):
+            for x in range(0, sw):
+                if visited[y][x] or not is_nail_pixel(x, y):
+                    continue
+                stack = [(x, y)]
+                visited[y][x] = True
+                xs, ys = [], []
+                while stack:
+                    cx, cy = stack.pop()
+                    xs.append(cx); ys.append(cy)
+                    for nx in (cx - 1, cx, cx + 1):
+                        for ny in (cy - 1, cy, cy + 1):
+                            if nx < 0 or ny < 0 or nx >= sw or ny >= sh or visited[ny][nx]:
+                                continue
+                            visited[ny][nx] = True
+                            if is_nail_pixel(nx, ny):
+                                stack.append((nx, ny))
+                area = len(xs)
+                if area < max(10, int(sw * sh * 0.00012)):
+                    continue
+                x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+                bw, bh = x1 - x0 + 1, y1 - y0 + 1
+                if bw < 4 or bh < 5:
+                    continue
+                aspect = bw / float(max(1, bh))
+                if not (0.18 <= aspect <= 2.8):
+                    continue
+                if area > sw * sh * 0.035:
+                    continue
+                comps.append((area, x0, y0, x1, y1))
+
+        # Merge nearby tip/plate components belonging to the same nail.
+        comps = sorted(comps, key=lambda c: c[0], reverse=True)[:12]
+        boxes = []
+        for area, x0, y0, x1, y1 in comps:
+            fx0, fy0 = int(x0 / scale), int(y0 / scale)
+            fx1, fy1 = int((x1 + 1) / scale), int((y1 + 1) / scale)
+            bw, bh = max(8, fx1 - fx0), max(10, fy1 - fy0)
+            # Expand from bright tip to full nail bed; keep it small enough not to paint fingers.
+            pad_x = max(3, int(bw * 0.24))
+            pad_top = max(2, int(bh * 0.15))
+            pad_bottom = max(12, int(bh * 1.75))
+            bx = max(0, fx0 - pad_x)
+            by = max(0, fy0 - pad_top)
+            bx2 = min(w - 1, fx1 + pad_x)
+            by2 = min(h - 1, fy1 + pad_bottom)
+            if (bx2 - bx) * (by2 - by) > w * h * 0.045:
+                continue
+            # De-duplicate overlapping boxes.
+            duplicate = False
+            for existing in boxes:
+                ex0, ey0 = existing["x"], existing["y"]
+                ex1, ey1 = ex0 + existing["width"], ey0 + existing["height"]
+                ix = max(0, min(bx2, ex1) - max(bx, ex0))
+                iy = max(0, min(by2, ey1) - max(by, ey0))
+                if ix * iy > 0.45 * min(max(1, (bx2 - bx) * (by2 - by)), max(1, existing["width"] * existing["height"])):
+                    duplicate = True
+                    break
+            if duplicate:
+                continue
+            boxes.append({
+                "side": f"nail_{len(boxes) + 1}",
+                "x": int(bx),
+                "y": int(by),
+                "width": int(max(8, bx2 - bx)),
+                "height": int(max(10, by2 - by)),
+                "confidence": 0.70,
+                "source": "color_nail_plate_mask_v1",
+            })
+        boxes.sort(key=lambda r: (r["x"], r["y"]))
+        return boxes[:5]
+    except Exception:
+        return []
+
+
 def _nail_contrast_score(image_path: str, regions: List[Dict[str, Any]]) -> float:
     """Validate the proportional nail plates against the actual image.
 
@@ -157,15 +258,21 @@ def detect_regions(image_path: str, allow_fallback: bool = True) -> Dict[str, An
     w, h = _image_size(image_path)
     if not w or not h:
         return {"ok": False, "method": "invalid_image", "regions": [], "mask": {"ok": False, "reason": "invalid_image"}}
-    regions = _nail_boxes(w, h)
-    contrast_score = _nail_contrast_score(image_path, regions)
-    reliable = contrast_score >= 0.8
+    color_regions = _detect_nail_boxes_by_color(image_path)
+    if len(color_regions) >= 3:
+        regions = color_regions
+        reliable = True
+        contrast_score = 1.0
+    else:
+        regions = _nail_boxes(w, h)
+        contrast_score = _nail_contrast_score(image_path, regions)
+        reliable = contrast_score >= 0.8
     if not reliable and not allow_fallback:
         return {"ok": False, "method": "nail_plate_not_detected", "regions": [], "mask": {"ok": False, "reason": "nail_plate_not_detected"}}
     detection = {
         "ok": True,
-        "method": "color_validated_nail_plate_mask_v1" if reliable else "proportional_nail_guide",
-        "confidence": 0.66 if reliable else 0.28,
+        "method": "color_nail_plate_mask_v1" if len(color_regions) >= 3 else ("color_validated_nail_plate_mask_v1" if reliable else "proportional_nail_guide"),
+        "confidence": 0.72 if len(color_regions) >= 3 else (0.66 if reliable else 0.28),
         "detection_reliable": bool(reliable),
         "is_fallback": not bool(reliable),
         "image_width": w,

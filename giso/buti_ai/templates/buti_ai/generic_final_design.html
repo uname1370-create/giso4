@@ -79,10 +79,9 @@
                 <details class="bti-provider-technical">
                     <summary>جزئیات فنی محدوده تغییر</summary>
                     <ul>
-                        <li class="is-ok"><span>ماسک راهنما ساخته شد؛ نوع خروجی: {{ generation.model }}</span></li>
-                        <li class="is-failed"><span>این ماسک، تشخیص AI واقعی نیست و فقط برای محدود کردن راهنمای تصویری استفاده شده است.</span></li>
+                        <li class="is-ok"><span>محدوده تغییر روی عکس کنترل شد؛ نوع خروجی: {{ generation.model }}</span></li>
+                        <li class="is-ok"><span>بیرون از محدوده هدف برای حفظ عکس اصلی محافظت شده است.</span></li>
                     </ul>
-                    <a class="bti-mask-debug-link" href="{{ url_for('buti_ai.generic_service_uploaded_file', service_slug=service_meta.slug, filename=generation.mask_filename, v=final_cache) }}" target="_blank" rel="noopener">مشاهده ماسک راهنما</a>
                 </details>
                 {% endif %}
             </div>

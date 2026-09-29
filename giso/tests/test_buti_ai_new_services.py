@@ -431,3 +431,66 @@ def test_lip_real_ai_requires_real_mask_and_preserves_outside_mask(tmp_path, mon
     assert result["outside_preserved"] is True
     assert result["validation"]["outside_mask_diff_ratio"] <= 0.04
     assert (upload_dir / result["filename"]).exists()
+
+
+def test_lip_finalize_recovers_candidate_from_uploaded_photo_if_session_candidate_missing():
+    """Lip finalization should not bounce back after upload if the candidate cookie was trimmed/lost."""
+    app = create_app()
+    _cleanup_service("lip_shading")
+    client = app.test_client()
+
+    page = client.get("/analysis/mirror/lip-shading")
+    token = _csrf(page.get_data(as_text=True))
+    selected = client.post(
+        "/analysis/mirror/lip-shading/model",
+        data={"csrf_token": token, "style": "peach_nude", "change_level": "medium"},
+        follow_redirects=True,
+    )
+    upload_token = _csrf(selected.get_data(as_text=True))
+    photo = (ROOT / "giso/buti_ai/static/services/lip_shading/upload_sample.jpg").read_bytes()
+    response = client.post(
+        "/analysis/mirror/lip-shading/upload",
+        data={"csrf_token": upload_token, "photo": (BytesIO(photo), "face.jpg", "image/jpeg")},
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
+    result_text = response.get_data(as_text=True)
+    final_token = re.findall(r'name="csrf_token" value="([^"]+)"', result_text)[-1]
+    with client.session_transaction() as sess:
+        candidate = dict(sess["buti_ai_lip_shading_final_candidate"])
+        del sess["buti_ai_lip_shading_final_candidate"]
+
+    final_response = client.post(
+        "/analysis/mirror/lip-shading/finalize",
+        data={
+            "csrf_token": final_token,
+            "final_style": "peach_nude",
+            "selected_style": "peach_nude",
+            "change_level": "medium",
+            "photo_filename": candidate["photo_filename"],
+        },
+        follow_redirects=True,
+    )
+    assert final_response.status_code == 200
+    final_text = final_response.get_data(as_text=True)
+    assert "اول مدل را انتخاب کن" not in final_text
+    assert "ورود لازم است" in final_text
+    assert "نود گلبهی" in final_text
+
+    with client.session_transaction() as sess:
+        recovered = dict(sess["buti_ai_lip_shading_final_candidate"])
+    assert recovered["photo_filename"] == candidate["photo_filename"]
+    assert recovered["final_style"] == "peach_nude"
+
+    with client.session_transaction() as sess:
+        del sess["buti_ai_lip_shading_final_candidate"]
+    direct_final = client.get(
+        f"/analysis/mirror/lip-shading/final?photo_filename={candidate['photo_filename']}&selected_style=peach_nude&change_level=medium",
+        follow_redirects=True,
+    )
+    assert direct_final.status_code == 200
+    direct_text = direct_final.get_data(as_text=True)
+    assert "اول مدل را انتخاب کن" not in direct_text
+    assert "ورود لازم است" in direct_text
+
+    _cleanup_service("lip_shading")

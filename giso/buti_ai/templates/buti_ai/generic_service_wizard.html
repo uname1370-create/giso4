@@ -238,6 +238,9 @@
             <form method="post" action="{{ url_for('buti_ai.generic_service_finalize_choice', service_slug=service_meta.slug) }}" data-bti-final-build-form data-bti-loading-image="{% if result.preview and result.preview.before_filename %}{{ url_for('buti_ai.generic_service_uploaded_file', service_slug=service_meta.slug, filename=result.preview.before_filename, v=(result.preview.before_filename ~ '-' ~ (result.session_id or ''))) }}{% endif %}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="final_style" value="{{ result.selected_style_key }}">
+                <input type="hidden" name="selected_style" value="{{ result.selected_style_key }}">
+                <input type="hidden" name="change_level" value="{{ result.selected_change_key or result.change_key }}">
+                <input type="hidden" name="photo_filename" value="{{ result.preview.before_filename if result.preview else '' }}">
                 <div class="bti-final-choice-list" role="group" aria-label="مدل نهایی">
                     <label class="is-recommended">
                         <span>
