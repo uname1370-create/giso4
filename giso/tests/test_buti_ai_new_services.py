@@ -13,7 +13,9 @@ from giso.base import get_giso_db_conn
 from giso.buti_ai.nail import final_design as nail_final
 from giso.buti_ai.lip import final_design as lip_final
 from giso.buti_ai.hair_color import final_design as hair_color_final
+from giso.buti_ai import generic_service
 from giso.buti_ai.schema import init_buti_ai_db
+from giso.buti_ai.service_catalog import SERVICE_HAIR_COLOR, SERVICE_LIP, SERVICE_NAIL, slug_for_service
 
 
 def _cleanup_service(service_type="nail"):
@@ -270,6 +272,85 @@ def test_hair_color_mirror_uses_staged_flow_and_truthful_guided_output():
     assert candidate_after["final_label"] == "بالیاژ کاراملی"
 
     _cleanup_service("hair_color")
+
+
+def test_every_new_service_model_selection_survives_upload_finalize_and_generation():
+    """هر مدل در هر خدمت باید دقیقاً همان انتخاب کاربر بماند و خروجی راهنما بسازد."""
+    app = create_app()
+    client = app.test_client()
+    sample_paths = {
+        SERVICE_NAIL: ROOT / "giso/buti_ai/static/services/nail/upload_sample.jpg",
+        SERVICE_LIP: ROOT / "giso/buti_ai/static/services/lip_shading/upload_sample.jpg",
+        SERVICE_HAIR_COLOR: ROOT / "giso/buti_ai/static/services/hair_color/upload_sample.jpg",
+    }
+    session_keys = {
+        SERVICE_NAIL: "buti_ai_nail_final_candidate",
+        SERVICE_LIP: "buti_ai_lip_shading_final_candidate",
+        SERVICE_HAIR_COLOR: "buti_ai_hair_color_final_candidate",
+    }
+
+    for service_key in (SERVICE_NAIL, SERVICE_LIP, SERVICE_HAIR_COLOR):
+        _cleanup_service(service_key)
+        slug = slug_for_service(service_key)
+        module = generic_service.service_module(service_key)
+        sample_bytes = sample_paths[service_key].read_bytes()
+        for style_key, style_meta in module.STYLES.items():
+            page = client.get(f"/analysis/mirror/{slug}")
+            assert page.status_code == 200
+            token = _csrf(page.get_data(as_text=True))
+            selected = client.post(
+                f"/analysis/mirror/{slug}/model",
+                data={"csrf_token": token, "style": style_key, "change_level": "medium"},
+                follow_redirects=True,
+            )
+            assert selected.status_code == 200
+            upload_text = selected.get_data(as_text=True)
+            assert style_meta["label"] in upload_text
+            upload_token = _csrf(upload_text)
+            response = client.post(
+                f"/analysis/mirror/{slug}/upload",
+                data={
+                    "csrf_token": upload_token,
+                    "photo": (BytesIO(sample_bytes), f"{service_key}-{style_key}.jpg", "image/jpeg"),
+                },
+                content_type="multipart/form-data",
+                follow_redirects=False,
+            )
+            assert response.status_code == 200
+            result_text = response.get_data(as_text=True)
+            assert "عکس واقعی شما" in result_text
+            assert style_meta["label"] in result_text
+            with client.session_transaction() as sess:
+                candidate = dict(sess[session_keys[service_key]])
+            assert candidate["service_key"] == service_key
+            assert candidate["service_type"] == service_key
+            assert candidate["selected_style"] == style_key
+            assert candidate["final_style"] == style_key
+            assert candidate["selected_label"] == style_meta["label"]
+            assert candidate["final_label"] == style_meta["label"]
+
+            generation = module.generate_guided_design(candidate)
+            assert generation["ok"] is True
+            assert generation["is_ai_generated"] is False
+            assert generation["mask_used"] is True
+            assert (Path(module.UPLOAD_DIR) / generation["filename"]).exists()
+
+            final_token = re.findall(r'name="csrf_token" value="([^"]+)"', result_text)[-1]
+            first_style = next(iter(module.STYLES))
+            final_response = client.post(
+                f"/analysis/mirror/{slug}/finalize",
+                data={"csrf_token": final_token, "final_style": first_style},
+                follow_redirects=True,
+            )
+            assert final_response.status_code == 200
+            final_text = final_response.get_data(as_text=True)
+            assert "ورود لازم است" in final_text
+            assert style_meta["label"] in final_text
+            with client.session_transaction() as sess:
+                candidate_after = dict(sess[session_keys[service_key]])
+            assert candidate_after["final_style"] == style_key
+            assert candidate_after["final_label"] == style_meta["label"]
+        _cleanup_service(service_key)
 
 
 def test_all_remaining_new_services_are_publicly_active():
