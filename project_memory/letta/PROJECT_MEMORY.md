@@ -1080,3 +1080,183 @@ Next:
 - Add real admin/center dashboard visibility for Buti AI waitlist/demand.
 - Later connect center cards directly to a reservation handoff with final design context attached.
 
+---
+
+## 30. Buti AI Final Eyebrow Output Fixes — Preview, Mask, ROI Diff, and Saved PNG Validation
+
+Status:
+
+- Completed, validated, committed, and pushed on `arena/01a0e0b8-giso4`.
+- This is the latest implemented code state before the new 3-service expansion work.
+
+Latest code commits:
+
+```text
+1241f4a Preserve final eyebrow image pixels
+  - AI final images are saved as PNG to preserve pixels outside the eyebrow mask.
+  - The saved final file is reopened and validated after write.
+  - ROI diff and outside-mask preservation are checked against the saved file too.
+
+dd86553 Validate eyebrow AI final output
+  - Server-side upload preview now shows the real uploaded image after upload.
+  - HTTP 200/provider response is not enough for AI success.
+  - Success requires readable saved image, valid dimensions, real mask, mask use, final URL to saved file, visible eyebrow ROI change, and outside-mask preservation.
+  - Fallback/proportional masks are rejected for real AI success.
+  - Beauty-AI logs added: [EYEBROW_PREVIEW], [EYEBROW_MASK], [AI], [AI_OUTPUT], [COMPOSITE], [FINAL].
+```
+
+Changed behavior:
+
+- `/analysis/mirror/eyebrow/upload` now renders a real server-side preview/result page after successful upload instead of skipping straight to final/auth.
+- The preview displays the uploaded user photo from `/analysis/mirror/eyebrow/uploads/...` with cache-busting.
+- Final/auth/final-design image URLs also use cache-busting and the upload route disables browser caching.
+- The selected eyebrow model remains the source of truth through upload and final generation.
+- AI image output is accepted only after:
+  - a real eyebrow mask is available,
+  - provider image is decoded,
+  - output is constrained to eyebrow mask,
+  - visible in-mask change is detected,
+  - outside mask remains preserved,
+  - output file is saved and re-opened successfully,
+  - saved file dimensions are valid.
+- If AI output is unusable or visually unchanged in the eyebrow ROI, it is rejected and the page shows a non-AI guided fallback instead of a false AI success.
+
+Changed files:
+
+```text
+giso/buti_ai/routes.py
+giso/buti_ai/eyebrow/image_generation.py
+giso/buti_ai/eyebrow/final_design.py
+giso/buti_ai/static/buti_ai.css
+giso/buti_ai/templates/buti_ai/eyebrow_wizard.html
+giso/buti_ai/templates/buti_ai/eyebrow_final_auth.html
+giso/buti_ai/templates/buti_ai/eyebrow_final_design.html
+giso/tests/test_buti_ai_phase1.py
+```
+
+Validation:
+
+```text
+python -m py_compile giso/buti_ai/routes.py giso/buti_ai/eyebrow/final_design.py giso/buti_ai/eyebrow/image_generation.py giso/buti_ai/eyebrow/landmarks.py giso/buti_ai/eyebrow/flow.py
+node --check giso/buti_ai/static/buti_ai.js
+pytest giso/tests/test_ai_discovery.py giso/tests/test_ai_clean_registry.py giso/tests/test_buti_ai_phase1.py giso/tests/test_ai_cloudflare_vision.py giso/tests/test_admin_ai_panel.py -q
+git diff --check
+
+Result: 63 passed, 1 warning
+```
+
+Preview smoke:
+
+```text
+/analysis/mirror/eyebrow -> 200 OK
+/admin/ai -> 302 /login unauthenticated, expected
+upload -> server-side preview contains عکس واقعی شما and /analysis/mirror/eyebrow/uploads/...
+```
+
+Boundary:
+
+- Feature code remained in Buti AI-owned files and tests.
+- No intentional changes to legacy `/analysis`, Hair Analysis, Telegram/Bale bot, Marketplace, Shop, or unrelated Beauty Center internals.
+
+---
+
+## 31. Buti AI Expansion Scenario — 3 Services After Eyebrow
+
+Status:
+
+- User asked to update Project Memory/agent scenario before implementing the next 3 services.
+- New scenario/handoff file created:
+
+```text
+project_memory/letta/SCENARIO_BEAUTY_MIRROR_SERVICE_EXPANSION.md
+```
+
+Final selected Beauty Mirror service catalog:
+
+```text
+1. آینه ابرو گیسو          — existing/implemented base
+2. آینه ناخن گیسو          — new service #1
+3. آینه رنگ و لایت مو گیسو — new service #2
+4. آینه لب و شیدینگ گیسو   — new service #3
+```
+
+Final model list:
+
+```text
+Eyebrow:
+- طبیعی و نچرال
+- میکروبلیدینگ ظریف
+- شیدینگ پودری
+- کامبینیشن
+- متعادل پیشنهادی گیسو
+
+Nail:
+- نود و مینیمال
+- فرنچ کلاسیک
+- بیبی‌بومر
+- کروم / گلیزد
+- کت‌آی
+
+Hair color/light:
+- قهوه‌ای شکلاتی / نسکافه‌ای
+- بالیاژ کاراملی
+- هایلایت طبیعی
+- فیس‌فریم / مانی‌پیس
+- دودی زیتونی ملایم
+
+Lip/shading:
+- شیدینگ لب طبیعی
+- تینت صورتی ملایم
+- نود گلبهی
+- کانتور لب طبیعی
+- رفع تیرگی و یکدست‌سازی رنگ لب
+```
+
+Implementation graph for future coding agents:
+
+```text
+/analysis/mirror
+  -> service selection
+     -> eyebrow        -> existing eyebrow flow
+     -> nail           -> new nail flow
+     -> hair_color     -> new hair-color flow
+     -> lip_shading    -> new lip flow
+
+Each service flow:
+  model selection
+  -> upload
+  -> service-specific photo validation
+  -> ROI/mask detection
+  -> final candidate
+  -> final auth gate if needed
+  -> AI Management provider chain
+  -> mask-constrained output
+  -> visible ROI diff validation
+  -> outside-mask preservation validation
+  -> saved-file validation
+  -> before/after comparator
+  -> center/reservation/waitlist handoff
+```
+
+Preferred implementation order:
+
+```text
+1. shared service catalog/navigation for all 4 services
+2. Nail MVP
+3. Lip MVP
+4. Hair Color MVP
+5. admin/salon demand/reservation handoff refinements
+```
+
+Key rule for all 3 new services:
+
+- Do not claim real AI success unless a real service mask/ROI is used and final saved image passes in-mask change and outside-mask preservation checks.
+- Fallback/non-AI outputs must be labeled truthfully.
+- AI Management remains provider/model source of truth.
+- Do not build a parallel app outside `giso/buti_ai/`.
+
+Next coding work:
+
+- Start with Stage A from `SCENARIO_BEAUTY_MIRROR_SERVICE_EXPANSION.md`: add/normalize the 4-service catalog/navigation while keeping the existing eyebrow flow backward-compatible.
+- Then implement Nail MVP first because it is the lowest-risk new before/after service.
+

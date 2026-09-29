@@ -1,11 +1,11 @@
 {
   "last_update": {
-    "date_user_timezone": "2026-09-28",
+    "date_user_timezone": "2026-09-29",
     "user_timezone": "Asia/Tehran"
   },
   "last_agent": "Arena.ai Agent Mode",
   "last_model": "not recorded; memory is model-agnostic",
-  "status": "Buti AI Phase 4.4 completed, validated, committed, and pushed: final design page now shows inline eyebrow center suggestions, inline no-center waitlist, and lightweight smart guidance.",
+  "status": "Eyebrow final output fixes are completed through commit 1241f4a; Project Memory now includes the service-expansion scenario for Nail, Hair Color/Light, and Lip/Shading under Buti AI.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map only; not a replacement for code review or Project Memory.",
@@ -25,12 +25,15 @@
   "current_git_state_observed": {
     "status_short_branch": [
       "## arena/01a0e0b8-giso4",
-      "clean after Phase 4.4 code push before memory commit"
+      "clean before Project Memory expansion update"
     ],
     "phase_4_4_code_commit": "038d45cbcf5ab7b4b68a6ad6b613b772e3a873a7",
     "phase_4_4_note": "Inline centers/no-center waitlist/smart guidance added under final eyebrow design page.",
     "forbidden_paths_modified": false,
-    "protected_paths_note": "No changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/."
+    "protected_paths_note": "No changes under web/, bot_edu/, main.py, giso/bot.py, giso/analysis.py, giso/ai_brain.py, or giso/beauty_centers/.",
+    "latest_code_commit": "1241f4a Preserve final eyebrow image pixels",
+    "previous_final_output_commit": "dd86553 Validate eyebrow AI final output",
+    "latest_code_note": "Eyebrow AI final output requires real mask, visible ROI diff, outside-mask preservation, saved-file validation, and PNG final output."
   },
   "sena_md": {
     "remote_present": true,
@@ -116,7 +119,8 @@
       "project_memory/letta/UPDATE_TEMPLATE.md",
       "project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md",
       "project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md",
-      "project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md"
+      "project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md",
+      "project_memory/letta/SCENARIO_BEAUTY_MIRROR_SERVICE_EXPANSION.md"
     ]
   },
   "mcp_notes": {
@@ -219,9 +223,17 @@
     "Committed and pushed Buti AI Phase 4.1 final choice/auth gate/Python guided final design as 027e785dc37d9d9177964938c04dc6625a528b83.",
     "Committed and pushed Buti AI Phase 4.2 image provider fallback chain as 71d652f51180f8e49122c2e08b47b09a2e7257a4.",
     "Committed and pushed Buti AI Phase 4.3 missing eyebrow center scenario as 005cf8aefcde701dd13b9b05f972f172b718afa4.",
-    "Committed and pushed Buti AI Phase 4.4 inline final centers UX as 038d45cbcf5ab7b4b68a6ad6b613b772e3a873a7."
+    "Committed and pushed Buti AI Phase 4.4 inline final centers UX as 038d45cbcf5ab7b4b68a6ad6b613b772e3a873a7.",
+    "Committed and pushed eyebrow final-output validation fix as dd86553 Validate eyebrow AI final output.",
+    "Committed and pushed saved PNG validation fix as 1241f4a Preserve final eyebrow image pixels.",
+    "Created project_memory/letta/SCENARIO_BEAUTY_MIRROR_SERVICE_EXPANSION.md for the next 3 Beauty Mirror services: nail, hair color/light, and lip/shading.",
+    "Updated Project Memory handoff so future agents know the final 4-service catalog, model lists, prompts, ROI/mask rules, success gates, and implementation graph."
   ],
   "next_action": [
+    "For every new service, AI success requires real service mask/ROI, visible in-mask change, outside-mask preservation, and saved-file validation; fallback outputs must be labeled non-AI.",
+    "Then implement Nail MVP first, Lip MVP second, and Hair Color/Light MVP third; keep all service-specific code under giso/buti_ai/.",
+    "Next coding stage: Stage A from the expansion scenario — add/normalize the 4-service catalog/navigation while preserving the existing eyebrow flow.",
+    "Before implementing the new Beauty Mirror services, read project_memory/letta/SCENARIO_BEAUTY_MIRROR_SERVICE_EXPANSION.md.",
     "Run git status --short --branch before future work.",
     "Read project_memory/letta/PROJECT_MEMORY.md and PROJECT_MEMORY.json.",
     "Read project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md and TECHNICAL_DESIGN_BUTI_AI_MVP.md before any new Beauty Mirror/Eyebrow work.",
@@ -245,9 +257,9 @@
     "Do not store secrets, credentials, DB files, uploads, logs, node_modules, local Letta backend data, local agent IDs, or smoke-test artifacts."
   ],
   "active_product_scenario": {
-    "name": "آینه ابرو گیسو",
-    "file": "project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md",
-    "status": "phase_4_4_final_design_inline_marketplace_done",
+    "name": "آینه زیبایی گیسو — ابرو + ناخن + رنگ و لایت مو + لب و شیدینگ",
+    "file": "project_memory/letta/SCENARIO_BEAUTY_MIRROR_SERVICE_EXPANSION.md",
+    "status": "eyebrow_final_output_fixed_and_3_service_expansion_scenario_documented",
     "summary_path": [
       "ورود سایت",
       "آینه زیبایی گیسو",
@@ -409,7 +421,60 @@
     "phase_4_1_status": "final_choice_auth_gate_python_guided_design_validated_committed_pushed",
     "phase_4_2_status": "image_provider_chain_validated_committed_pushed",
     "phase_4_3_status": "no_active_eyebrow_center_waitlist_validated_committed_pushed",
-    "phase_4_4_status": "inline_centers_waitlist_smart_guidance_validated_committed_pushed"
+    "phase_4_4_status": "inline_centers_waitlist_smart_guidance_validated_committed_pushed",
+    "latest_code_commits": [
+      "dd86553 Validate eyebrow AI final output",
+      "1241f4a Preserve final eyebrow image pixels"
+    ],
+    "final_service_catalog": [
+      "آینه ابرو گیسو",
+      "آینه ناخن گیسو",
+      "آینه رنگ و لایت مو گیسو",
+      "آینه لب و شیدینگ گیسو"
+    ],
+    "new_services_to_implement_next": [
+      "آینه ناخن گیسو",
+      "آینه لب و شیدینگ گیسو",
+      "آینه رنگ و لایت مو گیسو"
+    ],
+    "implementation_order": [
+      "shared 4-service catalog/navigation",
+      "Nail MVP",
+      "Lip/Shading MVP",
+      "Hair Color/Light MVP",
+      "admin/salon demand and reservation handoff refinements"
+    ],
+    "model_lists": {
+      "eyebrow": [
+        "طبیعی و نچرال",
+        "میکروبلیدینگ ظریف",
+        "شیدینگ پودری",
+        "کامبینیشن",
+        "متعادل پیشنهادی گیسو"
+      ],
+      "nail": [
+        "نود و مینیمال",
+        "فرنچ کلاسیک",
+        "بیبی‌بومر",
+        "کروم / گلیزد",
+        "کت‌آی"
+      ],
+      "hair_color": [
+        "قهوه‌ای شکلاتی / نسکافه‌ای",
+        "بالیاژ کاراملی",
+        "هایلایت طبیعی",
+        "فیس‌فریم / مانی‌پیس",
+        "دودی زیتونی ملایم"
+      ],
+      "lip_shading": [
+        "شیدینگ لب طبیعی",
+        "تینت صورتی ملایم",
+        "نود گلبهی",
+        "کانتور لب طبیعی",
+        "رفع تیرگی و یکدست‌سازی رنگ لب"
+      ]
+    },
+    "success_gate_rule": "HTTP 200 is never success. Real AI success requires saved image, valid dimensions, real mask, mask-constrained output, visible ROI diff, outside-mask preservation, final URL to saved file, and truthful is_ai_generated flag."
   },
   "validations": [
     "py_compile passed for giso/buti_ai Python files after Phase 1 changes.",
@@ -436,6 +501,8 @@
     "Phase 2.4 live curl checks returned HTTP 200 for /analysis, /analysis/mirror, and /analysis/mirror/eyebrow.",
     "Phase 2.5 py_compile passed for Buti AI Python modules and tests.",
     "Phase 2.5 targeted pytest passed: 6 passed, 1 warning.",
-    "Phase 2.5 live curl checks returned HTTP 200 for /analysis, /analysis/mirror, /analysis/mirror/eyebrow, and /analysis/mirror/static/brows/natural.jpg."
+    "Phase 2.5 live curl checks returned HTTP 200 for /analysis, /analysis/mirror, /analysis/mirror/eyebrow, and /analysis/mirror/static/brows/natural.jpg.",
+    "After eyebrow final-output fixes: py_compile, node --check, pytest suite, and git diff --check passed: 63 passed, 1 warning.",
+    "Preview smoke after latest code: /analysis/mirror/eyebrow returned 200 OK; upload test showed real server-side preview image route."
   ]
 }

@@ -7,10 +7,11 @@ Read these repo-local files first:
 1. `project_memory/letta/PROJECT_MEMORY.md`
 2. `project_memory/letta/PROJECT_MEMORY.json`
 3. `project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md`
-4. `project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md`
-5. `project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md`
-4. `project_memory/letta/UPDATE_TEMPLATE.md`
-5. `tools/letta/README.md`
+4. `project_memory/letta/SCENARIO_BEAUTY_MIRROR_SERVICE_EXPANSION.md`
+5. `project_memory/letta/TECHNICAL_DESIGN_BUTI_AI_MVP.md`
+6. `project_memory/letta/CODE_BOUNDARY_RULES_BUTI_AI.md`
+7. `project_memory/letta/UPDATE_TEMPLATE.md`
+8. `tools/letta/README.md`
 
 Your role:
 
@@ -57,7 +58,8 @@ After meaningful work:
 
 Active product scenario to know:
 
-- `project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md` — آینه ابرو گیسو product/UX scenario. Phase 1, Phase 1.5, and the user-approved UI/AI/guided-preview phase have been implemented in Giso. Future stages still need explicit user approval before implementation.
+- `project_memory/letta/SCENARIO_BEAUTY_MIRROR_EYEBROW.md` — آینه ابرو گیسو product/UX scenario. The eyebrow flow has progressed through final-design provider chain, preview, ROI/mask validation, and saved PNG validation.
+- `project_memory/letta/SCENARIO_BEAUTY_MIRROR_SERVICE_EXPANSION.md` — current expansion scenario for the 3 next Beauty Mirror services after eyebrow: nail, hair color/light, and lip/shading. Read it before coding any new Buti AI service.
 
 
 Beauty Mirror modularity rule:
