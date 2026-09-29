@@ -72,14 +72,27 @@ class _TelegramPollingNoiseFilter(logging.Filter):
 
 logging.getLogger("telegram.ext.Updater").addFilter(_TelegramPollingNoiseFilter())
 
+
+class _MainPollingNoiseFilter(logging.Filter):
+    def filter(self, record):
+        try:
+            msg = record.getMessage()
+        except Exception:
+            msg = ""
+        if "قطعی موقت" in msg and ("NetworkError" in msg or "RemoteProtocolError" in msg or "Server disconnected" in msg):
+            return False
+        return True
+
+
 logger = logging.getLogger(__name__)
+logger.addFilter(_MainPollingNoiseFilter())
 
 
 def _on_polling_network_error(err) -> None:
-    """قطعیهای گذرا شبکه را کوتاه لاگ کن؛ حلقهٔ polling خودش retry میکند."""
-    logger.warning(
-        "↻ قطعی موقت اتصال polling (%s: %s) — تلاش خودکار بعدی...",
-        type(err).__name__, str(err)[:160],
+    """قطعیهای گذرا شبکه را بی‌صدا رد کن؛ حلقهٔ polling خودش retry میکند و لاگ اسپم نمی‌دهد."""
+    logger.debug(
+        "قطعی موقت polling (%s: %s) — retry خودکار",
+        type(err).__name__, str(err)[:120],
     )
 
 

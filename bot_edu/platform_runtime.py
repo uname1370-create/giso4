@@ -17,10 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 def _on_polling_network_error(err) -> None:
-    """قطعیهای گذرا شبکه را کوتاه لاگ کن؛ حلقهٔ polling خودش retry میکند."""
-    logger.warning(
-        "↻ قطعی موقت اتصال polling تلگرام (%s: %s) — تلاش خودکار بعدی...",
-        type(err).__name__, str(err)[:160],
+    """قطعی گذرا تلگرام را بی‌صدا رد کن؛ retry خودکار."""
+    logger.debug(
+        "قطعی موقت polling تلگرام (%s) — retry خودکار",
+        type(err).__name__,
     )
 
 
