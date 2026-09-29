@@ -564,11 +564,14 @@ def _parse_response_image(response: requests.Response) -> str:
 
 
 def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_path: str, prompt: str, timeout: int) -> str:
-    if str(provider.model or "").strip() != DEFAULT_CLOUDFLARE_MODEL:
+    model_name = str(provider.model or "").strip()
+    if model_name == CLOUDFLARE_INPAINTING_MODEL:
         raise ImageProviderError(
-            "این مدل Cloudflare برای طراحی عکس نهایی ابرو با عکس ورودی پشتیبانی‌شده نیست؛ "
-            "مدل @cf/black-forest-labs/flux-2-klein-4b را انتخاب کن."
+            "این مدل باید با kind=cloudflare_inpainting استفاده شود؛ "
+            "در مدیریت AI نوع را inpainting بگذار یا از flux-2-klein-4b استفاده کن."
         )
+    if model_name != DEFAULT_CLOUDFLARE_MODEL:
+        _beauty_log("[AI]", "cloudflare_model_not_default", model=model_name, expected=DEFAULT_CLOUDFLARE_MODEL)
     width, height = _output_size_for_cloudflare(source_path)
     photo_bytes, photo_mime, photo_ext = _image_bytes_for_provider(source_path, MAX_PROVIDER_INPUT_SIDE, square=False)
     files = {
