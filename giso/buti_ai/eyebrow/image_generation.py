@@ -58,14 +58,15 @@ MAX_PROVIDER_INPUT_SIDE = 512
 MAX_INPAINTING_INPUT_SIDE = 512
 MAX_DIFF_SAMPLE_PIXELS = 260_000
 # سخت‌گیرانه‌تر برای جلوگیری از artifact روی چشم/صورت و ماسک سفید (تصویر کاربر با حجاب)
-MIN_VISIBLE_EYEBROW_MEAN_DELTA = 5.0
-MAX_VISIBLE_EYEBROW_MEAN_DELTA = 38.0
-MIN_VISIBLE_EYEBROW_CHANGED_RATIO = 0.022
-VISIBLE_EYEBROW_PIXEL_DELTA = 9.0
-MAX_OUTSIDE_MASK_MEAN_DELTA = 0.85
-MAX_OUTSIDE_MASK_P99_DELTA = 4.5
-MAX_OUTSIDE_CHANGED_RATIO = 0.018
-MAX_INSIDE_WHITE_RATIO = 0.18
+# مقادیر سخت‌گیرانه‌تر بعد از مشاهده هاله سفید در عکس نهایی
+MIN_VISIBLE_EYEBROW_MEAN_DELTA = 4.5
+MAX_VISIBLE_EYEBROW_MEAN_DELTA = 32.0
+MIN_VISIBLE_EYEBROW_CHANGED_RATIO = 0.018
+VISIBLE_EYEBROW_PIXEL_DELTA = 8.0
+MAX_OUTSIDE_MASK_MEAN_DELTA = 0.65
+MAX_OUTSIDE_MASK_P99_DELTA = 3.5
+MAX_OUTSIDE_CHANGED_RATIO = 0.012
+MAX_INSIDE_WHITE_RATIO = 0.12
 
 
 class ImageProviderError(RuntimeError):
@@ -573,24 +574,33 @@ def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_
     files = {
         "input_image_0": (f"customer-face.{photo_ext}", photo_bytes, photo_mime),
     }
-    # Reference Image همان مدل: برای flux-2-klein به صورت پیش‌فرض ارسال نمی‌شود تا API موجود خراب نشود و artifact ایجاد نکند
-    # برای providerهای multipart/json_image در توابع دیگر ارسال می‌شود
-    # فقط اگر extra.send_reference_image=True یا env CLOUDFLARE_SEND_REFERENCE_IMAGE=1 باشد ارسال می‌شود
-    send_reference = bool(provider.extra.get("send_reference_image")) or _truthy(_env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE"))
+    # Reference Image: برای کمک به مدل که مدل انتخابی ابرو را بفهمد، اگر عکس مرجع موجود است ارسال می‌شود
+    # IMAGE 0 چهره مشتری (مرجع هویت)، IMAGE 1 فقط نمونه تکنیک ابرو است، نه چهره
+    # قبلا به صورت پیش‌فرض ارسال نمی‌شد، الان برای جلوگیری از تولید چهره جدید و هاله سفید، ارسال می‌شود
+    send_reference = True
+    # اگر env صریحا غیرفعال کرده باشد، احترام می‌گذاریم
+    if _env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE") == "0":
+        send_reference = False
+    if provider.extra.get("send_reference_image") is False:
+        send_reference = False
     if reference_path and send_reference:
-        ref_bytes, ref_mime, ref_ext = _image_bytes_for_provider(reference_path, MAX_PROVIDER_INPUT_SIDE, square=True)
-        files["input_image_1"] = (f"technique-macro.{ref_ext}", ref_bytes, ref_mime)
+        try:
+            ref_bytes, ref_mime, ref_ext = _image_bytes_for_provider(reference_path, MAX_PROVIDER_INPUT_SIDE, square=True)
+            files["input_image_1"] = (f"technique-macro.{ref_ext}", ref_bytes, ref_mime)
+        except Exception:
+            send_reference = False
 
     guidance = str(provider.extra.get("guidance") or _env_value(None, "CLOUDFLARE_GUIDANCE") or "5")
     data = {
         "prompt": (
-            f"{prompt} ROLE: IMAGE 0 is the customer-face authority; "
-            "IMAGE 1 if present is only a technique swatch, never a face source."
+            f"{prompt} ROLE: IMAGE 0 is the customer-face authority and must be kept 100% identical except eyebrows; "
+            "IMAGE 1 if present is ONLY a technique swatch showing eyebrow style, never a face source, never use its background, face, or skin. "
+            "Do NOT create white background, white halo, or new face."
         ),
         "negative_prompt": (
-            "new face, changed identity, changed eyes, changed eyelids, changed eyelashes, red streak, white overlay, "
-            "eye artifact, forehead artifact, skin retouching, hair change, hijab change, background change, "
-            "makeup change outside eyebrows, distorted face, cartoon, illustration, blurry, low quality"
+            "new face, changed identity, changed eyes, changed eyelids, changed eyelashes, red streak, white overlay, white halo, white background, "
+            "transparent background, cutout face, face cutout, eye artifact, forehead artifact, skin retouching, hair change, hijab change, background change, "
+            "makeup change outside eyebrows, distorted face, cartoon, illustration, blurry, low quality, white border around face"
         ),
         "guidance": guidance,
         "width": str(width),
@@ -877,18 +887,39 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
         coverage = float(mask_info.get("coverage_ratio") or 0)
     except Exception:
         coverage = 0.0
-    if coverage <= 0 or coverage > 0.04:
+    # سخت‌گیرانه‌تر: پوشش ابرو باید خیلی کوچک باشد تا هاله سفید دور صورت ایجاد نشود
+    if coverage <= 0 or coverage > 0.025:
         raise ImageProviderError("mask ابرو برای ذخیره خروجی AI ایمن نیست؛ محدوده ویرایش بیش از حد وسیع/نامعتبر است")
+    # بررسی اینکه mask به لبه تصویر نچسبیده باشد (حجاب/پس‌زمینه)
+    try:
+        regions = detection.get("regions") if isinstance(detection, dict) else []
+        for r in (regions or [])[:2]:
+            x = float(r.get("x") or 0)
+            y = float(r.get("y") or 0)
+            w = float(r.get("width") or 0)
+            h = float(r.get("height") or 0)
+            # اگر ابرو خیلی نزدیک لبه تصویر یا خیلی بزرگ باشد، احتمال تشخیص اشتباه حجاب است
+            if w > size[0] * 0.35 or h > size[1] * 0.12:
+                raise ImageProviderError("mask ابرو بیش از حد بزرگ است؛ احتمال تشخیص اشتباه حجاب")
+            if x < size[0] * 0.02 or (x + w) > size[0] * 0.98:
+                raise ImageProviderError("mask ابرو به لبه تصویر چسبیده؛ نامعتبر")
+            if y < size[1] * 0.12 or y > size[1] * 0.55:
+                raise ImageProviderError("mask ابرو خارج از محدوده معقول صورت است")
+    except ImageProviderError:
+        raise
+    except Exception:
+        pass
     try:
         mask = Image.open(mask_path).convert("L").resize(size, Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
         # Binary core + stronger erosion to prevent white halo, only brow pixels editable
         mask = mask.point(lambda px: 255 if int(px) >= 128 else 0)
-        # Erode more to avoid eyelashes/eye and white halo artifact
+        # Erode more to avoid eyelashes/eye and white halo artifact - از 5 به 7
         try:
-            mask = mask.filter(ImageFilter.MinFilter(size=5))
+            mask = mask.filter(ImageFilter.MinFilter(size=7))
         except Exception:
             pass
-        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.45))
+        # بلور کمتر تا لبه‌ها سفید نشود - از 0.45 به 0.25
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.25))
         _beauty_log(
             "[EYEBROW_MASK]",
             "provider_mask_ready",
@@ -1071,9 +1102,41 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
         if source_path and candidate is not None:
             base = Image.open(source_path).convert("RGB")
             base.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
-            final_image = _fit_provider_image_to_source(provider_image, base.size).convert("RGB")
+            fitted_provider = _fit_provider_image_to_source(provider_image, base.size).convert("RGB")
             mask, detection = _provider_eyebrow_mask_for_save(source_path, candidate, base.size)
-            final_image = Image.composite(final_image, base, mask)
+
+            # --- پیش‌اعتبارسنجی: خروجی provider قبل از کامپوزیت نباید پس‌زمینه سفید یا چهره جدید داشته باشد ---
+            # اگر provider تصویر با پس‌زمینه سفید یا چهره کاملا متفاوت تولید کرده، رد کن
+            try:
+                from PIL import Image as _PILImage
+                # بررسی پس‌زمینه سفید کلی در provider
+                _w, _h = fitted_provider.size
+                _total = max(1, _w * _h)
+                _white_count = 0
+                _stride_white = max(1, int((_total / 50000) ** 0.5))
+                _fpx = fitted_provider.load()
+                for _yy in range(0, _h, _stride_white):
+                    for _xx in range(0, _w, _stride_white):
+                        _r, _g, _b = _fpx[_xx, _yy]
+                        if _r > 240 and _g > 240 and _b > 240:
+                            _white_count += 1
+                _white_ratio_total = float(_white_count) / float(max(1, (_w // _stride_white) * (_h // _stride_white)))
+                if _white_ratio_total > 0.28:
+                    raise ImageProviderError("خروجی AI پس‌زمینه سفید زیاد دارد و رد شد (مدل چهره جدید ساخت)")
+                # بررسی تغییر بیرون از mask قبل از کامپوزیت - باید شبیه base باشد
+                _outside_metrics_before = _visible_eyebrow_diff_metrics(base, fitted_provider, mask)
+                # اگر بیرون از ابرو خیلی تغییر کرده، یعنی provider چهره/حجاب/پس‌زمینه را عوض کرده
+                if float(_outside_metrics_before.get("outside_mean_delta") or 0) > 12.0:
+                    raise ImageProviderError("خروجی AI هویت/پس‌زمینه را تغییر داد و رد شد")
+                if float(_outside_metrics_before.get("outside_changed_ratio") or 0) > 0.12:
+                    raise ImageProviderError("خروجی AI بیرون از ابرو تغییر زیاد داشت و رد شد")
+            except ImageProviderError:
+                raise
+            except Exception:
+                # اگر پیش‌بررسی خطا داد، ادامه بده تا اعتبارسنجی اصلی تصمیم بگیرد
+                pass
+
+            final_image = Image.composite(fitted_provider, base, mask)
             diff_meta = _validate_provider_visible_change(base, final_image, mask)
             base_for_validation = base.copy()
             mask_for_validation = mask.copy()

@@ -361,23 +361,27 @@ def build_design_prompt(candidate):
     avoid = _prompt_text(candidate.get("avoid"))
     region_text = _eyebrow_region_text(candidate)
 
-    # Prompt بسیار سخت‌گیرانه برای جلوگیری از artifact روی چشم (مشکل تصویر کاربر با حجاب)
+    # Prompt بسیار سخت‌گیرانه برای جلوگیری از artifact روی چشم و هاله سفید (مشکل تصویر کاربر با حجاب)
+    # بعد از مشاهده خروجی سفید با پس‌زمینه سفید، پرامپت را سخت‌گیرانه‌تر کردیم
     return (
-        "Photorealistic image edit of the ORIGINAL customer face photo. "
-        "CRITICAL: The user-selected eyebrow model MUST be respected exactly. "
+        "Photorealistic IMAGE EDIT - NOT text-to-image. You must EDIT the ORIGINAL customer photo, keep 100% same identity. "
+        "CRITICAL: Do NOT generate a new face, new person, or white background. Keep original background, hijab, lighting, skin, everything identical except eyebrows. "
         f"User selected style key: {selected_style_key}. Style English: {style_en}. "
         f"Selected eyebrow model label: {model_label}. Final design label: {style_label}. "
         "You must apply ONLY this selected model, no other model. "
         "If user selected powder, do powder shading, not microblading. If natural, keep natural. "
+        "If microblading, create fine hair strokes, not blocky fill. "
         "Use the provided eyebrow pixel mask when the API request includes one; white mask pixels are the editable eyebrow area and black pixels must be preserved 100%. "
         "Prompt text and ROI coordinates are only descriptive metadata, not a substitute for the mask. "
         "Edit ONLY the two eyebrow hair regions: brow hairs, shape, fill, tail, arch, and very local brow shadow if needed. "
         "Hard constraint 1: every pixel outside the two eyebrow hair regions must remain IDENTICAL to original photo. No change to eyes, eyelids, eyelashes, eye color, iris, pupils, skin, nose, lips, hair, hijab, background, lighting, camera angle, jewelry, clothes, expression. "
-        "Hard constraint 2: EYES MUST NOT BE TOUCHED. Do not create red streaks, white overlays, or any artifact on eyes. Eyes must stay exactly as original. "
-        "Hard constraint 3: If you change pixels outside eyebrows, output will be REJECTED by validation. "
+        "Hard constraint 2: EYES MUST NOT BE TOUCHED. Do not create red streaks, white overlays, white halo, or any artifact on eyes, forehead, or around face. Eyes must stay exactly as original. "
+        "Hard constraint 3: NO WHITE BACKGROUND. Output must keep original photo background and hijab, not white, not transparent, not new background. "
+        "Hard constraint 4: If you change pixels outside eyebrows, output will be REJECTED by validation. "
+        "Hard constraint 5: Do NOT add white halo around face/hijab. The face border must stay exactly as original. "
         "Do not change identity, face shape, eyes, eyelids, lashes, eye color, skin texture, hair, makeup, lips, nose, lighting, camera angle, background, jewelry, clothes, or expression. "
         "Do not add eyeliner, mascara, eye shadow, extra eyelashes, eye retouching, skin smoothing, or glam makeup. "
-        "Keep pores, shadows and natural asymmetry realistic. No beauty filter, no new face, no illustration, no heavy retouching, no cartoon, no distorted face. "
+        "Keep pores, shadows and natural asymmetry realistic. No beauty filter, no new face, no illustration, no heavy retouching, no cartoon, no distorted face, no white overlay. "
         f"Selected service: {service_label}. "
         f"Requested change level: {candidate.get('change_label', '')}. "
         f"Real eyebrow location: {region_text}. "
@@ -386,7 +390,7 @@ def build_design_prompt(candidate):
         f"Selected-style instructions: {style_instructions}. "
         f"Avoid: {avoid}. "
         "The result should look like the same photo after a professional eyebrow consultation preview; subtle, wearable, and salon-realistic. "
-        "Output must be clean, no artifacts, no colored streaks on forehead or eyes."
+        "Output must be clean, no artifacts, no white halo, no colored streaks on forehead or eyes. Same photo, only eyebrows edited."
     )
 
 
