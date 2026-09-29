@@ -152,6 +152,72 @@ def test_buti_ai_eyebrow_real_photo_step_flow_with_csrf(monkeypatch):
 
 
 
+
+def test_eyebrow_upload_preserves_every_selected_model_as_final_source(tmp_path, monkeypatch):
+    """هر مدل انتخابی کاربر بعد از آپلود عکس، تنها منبع طراحی نهایی می‌ماند."""
+    from giso.buti_ai.eyebrow import upload as eyebrow_upload
+    from giso.buti_ai.eyebrow.final_design import FINAL_DESIGN_SESSION_KEY
+    from giso.buti_ai.eyebrow.options import EYEBROW_STYLES
+
+    app = create_app()
+    _cleanup_buti_ai_sessions()
+    client = app.test_client()
+
+    monkeypatch.setattr(eyebrow_flow, "check_photo_quality", lambda path: {
+        "status": "ai_checked", "ok": True, "message": "عکس مناسب است.", "checks": {}, "reasons": []
+    })
+    monkeypatch.setattr(eyebrow_flow, "detect_eyebrow_regions", lambda path, allow_fallback=False: {
+        "ok": True,
+        "method": "pytest_roi",
+        "confidence": 0.9,
+        "image_width": 640,
+        "image_height": 820,
+        "regions": [
+            {"side": "left", "x": 190, "y": 250, "width": 95, "height": 30},
+            {"side": "right", "x": 350, "y": 250, "width": 95, "height": 30},
+        ],
+    })
+    monkeypatch.setattr(
+        eyebrow_flow,
+        "save_eyebrow_photo",
+        lambda file_storage: eyebrow_upload.save_eyebrow_photo(file_storage, upload_dir=str(tmp_path)),
+    )
+
+    photo = (ROOT / "giso/buti_ai/static/brows/upload_face_sample.jpg").read_bytes()
+    for style_key, style_meta in EYEBROW_STYLES.items():
+        page = client.get("/analysis/mirror/eyebrow")
+        token = re.search(r'name="csrf_token" value="([^"]+)"', page.get_data(as_text=True)).group(1)
+        step = client.post(
+            "/analysis/mirror/eyebrow/model",
+            data={"csrf_token": token, "style": style_key, "change_level": "medium"},
+            follow_redirects=True,
+        )
+        assert step.status_code == 200
+        upload_text = step.get_data(as_text=True)
+        assert style_meta["label"] in upload_text
+        upload_token = re.search(r'name="csrf_token" value="([^"]+)"', upload_text).group(1)
+        response = client.post(
+            "/analysis/mirror/eyebrow/upload",
+            data={"csrf_token": upload_token, "photo": (BytesIO(photo), f"{style_key}.jpg", "image/jpg")},
+            content_type="multipart/form-data",
+            follow_redirects=False,
+        )
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/analysis/mirror/eyebrow/final")
+        with client.session_transaction() as sess:
+            candidate = dict(sess[FINAL_DESIGN_SESSION_KEY])
+        assert candidate["selected_style"] == style_key
+        assert candidate["recommended_style"] == style_key
+        assert candidate["final_style"] == style_key
+        assert candidate["selected_label"] == style_meta["label"]
+        assert candidate["final_label"] == style_meta["label"]
+        assert candidate["change_key"] == "medium"
+        assert candidate["photo_filename"].endswith(".jpg")
+        assert (tmp_path / candidate["photo_filename"]).exists()
+        assert candidate["eyebrow_detection"]["method"] == "pytest_roi"
+
+    _cleanup_buti_ai_sessions()
+
 def test_eyebrow_upload_rejects_fake_and_large_files(tmp_path):
     from werkzeug.datastructures import FileStorage
     from giso.buti_ai.eyebrow import upload
@@ -633,6 +699,77 @@ def test_final_design_cloudflare_provider_success_saves_ai_output(tmp_path, monk
     assert (tmp_path / result["filename"]).exists()
 
 
+
+
+def test_ai_provider_output_changes_only_eyebrow_mask_area(tmp_path, monkeypatch):
+    """حتی اگر provider کل عکس را تغییر بدهد، ذخیره نهایی فقط mask ابرو را روی عکس اصلی اعمال می‌کند."""
+    import base64
+    from io import BytesIO as _BytesIO
+    from PIL import Image
+    from giso.buti_ai.eyebrow import final_design, image_generation
+
+    original = tmp_path / "face.jpg"
+    base_color = (218, 178, 148)
+    ai_color = (28, 88, 226)
+    Image.new("RGB", (640, 820), base_color).save(original, "JPEG")
+    output = _BytesIO()
+    Image.new("RGB", (640, 820), ai_color).save(output, "PNG")
+    output_value = "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
+
+    monkeypatch.setattr(final_design, "EYEBROW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(final_design, "FINAL_DESIGN_DIR", str(tmp_path / "final"))
+    monkeypatch.setattr(
+        image_generation,
+        "configured_image_providers",
+        lambda env=None: [image_generation.ImageProviderConfig(
+            id="mock_ai_provider",
+            label="Mock AI Provider",
+            kind="json_image",
+            endpoint="https://mock.invalid/image",
+            model="mock-full-face-output",
+            api_key="fake",
+        )],
+    )
+    monkeypatch.setattr(image_generation, "_call_provider", lambda *args, **kwargs: output_value)
+
+    result = image_generation.generate_final_design(_sample_final_candidate(), env={})
+
+    assert result["ok"] is True
+    assert result["provider_output_constrained_to_eyebrow_mask"] is True
+    assert result["mask_used"] is True
+    assert result["mask_coverage_ratio"] < 0.08
+    out_path = tmp_path / result["filename"]
+    assert out_path.exists()
+
+    saved = Image.open(out_path).convert("RGB")
+    source = Image.open(original).convert("RGB").resize(saved.size)
+    mask = Image.open(tmp_path / result["mask_filename"]).convert("L").resize(saved.size)
+
+    outside_deltas = []
+    inside_deltas = []
+    # نمونه‌برداری شبکه‌ای: دور از mask باید تقریباً همان عکس اصلی بماند؛ داخل mask باید تغییر واضح بگیرد.
+    step = 8
+    for y in range(0, saved.height, step):
+        for x in range(0, saved.width, step):
+            s = source.getpixel((x, y))
+            o = saved.getpixel((x, y))
+            delta = sum(abs(int(o[i]) - int(s[i])) for i in range(3)) / 3.0
+            if mask.getpixel((x, y)) < 8:
+                outside_deltas.append(delta)
+            elif mask.getpixel((x, y)) > 220:
+                inside_deltas.append(delta)
+    assert outside_deltas
+    assert inside_deltas
+    outside_sorted = sorted(outside_deltas)
+    assert sum(outside_deltas) / len(outside_deltas) < 4.5
+    assert outside_sorted[int(len(outside_sorted) * 0.99)] < 8
+    assert sum(inside_deltas) / len(inside_deltas) > 40
+
+    # نقاط حساس غیرابرو مثل گوشه‌ها و مرکز پایین صورت نباید رنگ خروجی provider را بگیرند.
+    for point in ((20, 20), (saved.width - 25, 25), (saved.width // 2, saved.height - 60), (saved.width // 2, saved.height // 2)):
+        sx, sy = point
+        pixel = saved.getpixel((sx, sy))
+        assert sum(abs(int(pixel[i]) - base_color[i]) for i in range(3)) / 3.0 < 8
 
 def test_cloudflare_inpainting_request_uses_real_eyebrow_mask(tmp_path, monkeypatch):
     import json
