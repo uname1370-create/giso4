@@ -70,7 +70,7 @@
                     {% endif %}
                 </b>
                 <span>
-                    عکس و انتخابت حفظ شده است. {% if generation.ai_inpainting %}این خروجی با ماسک واقعی ابرو ساخته شده{% elif generation.provider_output_constrained_to_eyebrow_mask %}خروجی AI فقط داخل محدوده ابرو روی عکس اصلی اعمال شده{% else %}اگر نسخه راهنما باشد، AI Inpainting واقعی نیست{% endif %} و اجرای دقیق باید با متخصص انجام شود.
+                    عکس و انتخابت حفظ شده است. {% if generation.ai_inpainting %}این خروجی با ماسک واقعی ابرو ساخته شده{% elif generation.provider_output_constrained_to_eyebrow_mask and generation.mask_is_fallback %}خروجی AI فقط داخل محدوده تقریبی ابرو روی عکس اصلی اعمال شده{% elif generation.provider_output_constrained_to_eyebrow_mask %}خروجی AI فقط داخل محدوده ابرو روی عکس اصلی اعمال شده{% else %}اگر نسخه راهنما باشد، AI Inpainting واقعی نیست{% endif %} و اجرای دقیق باید با متخصص انجام شود.
                 </span>
                 {% if generation.attempts %}
                 <details class="bti-provider-technical">

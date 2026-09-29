@@ -595,15 +595,19 @@ def _ai_text_openai(raw):
 
 
 def _ai_text_cloudflare(raw):
+    if not isinstance(raw, dict):
+        return ""
     result = raw.get("result", {})
+    if isinstance(result, str):
+        return result
     if isinstance(result, dict):
-        for k in ("response", "text"):
+        for k in ("response", "text", "output_text", "content"):
             if isinstance(result.get(k), str):
                 return result[k]
-    if isinstance(raw.get("response"), str):
-        return raw["response"]
+    for k in ("response", "text", "output_text", "content"):
+        if isinstance(raw.get(k), str):
+            return raw[k]
     return ""
-
 
 def _ai_err(provider, model, error):
     return {"ok": False, "provider": provider, "model": model,
@@ -1308,23 +1312,212 @@ async def ask_ai(provider_name, messages, model=None, temperature=0.7, max_token
         return _ai_err(provider_name, use_model, f"{type(exc).__name__}: {str(exc)[:200]}")
 
 
+def _ai_model_id(value):
+    if isinstance(value, dict):
+        if value.get("disabled"):
+            return ""
+        value = value.get("id")
+    return str(value or "").strip()
+
+
+def _ai_is_image_generation_model(model_name: str) -> bool:
+    """مدل‌های تولید/ویرایش تصویر نباید برای چت یا vision-analysis تست شوند."""
+    low = str(model_name or "").strip().lower()
+    if not low:
+        return False
+    return any(token in low for token in (
+        "flux", "diffusion", "stable-diffusion", "sdxl", "black-forest",
+        "runwayml", "dall-e", "image-generation", "text-to-image",
+    ))
+
+
+def _ai_is_likely_vision_model(model_name: str) -> bool:
+    low = str(model_name or "").strip().lower()
+    if not low or _ai_is_image_generation_model(low):
+        return False
+    return any(token in low for token in (
+        "vision", "llama-3.2", "llama-4", "llava", "pixtral", "qwen-vl",
+        "mistral-small", "gpt-4o", "gemini", "claude-3", "claude-4",
+        "omni", "uform",
+    ))
+
+
+def _cloudflare_vision_candidates(row, requested_model=""):
+    """زنجیره امن مدل‌های Vision کلودفلر؛ مدل‌های تصویرساز مثل FLUX حذف می‌شوند."""
+    candidates = []
+
+    def add(value, trusted_vision=False):
+        mid = _ai_model_id(value)
+        if not mid or mid in candidates or _ai_is_image_generation_model(mid):
+            return
+        if trusted_vision or _ai_is_likely_vision_model(mid):
+            candidates.append(mid)
+
+    # اگر caller مدل مشخص داده، یعنی از زنجیره vision مدیریت AI آمده؛ فقط image-gen را حذف کن.
+    add(requested_model, trusted_vision=bool(str(requested_model or "").strip()))
+    for item in _ai_jloads(_col(row, "vision_models_json", "[]"), []):
+        add(item, trusted_vision=True)
+    try:
+        from giso.ai_models_registry import get_vision_models
+        for item in get_vision_models(_registry_family_for_provider_name(_col(row, "name", ""))) or []:
+            add(item, trusted_vision=True)
+    except Exception:
+        pass
+    add(_col(row, "selected_model", ""), trusted_vision=False)
+    for column in ("fallback_json", "models_json", "text_models_json"):
+        for item in _ai_jloads(_col(row, column, "[]"), []):
+            add(item, trusted_vision=False)
+    if not candidates:
+        for item in default_models_for_provider(_col(row, "name", ""))[0]:
+            add(item, trusted_vision=False)
+    return candidates
+
+
+def _cloudflare_vision_payloads(prompt: str, image_data_uri: str, image_base64: str, max_tokens: int):
+    system_text = "You are a careful image analysis assistant. Follow the user's requested JSON/output format exactly."
+    user_text = str(prompt or "").strip()
+    simple_messages = [
+        {"role": "system", "content": system_text},
+        {"role": "user", "content": user_text},
+    ]
+    # مستند رسمی Workers AI برای Llama Vision از messages + image استفاده می‌کند؛
+    # برای سازگاری با schemaهای قدیمی، prompt و حالت base64 خام هم fallback هستند.
+    return [
+        ("messages_image_data_uri", {
+            "prompt": user_text,
+            "messages": simple_messages,
+            "image": image_data_uri,
+            "max_tokens": int(max_tokens or 1200),
+        }),
+        ("messages_image_base64", {
+            "prompt": user_text,
+            "messages": simple_messages,
+            "image": image_base64,
+            "max_tokens": int(max_tokens or 1200),
+        }),
+        ("content_image_url", {
+            "prompt": user_text,
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_text},
+                    {"type": "image_url", "image_url": {"url": image_data_uri}},
+                ],
+            }],
+            "max_tokens": int(max_tokens or 1200),
+        }),
+    ]
+
+
+def _cloudflare_error_text(raw, fallback=""):
+    if isinstance(raw, dict):
+        parts = []
+        for key in ("errors", "messages"):
+            val = raw.get(key)
+            if isinstance(val, list):
+                for item in val[:3]:
+                    if isinstance(item, dict):
+                        parts.append(str(item.get("message") or item.get("code") or item)[:160])
+                    else:
+                        parts.append(str(item)[:160])
+            elif isinstance(val, str):
+                parts.append(val[:160])
+        if parts:
+            return "؛ ".join(p for p in parts if p)
+    return str(fallback or "").strip()[:220]
+
+
+async def _ask_ai_cloudflare_vision(provider_name, row, image_data_uri, image_base64, prompt,
+                                    model=None, max_tokens=1200, timeout_override=None):
+    if not row["enabled"]:
+        return _ai_err(provider_name, model or "", "پروایدر غیرفعال است")
+    api_key = (row["api_key"] or "").strip()
+    if not api_key:
+        return _ai_err(provider_name, model or "", "API Key تنظیم نشده")
+    api_root = (row["api_root"] or "").strip().rstrip("/")
+    if not api_root:
+        return _ai_err(provider_name, model or "", "API Root تنظیم نشده")
+    if "{account_id}" in api_root:
+        return _ai_err(provider_name, model or "", "شناسهٔ حساب کلودفلر در API Root جایگزین {account_id} نشده است")
+    candidates = _cloudflare_vision_candidates(row, model)
+    if not candidates:
+        return _ai_err(provider_name, model or "", "مدل Vision مناسب برای Cloudflare پیدا نشد")
+    try:
+        timeout = int(timeout_override) if timeout_override else int(row["timeout"] or 25)
+    except (TypeError, ValueError):
+        timeout = int(row["timeout"] or 25)
+    proxy = _get_proxy_for_provider(row, sensitive=True)
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    payloads = _cloudflare_vision_payloads(prompt, image_data_uri, image_base64, max_tokens)
+    last_model = candidates[0]
+    last_error = "Cloudflare Vision پاسخ معتبر نداد"
+    async with _make_client(timeout, proxy) as client:
+        for use_model in candidates[:4]:
+            last_model = use_model
+            for fmt, payload in payloads:
+                try:
+                    resp = await client.post(f"{api_root}/{use_model}", headers=headers, json=payload)
+                except Exception as exc:
+                    last_error = f"{type(exc).__name__}: {str(exc)[:180]}"
+                    break
+                if resp.status_code != 200:
+                    body = getattr(resp, "text", "") or ""
+                    last_error = f"HTTP {resp.status_code}: {body[:180]}"
+                    # 400/422 معمولاً تفاوت schema/payload است؛ فرمت بعدی را امتحان کن.
+                    if resp.status_code in (400, 415, 422):
+                        continue
+                    break
+                try:
+                    raw = resp.json()
+                except Exception:
+                    raw = {}
+                if isinstance(raw, dict) and raw.get("success", True) is False:
+                    last_error = _cloudflare_error_text(raw, "Cloudflare success=false")
+                    if "validation" in last_error.lower() or "schema" in last_error.lower():
+                        continue
+                    break
+                text = _ai_text_cloudflare(raw)
+                if text:
+                    return {
+                        "ok": True,
+                        "provider": provider_name,
+                        "model": use_model,
+                        "text": text,
+                        "raw": raw,
+                        "error": "",
+                        "request_format": fmt,
+                    }
+                last_error = "Cloudflare Vision متن قابل خواندن برنگرداند"
+    return _ai_err(provider_name, last_model, last_error)
+
+
 async def ask_ai_vision(provider_name, image_path, prompt, model=None, max_tokens=1200,
                         timeout_override=None):
     """
     ارسال عکس به AI برای تحلیل مو / صورت.
-    فرمت استاندارد OpenAI vision (image_url در قالب base64).
+    OpenAI-compatibleها با image_url و Cloudflare Workers AI با payload رسمی image/messages فراخوانی می‌شوند.
     """
     if _httpx is None:
         return _ai_err(provider_name, "", "httpx نصب نیست")
     try:
         with open(image_path, "rb") as f:
-            img_data = base64.b64encode(f.read()).decode()
+            img_raw = f.read()
+        img_data = base64.b64encode(img_raw).decode()
         ext = image_path.split(".")[-1].lower()
         if ext == "jpg":
+            ext = "jpeg"
+        if ext not in {"jpeg", "png", "webp", "gif"}:
             ext = "jpeg"
         image_url = f"data:image/{ext};base64,{img_data}"
     except Exception as e:
         return _ai_err(provider_name, "", f"خطا در خواندن عکس: {e}")
+
+    row = get_ai_provider(provider_name)
+    if row is not None and row["kind"] == "cloudflare":
+        return await _ask_ai_cloudflare_vision(
+            provider_name, row, image_url, img_data, prompt,
+            model=model, max_tokens=max_tokens, timeout_override=timeout_override,
+        )
 
     messages = [{
         "role": "user",
@@ -1335,7 +1528,6 @@ async def ask_ai_vision(provider_name, image_path, prompt, model=None, max_token
     }]
     return await ask_ai(provider_name, messages, model=model, max_tokens=max_tokens,
                         sensitive_proxy=True, timeout_override=timeout_override)
-
 
 async def ask_ai_fast(messages, model=None, temperature=0.7, max_tokens=1200, category=""):
     """راه سریع متنی — فاز ۳: سقف ۱۵ ثانیه کل / ۴ ثانیه هر مدل + سلامت مشترک."""

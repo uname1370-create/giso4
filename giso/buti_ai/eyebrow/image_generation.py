@@ -818,6 +818,12 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
     if not mask_info.get("ok") or not mask_path or not os.path.exists(mask_path):
         raise ImageProviderError("خروجی AI ذخیره نشد؛ mask ابرو برای حفظ چشم/مژه ساخته نشد")
     try:
+        coverage = float(mask_info.get("coverage_ratio") or 0)
+    except Exception:
+        coverage = 0.0
+    if coverage <= 0 or coverage > 0.08:
+        raise ImageProviderError("mask ابرو برای ذخیره خروجی AI ایمن نیست؛ محدوده ویرایش بیش از حد وسیع/نامعتبر است")
+    try:
         mask = Image.open(mask_path).convert("L").resize(size, Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
         # Binary core + tiny feather: only brow pixels are editable; edge remains natural.
         mask = mask.point(lambda px: 255 if int(px) >= 128 else 0)
