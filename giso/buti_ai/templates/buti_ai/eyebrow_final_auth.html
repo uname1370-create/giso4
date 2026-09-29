@@ -3,11 +3,12 @@
 {% block title %}ورود برای طراحی عکس نهایی ابرو{% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=18">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=19">
 {% endblock %}
 
 {% block content %}
 <main class="bti-page bti-service-experience bti-eyebrow-flow" dir="rtl">
+    {% set photo_cache = candidate.cache_key or candidate.created_at or candidate.photo_filename %}
     <section class="bti-shell bti-eyebrow-board bti-final-auth-board">
         <div class="bti-board-topbar">
             <a class="bti-board-back" href="{{ url_for('buti_ai.eyebrow_wizard') }}">بازگشت به آینه ابرو</a>
@@ -27,7 +28,7 @@
             <div class="bti-final-auth-preview-wrap">
                 {% if candidate.photo_filename %}
                 <div class="bti-final-auth-preview">
-                    <img src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename) }}" alt="عکس آماده طراحی">
+                    <img src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename, v=photo_cache) }}" alt="عکس آماده طراحی">
                     <span class="bti-laser-scan" aria-hidden="true"></span>
                     <em>در حال آماده‌سازی طراحی نهایی</em>
                 </div>
@@ -39,12 +40,12 @@
                 </div>
             </div>
             <div class="bti-final-auth-actions">
-                <a class="bti-primary-action" href="{{ login_url }}" data-bti-final-loading-link data-bti-loading-image="{% if candidate.photo_filename %}{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename) }}{% endif %}">ورود و ساخت طراحی</a>
-                <a class="bti-secondary-action" href="{{ register_url }}" data-bti-final-loading-link data-bti-loading-image="{% if candidate.photo_filename %}{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename) }}{% endif %}">ثبت‌نام سریع</a>
+                <a class="bti-primary-action" href="{{ login_url }}" data-bti-final-loading-link data-bti-loading-image="{% if candidate.photo_filename %}{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename, v=photo_cache) }}{% endif %}">ورود و ساخت طراحی</a>
+                <a class="bti-secondary-action" href="{{ register_url }}" data-bti-final-loading-link data-bti-loading-image="{% if candidate.photo_filename %}{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename, v=photo_cache) }}{% endif %}">ثبت‌نام سریع</a>
             </div>
         </div>
     </section>
 </main>
 
-<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=18" defer></script>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=19" defer></script>
 {% endblock %}

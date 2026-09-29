@@ -143,9 +143,22 @@ def test_buti_ai_eyebrow_real_photo_step_flow_with_csrf(monkeypatch):
     )
     assert response.status_code == 200
     text = response.get_data(as_text=True)
-    assert "ورود لازم است" in text
+    assert "همان مدل انتخابی آماده طراحی است" in text
+    assert "عکس واقعی شما" in text
     assert "میکروبلیدینگ ظریف" in text
-    assert "طراحی عکس نهایی" in text
+    assert "/analysis/mirror/eyebrow/uploads/" in text
+
+    final_token = re.findall(r'name="csrf_token" value="([^"]+)"', text)[-1]
+    final_response = client.post(
+        "/analysis/mirror/eyebrow/finalize",
+        data={"csrf_token": final_token, "final_style": "microblading"},
+        follow_redirects=True,
+    )
+    assert final_response.status_code == 200
+    final_text = final_response.get_data(as_text=True)
+    assert "ورود لازم است" in final_text
+    assert "میکروبلیدینگ ظریف" in final_text
+    assert "طراحی عکس نهایی" in final_text
 
     _cleanup_buti_ai_sessions()
 
@@ -202,8 +215,11 @@ def test_eyebrow_upload_preserves_every_selected_model_as_final_source(tmp_path,
             content_type="multipart/form-data",
             follow_redirects=False,
         )
-        assert response.status_code == 302
-        assert response.headers["Location"].endswith("/analysis/mirror/eyebrow/final")
+        assert response.status_code == 200
+        response_text = response.get_data(as_text=True)
+        assert "عکس واقعی شما" in response_text
+        assert "همین عکس وارد طراحی عکس نهایی می‌شود" in response_text
+        assert style_meta["label"] in response_text
         with client.session_transaction() as sess:
             candidate = dict(sess[FINAL_DESIGN_SESSION_KEY])
         assert candidate["selected_style"] == style_key
@@ -809,6 +825,49 @@ def test_ai_provider_output_changes_only_eyebrow_mask_area(tmp_path, monkeypatch
         pixel = saved.getpixel((sx, sy))
         assert sum(abs(int(pixel[i]) - base_color[i]) for i in range(3)) / 3.0 < 8
 
+
+def test_ai_provider_no_visible_eyebrow_change_is_rejected_and_falls_back(tmp_path, monkeypatch):
+    """HTTP 200/provider image is not success unless eyebrow ROI visibly changes."""
+    import base64
+    from io import BytesIO as _BytesIO
+    from PIL import Image
+    from giso.buti_ai.eyebrow import final_design, image_generation
+
+    original = tmp_path / "face.jpg"
+    base = Image.new("RGB", (640, 820), (218, 178, 148))
+    base.save(original, "JPEG")
+    decoded_original = Image.open(original).convert("RGB")
+    output = _BytesIO()
+    decoded_original.save(output, "PNG")
+    output_value = "data:image/png;base64," + base64.b64encode(output.getvalue()).decode("ascii")
+
+    monkeypatch.setattr(final_design, "EYEBROW_UPLOAD_DIR", str(tmp_path))
+    monkeypatch.setattr(final_design, "FINAL_DESIGN_DIR", str(tmp_path / "final"))
+    monkeypatch.setattr(
+        image_generation,
+        "configured_image_providers",
+        lambda env=None: [image_generation.ImageProviderConfig(
+            id="mock_unchanged_provider",
+            label="Mock Unchanged Provider",
+            kind="json_image",
+            endpoint="https://mock.invalid/image",
+            model="mock-unchanged-output",
+            api_key="fake",
+        )],
+    )
+    monkeypatch.setattr(image_generation, "_call_provider", lambda *args, **kwargs: output_value)
+
+    result = image_generation.generate_final_design(_sample_final_candidate(), env={})
+
+    assert result["ok"] is True
+    assert result["is_ai_generated"] is False
+    assert result["provider"] == "python_guided_composite"
+    assert result["fallback_used"] is True
+    assert result["attempts"][0]["ok"] is False
+    assert "تغییر قابل مشاهده" in result["attempts"][0]["error"]
+    assert (tmp_path / result["filename"]).exists()
+
+
 def test_cloudflare_inpainting_request_uses_real_eyebrow_mask(tmp_path, monkeypatch):
     import json
     from io import BytesIO as _BytesIO
@@ -1089,7 +1148,7 @@ def test_final_design_template_shows_inline_center_suggestions():
     assert "مشاهده همه مراکز ابرو" in html
     assert "برای اجرای" in html
     assert "راهنمای هوشمند قبل از انتخاب مرکز" in html
-    assert "این تصویر، راهنمای غیر AI/پیش‌نمایش طراحی عکس نهایی است" in html
+    assert "این تصویر، راهنمای غیر AI برای طراحی عکس نهایی است" in html
     assert "طراحی راهنمای غیر AI آماده شد" in html
 
 

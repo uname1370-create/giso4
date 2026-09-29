@@ -101,6 +101,8 @@ def build_final_candidate(result, photo_status):
     filename = _safe_filename(photo_status.get("filename") or (result.get("preview") or {}).get("before_filename"))
     selected_meta = EYEBROW_STYLES[selected_style]
     eyebrow_detection = result.get("eyebrow_detection") if isinstance(result.get("eyebrow_detection"), dict) else {}
+    created_at = datetime.utcnow().isoformat(timespec="seconds")
+    cache_key = f"{filename}-{created_at}" if filename else created_at
     return {
         "session_id": result.get("session_id"),
         "photo_filename": filename,
@@ -122,7 +124,8 @@ def build_final_candidate(result, photo_status):
         "face_analysis": result.get("face_analysis") or {},
         "eyebrow_detection": eyebrow_detection,
         "ai_is_real": bool(result.get("ai_is_real")),
-        "created_at": datetime.utcnow().isoformat(timespec="seconds"),
+        "created_at": created_at,
+        "cache_key": cache_key,
     }
 
 
@@ -261,14 +264,47 @@ def _brow_curve(cx, cy, length, arch, flip=False, steps=30):
     return points
 
 
+def _tapered_brow_shape(points, thickness):
+    upper = []
+    lower = []
+    count = len(points)
+    if count < 2:
+        return []
+    for idx, (x, y) in enumerate(points):
+        prev_x, prev_y = points[max(0, idx - 1)]
+        next_x, next_y = points[min(count - 1, idx + 1)]
+        dx = float(next_x - prev_x)
+        dy = float(next_y - prev_y)
+        norm = math.sqrt(dx * dx + dy * dy) or 1.0
+        nx = -dy / norm
+        ny = dx / norm
+        t = idx / max(1, count - 1)
+        # Thicker through the body, thinner at head/tail to look like an eyebrow, not a marker stroke.
+        profile = 0.38 + 0.72 * math.sin(math.pi * t)
+        if t < 0.14:
+            profile *= 0.72
+        if t > 0.82:
+            profile *= max(0.24, 1.0 - (t - 0.82) * 2.9)
+        half = max(1.8, float(thickness) * profile)
+        upper.append((x + nx * half, y + ny * half))
+        lower.append((x - nx * half * 0.78, y - ny * half * 0.78))
+    return upper + list(reversed(lower))
+
+
 def _draw_brow(draw, cx, cy, length, arch, color, params, flip=False, mode="combination"):
     points = _brow_curve(cx, cy, length, arch, flip=flip)
     width = max(2, int(params["width"]))
+    shade = float(params.get("shade") or 0)
+    shape = _tapered_brow_shape(points, max(width + 2, width * (1.15 + shade)))
+    if shape:
+        fill_alpha = int(color[3] * (0.38 + min(0.36, shade)))
+        fill_color = color[:3] + (max(36, min(178, fill_alpha)),)
+        draw.polygon(shape, fill=fill_color)
     if params.get("shade", 0) > 0:
         shade_width = max(width + 6, int(width * 1.7))
         shade_color = color[:3] + (int(color[3] * params["shade"]),)
         draw.line(points, fill=shade_color, width=shade_width, joint="curve")
-    draw.line(points, fill=color, width=width, joint="curve")
+    draw.line(points, fill=color, width=max(1, int(width * 0.72)), joint="curve")
 
     stroke_count = int(params.get("strokes") or 0)
     if stroke_count <= 0:

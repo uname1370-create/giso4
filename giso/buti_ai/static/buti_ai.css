@@ -2978,3 +2978,75 @@
         width: 100%;
     }
 }
+
+/* Eyebrow upload result: show the real uploaded photo before final design. */
+.bti-uploaded-preview-card {
+    display: grid;
+    grid-template-columns: minmax(240px, .75fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: stretch;
+    margin: 0 0 14px;
+    padding: 16px;
+    border: 1px solid rgba(37,211,154,.24);
+    border-radius: 22px;
+    background: linear-gradient(135deg, rgba(37,211,154,.08), rgba(255,255,255,.03));
+}
+
+.bti-uploaded-preview-card figure {
+    position: relative;
+    min-height: 300px;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 18px;
+    background: #090909;
+}
+
+.bti-uploaded-preview-card img {
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    display: block;
+    object-fit: contain;
+}
+
+.bti-uploaded-preview-card div {
+    display: grid;
+    align-content: center;
+    gap: 9px;
+}
+
+.bti-uploaded-preview-card span:not(.bti-laser-scan) {
+    width: fit-content;
+    padding: 6px 10px;
+    border-radius: 999px;
+    color: #111;
+    background: var(--bti-gold);
+    font-size: .76rem;
+    font-weight: 1000;
+}
+
+.bti-uploaded-preview-card h3 {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(1.2rem, 2.4vw, 1.75rem);
+    line-height: 1.65;
+}
+
+.bti-uploaded-preview-card p,
+.bti-uploaded-preview-card small {
+    margin: 0;
+    color: var(--bti-muted);
+    line-height: 1.9;
+}
+
+@media (max-width: 860px) {
+    .bti-uploaded-preview-card {
+        grid-template-columns: 1fr;
+    }
+
+    .bti-uploaded-preview-card figure,
+    .bti-uploaded-preview-card img {
+        min-height: 260px;
+    }
+}

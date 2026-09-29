@@ -6,11 +6,15 @@
 {% endblock %}
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=18">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=19">
 {% endblock %}
 
 {% block content %}
 <main class="bti-page bti-service-experience bti-eyebrow-flow" dir="rtl">
+    {% set photo_cache = candidate.cache_key or candidate.created_at or candidate.photo_filename %}
+    {% set before_image_url = url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename, v=photo_cache) if candidate.photo_filename else '' %}
+    {% set final_cache = (generation.filename ~ '-' ~ (generation.status or '') ~ '-' ~ (generation.final_width or '')) if generation and generation.filename else '' %}
+    {% set final_image_url = url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename, v=final_cache) if generation and generation.filename else '' %}
     <section class="bti-shell bti-result-board bti-final-design-board">
         <div class="bti-board-topbar">
             <a class="bti-board-back" href="{{ url_for('buti_ai.eyebrow_wizard') }}">بازگشت به آینه ابرو</a>
@@ -19,7 +23,7 @@
                 <div>
                     <b>طراحی عکس نهایی ابرو</b>
                     <small>
-                        {% if generation and generation.ai_inpainting %}AI Inpainting با ماسک ابرو{% elif generation and generation.fallback_used %}نسخه راهنمای غیر AI بعد از تلاش مدل{% elif generation and generation.provider and generation.provider != 'python_guided_composite' %}ساخته‌شده با مدل AI{% else %}پیش‌نمایش راهنمای غیر AI{% endif %}
+                        {% if generation and generation.ai_inpainting and generation.is_ai_generated %}AI Inpainting با ماسک ابرو{% elif generation and generation.fallback_used %}نسخه راهنمای غیر AI بعد از تلاش مدل{% elif generation and generation.is_ai_generated %}ساخته‌شده با مدل AI{% else %}راهنمای غیر AI{% endif %}
                     </small>
                 </div>
             </div>
@@ -34,9 +38,9 @@
         {% if generation.ok %}
         <div class="bti-compare-card" aria-label="مقایسه قبل و بعد طراحی عکس نهایی">
             <div class="bti-compare-slider" data-bti-compare style="--bti-compare-pos: 50%;">
-                <img class="bti-compare-img bti-compare-before" src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=candidate.photo_filename) }}" alt="عکس اصلی کاربر">
+                <img class="bti-compare-img bti-compare-before" src="{{ before_image_url }}" alt="عکس اصلی کاربر">
                 <div class="bti-compare-after-wrap">
-                    <img class="bti-compare-img bti-compare-after" src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename) }}" alt="طراحی عکس نهایی ابرو">
+                    <img class="bti-compare-img bti-compare-after" src="{{ final_image_url }}" alt="طراحی عکس نهایی ابرو">
                 </div>
                 <span class="bti-compare-label is-before">قبل</span>
                 <span class="bti-compare-label is-after">طراحی عکس نهایی</span>
@@ -46,7 +50,7 @@
                 <input class="bti-compare-range" type="range" min="0" max="100" value="50" aria-label="میزان نمایش طراحی عکس نهایی">
             </div>
             <div class="bti-compare-actions">
-                <button class="bti-secondary-action bti-zoom-action" type="button" data-bti-lightbox-image="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.filename) }}">بزرگنمایی طراحی</button>
+                <button class="bti-secondary-action bti-zoom-action" type="button" data-bti-lightbox-image="{{ final_image_url }}">بزرگنمایی طراحی</button>
             </div>
             <p>خط وسط را بکش؛ سمت راست عکس اصلی و سمت چپ طراحی نهایی را نشان می‌دهد.</p>
         </div>
@@ -55,22 +59,22 @@
         {% endif %}
 
         {% if generation %}
-        <div class="bti-provider-status {% if generation.fallback_used %}is-fallback{% elif generation.provider and generation.provider != 'python_guided_composite' %}is-ai{% endif %}">
+        <div class="bti-provider-status {% if generation.fallback_used or not generation.is_ai_generated %}is-fallback{% elif generation.is_ai_generated %}is-ai{% endif %}">
             <i class="fas fa-wand-magic-sparkles"></i>
             <div>
                 <b>
-                    {% if generation.ai_inpainting %}
+                    {% if generation.ai_inpainting and generation.is_ai_generated %}
                     طراحی با AI Inpainting و ماسک واقعی ابرو آماده شد
                     {% elif generation.fallback_used %}
-                    مدل‌های AI فعلاً جواب ندادند؛ نسخه راهنمای غیر AI نمایش داده شد
-                    {% elif generation.provider and generation.provider != 'python_guided_composite' %}
-                    طراحی عکس نهایی با مدل AI آماده شد
+                    خروجی AI قابل استفاده نبود؛ نسخه راهنمای غیر AI نمایش داده شد
+                    {% elif generation.is_ai_generated %}
+                    طراحی عکس نهایی با مدل AI و تغییر قابل مشاهده ابرو آماده شد
                     {% else %}
                     طراحی راهنمای غیر AI آماده شد
                     {% endif %}
                 </b>
                 <span>
-                    عکس و انتخابت حفظ شده است. {% if generation.ai_inpainting %}این خروجی با ماسک واقعی ابرو ساخته شده{% elif generation.provider_output_constrained_to_eyebrow_mask and generation.mask_is_fallback %}خروجی AI فقط داخل محدوده تقریبی ابرو روی عکس اصلی اعمال شده{% elif generation.provider_output_constrained_to_eyebrow_mask %}خروجی AI فقط داخل محدوده ابرو روی عکس اصلی اعمال شده{% else %}اگر نسخه راهنما باشد، AI Inpainting واقعی نیست{% endif %} و اجرای دقیق باید با متخصص انجام شود.
+                    عکس و انتخابت حفظ شده است. {% if generation.ai_inpainting and generation.is_ai_generated %}این خروجی با ماسک واقعی ابرو ساخته شده{% elif generation.is_ai_generated and generation.provider_output_constrained_to_eyebrow_mask %}خروجی AI فقط داخل محدوده واقعی ابرو روی عکس اصلی اعمال شده و تغییر ROI تأیید شده{% else %}این نسخه AI واقعی نیست و به‌عنوان راهنمای غیر AI نمایش داده می‌شود{% endif %} و اجرای دقیق باید با متخصص انجام شود.
                 </span>
                 {% if generation.attempts %}
                 <details class="bti-provider-technical">
@@ -84,7 +88,7 @@
                         {% endfor %}
                     </ul>
                     {% if generation.mask_filename %}
-                    <a class="bti-mask-debug-link" href="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.mask_filename) }}" target="_blank" rel="noopener">مشاهده ماسک ابرو</a>
+                    <a class="bti-mask-debug-link" href="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=generation.mask_filename, v=final_cache) }}" target="_blank" rel="noopener">مشاهده ماسک ابرو</a>
                     {% endif %}
                 </details>
                 {% endif %}
@@ -117,12 +121,12 @@
 
         <div class="bti-final-design-note">
             <b>مهم:</b>
-            {% if generation and generation.ai_inpainting %}
+            {% if generation and generation.ai_inpainting and generation.is_ai_generated %}
             <span>این تصویر با AI Inpainting و ماسک واقعی ابرو ساخته شده؛ بااین‌حال نتیجه فقط پیش‌نمایش طراحی است و اجرای دقیق باید با متخصص کنترل شود.</span>
-            {% elif generation and generation.provider and generation.provider != 'python_guided_composite' and not generation.fallback_used %}
-            <span>این تصویر، پیش‌نمایش AI طراحی عکس نهایی در گیسو است و خروجی فقط روی محدوده ابرو اعمال شده؛ برای اجرای دقیق، فرم نهایی، رنگ و تکنیک را با مرکز متخصص ابرو کنترل کن.</span>
+            {% elif generation and generation.is_ai_generated and not generation.fallback_used %}
+            <span>این تصویر، طراحی عکس نهایی AI در گیسو است؛ خروجی فقط بعد از تأیید تغییر قابل مشاهده داخل ابرو نمایش داده شده و بیرون از mask حفظ شده است.</span>
             {% else %}
-            <span>این تصویر، راهنمای غیر AI/پیش‌نمایش طراحی عکس نهایی است؛ AI Inpainting واقعی نیست. برای طراحی دقیق و انجام کار، از مراکز زیبایی ارائه‌دهنده ابرو کمک بگیر.</span>
+            <span>این تصویر، راهنمای غیر AI برای طراحی عکس نهایی است؛ AI Inpainting واقعی نیست. برای طراحی دقیق و انجام کار، از مراکز زیبایی ارائه‌دهنده ابرو کمک بگیر.</span>
             {% endif %}
         </div>
 
@@ -211,5 +215,5 @@
         </div>
     </section>
 </main>
-<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=18" defer></script>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=19" defer></script>
 {% endblock %}

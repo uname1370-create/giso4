@@ -11,7 +11,7 @@
 
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=18">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=19">
 {% endblock %}
 
 {% block content %}
@@ -189,6 +189,22 @@
             <p>عکس بررسی اولیه شد و همان مدل انتخابی وارد طراحی نهایی می‌شود.</p>
         </header>
 
+        {% if result.preview and result.preview.available and result.preview.before_filename %}
+        {% set preview_cache = result.preview.before_filename ~ '-' ~ (result.session_id or '') %}
+        <section class="bti-uploaded-preview-card" aria-label="پیش‌نمایش عکس واقعی آپلود شده">
+            <figure>
+                <img src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=result.preview.before_filename, v=preview_cache) }}" alt="عکس آپلود شده برای طراحی ابرو">
+                <span class="bti-laser-scan" aria-hidden="true"></span>
+            </figure>
+            <div>
+                <span>عکس واقعی شما</span>
+                <h3>همین عکس وارد طراحی عکس نهایی می‌شود</h3>
+                <p>فایل جدید با نام امن ذخیره شده و مدل انتخابی شما بدون جایگزینی حفظ شده است.</p>
+                <small>مدل: {{ result.style.label }} — میزان تغییر: {{ result.change_label }}</small>
+            </div>
+        </section>
+        {% endif %}
+
         <section class="bti-simple-analysis-card" aria-label="خلاصه آماده‌سازی طراحی ابرو">
             <article>
                 <span>تأیید اولیه عکس</span>
@@ -215,7 +231,7 @@
                 <h3>همان مدل انتخابی طراحی می‌شود</h3>
             </div>
             <p class="bti-final-choice-lead">مدل نهایی از انتخاب مرحله اول می‌آید و با مدل دیگری جایگزین نمی‌شود.</p>
-            <form method="post" action="{{ url_for('buti_ai.eyebrow_finalize_choice') }}" data-bti-final-build-form data-bti-loading-image="{% if result.preview and result.preview.before_filename %}{{ url_for('buti_ai.eyebrow_uploaded_file', filename=result.preview.before_filename) }}{% endif %}">
+            <form method="post" action="{{ url_for('buti_ai.eyebrow_finalize_choice') }}" data-bti-final-build-form data-bti-loading-image="{% if result.preview and result.preview.before_filename %}{{ url_for('buti_ai.eyebrow_uploaded_file', filename=result.preview.before_filename, v=(result.preview.before_filename ~ '-' ~ (result.session_id or ''))) }}{% endif %}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="final_style" value="{{ result.selected_style_key }}">
                 <div class="bti-final-choice-list" role="group" aria-label="مدل نهایی ابرو">
@@ -250,5 +266,5 @@
     </section>
     {% endif %}
 </main>
-<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=18" defer></script>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=19" defer></script>
 {% endblock %}

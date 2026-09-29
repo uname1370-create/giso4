@@ -5,6 +5,7 @@ giso/buti_ai/routes.py — کنترلرهای وب و ای‌پی‌آی آین�
 قانون مرز کد: منطق اختصاصی Buti AI داخل همین ماژول می‌ماند. این فایل فقط
 route/controller است و منطق سناریوی ابرو در `giso/buti_ai/eyebrow/` قرار دارد.
 """
+import logging
 import os
 import shutil
 import tempfile
@@ -49,6 +50,45 @@ from giso.buti_ai.services import (
 
 
 EYEBROW_SELECTION_SESSION_KEY = "buti_ai_eyebrow_selection"
+logger = logging.getLogger("giso_buti_ai_routes")
+
+
+def _beauty_route_log(tag, message="", **fields):
+    safe_parts = []
+    for key, value in fields.items():
+        key_text = str(key or "").strip()
+        if not key_text or any(secret in key_text.lower() for secret in ("token", "secret", "api_key", "authorization", "account_id")):
+            continue
+        text = str(value or "").replace("\n", " ").replace("\r", " ").strip()[:180]
+        safe_parts.append(f"{key_text}={text}")
+    logger.info("%s %s%s%s", tag, message or "", " " if safe_parts else "", " ".join(safe_parts))
+
+
+
+def _log_preview_candidate(candidate, source="upload"):
+    if not isinstance(candidate, dict):
+        return
+    filename = candidate.get("photo_filename") or ""
+    path = os.path.join(EYEBROW_UPLOAD_DIR, os.path.basename(filename)) if filename else ""
+    size_text = ""
+    if path and os.path.exists(path):
+        try:
+            from PIL import Image
+
+            with Image.open(path) as image:
+                size_text = f"{image.width}x{image.height}"
+        except Exception:
+            size_text = "unreadable"
+    _beauty_route_log(
+        "[EYEBROW_PREVIEW]",
+        "candidate_photo_ready",
+        source=source,
+        filename=filename,
+        path=path,
+        size=size_text,
+        final_style=candidate.get("final_style"),
+        cache_key=candidate.get("cache_key") or candidate.get("created_at"),
+    )
 
 
 def _selection_from_form(form):
@@ -160,7 +200,7 @@ def eyebrow_model_selection():
 
 @buti_ai_bp.route("/eyebrow/upload", methods=["GET", "POST"])
 def eyebrow_upload():
-    """مرحله مستقل آپلود عکس؛ پس از اعتبارسنجی مستقیم وارد طراحی نهایی می‌شود."""
+    """مرحله مستقل آپلود عکس؛ پس از اعتبارسنجی، پیش‌نمایش واقعی عکس را نشان می‌دهد."""
     init_buti_ai_db()
     selection = _current_selection()
     if request.method == "GET":
@@ -174,12 +214,13 @@ def eyebrow_upload():
         request.files,
         user_id=_safe_current_user_id(),
     )
-    state["flow_step"] = "upload"
+    state["flow_step"] = "result" if state.get("result") else "upload"
     if state.get("result"):
-        store_final_candidate(session, state.get("result"), state.get("photo_status"))
+        candidate = store_final_candidate(session, state.get("result"), state.get("photo_status"))
+        _log_preview_candidate(candidate, source="upload_route")
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
-        return redirect(url_for("buti_ai.eyebrow_final_design"))
+        return _render_eyebrow_wizard(state)
     if state.get("flash_message"):
         flash(state["flash_message"], state.get("flash_category") or "info")
     return _render_eyebrow_wizard(state)
@@ -282,6 +323,14 @@ def eyebrow_final_design():
     if not generation or not generation.get("ok"):
         generation = generate_final_design(candidate)
         candidate["generation"] = generation
+        _beauty_route_log(
+            "[FINAL]",
+            "route_generation_result",
+            filename=generation.get("filename") if isinstance(generation, dict) else "",
+            status=generation.get("status") if isinstance(generation, dict) else "",
+            is_ai_generated=generation.get("is_ai_generated") if isinstance(generation, dict) else False,
+            ok=generation.get("ok") if isinstance(generation, dict) else False,
+        )
         if generation.get("ok") and not candidate.get("final_design_id"):
             design_id = save_final_design(_safe_current_user_id(), candidate, generation)
             candidate["final_design_id"] = design_id
@@ -345,7 +394,14 @@ def eyebrow_final_design():
 @buti_ai_bp.route("/eyebrow/uploads/<path:filename>", methods=["GET"])
 def eyebrow_uploaded_file(filename):
     """نمایش امن عکس‌های runtime آینه ابرو برای پیش‌نمایش همان صفحه."""
-    return send_from_directory(EYEBROW_UPLOAD_DIR, filename)
+    safe_name = os.path.basename(str(filename or ""))
+    _beauty_route_log("[EYEBROW_PREVIEW]", "serve_uploaded_file", filename=safe_name, cache_buster=request.args.get("v", ""))
+    response = send_from_directory(EYEBROW_UPLOAD_DIR, filename)
+    response.cache_control.no_cache = True
+    response.cache_control.max_age = 0
+    response.headers["Pragma"] = "no-cache"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @buti_ai_bp.route("/eyebrow/centers", methods=["GET", "POST"])

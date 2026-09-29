@@ -56,6 +56,12 @@ MAX_DOWNLOAD_BYTES = 12 * 1024 * 1024
 MAX_SAVE_SIDE = 1600
 MAX_PROVIDER_INPUT_SIDE = 512
 MAX_INPAINTING_INPUT_SIDE = 512
+MAX_DIFF_SAMPLE_PIXELS = 260_000
+MIN_VISIBLE_EYEBROW_MEAN_DELTA = 4.0
+MIN_VISIBLE_EYEBROW_CHANGED_RATIO = 0.018
+VISIBLE_EYEBROW_PIXEL_DELTA = 8.0
+MAX_OUTSIDE_MASK_MEAN_DELTA = 1.25
+MAX_OUTSIDE_MASK_P99_DELTA = 6.0
 
 
 class ImageProviderError(RuntimeError):
@@ -91,6 +97,40 @@ def _safe_host(url: str) -> str:
         return parsed.netloc or ""
     except Exception:
         return ""
+
+
+def _safe_log_value(value: Any, limit: int = 180) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        return f"{value:.6f}"
+    text = str(value)
+    text = text.replace("\n", " ").replace("\r", " ").strip()
+    return text[:limit]
+
+
+def _beauty_log(tag: str, message: str = "", **fields: Any) -> None:
+    """Beauty-AI-only structured log helper; never include keys/tokens/secrets."""
+    safe_parts = []
+    for key, value in fields.items():
+        key_text = str(key or "").strip()
+        if not key_text:
+            continue
+        if any(secret in key_text.lower() for secret in ("token", "secret", "api_key", "authorization", "account_id")):
+            continue
+        safe_parts.append(f"{key_text}={_safe_log_value(value)}")
+    suffix = " ".join(safe_parts)
+    logger.info("%s %s%s%s", tag, message or "", " " if suffix else "", suffix)
+
+
+def _image_size_for_log(path: str) -> Tuple[int, int]:
+    try:
+        from PIL import Image
+
+        with Image.open(path) as image:
+            return int(image.width or 0), int(image.height or 0)
+    except Exception:
+        return 0, 0
 
 
 def _env_value(env: Optional[Dict[str, str]], key: str, default: str = "") -> str:
@@ -792,7 +832,7 @@ def _decode_image_value(image_value: str, timeout: int) -> Tuple[bytes, str]:
 
 
 def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any], size: Tuple[int, int]):
-    """Return a resized eyebrow-only mask so provider output cannot alter eyes/lashes."""
+    """Return a resized eyebrow-only real mask so provider output cannot alter eyes/lashes."""
     try:
         from PIL import Image, ImageFilter
     except Exception as exc:
@@ -802,14 +842,7 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
     if not detection or not detection.get("regions"):
         detection = final_design.ensure_eyebrow_detection(candidate)
     if not detection or not detection.get("regions"):
-        try:
-            from giso.buti_ai.eyebrow.landmarks import detect_eyebrow_regions
-            detection = detect_eyebrow_regions(source_path, allow_fallback=True)
-            if isinstance(detection, dict):
-                detection["provider_mask_fallback_used"] = True
-                candidate["eyebrow_detection"] = detection
-        except Exception:
-            detection = {}
+        raise ImageProviderError("خروجی AI پذیرفته نشد؛ محدوده واقعی دو ابرو روی عکس تشخیص داده نشد")
     if detection and detection.get("regions"):
         detection = ensure_eyebrow_mask(source_path, detection)
         candidate["eyebrow_detection"] = detection
@@ -817,6 +850,8 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
     mask_path = str(mask_info.get("path") or detection.get("mask_path") or "").strip() if isinstance(detection, dict) else ""
     if not mask_info.get("ok") or not mask_path or not os.path.exists(mask_path):
         raise ImageProviderError("خروجی AI ذخیره نشد؛ mask ابرو برای حفظ چشم/مژه ساخته نشد")
+    if mask_info.get("is_fallback") or mask_info.get("real_mask") is False or bool(detection.get("is_fallback")):
+        raise ImageProviderError("خروجی AI پذیرفته نشد؛ mask fallback/نسبتی برای ادعای AI واقعی استفاده نمی‌شود")
     try:
         coverage = float(mask_info.get("coverage_ratio") or 0)
     except Exception:
@@ -828,10 +863,21 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
         # Binary core + tiny feather: only brow pixels are editable; edge remains natural.
         mask = mask.point(lambda px: 255 if int(px) >= 128 else 0)
         mask = mask.filter(ImageFilter.GaussianBlur(radius=0.65))
+        _beauty_log(
+            "[EYEBROW_MASK]",
+            "provider_mask_ready",
+            method=detection.get("method") if isinstance(detection, dict) else "",
+            mask_path=_upload_relative_path(mask_path),
+            mask_size=f"{mask.size[0]}x{mask.size[1]}",
+            coverage_ratio=coverage,
+            real_mask=not bool(mask_info.get("is_fallback")),
+            polarity=mask_info.get("polarity") or MASK_POLARITY,
+        )
         return mask, detection
+    except ImageProviderError:
+        raise
     except Exception as exc:
         raise ImageProviderError("mask ابرو برای محدودکردن خروجی AI قابل خواندن نیست") from exc
-
 
 def _fit_provider_image_to_source(image, size: Tuple[int, int]):
     try:
@@ -848,22 +894,135 @@ def _fit_provider_image_to_source(image, size: Tuple[int, int]):
     return ImageOps.fit(image, size, method=resample, centering=(0.5, 0.5))
 
 
+def _pixel_delta_rgb(a: Tuple[int, int, int], b: Tuple[int, int, int]) -> float:
+    return (abs(int(a[0]) - int(b[0])) + abs(int(a[1]) - int(b[1])) + abs(int(a[2]) - int(b[2]))) / 3.0
+
+
+def _percentile(values: List[float], percentile: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    index = int(round((len(ordered) - 1) * max(0.0, min(1.0, percentile))))
+    return float(ordered[index])
+
+
+def _visible_eyebrow_diff_metrics(base, final_image, mask) -> Dict[str, Any]:
+    """Compare original/final, requiring visible change inside the real eyebrow mask only."""
+    if base.size != final_image.size:
+        final_image = _fit_provider_image_to_source(final_image, base.size).convert("RGB")
+    if mask.size != base.size:
+        try:
+            from PIL import Image
+            mask = mask.resize(base.size, Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST)
+        except Exception:
+            mask = mask.resize(base.size)
+    base = base.convert("RGB")
+    final_image = final_image.convert("RGB")
+    mask = mask.convert("L")
+    width, height = base.size
+    total = max(1, width * height)
+    stride = max(1, int((float(total) / float(MAX_DIFF_SAMPLE_PIXELS)) ** 0.5))
+    inside_deltas: List[float] = []
+    outside_deltas: List[float] = []
+    changed_inside = 0
+    changed_outside = 0
+    base_px = base.load()
+    final_px = final_image.load()
+    mask_px = mask.load()
+    for y in range(0, height, stride):
+        for x in range(0, width, stride):
+            m = int(mask_px[x, y])
+            delta = _pixel_delta_rgb(base_px[x, y], final_px[x, y])
+            if m >= 128:
+                inside_deltas.append(delta)
+                if delta >= VISIBLE_EYEBROW_PIXEL_DELTA:
+                    changed_inside += 1
+            elif m <= 2:
+                outside_deltas.append(delta)
+                if delta >= VISIBLE_EYEBROW_PIXEL_DELTA:
+                    changed_outside += 1
+    inside_pixels = len(inside_deltas)
+    outside_pixels = len(outside_deltas)
+    inside_mean = sum(inside_deltas) / inside_pixels if inside_pixels else 0.0
+    outside_mean = sum(outside_deltas) / outside_pixels if outside_pixels else 0.0
+    inside_changed_ratio = float(changed_inside) / float(max(1, inside_pixels))
+    outside_changed_ratio = float(changed_outside) / float(max(1, outside_pixels))
+    metrics = {
+        "diff_stride": int(stride),
+        "inside_mask_sampled_pixels": int(inside_pixels),
+        "outside_mask_sampled_pixels": int(outside_pixels),
+        "inside_mean_delta": round(float(inside_mean), 4),
+        "inside_p95_delta": round(_percentile(inside_deltas, 0.95), 4),
+        "inside_changed_ratio": round(float(inside_changed_ratio), 6),
+        "outside_mean_delta": round(float(outside_mean), 4),
+        "outside_p99_delta": round(_percentile(outside_deltas, 0.99), 4),
+        "outside_changed_ratio": round(float(outside_changed_ratio), 6),
+        "visible_change_threshold_delta": VISIBLE_EYEBROW_PIXEL_DELTA,
+    }
+    visible = (
+        inside_pixels > 0
+        and (
+            inside_mean >= MIN_VISIBLE_EYEBROW_MEAN_DELTA
+            or inside_changed_ratio >= MIN_VISIBLE_EYEBROW_CHANGED_RATIO
+        )
+        and metrics["inside_p95_delta"] >= VISIBLE_EYEBROW_PIXEL_DELTA
+    )
+    safe_outside = (
+        outside_pixels > 0
+        and outside_mean <= MAX_OUTSIDE_MASK_MEAN_DELTA
+        and metrics["outside_p99_delta"] <= MAX_OUTSIDE_MASK_P99_DELTA
+    )
+    metrics["eyebrow_roi_changed"] = bool(visible)
+    metrics["outside_mask_preserved"] = bool(safe_outside)
+    return metrics
+
+
+def _validate_provider_visible_change(base, final_image, mask) -> Dict[str, Any]:
+    metrics = _visible_eyebrow_diff_metrics(base, final_image, mask)
+    _beauty_log(
+        "[COMPOSITE]",
+        "diff_metrics",
+        original_size=f"{base.size[0]}x{base.size[1]}",
+        final_size=f"{final_image.size[0]}x{final_image.size[1]}",
+        mask_size=f"{mask.size[0]}x{mask.size[1]}",
+        inside_mean_delta=metrics.get("inside_mean_delta"),
+        inside_changed_ratio=metrics.get("inside_changed_ratio"),
+        outside_mean_delta=metrics.get("outside_mean_delta"),
+        outside_p99_delta=metrics.get("outside_p99_delta"),
+        eyebrow_roi_changed=metrics.get("eyebrow_roi_changed"),
+        outside_mask_preserved=metrics.get("outside_mask_preserved"),
+    )
+    if not metrics.get("eyebrow_roi_changed"):
+        raise ImageProviderError("خروجی AI در محدوده واقعی ابرو تغییر قابل مشاهده ایجاد نکرد")
+    if not metrics.get("outside_mask_preserved"):
+        raise ImageProviderError("خروجی AI بیرون از mask ابرو تغییر ناخواسته داشت و رد شد")
+    return metrics
+
+
 def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
                           candidate: Optional[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any]]:
     raw, _mime = _decode_image_value(image_value, timeout)
     if not raw:
         raise ImageProviderError("تصویر خروجی خالی است")
+    tmp_path = ""
+    out_path = ""
     try:
         from PIL import Image
 
-        ai_image = Image.open(BytesIO(raw)).convert("RGB")
-        meta: Dict[str, Any] = {"provider_output_constrained_to_eyebrow_mask": False}
+        provider_image = Image.open(BytesIO(raw)).convert("RGB")
+        meta: Dict[str, Any] = {
+            "provider_output_constrained_to_eyebrow_mask": False,
+            "provider_raw_width": int(provider_image.width or 0),
+            "provider_raw_height": int(provider_image.height or 0),
+        }
+        final_image = provider_image
         if source_path and candidate is not None:
             base = Image.open(source_path).convert("RGB")
             base.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
-            ai_image = _fit_provider_image_to_source(ai_image, base.size).convert("RGB")
+            final_image = _fit_provider_image_to_source(provider_image, base.size).convert("RGB")
             mask, detection = _provider_eyebrow_mask_for_save(source_path, candidate, base.size)
-            ai_image = Image.composite(ai_image, base, mask)
+            final_image = Image.composite(final_image, base, mask)
+            diff_meta = _validate_provider_visible_change(base, final_image, mask)
             mask_info = detection.get("mask") if isinstance(detection, dict) and isinstance(detection.get("mask"), dict) else {}
             meta.update({
                 "provider_output_constrained_to_eyebrow_mask": True,
@@ -876,25 +1035,73 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
                 "mask_source_method": detection.get("method") if isinstance(detection, dict) else "",
                 "mask_is_fallback": bool(mask_info.get("is_fallback") or (detection.get("is_fallback") if isinstance(detection, dict) else False)),
                 "mask_filename": _upload_relative_path(str(mask_info.get("path") or detection.get("mask_path") or "")),
+                "eyebrow_roi_changed": True,
+                "outside_mask_preserved": True,
             })
+            meta.update(diff_meta)
         else:
-            ai_image.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
+            final_image.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
+        if final_image.width <= 0 or final_image.height <= 0:
+            raise ImageProviderError("ابعاد خروجی provider نامعتبر بود")
         os.makedirs(final_design.FINAL_DESIGN_DIR, exist_ok=True)
         filename = f"final/ai_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.jpg"
         out_path = os.path.join(final_design.EYEBROW_UPLOAD_DIR, filename)
-        ai_image.save(out_path, "JPEG", quality=90, optimize=True)
+        tmp_path = f"{out_path}.tmp-{uuid.uuid4().hex[:8]}.jpg"
+        final_image.save(tmp_path, "JPEG", quality=94, optimize=True, subsampling=0)
+        try:
+            with Image.open(tmp_path) as saved_probe:
+                saved_probe.verify()
+            with Image.open(tmp_path) as saved_image:
+                saved_w, saved_h = saved_image.size
+        except Exception as exc:
+            raise ImageProviderError("فایل ذخیره‌شده خروجی AI قابل خواندن نبود") from exc
+        if int(saved_w or 0) <= 0 or int(saved_h or 0) <= 0:
+            raise ImageProviderError("ابعاد فایل ذخیره‌شده خروجی AI نامعتبر بود")
+        os.replace(tmp_path, out_path)
+        tmp_path = ""
+        meta.update({
+            "saved": True,
+            "readable": True,
+            "final_width": int(saved_w),
+            "final_height": int(saved_h),
+            "final_filename": filename,
+        })
+        _beauty_log(
+            "[AI_OUTPUT]",
+            "saved_provider_output",
+            output_path=filename,
+            output_size=f"{saved_w}x{saved_h}",
+            saved=True,
+            valid=True,
+            mask_used=meta.get("mask_used"),
+            eyebrow_roi_changed=meta.get("eyebrow_roi_changed"),
+        )
         return filename, meta
     except ImageProviderError:
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+        if out_path and os.path.exists(out_path):
+            try:
+                os.remove(out_path)
+            except Exception:
+                pass
         raise
     except Exception as exc:
+        if tmp_path:
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
         raise ImageProviderError(f"خروجی provider تصویر معتبر نبود: {str(exc)[:120]}") from exc
-
 
 def _friendly_provider_error(exc: Exception) -> str:
     raw = str(exc or "").strip() or "provider failed"
     low = raw.lower()
     if "read timed out" in low or "timeout" in low or "timed out" in low:
-        return "مدل دیر جواب داد و زمان درخواست تمام شد؛ کمی بعد دوباره تلاش کن."
+        return "مدل دیر جواب داد و زمان درخواست تمام شد."
     if "request body is not valid json" in low:
         return "این مدل برای مسیر طراحی عکس نهایی فعلی مناسب نیست و باید از اسلات ابرو حذف شود."
     return raw[:280]
@@ -912,7 +1119,17 @@ def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") 
     }
     meta = provider.extra.get("_last_request_meta") if isinstance(provider.extra, dict) else None
     if isinstance(meta, dict):
-        for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "mask_is_fallback", "mask_filename", "reference_image_sent", "cloudflare_request_format", "cloudflare_output_width", "cloudflare_output_height", "provider_output_constrained_to_eyebrow_mask"):
+        for key in (
+            "mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio",
+            "mask_polarity", "mask_source_method", "mask_is_fallback", "mask_filename",
+            "reference_image_sent", "cloudflare_request_format", "cloudflare_output_width",
+            "cloudflare_output_height", "provider_output_constrained_to_eyebrow_mask",
+            "eyebrow_roi_changed", "outside_mask_preserved", "inside_mean_delta",
+            "inside_p95_delta", "inside_changed_ratio", "inside_mask_sampled_pixels",
+            "outside_mean_delta", "outside_p99_delta", "outside_changed_ratio",
+            "provider_raw_width", "provider_raw_height", "saved", "readable",
+            "final_width", "final_height", "final_filename",
+        ):
             if key in meta:
                 item[key] = meta[key]
     if error:
@@ -929,9 +1146,30 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
     candidate = dict(candidate or {})
     source_path = final_design.source_image_path(candidate)
     if not source_path:
+        _beauty_log("[FINAL]", "missing_source_photo", is_ai_generated=False, status="missing_photo")
         return {"ok": False, "message": "برای طراحی عکس نهایی، عکس واقعی لازم است.", "status": "missing_photo"}
 
+    source_w, source_h = _image_size_for_log(source_path)
+    _beauty_log(
+        "[EYEBROW_PREVIEW]",
+        "final_source_ready",
+        original_path=_upload_relative_path(source_path) or os.path.basename(source_path),
+        original_size=f"{source_w}x{source_h}",
+        selected_style=candidate.get("final_style"),
+        change_level=candidate.get("change_key"),
+    )
     eyebrow_detection = final_design.ensure_eyebrow_detection(candidate)
+    mask_info = eyebrow_detection.get("mask") if isinstance(eyebrow_detection, dict) and isinstance(eyebrow_detection.get("mask"), dict) else {}
+    _beauty_log(
+        "[EYEBROW_MASK]",
+        "detection_ready",
+        method=eyebrow_detection.get("method") if isinstance(eyebrow_detection, dict) else "",
+        mask_path=_upload_relative_path(str(mask_info.get("path") or (eyebrow_detection or {}).get("mask_path") or "")) if isinstance(eyebrow_detection, dict) else "",
+        mask_size=f"{mask_info.get('width') or source_w}x{mask_info.get('height') or source_h}",
+        coverage_ratio=mask_info.get("coverage_ratio"),
+        real_mask=mask_info.get("real_mask"),
+        polarity=mask_info.get("polarity") or MASK_POLARITY,
+    )
     prompt = final_design.build_design_prompt(candidate)
     providers = configured_image_providers(env)
     reference_path = _reference_image_path(candidate)
@@ -940,6 +1178,14 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
 
     for provider in providers:
         started = time.monotonic()
+        _beauty_log(
+            "[AI]",
+            "provider_attempt_start",
+            provider=provider.id,
+            model=provider.model,
+            image_kind=provider.kind,
+            endpoint_host=_safe_host(provider.endpoint),
+        )
         try:
             image_value = _call_provider(provider, source_path, reference_path, candidate, prompt, timeout)
             filename, save_meta = _save_provider_output(image_value, timeout, source_path, candidate)
@@ -952,6 +1198,16 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
             ms = int((time.monotonic() - started) * 1000)
             attempt = _attempt(provider, True, ms)
             attempts.append(attempt)
+            _beauty_log(
+                "[AI]",
+                "provider_attempt_success",
+                provider=provider.id,
+                model=provider.model,
+                image_kind=provider.kind,
+                ms=ms,
+                mask_used=attempt.get("mask_used"),
+                eyebrow_roi_changed=attempt.get("eyebrow_roi_changed"),
+            )
             ai_inpainting = provider.kind in CLOUDFLARE_INPAINTING_KINDS
             current_detection = candidate.get("eyebrow_detection") if isinstance(candidate.get("eyebrow_detection"), dict) else eyebrow_detection
             result = {
@@ -972,16 +1228,45 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 "configured_provider_count": len(providers),
                 "message": "طراحی عکس نهایی با AI Inpainting و ماسک واقعی ابرو آماده شد." if ai_inpainting else "طراحی عکس نهایی با AI آماده شد و فقط داخل محدوده ابرو روی عکس اصلی اعمال شد.",
             }
-            for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "mask_is_fallback", "mask_filename", "reference_image_sent", "cloudflare_request_format", "cloudflare_output_width", "cloudflare_output_height", "provider_output_constrained_to_eyebrow_mask"):
+            for key in (
+                "mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio",
+                "mask_polarity", "mask_source_method", "mask_is_fallback", "mask_filename",
+                "reference_image_sent", "cloudflare_request_format", "cloudflare_output_width",
+                "cloudflare_output_height", "provider_output_constrained_to_eyebrow_mask",
+                "eyebrow_roi_changed", "outside_mask_preserved", "inside_mean_delta",
+                "inside_p95_delta", "inside_changed_ratio", "inside_mask_sampled_pixels",
+                "outside_mean_delta", "outside_p99_delta", "outside_changed_ratio",
+                "provider_raw_width", "provider_raw_height", "saved", "readable",
+                "final_width", "final_height", "final_filename",
+            ):
                 if key in attempt:
                     result[key] = attempt[key]
             if result.get("mask_is_fallback") and not ai_inpainting:
                 result["message"] = "طراحی عکس نهایی با AI آماده شد و فقط داخل محدوده تقریبی ابرو روی عکس اصلی اعمال شد."
+            _beauty_log(
+                "[FINAL]",
+                "ai_final_ready",
+                final_path=filename,
+                is_ai_generated=True,
+                status=result.get("status"),
+                provider=provider.id,
+                model=provider.model,
+                final_url_points_to_saved_file=bool(result.get("saved") and result.get("readable")),
+            )
             return result
         except Exception as exc:
             ms = int((time.monotonic() - started) * 1000)
             safe_error = _friendly_provider_error(exc)
             attempts.append(_attempt(provider, False, ms, safe_error))
+            _beauty_log(
+                "[AI]",
+                "provider_attempt_failed",
+                provider=provider.id,
+                model=provider.model,
+                image_kind=provider.kind,
+                ms=ms,
+                error=safe_error[:160],
+            )
             logger.info(
                 "Buti AI image provider failed provider=%s model=%s ms=%s error=%s",
                 provider.id,
@@ -1001,12 +1286,21 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
     if fallback.get("ok"):
         if providers:
             fallback["status"] = "non_ai_guided_fallback_ready"
-            fallback["message"] = "مدل‌های تصویرسازی/AI Inpainting فعلاً جواب ندادند؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI نمایش داده می‌شود. کمی بعد می‌توانید دوباره تلاش کنید."
+            fallback["message"] = "خروجی مدل‌های AI برای این عکس قابل تأیید نبود؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI نمایش داده می‌شود."
         else:
             fallback["status"] = "non_ai_guided_preview_ready"
             fallback["message"] = "مدل تصویرسازی هنوز در مدیریت AI تنظیم نشده؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI آماده شد."
     elif providers:
-        fallback["message"] = "فعلاً طراحی عکس نهایی آماده نشد؛ عکس و انتخاب شما حفظ شد. لطفاً چند دقیقه بعد دوباره تلاش کنید."
+        fallback["message"] = "فعلاً طراحی عکس نهایی قابل نمایش نشد؛ عکس و انتخاب شما حفظ شد."
+    _beauty_log(
+        "[FINAL]",
+        "fallback_final_ready" if fallback.get("ok") else "fallback_final_failed",
+        final_path=fallback.get("filename"),
+        is_ai_generated=False,
+        status=fallback.get("status"),
+        configured_provider_count=len(providers),
+        fallback_used=fallback.get("fallback_used"),
+    )
     return fallback
 
 
