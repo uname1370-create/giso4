@@ -61,7 +61,10 @@
                             {% if key == 'giso_suggested' %}<em>انتخاب امن</em>{% endif %}
                         </span>
                         <span class="bti-brow-sample">
-                            <img src="{{ url_for('buti_ai.static', filename='brows/' ~ key ~ '.jpg') }}" alt="نمونه {{ item.label }}">
+                            <picture>
+                                <source srcset="{{ url_for('buti_ai.static', filename='brows/' ~ key ~ '.webp') }}" type="image/webp">
+                                <img src="{{ url_for('buti_ai.static', filename='brows/' ~ key ~ '.jpg') }}" alt="نمونه {{ item.label }}" loading="lazy">
+                            </picture>
                             <small>نمونه مدل</small>
                         </span>
                     </label>
