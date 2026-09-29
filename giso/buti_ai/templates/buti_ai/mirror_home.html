@@ -39,7 +39,7 @@
         <header class="bti-board-head">
             <span class="bti-board-kicker">مرحله اول</span>
             <h1>اول خدمتت را انتخاب کن</h1>
-            <p>فعلاً آینه ابرو فعال است؛ همین مسیر پایه تجربه بقیه خدمات می‌شود.</p>
+            <p>خدمت فعال را انتخاب کن؛ هر مسیر با انتخاب مدل، آپلود عکس واقعی، طراحی عکس نهایی و اتصال به مرکز ادامه پیدا می‌کند.</p>
         </header>
 
         <div class="bti-service-card-grid">
@@ -48,7 +48,7 @@
                 <div class="bti-pmu-content">
                     <div class="bti-pmu-badges">
                         <small>{{ item.badge }}</small>
-                        {% if item.status == 'active' %}<small class="is-green">آماده استفاده</small>{% endif %}
+                        {% if item.status == 'active' %}<small class="is-green">آماده استفاده</small>{% else %}<small>در حال آماده‌سازی</small>{% endif %}
                     </div>
                     <h2>{{ item.title }}</h2>
                     <p>{{ item.description }}</p>
@@ -56,7 +56,7 @@
                         {% for meta in item.meta %}<li>{{ meta }}</li>{% endfor %}
                     </ul>
                     {% if item.status == 'active' %}
-                    <a class="bti-pmu-card-action" href="{{ item.href }}">ورود به آینه ابرو</a>
+                    <a class="bti-pmu-card-action" href="{{ item.href }}">ورود به {{ item.short_title }}</a>
                     {% else %}
                     <span class="bti-pmu-card-action is-disabled">به‌زودی</span>
                     {% endif %}
@@ -74,7 +74,11 @@
         </div>
 
         <footer class="bti-board-footer">
-            <a class="bti-primary-action" href="{{ url_for('buti_ai.eyebrow_wizard') }}">شروع آینه ابرو ←</a>
+            <div class="bti-hero-actions">
+                {% for item in services if item.status == 'active' %}
+                <a class="bti-primary-action" href="{{ item.href }}">شروع {{ item.short_title }} ←</a>
+                {% endfor %}
+            </div>
             <p>این ابزار تصمیم‌یار است؛ اجرای نهایی با متخصص انجام می‌شود.</p>
         </footer>
     </section>

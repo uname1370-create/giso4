@@ -34,7 +34,7 @@ def _read_upload_bytes(file_storage):
     return raw or b""
 
 
-def save_eyebrow_photo(file_storage, upload_dir=EYEBROW_UPLOAD_DIR):
+def save_eyebrow_photo(file_storage, upload_dir=EYEBROW_UPLOAD_DIR, prefix="eyebrow"):
     """ذخیره امن عکس واقعی داخل runtime Buti AI؛ فقط JPG/PNG/WebP معتبر پذیرفته می‌شود."""
     if not file_storage or not getattr(file_storage, "filename", ""):
         return missing_photo_status()
@@ -93,7 +93,8 @@ def save_eyebrow_photo(file_storage, upload_dir=EYEBROW_UPLOAD_DIR):
         image.thumbnail((1200, 1200))
 
         os.makedirs(upload_dir, exist_ok=True)
-        safe_name = f"eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:12]}.jpg"
+        safe_prefix = "".join(ch for ch in str(prefix or "eyebrow").lower() if ch.isalnum() or ch in ("_", "-"))[:32] or "eyebrow"
+        safe_name = f"{safe_prefix}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:12]}.jpg"
         path = os.path.join(upload_dir, safe_name)
         image.save(path, "JPEG", quality=86, optimize=True, exif=b"")
         return {"ok": True, "path": path, "filename": safe_name, "message": "عکس دریافت شد."}

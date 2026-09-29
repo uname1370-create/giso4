@@ -65,8 +65,12 @@
     var labels = {
       face_visible: 'صورت مشخص باشد',
       eyebrows_visible: 'ابروها واضح باشند',
+      hands_visible: 'دست و ناخن‌ها واضح باشند',
+      nails_visible: 'صفحه ناخن مشخص باشد',
+      lips_visible: 'لب‌ها واضح باشند',
+      hair_visible: 'مو در عکس مشخص باشد',
       lighting: 'نور مناسب باشد',
-      angle: 'صورت روبه‌رو باشد',
+      angle: 'زاویه عکس مناسب باشد',
       sharpness: 'عکس تار نباشد'
     };
     Object.keys(labels).forEach(function (key) {
@@ -86,7 +90,7 @@
     });
   }
 
-  async function validateEyebrowPhoto(file) {
+  async function validateEyebrowPhoto(file, validateUrl) {
     var tokenInput = document.querySelector('input[name="csrf_token"]');
     var formData = new FormData();
     formData.append('photo', file);
@@ -94,7 +98,7 @@
     setUploadScanning(true, 'در حال آنالیز عکس...');
     setAnalyzeEnabled(false);
     try {
-      var response = await fetch('/analysis/mirror/eyebrow/validate-photo', {
+      var response = await fetch(validateUrl || '/analysis/mirror/eyebrow/validate-photo', {
         method: 'POST',
         headers: { 'X-GISO-CSRF': tokenInput ? tokenInput.value : '' },
         body: formData
@@ -171,7 +175,7 @@
         if (placeholder) placeholder.hidden = true;
         if (changeBtn) changeBtn.hidden = false;
         if (zone) zone.classList.add('has-preview');
-        validateEyebrowPhoto(file);
+        validateEyebrowPhoto(file, form ? form.getAttribute('data-bti-validate-url') : '');
       });
     }
     if (form) {

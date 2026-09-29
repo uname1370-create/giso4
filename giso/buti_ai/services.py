@@ -49,7 +49,7 @@ def save_final_design(user_id, candidate, generation):
             (
                 candidate.get("session_id"),
                 user_id,
-                "eyebrow",
+                candidate.get("service_type") or "eyebrow",
                 candidate.get("photo_filename"),
                 generation.get("filename"),
                 candidate.get("final_style"),
@@ -94,7 +94,7 @@ def save_service_waitlist(user_id, phone_number, city, service_type, source="", 
             (user_id, clean_phone, city, service_type, source, payload_json, now_str),
         )
         conn.commit()
-        return True, "درخواستت ثبت شد. وقتی مرکز فعال ابرو اضافه شود، اطلاع می‌دهیم.", cur.lastrowid
+        return True, "درخواستت ثبت شد. وقتی مرکز فعال برای این خدمت اضافه شود، اطلاع می‌دهیم.", cur.lastrowid
     except Exception as e:
         logger.error("Error saving buti_ai service waitlist: %s", e)
         return False, "ثبت درخواست انجام نشد. لطفاً کمی بعد دوباره تلاش کن.", None

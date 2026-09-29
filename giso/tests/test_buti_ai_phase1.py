@@ -64,7 +64,7 @@ def test_buti_ai_routes_and_analysis_card_are_rendered_from_module():
     assert analysis.status_code == 200
     analysis_text = analysis.get_data(as_text=True)
     assert "آینه زیبایی گیسو" in analysis_text
-    assert "فعلاً مسیر ابرو فعال است" in analysis_text
+    assert "مسیر انتخاب خدمت، مدل، آپلود عکس و طراحی عکس نهایی" in analysis_text
     assert "buti_ai/_analysis_mirror_card.html" not in analysis_text
 
     mirror = client.get("/analysis/mirror")
