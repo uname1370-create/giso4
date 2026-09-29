@@ -32,8 +32,8 @@ TASK_DEFS: Dict[str, Dict[str, Any]] = {
         "label": "آینه ابرو — تحلیل عکس",
         "short_label": "تحلیل عکس",
         "kind": "vision",
-        "slots": 1,
-        "help": "مدل بینایی که عکس کاربر را تحلیل می‌کند.",
+        "slots": 3,
+        "help": "مدل‌های بینایی تحلیل عکس به‌ترتیب اولویت؛ اگر cf1 خطا داد، cf2/cf3 یا مدل بعدی امتحان می‌شود.",
     },
     TASK_EYEBROW_IMAGE_DESIGN: {
         "label": "آینه ابرو — طراحی نهایی تصویر",
@@ -721,17 +721,18 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
 
     vision_model = get_best_vision_model(registry_family)
     account_slot = _cloudflare_slot_priority(provider_name)
-    analysis_overwrite = bool(overwrite and (not account_slot or account_slot == 1))
-    if vision_model and (analysis_overwrite or _slot_is_empty(TASK_EYEBROW_ANALYSIS, 1)):
+    analysis_priority = account_slot or 1
+    analysis_overwrite = bool(overwrite)
+    if vision_model and (analysis_overwrite or _slot_is_empty(TASK_EYEBROW_ANALYSIS, analysis_priority)):
         ok, _message = save_model_assignment(
             TASK_EYEBROW_ANALYSIS,
-            1,
+            analysis_priority,
             provider_name,
             vision_model,
             enabled=True,
         )
         if ok:
-            added.append({"task": TASK_EYEBROW_ANALYSIS, "priority": 1, "model": vision_model})
+            added.append({"task": TASK_EYEBROW_ANALYSIS, "priority": analysis_priority, "model": vision_model})
 
     image_items = _model_items(get_image_models(registry_family), limit=3, auto_assign_only=True)
     if account_slot and image_items:

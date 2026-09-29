@@ -218,6 +218,44 @@ def test_eyebrow_upload_preserves_every_selected_model_as_final_source(tmp_path,
 
     _cleanup_buti_ai_sessions()
 
+
+def test_photo_quality_falls_back_from_cf1_to_next_ai_management_vision(monkeypatch):
+    """اگر cf1 در تحلیل عکس خطا بدهد، اسلات بعدی مدیریت AI عکس را بررسی می‌کند."""
+    from giso import ai_brain
+    from giso.buti_ai import ai_models
+
+    calls = []
+
+    monkeypatch.setattr(ai_models, "configured_vision_chain", lambda: [
+        {"provider_name": "cf1", "model_name": "@cf/meta/llama-3.2-11b-vision-instruct"},
+        {"provider_name": "cf2", "model_name": "@cf/meta/llama-3.2-11b-vision-instruct"},
+        {"provider_name": "openrouter", "model_name": "google/gemma-4-31b-it:free"},
+    ])
+
+    async def fake_ask_ai_vision(provider, image_path, prompt, model=None, max_tokens=1200, timeout_override=None):
+        calls.append((provider, model))
+        if provider == "cf1":
+            return {"ok": False, "provider": provider, "model": model, "error": "HTTP 500"}
+        return {
+            "ok": True,
+            "provider": provider,
+            "model": model,
+            "text": '{"ok": true, "face_visible": true, "eyebrows_visible": true, "lighting": true, "angle": true, "sharpness": true, "message": "عکس مناسب است."}',
+            "raw": {},
+            "error": "",
+        }
+
+    monkeypatch.setattr(ai_brain, "ask_ai_vision", fake_ask_ai_vision)
+    report = eyebrow_ai.check_photo_quality("/tmp/fake-face.jpg")
+
+    assert report["status"] == "ai_checked"
+    assert report["ok"] is True
+    assert report["provider"] == "cf2"
+    assert calls[:2] == [
+        ("cf1", "@cf/meta/llama-3.2-11b-vision-instruct"),
+        ("cf2", "@cf/meta/llama-3.2-11b-vision-instruct"),
+    ]
+
 def test_eyebrow_upload_rejects_fake_and_large_files(tmp_path):
     from werkzeug.datastructures import FileStorage
     from giso.buti_ai.eyebrow import upload
@@ -1356,9 +1394,13 @@ def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, m
     r3 = ai_models.auto_configure_for_provider("cf3")
 
     assert r1["added"] == 2  # analysis + image slot 1
-    assert r2["added"] == 1  # image slot 2
-    assert r3["added"] == 1  # image slot 3
+    assert r2["added"] == 2  # analysis + image slot 2
+    assert r3["added"] == 2  # analysis + image slot 3
     rows = ai_models.list_model_assignments()
+    analysis = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_ANALYSIS]
+    assert [int(r["priority"]) for r in analysis] == [1, 2, 3]
+    assert [r["provider_name"] for r in analysis] == ["cf1", "cf2", "cf3"]
+    assert all("vision" in r["model_name"] for r in analysis)
     images = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_IMAGE_DESIGN]
     assert [int(r["priority"]) for r in images] == [1, 2, 3]
     assert [r["provider_name"] for r in images] == ["cf1", "cf2", "cf3"]
@@ -1374,7 +1416,10 @@ def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, m
     )
     assert ok is True
     over = ai_models.auto_configure_for_provider("cf2", overwrite=True)
-    assert over["added"] == 1
+    assert over["added"] == 2
+    analysis_rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_ANALYSIS)
+    analysis_slot2 = [r for r in analysis_rows if int(r["priority"]) == 2][0]
+    assert analysis_slot2["provider_name"] == "cf2"
     rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_IMAGE_DESIGN)
     slot2 = [r for r in rows if int(r["priority"]) == 2][0]
     assert slot2["provider_name"] == "cf2"

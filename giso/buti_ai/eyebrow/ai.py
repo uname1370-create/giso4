@@ -15,8 +15,8 @@ logger = logging.getLogger("giso_buti_ai_eyebrow_ai")
 def _call_assigned_vision_json(image_path, prompt, max_tokens=1000, limit=None):
     """اولویت اختصاصی آینه ابرو از مدیریت AI؛ اگر خالی بود None.
 
-    برای بررسی اولیه عکس می‌توان limit=1 داد تا فقط یک مدل AI استفاده شود
-    و بقیه کنترل‌ها کدنویسی/اعتبارسنجی سبک بمانند.
+    اگر یک سرویس مثل cf1 خطا بدهد، بقیه اسلات‌های همین زنجیره (cf2/cf3 یا
+    پروایدرهای دیگر مدیریت AI) امتحان می‌شوند و بعد fallback عمومی vision اجرا می‌شود.
     """
     try:
         from giso.async_compat import run_async_safe
@@ -94,7 +94,7 @@ def check_photo_quality(image_path):
         }
 
     try:
-        result = _call_vision_json(image_path, PHOTO_QUALITY_PROMPT, max_tokens=700, assigned_limit=1, global_fallback=False)
+        result = _call_vision_json(image_path, PHOTO_QUALITY_PROMPT, max_tokens=700, assigned_limit=None, global_fallback=True)
     except TypeError:
         # تست‌های قدیمی این تابع داخلی را با امضای ساده monkeypatch می‌کنند.
         result = _call_vision_json(image_path, PHOTO_QUALITY_PROMPT, max_tokens=700)
