@@ -84,13 +84,20 @@ def _row_get(row: Any, key: str, default: Any = "") -> Any:
     return default
 
 
+_DIGIT_TRANSLATION = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+
+
+def _normalize_provider_digits(provider_name: str) -> str:
+    return str(provider_name or "").strip().lower().translate(_DIGIT_TRANSLATION)
+
+
 def _is_cloudflare_provider_name(provider_name: str) -> bool:
-    name = str(provider_name or "").strip().lower()
+    name = _normalize_provider_digits(provider_name)
     return name == "cloudflare" or re.fullmatch(r"cf[1-3]", name) is not None
 
 
 def _cloudflare_slot_priority(provider_name: str) -> int:
-    match = re.fullmatch(r"cf([0-9]+)", str(provider_name or "").strip().lower())
+    match = re.fullmatch(r"cf([0-9]+)", _normalize_provider_digits(provider_name))
     if not match:
         return 0
     try:
@@ -100,7 +107,7 @@ def _cloudflare_slot_priority(provider_name: str) -> int:
 
 
 def _registry_family_for_provider(provider_name: str) -> str:
-    return "cloudflare" if _is_cloudflare_provider_name(provider_name) else str(provider_name or "").strip().lower()
+    return "cloudflare" if _is_cloudflare_provider_name(provider_name) else _normalize_provider_digits(provider_name)
 
 
 def _cloudflare_image_kind_for_model(model_name: str, image_kind: str = "") -> str:
@@ -707,7 +714,7 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
     except Exception as exc:
         return {"ok": False, "added": 0, "items": [], "error": str(exc)[:160]}
 
-    provider_name = str(provider_name or "").strip().lower()
+    provider_name = _normalize_provider_digits(provider_name)
     provider_name = provider_name if _is_cloudflare_provider_name(provider_name) else normalize_provider_name(provider_name)
     registry_family = _registry_family_for_provider(provider_name)
     added: List[Dict[str, Any]] = []

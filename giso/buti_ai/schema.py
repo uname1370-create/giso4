@@ -73,27 +73,49 @@ CREATE INDEX IF NOT EXISTS idx_buti_ai_final_designs_session ON buti_ai_final_de
 
 def _ensure_column(conn, table_name, column_name, column_sql):
     columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table_name})").fetchall()}
+    if not columns:
+        return
     if column_name not in columns:
         conn.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_sql}")
+
+
+def _ensure_legacy_columns(conn):
+    """مهاجرت افزودنی برای دیتابیس‌هایی که جدول‌ها را قبل از ستون status داشته‌اند."""
+    _ensure_column(conn, "buti_ai_sessions", "status", "status TEXT DEFAULT 'completed'")
+    _ensure_column(conn, "buti_ai_waitlist", "user_id", "user_id INTEGER")
+    _ensure_column(conn, "buti_ai_waitlist", "source", "source TEXT DEFAULT ''")
+    _ensure_column(conn, "buti_ai_waitlist", "status", "status TEXT DEFAULT 'open'")
+    _ensure_column(conn, "buti_ai_waitlist", "payload_json", "payload_json TEXT DEFAULT ''")
+    for _col, _ddl in (
+        ("user_id", "user_id INTEGER"),
+        ("source", "source TEXT DEFAULT ''"),
+        ("status", "status TEXT DEFAULT 'open'"),
+        ("dedupe_key", "dedupe_key TEXT DEFAULT ''"),
+        ("payload_json", "payload_json TEXT DEFAULT ''"),
+    ):
+        _ensure_column(conn, "buti_ai_service_demand", _col, _ddl)
+    for _col, _ddl in (
+        ("service_type", "service_type TEXT NOT NULL DEFAULT 'eyebrow'"),
+        ("provider", "provider TEXT"),
+        ("model", "model TEXT"),
+        ("status", "status TEXT DEFAULT 'created'"),
+        ("prompt_json", "prompt_json TEXT"),
+    ):
+        _ensure_column(conn, "buti_ai_final_designs", _col, _ddl)
 
 
 def init_buti_ai_db():
     """ایجاد امن و خودکار جدول‌های آینه جادویی در پایگاه داده اصلی giso.db."""
     try:
         conn = get_giso_db_conn()
-        conn.executescript(BUTI_AI_TABLES_SQL)
-        _ensure_column(conn, "buti_ai_waitlist", "user_id", "user_id INTEGER")
-        _ensure_column(conn, "buti_ai_waitlist", "source", "source TEXT DEFAULT ''")
-        _ensure_column(conn, "buti_ai_waitlist", "status", "status TEXT DEFAULT 'open'")
-        _ensure_column(conn, "buti_ai_waitlist", "payload_json", "payload_json TEXT DEFAULT ''")
-        for _col, _ddl in (
-            ("user_id", "user_id INTEGER"),
-            ("source", "source TEXT DEFAULT ''"),
-            ("status", "status TEXT DEFAULT 'open'"),
-            ("dedupe_key", "dedupe_key TEXT DEFAULT ''"),
-            ("payload_json", "payload_json TEXT DEFAULT ''"),
-        ):
-            _ensure_column(conn, "buti_ai_service_demand", _col, _ddl)
+        try:
+            conn.executescript(BUTI_AI_TABLES_SQL)
+        except Exception as first_exc:
+            if "no such column" not in str(first_exc).lower():
+                raise
+            _ensure_legacy_columns(conn)
+            conn.executescript(BUTI_AI_TABLES_SQL)
+        _ensure_legacy_columns(conn)
         try:
             from giso.buti_ai.ai_models import init_buti_ai_model_assignments
 

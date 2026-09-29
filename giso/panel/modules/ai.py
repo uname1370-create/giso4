@@ -213,7 +213,7 @@ def handle_provider_add():
     from giso.ai_models_registry import get_provider as _reg_provider, normalize_provider_name as _normalize_pname
     import json as _json
     import re as _re
-    raw_name = name
+    raw_name = _normalize_pname(name)
     cf_slot_name = _re.fullmatch(r"cf[1-3]", raw_name or "") is not None
     is_cf_instance = raw_name == "cf" or raw_name == "cloudflare" or cf_slot_name
     provider_family = "cloudflare" if is_cf_instance else _normalize_pname(raw_name)

@@ -7,6 +7,7 @@ import base64
 import json
 import json as _json
 import logging
+import re
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -124,6 +125,25 @@ def _col(row, name, default=""):
         return default
 
 
+_DIGIT_TRANSLATION = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+
+
+def _normalize_provider_input_name(name: str) -> str:
+    """نام پروایدر را برای ذخیره نرمال می‌کند؛ cf۱/cf١ هم cf1 می‌شود."""
+    from giso.ai_models_registry import normalize_provider_name as _normalize_pname
+    return _normalize_pname(str(name or "").translate(_DIGIT_TRANSLATION))
+
+
+def _is_cloudflare_instance_name(name: str) -> bool:
+    name = str(name or "").strip().lower().translate(_DIGIT_TRANSLATION)
+    return name in {"cf", "cloudflare"} or re.fullmatch(r"cf[1-3]", name) is not None
+
+
+def _registry_family_for_provider_name(name: str) -> str:
+    name = _normalize_provider_input_name(name)
+    return "cloudflare" if _is_cloudflare_instance_name(name) else name
+
+
 def _get_proxy_for_provider(row, sensitive=False):
     try:
         # فاز ۲: اولویت اول = پروکسی اختصاصی خود پروایدر (ستون جدید)
@@ -167,6 +187,7 @@ def _ai_now():
 
 
 def get_ai_provider(name):
+    name = _normalize_provider_input_name(name)
     conn = get_conn()
     try:
         return conn.execute("SELECT * FROM giso_ai_providers WHERE name=?", (name,)).fetchone()
@@ -192,8 +213,7 @@ def list_ai_providers(only_enabled=False):
 
 def default_models_for_provider(name):
     """مدل‌های رایگان پیش‌فرض (متن+بینایی) بر اساس رجیستری؛ برای پرکردن خودکار پروایدر جدید."""
-    from giso.ai_models_registry import normalize_provider_name as _normalize_pname
-    reg = PROVIDERS_REGISTRY.get(_normalize_pname(name), {}) or {}
+    reg = PROVIDERS_REGISTRY.get(_registry_family_for_provider_name(name), {}) or {}
     vision = reg.get("vision_preferred", [])
     text = reg.get("text_preferred", [])
     models = []
@@ -209,17 +229,17 @@ def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
                     is_iranian=False, enabled=True, use_proxy=False, replace=False,
                     vision_models_json="", text_models_json="", models_source="",
                     proxy_url="", proxy_type=""):
-    # نرمال‌سازی نام: «hugging face» ← «huggingface»، «cloudflare workers ai» ← «cloudflare»
-    from giso.ai_models_registry import normalize_provider_name as _normalize_pname
-    name = _normalize_pname(name)
+    # نرمال‌سازی نام: «hugging face» ← «huggingface»، «cloudflare workers ai» ← «cloudflare»؛ cf۱/cf١ ← cf1
+    name = _normalize_provider_input_name(name)
     if str(name or "").lower() == "gemini":
         use_proxy = False
         base_url = _normalize_gemini_base_url(base_url)
         if not api_root or _is_google_gemini_host(api_root):
             api_root = base_url
-    if str(name or "").lower() == "cloudflare":
+    if _is_cloudflare_instance_name(name):
         base_url = normalize_cloudflare_api_root(base_url, "", require_account=False) or base_url
         api_root = normalize_cloudflare_api_root(api_root or base_url, "", require_account=False) or api_root or base_url
+        kind = "cloudflare"
     conn = get_conn()
     # پیش‌فرض رایگان: اگر ادمین مدلی نداد، رجیستری پر می‌کند (مورد ۸ دستور start/1.md)
     reg_models, reg_selected = default_models_for_provider(name)
@@ -652,7 +672,6 @@ async def _ai_check_cloudflare(row):
     api_key = (row["api_key"] or "").strip()
     api_root = (row["api_root"] or "").strip().rstrip("/")
     timeout = int(row["timeout"] or 20)
-    fallback = _ai_jloads(row["fallback_json"], [])
     proxy = _get_proxy_for_provider(row)
 
     if not api_key:
@@ -664,11 +683,37 @@ async def _ai_check_cloudflare(row):
                 "error": "شناسهٔ حساب کلودفلر در API Root جایگزین {account_id} نشده است",
                 "models": [], "selected": ""}
 
+    def _add_candidate(target, value):
+        if isinstance(value, dict):
+            if value.get("disabled"):
+                return
+            value = value.get("id")
+        value = str(value or "").strip()
+        if not value:
+            return
+        low = value.lower()
+        # تست سلامت عمومی Cloudflare با مدل متن/ویژن انجام می‌شود، نه مدل‌های تولید عکس.
+        if any(token in low for token in ("flux", "diffusion", "sdxl", "stable-diffusion", "dall-e", "image")):
+            return
+        if value not in target:
+            target.append(value)
+
+    candidates = []
+    _add_candidate(candidates, _col(row, "selected_model", ""))
+    for column in ("fallback_json", "vision_models_json", "text_models_json", "models_json"):
+        for item in _ai_jloads(_col(row, column, "[]"), []):
+            _add_candidate(candidates, item)
+    for item in default_models_for_provider(_col(row, "name", ""))[0]:
+        _add_candidate(candidates, item)
+
+    if not candidates:
+        return {"status": "error", "error": "مدل متن/بینایی برای تست Cloudflare پیدا نشد", "models": [], "selected": ""}
+
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     models, selected, status, error = [], "", "error", ""
 
     async with _make_client(timeout, proxy) as client:
-        for model in fallback:
+        for model in candidates[:8]:
             try:
                 resp = await client.post(
                     f"{api_root}/{model}", headers=headers,
@@ -677,10 +722,12 @@ async def _ai_check_cloudflare(row):
                 if resp.status_code == 200:
                     raw = resp.json()
                     if raw.get("success", True) is False:
+                        errors = raw.get("errors") or []
+                        error = str(errors[:1] or raw)[:200]
                         continue
-                    selected, models, status, error = model, [model], "ok", ""
+                    selected, models, status, error = model, candidates, "ok", ""
                     break
-                error = f"HTTP {resp.status_code}"
+                error = f"HTTP {resp.status_code}: {resp.text[:180]}"
             except Exception as exc:
                 error = str(exc)
 
@@ -690,6 +737,7 @@ async def _ai_check_cloudflare(row):
 
 
 async def check_ai_provider(name):
+    name = _normalize_provider_input_name(name)
     if _httpx is None:
         return {"status": "error", "error": "httpx نصب نیست", "models": [], "selected": ""}
     row = get_ai_provider(name)
@@ -816,11 +864,44 @@ def refresh_models(provider_name):
     فاز ۲: به‌روزرسانی لیست مدل‌ها از /models سرویس (بدون پینگ تست).
     نتیجه در ستون‌های vision_models_json و text_models_json ذخیره می‌شود.
     """
+    provider_name = _normalize_provider_input_name(provider_name)
     row = get_ai_provider(provider_name)
     if row is None:
         return {"ok": False, "error": "پروایدر پیدا نشد"}
     if row["kind"] == "cloudflare":
-        return {"ok": False, "error": "Cloudflare endpoint مدل‌های جدا ندارد؛ مدل‌ها از رجیستری/ورودی دستی مدیریت می‌شوند"}
+        try:
+            from giso.ai_models_registry import get_text_models, get_vision_models
+            family = _registry_family_for_provider_name(provider_name)
+            vision = get_vision_models(family) or []
+            text = get_text_models(family) or []
+            ids = []
+            for item in list(vision) + list(text):
+                mid = item.get("id") if isinstance(item, dict) else item
+                mid = str(mid or "").strip()
+                if mid and mid not in ids:
+                    ids.append(mid)
+            if not ids:
+                return {"ok": False, "error": "مدل رجیستری Cloudflare پیدا نشد"}
+            selected = str(_col(row, "selected_model", "") or "").strip()
+            if selected not in ids:
+                selected = ids[0]
+            now = _ai_now()
+            with _lock, get_conn() as conn:
+                conn.execute(
+                    """UPDATE giso_ai_providers
+                       SET vision_models_json=?, text_models_json=?, models_json=?,
+                           fallback_json=?, selected_model=?, models_last_updated=?,
+                           models_source='registry'
+                       WHERE name=?""",
+                    (json.dumps(vision, ensure_ascii=False),
+                     json.dumps(text, ensure_ascii=False),
+                     json.dumps(ids, ensure_ascii=False),
+                     json.dumps(ids, ensure_ascii=False),
+                     selected, now, provider_name)
+                )
+            return {"ok": True, "vision_count": len(vision), "text_count": len(text), "new": [], "removed": [], "updated_at": now}
+        except Exception as exc:
+            return {"ok": False, "error": f"خطا در ذخیره مدل‌های Cloudflare: {str(exc)[:120]}"}
     fetched = run_async_sync(_fetch_remote_models(row))
     if not fetched or not fetched.get("ok"):
         return {"ok": False, "error": (fetched or {}).get("error", "خطا در دریافت مدل‌ها")}

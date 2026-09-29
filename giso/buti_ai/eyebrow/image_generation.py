@@ -801,13 +801,22 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
     detection = candidate.get("eyebrow_detection") if isinstance(candidate.get("eyebrow_detection"), dict) else {}
     if not detection or not detection.get("regions"):
         detection = final_design.ensure_eyebrow_detection(candidate)
+    if not detection or not detection.get("regions"):
+        try:
+            from giso.buti_ai.eyebrow.landmarks import detect_eyebrow_regions
+            detection = detect_eyebrow_regions(source_path, allow_fallback=True)
+            if isinstance(detection, dict):
+                detection["provider_mask_fallback_used"] = True
+                candidate["eyebrow_detection"] = detection
+        except Exception:
+            detection = {}
     if detection and detection.get("regions"):
         detection = ensure_eyebrow_mask(source_path, detection)
         candidate["eyebrow_detection"] = detection
     mask_info = detection.get("mask") if isinstance(detection, dict) and isinstance(detection.get("mask"), dict) else {}
     mask_path = str(mask_info.get("path") or detection.get("mask_path") or "").strip() if isinstance(detection, dict) else ""
     if not mask_info.get("ok") or not mask_path or not os.path.exists(mask_path):
-        raise ImageProviderError("خروجی کامل AI ذخیره نشد؛ mask ابرو برای حفظ چشم/مژه در دسترس نیست")
+        raise ImageProviderError("خروجی AI ذخیره نشد؛ mask ابرو برای حفظ چشم/مژه ساخته نشد")
     try:
         mask = Image.open(mask_path).convert("L").resize(size, Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
         # Binary core + tiny feather: only brow pixels are editable; edge remains natural.
@@ -859,6 +868,7 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
                 "mask_coverage_ratio": mask_info.get("coverage_ratio"),
                 "mask_polarity": mask_info.get("polarity") or MASK_POLARITY,
                 "mask_source_method": detection.get("method") if isinstance(detection, dict) else "",
+                "mask_is_fallback": bool(mask_info.get("is_fallback") or (detection.get("is_fallback") if isinstance(detection, dict) else False)),
                 "mask_filename": _upload_relative_path(str(mask_info.get("path") or detection.get("mask_path") or "")),
             })
         else:
@@ -896,7 +906,7 @@ def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") 
     }
     meta = provider.extra.get("_last_request_meta") if isinstance(provider.extra, dict) else None
     if isinstance(meta, dict):
-        for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "mask_filename", "reference_image_sent", "cloudflare_request_format", "cloudflare_output_width", "cloudflare_output_height", "provider_output_constrained_to_eyebrow_mask"):
+        for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "mask_is_fallback", "mask_filename", "reference_image_sent", "cloudflare_request_format", "cloudflare_output_width", "cloudflare_output_height", "provider_output_constrained_to_eyebrow_mask"):
             if key in meta:
                 item[key] = meta[key]
     if error:
@@ -956,9 +966,11 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 "configured_provider_count": len(providers),
                 "message": "طراحی عکس نهایی با AI Inpainting و ماسک واقعی ابرو آماده شد." if ai_inpainting else "طراحی عکس نهایی با AI آماده شد و فقط داخل محدوده ابرو روی عکس اصلی اعمال شد.",
             }
-            for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "mask_filename", "reference_image_sent", "cloudflare_request_format", "cloudflare_output_width", "cloudflare_output_height", "provider_output_constrained_to_eyebrow_mask"):
+            for key in ("mask_used", "mask_width", "mask_height", "mask_pixels", "mask_coverage_ratio", "mask_polarity", "mask_source_method", "mask_is_fallback", "mask_filename", "reference_image_sent", "cloudflare_request_format", "cloudflare_output_width", "cloudflare_output_height", "provider_output_constrained_to_eyebrow_mask"):
                 if key in attempt:
                     result[key] = attempt[key]
+            if result.get("mask_is_fallback") and not ai_inpainting:
+                result["message"] = "طراحی عکس نهایی با AI آماده شد و فقط داخل محدوده تقریبی ابرو روی عکس اصلی اعمال شد."
             return result
         except Exception as exc:
             ms = int((time.monotonic() - started) * 1000)

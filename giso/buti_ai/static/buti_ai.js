@@ -145,7 +145,10 @@
           setAnalyzeEnabled(false);
           return;
         }
-        if (['image/jpeg', 'image/png', 'image/webp'].indexOf(file.type) === -1) {
+        var lowerName = (file.name || '').toLowerCase();
+        var typeOk = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].indexOf(file.type) !== -1;
+        var extOk = /\.(jpe?g|png|webp)$/.test(lowerName);
+        if (!typeOk && !extOk) {
           alert('فقط عکس واقعی JPG، PNG یا WebP پذیرفته می‌شود.');
           input.value = '';
           setAnalyzeEnabled(false);

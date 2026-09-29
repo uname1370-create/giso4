@@ -180,8 +180,10 @@ def test_superadmin_can_add_cf1_cf2_cf3_as_distinct_cloudflare_providers_from_we
 
         rows = [get_ai_provider(f'cf{i}') for i in (1, 2, 3)]
         assert all(rows), rows
+        assert get_ai_provider('cf۱')['name'] == 'cf1'
         assert [r['kind'] for r in rows] == ['cloudflare', 'cloudflare', 'cloudflare']
         assert [cloudflare_account_id_from_url(r['base_url']) for r in rows] == ['acct-1', 'acct-2', 'acct-3']
+        assert '@cf/meta/llama-3.2-11b-vision-instruct' in rows[0]['fallback_json']
 
         image_rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_IMAGE_DESIGN)
         image_rows = [r for r in image_rows if r['provider_name'] in {'cf1', 'cf2', 'cf3'}]

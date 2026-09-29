@@ -13,6 +13,7 @@ httpx[socks]>=0.25.0
 
 # Image processing / PDF / QR
 Pillow==10.1.0
+opencv-python-headless>=4.8.0,<5
 fpdf2>=2.7.0
 qrcode[pil]>=7.4.0
 arabic-reshaper>=3.0.0

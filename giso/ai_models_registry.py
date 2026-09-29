@@ -223,6 +223,8 @@ PROVIDER_ALIASES = {
     "worker ai": "cloudflare",
 }
 
+_DIGIT_TRANSLATION = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+
 
 def normalize_provider_name(name: str) -> str:
     """نرمال‌سازی نام پروایدر به کلید رجیستری.
@@ -231,7 +233,7 @@ def normalize_provider_name(name: str) -> str:
     «hugging face» به کلید استاندارد (`cloudflare`، `huggingface`) نگاشت
     می‌شوند تا مدل‌ها و تنظیمات پیش‌فرض رجیستری پیدا شود.
     """
-    cleaned = " ".join(str(name or "").strip().lower().split())
+    cleaned = " ".join(str(name or "").strip().lower().translate(_DIGIT_TRANSLATION).split())
     if cleaned in PROVIDER_ALIASES:
         return PROVIDER_ALIASES[cleaned]
     if cleaned in PROVIDERS:
