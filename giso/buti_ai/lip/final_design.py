@@ -89,11 +89,8 @@ def local_quality_report(path: str) -> Dict[str, Any]:
     }
 
 
-def detect_regions(image_path: str, allow_fallback: bool = True) -> Dict[str, Any]:
-    w, h = _image_size(image_path)
-    if not w or not h:
-        return {"ok": False, "method": "invalid_image", "regions": [], "mask": {"ok": False, "reason": "invalid_image"}}
-    detection = {
+def _fallback_lip_detection(w: int, h: int) -> Dict[str, Any]:
+    return {
         "ok": True,
         "method": "proportional_lip_guide",
         "confidence": 0.26,
@@ -103,7 +100,88 @@ def detect_regions(image_path: str, allow_fallback: bool = True) -> Dict[str, An
         "image_height": h,
         "regions": [{"side": "mouth", "x": int(w * 0.36), "y": int(h * 0.60), "width": int(w * 0.28), "height": int(h * 0.075), "source": "proportional_lip_guide"}],
     }
-    return ensure_mask(image_path, detection)
+
+
+def _try_detect_lip_by_color(image_path: str) -> Dict[str, Any]:
+    """Conservative real lip ROI: color/chroma inside the lower-face mouth band.
+
+    It is used for provider-backed AI only when a plausible connected lip-color
+    area exists. If the photo is ambiguous we fall back to the non-AI guide.
+    """
+    from PIL import Image, ImageDraw, ImageFilter
+    image = Image.open(image_path).convert("RGB")
+    w, h = image.size
+    roi = (int(w * 0.22), int(h * 0.45), int(w * 0.78), int(h * 0.82))
+    px = image.load()
+    raw = Image.new("L", (w, h), 0)
+    draw = ImageDraw.Draw(raw)
+    points = []
+    for y in range(roi[1], roi[3]):
+        for x in range(roi[0], roi[2]):
+            r, g, b = px[x, y]
+            mx, mn = max(r, g, b), min(r, g, b)
+            sat = mx - mn
+            brightness = (r + g + b) / 3.0
+            # Lip pixels usually have stronger red/pink/brown chroma than nearby skin.
+            red_dominance = r - max(g, b * 0.92)
+            pink_balance = (r + b) / 2.0 - g
+            if 28 <= brightness <= 238 and sat >= 18 and red_dominance >= 7 and pink_balance >= 8:
+                raw.putpixel((x, y), 255)
+                points.append((x, y))
+    if not points:
+        raise ValueError("no_lip_chroma")
+    raw = raw.filter(ImageFilter.MedianFilter(size=5)).filter(ImageFilter.MaxFilter(size=5)).filter(ImageFilter.MinFilter(size=3))
+    points = [(x, y) for y in range(roi[1], roi[3]) for x in range(roi[0], roi[2]) if raw.getpixel((x, y)) > 0]
+    if not points:
+        raise ValueError("lip_mask_empty")
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+    x0, x1 = max(0, min(xs) - int(w * 0.012)), min(w - 1, max(xs) + int(w * 0.012))
+    y0, y1 = max(0, min(ys) - int(h * 0.008)), min(h - 1, max(ys) + int(h * 0.008))
+    bw, bh = x1 - x0 + 1, y1 - y0 + 1
+    coverage = len(points) / float(max(1, w * h))
+    aspect = bw / float(max(1, bh))
+    center_y = (y0 + y1) / 2.0 / float(max(1, h))
+    if not (0.003 <= coverage <= 0.055 and 1.35 <= aspect <= 7.5 and 0.48 <= center_y <= 0.78 and bw >= w * 0.10 and bh >= h * 0.025):
+        raise ValueError("lip_geometry_not_plausible")
+    # Clamp to a soft mouth ellipse to avoid cheeks/teeth being considered editable.
+    ellipse = Image.new("L", (w, h), 0)
+    ed = ImageDraw.Draw(ellipse)
+    pad_x = int(bw * 0.07)
+    pad_y = int(bh * 0.14)
+    ed.ellipse((max(0, x0 - pad_x), max(0, y0 - pad_y), min(w - 1, x1 + pad_x), min(h - 1, y1 + pad_y)), fill=255)
+    center_gap = (int(x0 + bw * 0.31), int(y0 + bh * 0.42), int(x0 + bw * 0.69), int(y0 + bh * 0.62))
+    ed.ellipse(center_gap, fill=90)
+    raw = Image.composite(raw, Image.new("L", (w, h), 0), ellipse)
+    raw = raw.filter(ImageFilter.GaussianBlur(radius=max(1, int(min(w, h) * 0.0025))))
+    pixels = sum(1 for value in raw.getdata() if value > 8)
+    if pixels <= 0:
+        raise ValueError("lip_pixels_empty")
+    detection = {
+        "ok": True,
+        "method": "color_lip_segmentation_v1",
+        "confidence": 0.72,
+        "detection_reliable": True,
+        "is_fallback": False,
+        "image_width": w,
+        "image_height": h,
+        "regions": [{"side": "mouth", "x": x0, "y": y0, "width": bw, "height": bh, "source": "color_lip_segmentation_v1", "confidence": 0.72}],
+        "_mask_image": raw,
+    }
+    return detection
+
+
+def detect_regions(image_path: str, allow_fallback: bool = True) -> Dict[str, Any]:
+    w, h = _image_size(image_path)
+    if not w or not h:
+        return {"ok": False, "method": "invalid_image", "regions": [], "mask": {"ok": False, "reason": "invalid_image"}}
+    try:
+        detection = _try_detect_lip_by_color(image_path)
+        return ensure_mask(image_path, detection)
+    except Exception:
+        if not allow_fallback:
+            return {"ok": False, "method": "lip_not_detected", "regions": [], "mask": {"ok": False, "reason": "lip_not_detected"}}
+    return ensure_mask(image_path, _fallback_lip_detection(w, h))
 
 
 def ensure_mask(image_path: str, detection: Dict[str, Any]) -> Dict[str, Any]:
@@ -111,33 +189,38 @@ def ensure_mask(image_path: str, detection: Dict[str, Any]) -> Dict[str, Any]:
         from PIL import Image, ImageDraw, ImageFilter
         w = int(detection.get("image_width") or 0)
         h = int(detection.get("image_height") or 0)
-        mask = Image.new("L", (w, h), 0)
-        draw = ImageDraw.Draw(mask)
-        x0 = int(w * 0.36)
-        x1 = int(w * 0.64)
-        y0 = int(h * 0.595)
-        y1 = int(h * 0.675)
-        draw.ellipse((x0, y0, x1, int((y0 + y1) / 2) + 3), fill=210)
-        draw.ellipse((x0 + int(w * 0.015), int((y0 + y1) / 2) - 5, x1 - int(w * 0.015), y1), fill=255)
-        # Soft center gap to avoid teeth if mouth is slightly open.
-        draw.ellipse((int(w * 0.43), int(h * 0.625), int(w * 0.57), int(h * 0.652)), fill=60)
-        mask = mask.filter(ImageFilter.GaussianBlur(radius=max(1, int(min(w, h) * 0.003))))
+        supplied = detection.pop("_mask_image", None)
+        if supplied is not None:
+            mask = supplied.convert("L")
+        else:
+            mask = Image.new("L", (w, h), 0)
+            draw = ImageDraw.Draw(mask)
+            x0 = int(w * 0.36)
+            x1 = int(w * 0.64)
+            y0 = int(h * 0.595)
+            y1 = int(h * 0.675)
+            draw.ellipse((x0, y0, x1, int((y0 + y1) / 2) + 3), fill=210)
+            draw.ellipse((x0 + int(w * 0.015), int((y0 + y1) / 2) - 5, x1 - int(w * 0.015), y1), fill=255)
+            # Soft center gap to avoid teeth if mouth is slightly open.
+            draw.ellipse((int(w * 0.43), int(h * 0.625), int(w * 0.57), int(h * 0.652)), fill=60)
+            mask = mask.filter(ImageFilter.GaussianBlur(radius=max(1, int(min(w, h) * 0.003))))
         mask_dir = os.path.join(os.path.dirname(os.path.abspath(image_path)), "masks")
         os.makedirs(mask_dir, exist_ok=True)
         mask_path = os.path.join(mask_dir, os.path.splitext(os.path.basename(image_path))[0] + "_lip_mask.png")
         mask.save(mask_path, "PNG", optimize=True)
         pixels = sum(1 for px in mask.getdata() if px > 8)
+        is_fallback = bool(detection.get("is_fallback")) or str(detection.get("method") or "").startswith("proportional")
         detection["mask"] = {
             "ok": pixels > 0,
-            "kind": "lip_guided_mask",
+            "kind": "lip_color_mask" if not is_fallback else "lip_guided_mask",
             "format": "png_luminance",
             "path": mask_path,
             "width": w,
             "height": h,
             "coverage_ratio": round(pixels / float(max(1, w * h)), 6),
             "pixel_count": pixels,
-            "real_mask": False,
-            "is_fallback": True,
+            "real_mask": not is_fallback,
+            "is_fallback": is_fallback,
             "polarity": "white_edit_black_keep",
         }
         detection["mask_path"] = mask_path
@@ -167,6 +250,23 @@ def _mask_for_size(detection: Dict[str, Any], size):
     return mask.resize(size, resample)
 
 
+def build_design_prompt(candidate: Dict[str, Any]) -> str:
+    style_key = str((candidate or {}).get("final_style") or DEFAULT_STYLE)
+    style = STYLES.get(style_key, STYLES[DEFAULT_STYLE])
+    detection = (candidate or {}).get("detection") if isinstance((candidate or {}).get("detection"), dict) else {}
+    mask = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
+    return (
+        "Photorealistic edit of the original customer photo for lip PMU and lip shading preview. "
+        "Apply the selected lip model ONLY inside the provided lip mask/ROI; white mask pixels are editable lip tissue and black pixels must remain unchanged. "
+        "Do not change teeth, gums, skin around the mouth, nose, face identity, makeup outside lips, lighting, background, expression, or camera angle. "
+        "Keep natural lip texture, highlights, wrinkles and asymmetry; no overlining, no enlarged lips, no lipstick outside the vermilion border. "
+        f"Selected service: آینه لب و شیدینگ گیسو. Selected model: {style.get('label')}. Change level: {(candidate or {}).get('change_label') or ''}. "
+        f"Style goal: {style.get('summary')}. Do: {'; '.join(style.get('do') or [])}. Avoid: {'; '.join(style.get('avoid') or [])}. "
+        f"ROI method: {detection.get('method') or 'unknown'}, real_mask={mask.get('real_mask')}, coverage={mask.get('coverage_ratio')}. "
+        "The result must look like the same photo after a subtle professional PMU consultation, not a beauty filter."
+    )
+
+
 def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
     src = _source_path(candidate)
     if not src:
@@ -194,6 +294,11 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
         filename = f"final/final_lip_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.png"
         out_path = os.path.join(UPLOAD_DIR, filename)
         composed.save(out_path, "PNG", optimize=True)
+        try:
+            from giso.buti_ai.image_validation import validate_masked_output
+            validation = validate_masked_output(src, out_path, (detection.get("mask") or {}).get("path") or "", service_key=SERVICE_KEY)
+        except Exception:
+            validation = {}
         return {
             "ok": True,
             "filename": filename,
@@ -207,6 +312,9 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
             "detection": detection,
             "mask_used": bool((detection.get("mask") or {}).get("ok")),
             "mask_filename": os.path.relpath((detection.get("mask") or {}).get("path"), UPLOAD_DIR).replace(os.sep, "/") if (detection.get("mask") or {}).get("path") else "",
+            "validation": validation,
+            "visible_in_mask_change": bool(validation.get("visible_in_mask_change")) if isinstance(validation, dict) else False,
+            "outside_preserved": bool(validation.get("outside_preserved")) if isinstance(validation, dict) else False,
             "message": "طراحی راهنمای لب آماده شد؛ این نسخه AI واقعی نیست و فقط داخل محدوده لب اعمال شده است.",
         }
     except Exception as exc:

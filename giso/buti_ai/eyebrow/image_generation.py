@@ -316,15 +316,20 @@ def _numbered_model_providers(env: Optional[Dict[str, str]]) -> List[ImageProvid
     return providers
 
 
-def _ai_management_providers() -> List[ImageProviderConfig]:
-    """خواندن مدل‌های تصویرسازی آینه ابرو از مدیریت AI سوپرادمین."""
+def _ai_management_providers(service_key: str = "eyebrow") -> List[ImageProviderConfig]:
+    """خواندن مدل‌های تصویرسازی آینه گیسو از مدیریت AI سوپرادمین."""
     try:
         from giso.buti_ai.ai_models import configured_image_provider_dicts
     except Exception as exc:
         logger.debug("Buti AI management image providers unavailable: %s", exc)
         return []
     providers: List[ImageProviderConfig] = []
-    for item in configured_image_provider_dicts(limit=3):
+    try:
+        configured_items = configured_image_provider_dicts(limit=3, service_key=service_key or "eyebrow")
+    except TypeError:
+        # Backward-compatible for tests/older monkeypatches that only accepted limit.
+        configured_items = configured_image_provider_dicts(limit=3)
+    for item in configured_items:
         try:
             providers.append(
                 ImageProviderConfig(
@@ -343,7 +348,7 @@ def _ai_management_providers() -> List[ImageProviderConfig]:
     return [p for p in providers if p.endpoint and (p.api_key or _truthy(p.extra.get("allow_no_auth")))]
 
 
-def configured_image_providers(env: Optional[Dict[str, str]] = None) -> List[ImageProviderConfig]:
+def configured_image_providers(env: Optional[Dict[str, str]] = None, service_key: str = "eyebrow") -> List[ImageProviderConfig]:
     """برگرداندن providerهای تصویرسازی فعال؛ بدون لو دادن کلیدها.
 
     در اجرای واقعی (`env is None`) اول تنظیمات پنل «مدیریت AI» خوانده می‌شود.
@@ -351,7 +356,7 @@ def configured_image_providers(env: Optional[Dict[str, str]] = None) -> List[Ima
     """
     providers: List[ImageProviderConfig] = []
     if env is None:
-        providers.extend(_ai_management_providers())
+        providers.extend(_ai_management_providers(service_key=service_key or "eyebrow"))
     providers.extend(_cloudflare_providers(env))
     providers.extend(_numbered_model_providers(env))
     providers.extend(_json_configured_providers(env))
@@ -410,9 +415,9 @@ def _output_size_for_cloudflare(path: str) -> Tuple[int, int]:
     return max(256, min(max_side, out_w)), max(256, min(max_side, out_h))
 
 
-def _upload_relative_path(path: str) -> str:
+def _upload_relative_path(path: str, upload_dir: str = "") -> str:
     try:
-        base = os.path.abspath(final_design.EYEBROW_UPLOAD_DIR)
+        base = os.path.abspath(upload_dir or final_design.EYEBROW_UPLOAD_DIR)
         absolute = os.path.abspath(str(path or ""))
         if absolute.startswith(base + os.sep):
             return os.path.relpath(absolute, base).replace(os.sep, "/")
@@ -1189,7 +1194,11 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
         polarity=mask_info.get("polarity") or MASK_POLARITY,
     )
     prompt = final_design.build_design_prompt(candidate)
-    providers = configured_image_providers(env)
+    try:
+        providers = configured_image_providers(env, service_key="eyebrow")
+    except TypeError:
+        # Backward-compatible for tests/older monkeypatches that only accepted env.
+        providers = configured_image_providers(env)
     reference_path = _reference_image_path(candidate)
     timeout = _timeout_seconds(env)
     attempts: List[Dict[str, Any]] = []

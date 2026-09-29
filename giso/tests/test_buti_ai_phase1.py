@@ -1378,18 +1378,21 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
     result = ai_models.auto_configure_for_provider("cf")
 
     assert result["ok"] is True
-    assert result["added"] == 2
+    assert result["added"] == 6
     rows = ai_models.list_model_assignments()
-    assert len(rows) == 2
+    assert len(rows) == 6
     analysis = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_ANALYSIS]
-    images = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_IMAGE_DESIGN]
+    validation = [r for r in rows if r["task_key"] == ai_models.TASK_MIRROR_OUTPUT_VALIDATION]
+    images = [r for r in rows if r["task_key"] in ai_models.IMAGE_DESIGN_TASK_KEYS]
     assert analysis[0]["provider_name"] == "cloudflare"
+    assert validation[0]["provider_name"] == "cloudflare"
     assert "vision" in analysis[0]["model_name"]
-    assert [int(r["priority"]) for r in images] == [1]
-    assert images[0]["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b"
-    assert images[0]["image_kind"] == "cloudflare"
-    assert "@cf/runwayml/stable-diffusion-v1-5-inpainting" not in [r["model_name"] for r in images]
+    assert "vision" in validation[0]["model_name"]
+    assert len(images) == len(ai_models.IMAGE_DESIGN_TASK_KEYS)
+    assert [int(r["priority"]) for r in images] == [1, 1, 1, 1]
+    assert all(r["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b" for r in images)
     assert all(r["image_kind"] == "cloudflare" for r in images)
+    assert "@cf/runwayml/stable-diffusion-v1-5-inpainting" not in [r["model_name"] for r in images]
 
     second = ai_models.auto_configure_for_provider("cloudflare")
     assert second["added"] == 0
@@ -1452,19 +1455,23 @@ def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, m
     r2 = ai_models.auto_configure_for_provider("cf2")
     r3 = ai_models.auto_configure_for_provider("cf3")
 
-    assert r1["added"] == 2  # analysis + image slot 1
-    assert r2["added"] == 2  # analysis + image slot 2
-    assert r3["added"] == 2  # analysis + image slot 3
+    assert r1["added"] == 6  # analysis + validation + 4 service image slots at priority 1
+    assert r2["added"] == 6  # analysis + validation + 4 service image slots at priority 2
+    assert r3["added"] == 6  # analysis + validation + 4 service image slots at priority 3
     rows = ai_models.list_model_assignments()
     analysis = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_ANALYSIS]
+    validation = [r for r in rows if r["task_key"] == ai_models.TASK_MIRROR_OUTPUT_VALIDATION]
     assert [int(r["priority"]) for r in analysis] == [1, 2, 3]
     assert [r["provider_name"] for r in analysis] == ["cf1", "cf2", "cf3"]
-    assert all("vision" in r["model_name"] for r in analysis)
-    images = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_IMAGE_DESIGN]
-    assert [int(r["priority"]) for r in images] == [1, 2, 3]
-    assert [r["provider_name"] for r in images] == ["cf1", "cf2", "cf3"]
-    assert all(r["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b" for r in images)
-    assert all(r["image_kind"] == "cloudflare" for r in images)
+    assert [int(r["priority"]) for r in validation] == [1, 2, 3]
+    assert [r["provider_name"] for r in validation] == ["cf1", "cf2", "cf3"]
+    assert all("vision" in r["model_name"] for r in analysis + validation)
+    for task_key in ai_models.IMAGE_DESIGN_TASK_KEYS:
+        images = [r for r in rows if r["task_key"] == task_key]
+        assert [int(r["priority"]) for r in images] == [1, 2, 3]
+        assert [r["provider_name"] for r in images] == ["cf1", "cf2", "cf3"]
+        assert all(r["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b" for r in images)
+        assert all(r["image_kind"] == "cloudflare" for r in images)
 
     ok, _ = ai_models.save_model_assignment(
         ai_models.TASK_EYEBROW_IMAGE_DESIGN,
@@ -1475,10 +1482,13 @@ def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, m
     )
     assert ok is True
     over = ai_models.auto_configure_for_provider("cf2", overwrite=True)
-    assert over["added"] == 2
+    assert over["added"] == 6
     analysis_rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_ANALYSIS)
     analysis_slot2 = [r for r in analysis_rows if int(r["priority"]) == 2][0]
     assert analysis_slot2["provider_name"] == "cf2"
+    validation_rows = ai_models.list_model_assignments(ai_models.TASK_MIRROR_OUTPUT_VALIDATION)
+    validation_slot2 = [r for r in validation_rows if int(r["priority"]) == 2][0]
+    assert validation_slot2["provider_name"] == "cf2"
     rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_IMAGE_DESIGN)
     slot2 = [r for r in rows if int(r["priority"]) == 2][0]
     assert slot2["provider_name"] == "cf2"
@@ -1549,7 +1559,8 @@ def test_beauty_mirror_readiness_reports_missing_and_ready(tmp_path, monkeypatch
     assert missing["image_ready"] is False
 
     ai_models.save_model_assignment(ai_models.TASK_EYEBROW_ANALYSIS, 1, "cloudflare", "@cf/meta/llama-3.2-11b-vision-instruct")
-    ai_models.save_model_assignment(ai_models.TASK_EYEBROW_IMAGE_DESIGN, 1, "cloudflare", "@cf/black-forest-labs/flux-2-klein-4b", image_kind="cloudflare")
+    for task_key in ai_models.IMAGE_DESIGN_TASK_KEYS:
+        ai_models.save_model_assignment(task_key, 1, "cloudflare", "@cf/black-forest-labs/flux-2-klein-4b", image_kind="cloudflare")
 
     def placeholder_provider(name):
         return {
@@ -1581,5 +1592,6 @@ def test_beauty_mirror_readiness_reports_missing_and_ready(tmp_path, monkeypatch
     assert ready["ready"] is True
     assert ready["analysis_ready"] is True
     assert ready["image_ready"] is True
-    assert ready["image_ready_count"] == 1
+    assert ready["image_ready_count"] == len(ai_models.IMAGE_DESIGN_TASK_KEYS)
+    assert all(item["ready"] for item in ready["service_image_status"].values())
     assert ready["warnings"]

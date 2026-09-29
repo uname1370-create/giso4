@@ -109,19 +109,68 @@ def _nail_boxes(w: int, h: int) -> List[Dict[str, Any]]:
     return boxes
 
 
+def _nail_contrast_score(image_path: str, regions: List[Dict[str, Any]]) -> float:
+    """Validate the proportional nail plates against the actual image.
+
+    This stays conservative: if the expected small nail regions are not visibly
+    different from the surrounding finger/hand area, the mask remains fallback
+    and is never used to claim real AI output.
+    """
+    try:
+        from PIL import Image
+        image = Image.open(image_path).convert("RGB")
+        w, h = image.size
+        px = image.load()
+        scores: List[float] = []
+        for r in regions:
+            x = max(0, int(r["x"]))
+            y = max(0, int(r["y"]))
+            rw = max(3, int(r["width"]))
+            rh = max(4, int(r["height"]))
+            inside = []
+            ring = []
+            for yy in range(max(0, y - rh // 2), min(h, y + rh + rh // 2)):
+                for xx in range(max(0, x - rw // 2), min(w, x + rw + rw // 2)):
+                    val = px[xx, yy]
+                    brightness = sum(val) / 3.0
+                    sat = max(val) - min(val)
+                    if x <= xx <= x + rw and y <= yy <= y + rh:
+                        inside.append((brightness, sat))
+                    else:
+                        ring.append((brightness, sat))
+            if not inside or not ring:
+                continue
+            in_b = sum(v[0] for v in inside) / len(inside)
+            out_b = sum(v[0] for v in ring) / len(ring)
+            in_s = sum(v[1] for v in inside) / len(inside)
+            out_s = sum(v[1] for v in ring) / len(ring)
+            scores.append(max(abs(in_b - out_b), abs(in_s - out_s) * 0.8))
+        if not scores:
+            return 0.0
+        passed = [s for s in scores if s >= 7.5]
+        return len(passed) / float(max(1, len(regions)))
+    except Exception:
+        return 0.0
+
+
 def detect_regions(image_path: str, allow_fallback: bool = True) -> Dict[str, Any]:
     w, h = _image_size(image_path)
     if not w or not h:
         return {"ok": False, "method": "invalid_image", "regions": [], "mask": {"ok": False, "reason": "invalid_image"}}
     regions = _nail_boxes(w, h)
+    contrast_score = _nail_contrast_score(image_path, regions)
+    reliable = contrast_score >= 0.8
+    if not reliable and not allow_fallback:
+        return {"ok": False, "method": "nail_plate_not_detected", "regions": [], "mask": {"ok": False, "reason": "nail_plate_not_detected"}}
     detection = {
         "ok": True,
-        "method": "proportional_nail_guide",
-        "confidence": 0.28,
-        "detection_reliable": False,
-        "is_fallback": True,
+        "method": "color_validated_nail_plate_mask_v1" if reliable else "proportional_nail_guide",
+        "confidence": 0.66 if reliable else 0.28,
+        "detection_reliable": bool(reliable),
+        "is_fallback": not bool(reliable),
         "image_width": w,
         "image_height": h,
+        "contrast_score": round(float(contrast_score), 4),
         "regions": regions,
     }
     return ensure_mask(image_path, detection)
@@ -152,8 +201,8 @@ def ensure_mask(image_path: str, detection: Dict[str, Any]) -> Dict[str, Any]:
             "height": h,
             "coverage_ratio": round(pixels / float(max(1, w * h)), 6),
             "pixel_count": pixels,
-            "real_mask": False,
-            "is_fallback": True,
+            "real_mask": not bool(detection.get("is_fallback")),
+            "is_fallback": bool(detection.get("is_fallback")),
             "polarity": "white_edit_black_keep",
         }
         detection["mask_path"] = mask_path
@@ -203,6 +252,23 @@ def _draw_style_overlay(base, style_key: str, detection: Dict[str, Any]):
     return overlay.filter(ImageFilter.GaussianBlur(radius=0.25))
 
 
+def build_design_prompt(candidate: Dict[str, Any]) -> str:
+    style_key = str((candidate or {}).get("final_style") or DEFAULT_STYLE)
+    style = STYLES.get(style_key, STYLES[DEFAULT_STYLE])
+    detection = (candidate or {}).get("detection") if isinstance((candidate or {}).get("detection"), dict) else {}
+    mask = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
+    return (
+        "Photorealistic edit of the original customer hand photo for nail try-on. "
+        "Apply the selected nail design ONLY inside the provided nail-plate mask; white mask pixels are editable nail plates and black pixels must remain unchanged. "
+        "Do not change fingers, skin tone, cuticles, hand shape, jewelry, background, lighting, camera angle, or nail length outside the existing nail plate. "
+        "Keep natural reflections and anatomy; no extra fingers, no artificial hand, no cartoon polish. "
+        f"Selected service: آینه ناخن گیسو. Selected model: {style.get('label')}. Change level: {(candidate or {}).get('change_label') or ''}. "
+        f"Style goal: {style.get('summary')}. Do: {'; '.join(style.get('do') or [])}. Avoid: {'; '.join(style.get('avoid') or [])}. "
+        f"ROI method: {detection.get('method') or 'unknown'}, real_mask={mask.get('real_mask')}, coverage={mask.get('coverage_ratio')}. "
+        "The result should look like the same hand after a professional nail-color consultation preview."
+    )
+
+
 def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
     src = _source_path(candidate)
     if not src:
@@ -218,6 +284,11 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
         filename = f"final/final_nail_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.png"
         out_path = os.path.join(UPLOAD_DIR, filename)
         composed.save(out_path, "PNG", optimize=True)
+        try:
+            from giso.buti_ai.image_validation import validate_masked_output
+            validation = validate_masked_output(src, out_path, (detection.get("mask") or {}).get("path") or "", service_key=SERVICE_KEY)
+        except Exception:
+            validation = {}
         return {
             "ok": True,
             "filename": filename,
@@ -231,6 +302,9 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
             "detection": detection,
             "mask_used": bool((detection.get("mask") or {}).get("ok")),
             "mask_filename": os.path.relpath((detection.get("mask") or {}).get("path"), UPLOAD_DIR).replace(os.sep, "/") if (detection.get("mask") or {}).get("path") else "",
+            "validation": validation,
+            "visible_in_mask_change": bool(validation.get("visible_in_mask_change")) if isinstance(validation, dict) else False,
+            "outside_preserved": bool(validation.get("outside_preserved")) if isinstance(validation, dict) else False,
             "message": "طراحی راهنمای ناخن آماده شد؛ این نسخه AI واقعی نیست اما روی عکس خودت ساخته شده است.",
         }
     except Exception as exc:

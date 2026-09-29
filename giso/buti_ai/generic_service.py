@@ -189,7 +189,11 @@ def source_image_path(service_key: str, candidate: Dict[str, Any]) -> str:
 
 def generate_final_design(service_key: str, candidate: Dict[str, Any]) -> Dict[str, Any]:
     module = service_module(service_key)
-    return module.generate_guided_design(candidate or {})
+    try:
+        from giso.buti_ai.service_image_generation import generate_final_design as generate_service_image
+        return generate_service_image(service_key, module, candidate or {})
+    except Exception:
+        return module.generate_guided_design(candidate or {})
 
 
 def uploaded_root(service_key: str) -> str:

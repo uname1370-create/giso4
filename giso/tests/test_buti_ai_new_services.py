@@ -365,3 +365,69 @@ def test_all_remaining_new_services_are_publicly_active():
     assert "ورود به رنگ مو" in text
     assert "ورود به لب" in text
     assert "به‌زودی" not in text
+
+
+def test_lip_real_ai_requires_real_mask_and_preserves_outside_mask(tmp_path, monkeypatch):
+    """Provider success is truthful only when a lip-specific real mask and saved diff validation pass."""
+    import base64
+    from io import BytesIO as _BytesIO
+    from PIL import Image, ImageDraw
+    from giso.buti_ai.eyebrow import image_generation as shared_image
+    from giso.buti_ai import service_image_generation
+
+    upload_dir = tmp_path / "lip_uploads"
+    final_dir = upload_dir / "final"
+    upload_dir.mkdir(parents=True)
+    monkeypatch.setattr(lip_final, "UPLOAD_DIR", str(upload_dir))
+    monkeypatch.setattr(lip_final, "FINAL_DIR", str(final_dir))
+
+    photo_path = upload_dir / "lip_customer.jpg"
+    image = Image.new("RGB", (640, 820), (220, 178, 150))
+    draw = ImageDraw.Draw(image)
+    # Strong but plausible lip chroma inside the lower-face band so the local
+    # detector creates a non-fallback real mask.
+    draw.ellipse((230, 485, 410, 535), fill=(176, 64, 84))
+    draw.ellipse((250, 520, 390, 565), fill=(198, 78, 102))
+    image.save(photo_path, "JPEG", quality=94)
+
+    detection = lip_final.detect_regions(str(photo_path), allow_fallback=False)
+    assert detection["ok"] is True
+    assert detection["mask"]["real_mask"] is True
+
+    candidate = {
+        "service_key": SERVICE_LIP,
+        "photo_filename": photo_path.name,
+        "final_style": "soft_pink_tint",
+        "final_label": lip_final.STYLES["soft_pink_tint"]["label"],
+        "change_label": "خیلی طبیعی",
+        "detection": detection,
+    }
+    provider = shared_image.ImageProviderConfig(
+        id="mock_lip_ai",
+        label="Mock Lip AI",
+        kind="json_image",
+        endpoint="https://mock.invalid/lip",
+        model="mock-lip-model",
+        api_key="fake",
+    )
+    monkeypatch.setattr(
+        shared_image,
+        "configured_image_providers",
+        lambda env=None, service_key="eyebrow": [provider],
+    )
+    provider_output = _BytesIO()
+    Image.new("RGB", (640, 820), (60, 20, 210)).save(provider_output, "PNG")
+    output_value = "data:image/png;base64," + base64.b64encode(provider_output.getvalue()).decode("ascii")
+    monkeypatch.setattr(service_image_generation, "_call_provider", lambda *args, **kwargs: output_value)
+
+    result = service_image_generation.generate_final_design(SERVICE_LIP, lip_final, candidate, env={})
+
+    assert result["ok"] is True
+    assert result["is_ai_generated"] is True
+    assert result["status"] == "ai_lip_shading_ready"
+    assert result["provider"] == "mock_lip_ai"
+    assert result["provider_output_constrained_to_service_mask"] is True
+    assert result["visible_in_mask_change"] is True
+    assert result["outside_preserved"] is True
+    assert result["validation"]["outside_mask_diff_ratio"] <= 0.04
+    assert (upload_dir / result["filename"]).exists()

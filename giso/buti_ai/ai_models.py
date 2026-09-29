@@ -17,8 +17,19 @@ from giso.base import get_giso_db_conn
 
 logger = logging.getLogger("giso_buti_ai_models")
 
-TASK_EYEBROW_ANALYSIS = "eyebrow_analysis"
+TASK_EYEBROW_ANALYSIS = "eyebrow_analysis"  # legacy key; now used as the shared آینه گیسو photo-analysis task
 TASK_EYEBROW_IMAGE_DESIGN = "eyebrow_image_design"
+TASK_NAIL_IMAGE_DESIGN = "nail_image_design"
+TASK_LIP_IMAGE_DESIGN = "lip_shading_image_design"
+TASK_HAIR_COLOR_IMAGE_DESIGN = "hair_color_image_design"
+TASK_MIRROR_OUTPUT_VALIDATION = "mirror_output_validation"
+IMAGE_DESIGN_TASK_KEYS = (
+    TASK_EYEBROW_IMAGE_DESIGN,
+    TASK_NAIL_IMAGE_DESIGN,
+    TASK_LIP_IMAGE_DESIGN,
+    TASK_HAIR_COLOR_IMAGE_DESIGN,
+)
+VISION_TASK_KEYS = (TASK_EYEBROW_ANALYSIS, TASK_MIRROR_OUTPUT_VALIDATION)
 DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b"
 CLOUDFLARE_INPAINTING_MODEL = "@cf/runwayml/stable-diffusion-v1-5-inpainting"
 CLOUDFLARE_INPAINTING_KINDS = {"cloudflare_inpainting", "cloudflare_inpaint", "inpainting", "mask_inpainting"}
@@ -29,19 +40,54 @@ LEGACY_UNSUPPORTED_CLOUDFLARE_FINAL_MODELS = {
 
 TASK_DEFS: Dict[str, Dict[str, Any]] = {
     TASK_EYEBROW_ANALYSIS: {
-        "label": "آینه گیسو — تحلیل عکس",
+        "label": "آینه گیسو — تحلیل عکس ورودی",
         "short_label": "تحلیل عکس",
         "kind": "vision",
         "slots": 3,
         "help": "مدل‌های بینایی مخصوص بخش آینه گیسو، به‌ترتیب اولویت؛ اگر cf1 خطا داد، cf2/cf3 یا مدل بعدی امتحان می‌شود.",
     },
     TASK_EYEBROW_IMAGE_DESIGN: {
-        "label": "آینه گیسو — طراحی نهایی تصویر",
-        "short_label": "طراحی تصویر",
+        "label": "آینه گیسو — طراحی تصویر ابرو",
+        "short_label": "طراحی ابرو",
         "kind": "image",
         "slots": 3,
-        "help": "مدل‌های تصویرسازی فقط برای بخش آینه گیسو، به‌ترتیب اولویت؛ اگر مدل اول جواب نداد، بعدی امتحان می‌شود.",
+        "help": "مدل تصویرسازی/inpainting فقط برای خروجی ابرو؛ باید با ماسک ابرو و حفظ بیرون mask استفاده شود.",
     },
+    TASK_NAIL_IMAGE_DESIGN: {
+        "label": "آینه گیسو — طراحی تصویر ناخن",
+        "short_label": "طراحی ناخن",
+        "kind": "image",
+        "slots": 3,
+        "help": "مدل تصویرسازی/inpainting فقط برای ناخن؛ باید صفحه ناخن‌ها را تغییر دهد و پوست دست/پس‌زمینه را حفظ کند.",
+    },
+    TASK_LIP_IMAGE_DESIGN: {
+        "label": "آینه گیسو — طراحی تصویر لب و شیدینگ",
+        "short_label": "طراحی لب",
+        "kind": "image",
+        "slots": 3,
+        "help": "مدل تصویرسازی/inpainting فقط برای لب؛ باید دندان و پوست اطراف لب را تغییر ندهد.",
+    },
+    TASK_HAIR_COLOR_IMAGE_DESIGN: {
+        "label": "آینه گیسو — طراحی تصویر رنگ و لایت مو",
+        "short_label": "طراحی رنگ مو",
+        "kind": "image",
+        "slots": 3,
+        "help": "مدل تصویرسازی/inpainting فقط برای مو؛ باید صورت، پوست، لباس و پس‌زمینه را حفظ کند.",
+    },
+    TASK_MIRROR_OUTPUT_VALIDATION: {
+        "label": "آینه گیسو — اعتبارسنجی خروجی نهایی",
+        "short_label": "اعتبارسنجی خروجی",
+        "kind": "vision",
+        "slots": 3,
+        "help": "مدل بینایی برای بررسی خروجی نهایی؛ تغییر داخل mask، حفظ بیرون mask و نبود تغییر ناخواسته را کنترل می‌کند.",
+    },
+}
+
+SERVICE_IMAGE_TASK_MAP = {
+    "eyebrow": TASK_EYEBROW_IMAGE_DESIGN,
+    "nail": TASK_NAIL_IMAGE_DESIGN,
+    "lip_shading": TASK_LIP_IMAGE_DESIGN,
+    "hair_color": TASK_HAIR_COLOR_IMAGE_DESIGN,
 }
 
 AI_MODEL_ASSIGNMENTS_SQL = """
@@ -485,7 +531,12 @@ def repair_legacy_cloudflare_eyebrow_image_slots() -> Dict[str, Any]:
     return {"ok": True, "changed": len(changed), "items": changed}
 
 
-def configured_image_provider_dicts(limit: int = 3) -> List[Dict[str, Any]]:
+def image_task_for_service(service_key: str = "eyebrow") -> str:
+    """Task key اختصاصی تصویرسازی برای هر خدمت آینه گیسو."""
+    return SERVICE_IMAGE_TASK_MAP.get(str(service_key or "").strip().lower(), TASK_EYEBROW_IMAGE_DESIGN)
+
+
+def configured_image_provider_dicts(limit: int = 3, task_key: str = "", service_key: str = "eyebrow") -> List[Dict[str, Any]]:
     """providerهای تصویرسازی آینه گیسو از مدیریت AI، بدون لاگ‌کردن کلیدها."""
     try:
         from giso.ai_brain import get_ai_provider
@@ -498,7 +549,8 @@ def configured_image_provider_dicts(limit: int = 3) -> List[Dict[str, Any]]:
         logger.debug("legacy Cloudflare eyebrow slot repair skipped: %s", exc)
 
     providers: List[Dict[str, Any]] = []
-    for row in list_model_assignments(TASK_EYEBROW_IMAGE_DESIGN, only_enabled=True):
+    image_task_key = normalize_task_key(task_key) or image_task_for_service(service_key)
+    for row in list_model_assignments(image_task_key, only_enabled=True):
         if len(providers) >= max(1, int(limit or 3)):
             break
         provider_name = str(row.get("provider_name") or "").strip().lower()
@@ -597,7 +649,7 @@ def readiness_status() -> Dict[str, Any]:
         return ""
 
     analysis_rows = list_model_assignments(TASK_EYEBROW_ANALYSIS, only_enabled=True)
-    image_rows = list_model_assignments(TASK_EYEBROW_IMAGE_DESIGN, only_enabled=True)
+    validation_rows = list_model_assignments(TASK_MIRROR_OUTPUT_VALIDATION, only_enabled=True)
 
     analysis_ready = False
     for row in analysis_rows:
@@ -611,26 +663,54 @@ def readiness_status() -> Dict[str, Any]:
             sample = analysis_rows[0]
             issues.append(provider_problem(str(sample.get("provider_name") or ""), str(sample.get("model_name") or ""), image_task=False))
 
-    image_ready_count = 0
-    image_providers: List[str] = []
-    first_image_problem = ""
-    for row in image_rows:
-        provider_name = str(row.get("provider_name") or "")
-        model_name = str(row.get("model_name") or "")
-        problem = provider_problem(provider_name, model_name, image_task=True, endpoint_override=str(row.get("endpoint_override") or ""))
+    validation_ready = False
+    for row in validation_rows:
+        problem = provider_problem(str(row.get("provider_name") or ""), str(row.get("model_name") or ""), image_task=False)
         if not problem:
-            image_ready_count += 1
-            if provider_name not in image_providers:
-                image_providers.append(provider_name)
-        elif not first_image_problem:
-            first_image_problem = problem
-    image_ready = image_ready_count > 0
-    if not image_ready:
-        issues.append("مدل طراحی تصویر آینه گیسو آماده نیست.")
-        if first_image_problem:
-            issues.append(first_image_problem)
-    elif image_ready_count < 2:
-        warnings.append("برای fallback بهتر، حداقل دو مدل طراحی تصویر فعال پیشنهاد می‌شود.")
+            validation_ready = True
+            break
+    if not validation_ready:
+        warnings.append("مدل اعتبارسنجی خروجی نهایی تنظیم نشده؛ خروجی واقعی AI باید با کنترل mask و diff تأیید شود.")
+
+    service_image_status: Dict[str, Dict[str, Any]] = {}
+    total_image_ready_count = 0
+    image_providers: List[str] = []
+    for service_key, image_task in SERVICE_IMAGE_TASK_MAP.items():
+        image_rows = list_model_assignments(image_task, only_enabled=True)
+        ready_count = 0
+        first_problem = ""
+        providers_for_service: List[str] = []
+        for row in image_rows:
+            provider_name = str(row.get("provider_name") or "")
+            model_name = str(row.get("model_name") or "")
+            problem = provider_problem(provider_name, model_name, image_task=True, endpoint_override=str(row.get("endpoint_override") or ""))
+            if not problem:
+                ready_count += 1
+                total_image_ready_count += 1
+                if provider_name not in providers_for_service:
+                    providers_for_service.append(provider_name)
+                if provider_name not in image_providers:
+                    image_providers.append(provider_name)
+            elif not first_problem:
+                first_problem = problem
+        ready = ready_count > 0
+        service_image_status[service_key] = {
+            "ready": bool(ready),
+            "ready_count": ready_count,
+            "providers": providers_for_service,
+            "task_key": image_task,
+            "problem": first_problem,
+        }
+        if not ready:
+            label = TASK_DEFS.get(image_task, {}).get("short_label") or service_key
+            issues.append(f"مدل {label} آینه گیسو آماده نیست.")
+            if first_problem:
+                issues.append(first_problem)
+        elif ready_count < 2:
+            label = TASK_DEFS.get(image_task, {}).get("short_label") or service_key
+            warnings.append(f"برای fallback بهتر، حداقل دو مدل فعال برای {label} پیشنهاد می‌شود.")
+
+    image_ready = all(item.get("ready") for item in service_image_status.values())
 
     def _unique_messages(items: List[str]) -> List[str]:
         result: List[str] = []
@@ -645,8 +725,10 @@ def readiness_status() -> Dict[str, Any]:
     return {
         "ready": bool(analysis_ready and image_ready),
         "analysis_ready": bool(analysis_ready),
+        "validation_ready": bool(validation_ready),
         "image_ready": bool(image_ready),
-        "image_ready_count": image_ready_count,
+        "image_ready_count": total_image_ready_count,
+        "service_image_status": service_image_status,
         "image_providers": image_providers,
         "issues": issues,
         "warnings": warnings,
@@ -725,16 +807,18 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
     account_slot = _cloudflare_slot_priority(provider_name)
     analysis_priority = account_slot or 1
     analysis_overwrite = bool(overwrite)
-    if vision_model and (analysis_overwrite or _slot_is_empty(TASK_EYEBROW_ANALYSIS, analysis_priority)):
-        ok, _message = save_model_assignment(
-            TASK_EYEBROW_ANALYSIS,
-            analysis_priority,
-            provider_name,
-            vision_model,
-            enabled=True,
-        )
-        if ok:
-            added.append({"task": TASK_EYEBROW_ANALYSIS, "priority": analysis_priority, "model": vision_model})
+    for vision_task in VISION_TASK_KEYS:
+        priority = min(analysis_priority, int(TASK_DEFS.get(vision_task, {}).get("slots") or analysis_priority))
+        if vision_model and (analysis_overwrite or _slot_is_empty(vision_task, priority)):
+            ok, _message = save_model_assignment(
+                vision_task,
+                priority,
+                provider_name,
+                vision_model,
+                enabled=True,
+            )
+            if ok:
+                added.append({"task": vision_task, "priority": priority, "model": vision_model})
 
     image_items = _model_items(get_image_models(registry_family), limit=3, auto_assign_only=True)
     if account_slot and image_items:
@@ -742,23 +826,24 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
         priorities = [account_slot]
     else:
         priorities = list(range(1, len(image_items) + 1))
-    for priority, item in zip(priorities, image_items):
-        model = item["id"]
-        image_kind = item.get("image_kind") or ("cloudflare" if registry_family == "cloudflare" else "")
-        if registry_family == "cloudflare":
-            image_kind = _cloudflare_image_kind_for_model(model, image_kind)
-        if not (overwrite or _slot_is_empty(TASK_EYEBROW_IMAGE_DESIGN, priority)):
-            continue
-        ok, _message = save_model_assignment(
-            TASK_EYEBROW_IMAGE_DESIGN,
-            priority,
-            provider_name,
-            model,
-            enabled=True,
-            image_kind=image_kind,
-        )
-        if ok:
-            added.append({"task": TASK_EYEBROW_IMAGE_DESIGN, "priority": priority, "model": model, "image_kind": image_kind})
+    for image_task in IMAGE_DESIGN_TASK_KEYS:
+        for priority, item in zip(priorities, image_items):
+            model = item["id"]
+            image_kind = item.get("image_kind") or ("cloudflare" if registry_family == "cloudflare" else "")
+            if registry_family == "cloudflare":
+                image_kind = _cloudflare_image_kind_for_model(model, image_kind)
+            if not (overwrite or _slot_is_empty(image_task, priority)):
+                continue
+            ok, _message = save_model_assignment(
+                image_task,
+                priority,
+                provider_name,
+                model,
+                enabled=True,
+                image_kind=image_kind,
+            )
+            if ok:
+                added.append({"task": image_task, "priority": priority, "model": model, "image_kind": image_kind})
 
     return {"ok": True, "added": len(added), "items": added, "provider": provider_name}
 
@@ -796,6 +881,13 @@ __all__ = [
     "DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL",
     "TASK_EYEBROW_ANALYSIS",
     "TASK_EYEBROW_IMAGE_DESIGN",
+    "TASK_NAIL_IMAGE_DESIGN",
+    "TASK_LIP_IMAGE_DESIGN",
+    "TASK_HAIR_COLOR_IMAGE_DESIGN",
+    "TASK_MIRROR_OUTPUT_VALIDATION",
+    "IMAGE_DESIGN_TASK_KEYS",
+    "VISION_TASK_KEYS",
+    "SERVICE_IMAGE_TASK_MAP",
     "TASK_DEFS",
     "init_buti_ai_model_assignments",
     "save_model_assignment",
@@ -806,5 +898,6 @@ __all__ = [
     "auto_configure_defaults",
     "repair_legacy_cloudflare_eyebrow_image_slots",
     "configured_vision_chain",
+    "image_task_for_service",
     "configured_image_provider_dicts",
 ]

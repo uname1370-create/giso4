@@ -427,13 +427,21 @@ def generate_python_guided_design(candidate):
         composed.save(out_path, "JPEG", quality=88, optimize=True)
         mask_info = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
         mask_filename = ""
+        raw_mask_path = ""
         try:
             mask_path = os.path.abspath(str(mask_info.get("path") or detection.get("mask_path") or ""))
+            raw_mask_path = mask_path if os.path.exists(mask_path) else ""
             upload_root = os.path.abspath(EYEBROW_UPLOAD_DIR)
             if mask_path.startswith(upload_root + os.sep):
                 mask_filename = os.path.relpath(mask_path, upload_root).replace(os.sep, "/")
         except Exception:
             mask_filename = ""
+            raw_mask_path = ""
+        try:
+            from giso.buti_ai.image_validation import validate_masked_output
+            validation = validate_masked_output(src, out_path, raw_mask_path, service_key="eyebrow")
+        except Exception:
+            validation = {}
         return {
             "ok": True,
             "filename": out_name,
@@ -445,6 +453,9 @@ def generate_python_guided_design(candidate):
             "eyebrow_detection": detection,
             "mask_filename": mask_filename,
             "mask_used": bool(mask_filename),
+            "validation": validation,
+            "visible_in_mask_change": bool(validation.get("visible_in_mask_change")) if isinstance(validation, dict) else False,
+            "outside_preserved": bool(validation.get("outside_preserved")) if isinstance(validation, dict) else False,
             "ai_inpainting": False,
             "is_ai_generated": False,
             "fallback_type": "non_ai_guided_fallback",

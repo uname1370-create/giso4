@@ -256,7 +256,16 @@
                     <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('ready') else 'pnl-badge-off' }}">{{ 'آماده' if ready.get('ready') else 'ناقص' }}</span>
                     <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('analysis_ready') else 'pnl-badge-off' }}">تحلیل عکس: {{ 'آماده' if ready.get('analysis_ready') else 'ناقص' }}</span>
                     <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('image_ready') else 'pnl-badge-off' }}">طراحی تصویر: {{ ready.get('image_ready_count', 0) }} مدل</span>
+                    <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('validation_ready') else 'pnl-badge-off' }}">اعتبارسنجی خروجی: {{ 'آماده' if ready.get('validation_ready') else 'پیشنهادی' }}</span>
                 </div>
+                {% if ready.get('service_image_status') %}
+                <div class="pnl-btn-row" style="gap:6px;margin-top:8px;align-items:center;">
+                    {% set service_labels = {'eyebrow':'ابرو','nail':'ناخن','lip_shading':'لب','hair_color':'رنگ مو'} %}
+                    {% for service_key, status in ready.get('service_image_status', {}).items() %}
+                    <span class="pnl-badge {{ 'pnl-badge-ok' if status.get('ready') else 'pnl-badge-off' }}">{{ service_labels.get(service_key, service_key) }}: {{ status.get('ready_count', 0) }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
                 {% if ready.get('issues') %}<ul class="pnl-muted" style="margin:8px 0 0;line-height:1.9;">{% for item in ready.get('issues') %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
                 {% if ready.get('warnings') %}<ul class="pnl-muted" style="margin:8px 0 0;line-height:1.9;">{% for item in ready.get('warnings') %}<li>⚠️ {{ item }}</li>{% endfor %}</ul>{% endif %}
             </div>
