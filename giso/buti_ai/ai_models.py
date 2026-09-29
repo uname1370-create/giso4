@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""تنظیمات مدل‌های اختصاصی آینه زیبایی گیسو.
+"""تنظیمات مدل‌های اختصاصی آینه گیسو.
 
-این ماژول عمداً داخل `giso/buti_ai/` است تا سناریوی آینه زیبایی/ابرو
+این ماژول عمداً داخل `giso/buti_ai/` است تا سناریوی آینه گیسو
 مالک تنظیمات خودش باشد، اما پنل مرکزی «مدیریت هوش مصنوعی» بتواند همان
 تنظیمات را نمایش و ذخیره کند.
 """
@@ -29,18 +29,18 @@ LEGACY_UNSUPPORTED_CLOUDFLARE_FINAL_MODELS = {
 
 TASK_DEFS: Dict[str, Dict[str, Any]] = {
     TASK_EYEBROW_ANALYSIS: {
-        "label": "آینه ابرو — تحلیل عکس",
+        "label": "آینه گیسو — تحلیل عکس",
         "short_label": "تحلیل عکس",
         "kind": "vision",
         "slots": 3,
-        "help": "مدل‌های بینایی تحلیل عکس به‌ترتیب اولویت؛ اگر cf1 خطا داد، cf2/cf3 یا مدل بعدی امتحان می‌شود.",
+        "help": "مدل‌های بینایی مخصوص بخش آینه گیسو، به‌ترتیب اولویت؛ اگر cf1 خطا داد، cf2/cf3 یا مدل بعدی امتحان می‌شود.",
     },
     TASK_EYEBROW_IMAGE_DESIGN: {
-        "label": "آینه ابرو — طراحی نهایی تصویر",
+        "label": "آینه گیسو — طراحی نهایی تصویر",
         "short_label": "طراحی تصویر",
         "kind": "image",
         "slots": 3,
-        "help": "مدل‌های تصویرسازی به‌ترتیب اولویت؛ اگر مدل اول جواب نداد، بعدی امتحان می‌شود.",
+        "help": "مدل‌های تصویرسازی فقط برای بخش آینه گیسو، به‌ترتیب اولویت؛ اگر مدل اول جواب نداد، بعدی امتحان می‌شود.",
     },
 }
 
@@ -130,7 +130,7 @@ def _is_supported_cloudflare_final_model(model_name: str, image_kind: str = "") 
 
 
 def init_buti_ai_model_assignments(conn=None) -> None:
-    """ایجاد جدول تنظیم مدل‌های آینه زیبایی، افزودنی و امن."""
+    """ایجاد جدول تنظیم مدل‌های آینه گیسو، افزودنی و امن."""
     own_conn = conn is None
     c = conn or get_giso_db_conn()
     try:
@@ -172,10 +172,10 @@ def _normal_priority(priority: Any, task_key: str) -> int:
 def save_model_assignment(task_key: str, priority: Any, provider_name: str, model_name: str,
                           enabled: bool = True, image_kind: str = "",
                           endpoint_override: str = "") -> tuple[bool, str]:
-    """ذخیره یک اسلات مدل برای آینه زیبایی.
+    """ذخیره یک اسلات مدل برای آینه گیسو.
 
     ذخیره بر اساس `(task_key, priority)` است؛ یعنی اسلات ۱ مدل اصلی و
-    اسلات‌های بعدی fallback هستند.
+    اسلات‌های بعدی fallback هستند. این تنظیمات فقط در Buti AI/آینه گیسو مصرف می‌شود.
     """
     task_key = normalize_task_key(task_key)
     if not task_key:
@@ -213,7 +213,7 @@ def save_model_assignment(task_key: str, priority: Any, provider_name: str, mode
                 ),
             )
             conn.commit()
-        return True, "تنظیم مدل آینه زیبایی ذخیره شد."
+        return True, "تنظیم مدل آینه گیسو ذخیره شد."
     except Exception as exc:
         logger.error("save_model_assignment failed: %s", exc)
         return False, "ذخیره تنظیم مدل انجام نشد."
@@ -287,7 +287,7 @@ def _models_for_provider_row(row: Any) -> List[str]:
 
 
 def provider_model_options() -> Dict[str, Any]:
-    """گزینه‌های قابل نمایش در پنل مدیریت برای انتخاب مدل آینه زیبایی."""
+    """گزینه‌های قابل نمایش در پنل مدیریت برای انتخاب مدل آینه گیسو."""
     try:
         from giso.ai_brain import _col, _effective_base_url, get_ai_provider, list_ai_providers
         from giso.ai_brain import cloudflare_account_id_from_url
@@ -334,7 +334,7 @@ def provider_model_options() -> Dict[str, Any]:
 
 
 def panel_slots_context() -> Dict[str, Any]:
-    """ساخت داده ساده برای تب «مدل‌های آینه زیبایی» در پنل."""
+    """ساخت داده ساده برای تب «مدل‌های آینه گیسو» در پنل."""
     try:
         repair_legacy_cloudflare_eyebrow_image_slots()
     except Exception as exc:
@@ -361,6 +361,8 @@ def panel_slots_context() -> Dict[str, Any]:
             })
     return {
         "tasks": TASK_DEFS,
+        "scope_label": "فقط آینه گیسو / Buti AI",
+        "scope_note": "این اسلات‌ها روی مشاور عمومی، ربات، آنالیز مو/پوست و سایر بخش‌های گیسو اثر نمی‌گذارند؛ فقط مسیر آینه گیسو از آن‌ها می‌خواند.",
         "slots": slots,
         "providers": options.get("providers", []),
         "model_options": options.get("models", []),
@@ -484,7 +486,7 @@ def repair_legacy_cloudflare_eyebrow_image_slots() -> Dict[str, Any]:
 
 
 def configured_image_provider_dicts(limit: int = 3) -> List[Dict[str, Any]]:
-    """providerهای تصویرسازی آینه ابرو از مدیریت AI، بدون لاگ‌کردن کلیدها."""
+    """providerهای تصویرسازی آینه گیسو از مدیریت AI، بدون لاگ‌کردن کلیدها."""
     try:
         from giso.ai_brain import get_ai_provider
     except Exception:
@@ -540,7 +542,7 @@ def configured_image_provider_dicts(limit: int = 3) -> List[Dict[str, Any]]:
 
 
 def readiness_status() -> Dict[str, Any]:
-    """وضعیت آماده‌بودن آینه زیبایی برای استفاده واقعی از AI.
+    """وضعیت آماده‌بودن آینه گیسو برای استفاده واقعی از AI.
 
     این تابع کلیدها را نمایش نمی‌دهد؛ فقط می‌گوید تنظیمات لازم برای تحلیل عکس
     و طراحی تصویر موجود است یا نه.
@@ -587,7 +589,7 @@ def readiness_status() -> Dict[str, Any]:
             if kind == "cloudflare" or _is_cloudflare_provider_name(provider_name):
                 safe_kind = _cloudflare_image_kind_for_model(model_name, "")
                 if not _is_supported_cloudflare_final_model(model_name, safe_kind):
-                    return "این مدل Cloudflare برای طراحی عکس نهایی ابرو پشتیبانی نمی‌شود؛ از flux-2-klein-4b یا مدل inpainting واقعی استفاده کن."
+                    return "این مدل Cloudflare برای طراحی عکس نهایی آینه گیسو پشتیبانی نمی‌شود؛ از flux-2-klein-4b یا مدل inpainting واقعی استفاده کن."
                 if not _cloudflare_run_root(provider):
                     return "Cloudflare Account ID یا API Root درست تنظیم نشده است."
             elif not _openai_image_endpoint(provider, endpoint_override):
@@ -604,7 +606,7 @@ def readiness_status() -> Dict[str, Any]:
             analysis_ready = True
             break
     if not analysis_ready:
-        issues.append("مدل تحلیل عکس ابرو آماده نیست.")
+        issues.append("مدل تحلیل عکس آینه گیسو آماده نیست.")
         if analysis_rows:
             sample = analysis_rows[0]
             issues.append(provider_problem(str(sample.get("provider_name") or ""), str(sample.get("model_name") or ""), image_task=False))
@@ -624,7 +626,7 @@ def readiness_status() -> Dict[str, Any]:
             first_image_problem = problem
     image_ready = image_ready_count > 0
     if not image_ready:
-        issues.append("مدل طراحی تصویر آینه ابرو آماده نیست.")
+        issues.append("مدل طراحی تصویر آینه گیسو آماده نیست.")
         if first_image_problem:
             issues.append(first_image_problem)
     elif image_ready_count < 2:
@@ -700,10 +702,10 @@ def _model_items(items: Iterable[Any], limit: int = 3, auto_assign_only: bool = 
 
 
 def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> Dict[str, Any]:
-    """پرکردن خودکار اسلات‌های خالی آینه زیبایی بعد از افزودن پروایدر.
+    """پرکردن خودکار اسلات‌های خالی آینه گیسو بعد از افزودن پروایدر.
 
     این کار فقط اسلات‌های خالی را پر می‌کند تا انتخاب دستی سوپرادمین خراب نشود.
-    برای Cloudflare علاوه بر تحلیل عکس، سه مدل تصویرسازی پیش‌فرض هم تنظیم می‌شود.
+    برای Cloudflare علاوه بر تحلیل عکس، سه مدل تصویرسازی پیش‌فرض هم فقط برای آینه گیسو تنظیم می‌شود.
     """
     try:
         from giso.ai_models_registry import (
@@ -762,7 +764,7 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
 
 
 def auto_configure_defaults(overwrite: bool = False) -> Dict[str, Any]:
-    """پیشنهاد خودکار مدل‌های آینه زیبایی از پروایدرهای فعال فعلی."""
+    """پیشنهاد خودکار مدل‌های آینه گیسو از پروایدرهای فعال فعلی."""
     try:
         from giso.ai_brain import list_ai_providers
         from giso.ai_models_registry import normalize_provider_name
@@ -779,7 +781,7 @@ def auto_configure_defaults(overwrite: bool = False) -> Dict[str, Any]:
         name = normalize_provider_name(_row_get(row, "name", ""))
         if name and name not in names:
             names.append(name)
-    # Cloudflare برای تصویرسازی ابرو اولویت دارد، چون رجیستری تصویرساز دارد.
+    # Cloudflare برای تصویرسازی آینه گیسو اولویت دارد، چون رجیستری تصویرساز دارد.
     names = (["cloudflare"] if "cloudflare" in names else []) + [n for n in names if n != "cloudflare"]
 
     all_items: List[Dict[str, Any]] = []

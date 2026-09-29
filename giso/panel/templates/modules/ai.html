@@ -23,7 +23,7 @@
             <span class="pnl-tab" data-pane="status">📊 وضعیت و تست</span>
             <span class="pnl-tab" data-pane="behavior">🎭 رفتار و هویت</span>
             <span class="pnl-tab" data-pane="failover">🎯 زنجیره جایگزین</span>
-            <span class="pnl-tab" data-pane="beauty-mirror">🪞 آینه ابرو</span>
+            <span class="pnl-tab" data-pane="beauty-mirror">🪞 آینه گیسو</span>
             <span class="pnl-tab" data-pane="roles">🔐 دسترسی نقش‌ها</span>
             <span class="pnl-tab" data-pane="widget">🌐 Widget</span>
             <span class="pnl-tab" data-pane="credits">✨ اعتبار کاربران</span>
@@ -57,9 +57,9 @@
                     <b>⚡ افزودن سریع Cloudflare با cf1 / cf2 / cf3</b>
                     <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">برای هر اکانت Cloudflare یک نام جدا انتخاب کن و فقط دو مقدار بده: <b>API Token</b> و <b>Account ID</b>. گیسو خودش این آدرس را می‌سازد:</p>
                     <code dir="ltr" style="display:block;margin-top:6px;white-space:normal;">https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run</code>
-                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">مدل پیش‌فرض طراحی عکس نهایی ابرو: <code dir="ltr">@cf/black-forest-labs/flux-2-klein-4b</code></p>
+                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">مدل پیش‌فرض طراحی عکس نهایی آینه گیسو: <code dir="ltr">@cf/black-forest-labs/flux-2-klein-4b</code></p>
                 </div>
-                <small class="pnl-muted" style="grid-column:1/-1;">برای چند اکانت Cloudflare از <b>cf1</b>، <b>cf2</b>، <b>cf3</b> استفاده کن؛ هرکدام Token و Account ID خودش را می‌گیرد و به اسلات همان شماره در طراحی نهایی ابرو وصل می‌شود.</small>
+                <small class="pnl-muted" style="grid-column:1/-1;">برای چند اکانت Cloudflare از <b>cf1</b>، <b>cf2</b>، <b>cf3</b> استفاده کن؛ هرکدام Token و Account ID خودش را می‌گیرد و به اسلات همان شماره در طراحی نهایی آینه گیسو وصل می‌شود.</small>
                 <details style="grid-column:1/-1;" data-hide-for-cf>
                     <summary style="cursor:pointer;">⚙️ تنظیمات پیشرفته (اختیاری — خالی = از رجیستری)</summary>
                     <div class="pnl-grid-form" style="margin-top:8px;">
@@ -93,7 +93,7 @@
                             <span dir="ltr">{{ p.effective_base_url or p.base_url or '—' }}</span>
                             {% if p.connects_via_worker %}<span class="pnl-badge pnl-badge-ok">ورکر Cloudflare</span>{% endif %}
                             {% if p.cloudflare_account_id %}<span class="pnl-badge pnl-badge-info">Account: <span dir="ltr">{{ p.cloudflare_account_id[:6] }}…{{ p.cloudflare_account_id[-4:] }}</span></span>{% endif %}
-                            {% if p.cloudflare_image_model_default %}<span class="pnl-badge pnl-badge-info">مدل عکس ابرو: <span dir="ltr">{{ p.cloudflare_image_model_default }}</span></span>{% endif %}
+                            {% if p.cloudflare_image_model_default %}<span class="pnl-badge pnl-badge-info">مدل عکس آینه گیسو: <span dir="ltr">{{ p.cloudflare_image_model_default }}</span></span>{% endif %}
                         </div>
                         <div class="pnl-muted" style="font-size:.72rem;margin-top:2px;">
                             🖼️ Vision: <b>{{ p.vision_count|default(0) }}</b>
@@ -240,14 +240,18 @@
     <!-- ═══ تب آینه زیبایی: مدل‌های اختصاصی Buti AI ═══ -->
     <section class="pnl-pane" id="pane-beauty-mirror">
         <div class="pnl-card">
-            <h3>🪞 مدل‌های آینه ابرو گیسو</h3>
+            <h3>🪞 مدل‌های آینه گیسو</h3>
             <p class="pnl-muted">
-                این بخش مدل بررسی عکس ابرو را از مدل طراحی تصویر جدا می‌کند. اسلات ۱ مدل اصلی است و اسلات‌های بعدی fallback هستند.
+                این بخش فقط مدل‌های اختصاصی آینه گیسو را نگه می‌دارد؛ مدل بررسی عکس از مدل طراحی تصویر جداست. اسلات ۱ مدل اصلی است و اسلات‌های بعدی fallback هستند.
             </p>
             {% set bm = ai.get('beauty_mirror', {}) %}
+            <div class="pnl-card" style="margin:10px 0 14px;background:#f8fbff;border-color:#cfe4ff;">
+                <h4 style="margin:0 0 8px;">{{ bm.get('scope_label') or 'فقط آینه گیسو / Buti AI' }}</h4>
+                <p class="pnl-muted" style="margin:0;line-height:1.9;">{{ bm.get('scope_note') or 'این تنظیمات فقط برای مسیر آینه گیسو مصرف می‌شود.' }}</p>
+            </div>
             {% set ready = bm.get('readiness', {}) %}
             <div class="pnl-card" style="margin:10px 0 14px;background:{{ '#edfdf5' if ready.get('ready') else '#fff8df' }};border-color:{{ '#a9e9c9' if ready.get('ready') else '#ead39a' }};">
-                <h4 style="margin:0 0 8px;">وضعیت آمادگی آینه ابرو</h4>
+                <h4 style="margin:0 0 8px;">وضعیت آمادگی آینه گیسو</h4>
                 <div class="pnl-btn-row" style="gap:8px;align-items:center;">
                     <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('ready') else 'pnl-badge-off' }}">{{ 'آماده' if ready.get('ready') else 'ناقص' }}</span>
                     <span class="pnl-badge {{ 'pnl-badge-ok' if ready.get('analysis_ready') else 'pnl-badge-off' }}">تحلیل عکس: {{ 'آماده' if ready.get('analysis_ready') else 'ناقص' }}</span>
@@ -257,7 +261,7 @@
                 {% if ready.get('warnings') %}<ul class="pnl-muted" style="margin:8px 0 0;line-height:1.9;">{% for item in ready.get('warnings') %}<li>⚠️ {{ item }}</li>{% endfor %}</ul>{% endif %}
             </div>
             <div class="pnl-card" style="margin:10px 0 14px;background:#f8fbff;border-color:#cfe4ff;">
-                <h4 style="margin:0 0 8px;">مدل طراحی عکس ابرو</h4>
+                <h4 style="margin:0 0 8px;">مدل طراحی عکس آینه گیسو</h4>
                 <p class="pnl-muted" style="margin:0;line-height:1.9;">مدل پیشنهادی کم‌هزینه فعلی: <code dir="ltr">{{ bm.get('recommended_image_model') }}</code>. برای اکانت‌های جدا، cf1/cf2/cf3 را بساز تا هر اسلات با همین مدل امن پر شود.</p>
                 {% if bm.get('image_candidates') %}
                 <details style="margin-top:8px;">
@@ -326,7 +330,7 @@
                     <button class="pnl-btn pnl-btn-gold pnl-btn-sm">💾 ذخیره این اسلات</button>
                 </form>
                 {% else %}
-                <div class="pnl-empty"><p>هنوز داده مدل‌های آینه ابرو آماده نیست.</p></div>
+                <div class="pnl-empty"><p>هنوز داده مدل‌های آینه گیسو آماده نیست.</p></div>
                 {% endfor %}
             </div>
         </div>

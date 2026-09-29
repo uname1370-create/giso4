@@ -138,7 +138,7 @@ def handle_config():
             res = auto_configure_defaults(overwrite=False)
             ok = bool(res.get("ok"))
             added = int(res.get("added") or 0)
-            message = f"{added} اسلات خالی آینه زیبایی به‌صورت خودکار تنظیم شد." if ok else "تنظیم خودکار مدل‌های آینه زیبایی انجام نشد."
+            message = f"{added} اسلات خالی آینه گیسو به‌صورت خودکار تنظیم شد." if ok else "تنظیم خودکار مدل‌های آینه گیسو انجام نشد."
         elif action == "repair_beauty_mirror_image_models":
             from giso.buti_ai.ai_models import repair_legacy_cloudflare_eyebrow_image_slots
             res = repair_legacy_cloudflare_eyebrow_image_slots()
@@ -309,10 +309,10 @@ def handle_provider_add():
                 from giso.buti_ai.ai_models import auto_configure_for_provider
                 auto_res = auto_configure_for_provider(name, overwrite=(name == "cloudflare" or cf_slot_name))
                 if auto_res.get("added"):
-                    flash(f"🪞 {auto_res['added']} اسلات آینه زیبایی خودکار تنظیم شد.", "success")
+                    flash(f"🪞 {auto_res['added']} اسلات آینه گیسو خودکار تنظیم شد.", "success")
                 if is_cf_instance and cloudflare_image_model:
                     flash(
-                        f"⚡ {name} آماده شد؛ آدرس run خودکار ساخته شد و مدل طراحی عکس ابرو «{cloudflare_image_model}» است.",
+                        f"⚡ {name} آماده شد؛ آدرس run خودکار ساخته شد و مدل طراحی عکس آینه گیسو «{cloudflare_image_model}» است.",
                         "success",
                     )
             except Exception as auto_exc:

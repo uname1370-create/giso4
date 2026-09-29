@@ -81,6 +81,9 @@ def test_admin_ai_panel_read_only_view():
     assert 'cf2 — Cloudflare اکانت ۲' in html
     assert '@cf/black-forest-labs/flux-2-klein-4b' in html
     assert 'data-cf-account' in html
+    assert 'مدل‌های آینه گیسو' in html
+    assert 'فقط آینه گیسو / Buti AI' in html
+    assert 'این اسلات‌ها روی مشاور عمومی' in html
     print('PASS  نمای AI برای سوپرادمین کامل و برای ادمین مسدود است')
 
 
