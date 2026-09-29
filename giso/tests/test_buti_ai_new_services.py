@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 from giso.app import create_app
 from giso.base import get_giso_db_conn
 from giso.buti_ai.nail import final_design as nail_final
+from giso.buti_ai.lip import final_design as lip_final
 from giso.buti_ai.schema import init_buti_ai_db
 
 
@@ -109,6 +110,87 @@ def test_nail_mirror_uses_staged_flow_and_preserves_selected_model():
     _cleanup_service("nail")
 
 
+def test_lip_shading_mirror_uses_staged_flow_and_truthful_guided_output():
+    app = create_app()
+    _cleanup_service("lip_shading")
+    client = app.test_client()
+
+    home = client.get("/analysis/mirror")
+    assert home.status_code == 200
+    home_text = home.get_data(as_text=True)
+    assert "آینه لب و شیدینگ گیسو" in home_text
+    assert "/analysis/mirror/lip-shading" in home_text
+
+    page = client.get("/analysis/mirror/lip-shading")
+    assert page.status_code == 200
+    text = page.get_data(as_text=True)
+    assert "کدام مدل را می‌خواهی روی عکس خودت ببینی؟" in text
+    assert "تینت صورتی ملایم" in text
+    assert "رفع تیرگی و یکدست‌سازی رنگ لب" in text
+    token = _csrf(text)
+
+    selected = client.post(
+        "/analysis/mirror/lip-shading/model",
+        data={"csrf_token": token, "style": "soft_pink_tint", "change_level": "very_natural"},
+        follow_redirects=True,
+    )
+    assert selected.status_code == 200
+    upload_text = selected.get_data(as_text=True)
+    assert "عکس واضح و واقعی را بفرست" in upload_text
+    assert "تینت صورتی ملایم" in upload_text
+    upload_token = _csrf(upload_text)
+
+    photo = (ROOT / "giso/buti_ai/static/services/lip_shading/upload_sample.jpg").read_bytes()
+    response = client.post(
+        "/analysis/mirror/lip-shading/upload",
+        data={"csrf_token": upload_token, "photo": (BytesIO(photo), "face.jpg", "image/jpeg")},
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    result_text = response.get_data(as_text=True)
+    assert "همان مدل انتخابی آماده طراحی است" in result_text
+    assert "عکس واقعی شما" in result_text
+    assert "تینت صورتی ملایم" in result_text
+    assert "/analysis/mirror/lip-shading/uploads/" in result_text
+
+    with client.session_transaction() as sess:
+        candidate = dict(sess["buti_ai_lip_shading_final_candidate"])
+    assert candidate["service_key"] == "lip_shading"
+    assert candidate["service_type"] == "lip_shading"
+    assert candidate["beauty_center_service"] == "lip_shading"
+    assert candidate["selected_style"] == "soft_pink_tint"
+    assert candidate["final_style"] == "soft_pink_tint"
+    assert candidate["final_label"] == "تینت صورتی ملایم"
+    assert candidate["change_key"] == "very_natural"
+    assert candidate["photo_filename"].startswith("lip_shading_")
+
+    generation = lip_final.generate_guided_design(candidate)
+    assert generation["ok"] is True
+    assert generation["is_ai_generated"] is False
+    assert generation["filename"].startswith("final/final_lip_")
+    assert (Path(lip_final.UPLOAD_DIR) / generation["filename"]).exists()
+
+    final_token = re.findall(r'name="csrf_token" value="([^"]+)"', result_text)[-1]
+    final_response = client.post(
+        "/analysis/mirror/lip-shading/finalize",
+        data={"csrf_token": final_token, "final_style": "peach_nude"},
+        follow_redirects=True,
+    )
+    assert final_response.status_code == 200
+    final_text = final_response.get_data(as_text=True)
+    assert "ورود لازم است" in final_text
+    assert "تینت صورتی ملایم" in final_text
+    assert "نود گلبهی" not in final_text
+
+    with client.session_transaction() as sess:
+        candidate_after = dict(sess["buti_ai_lip_shading_final_candidate"])
+    assert candidate_after["final_style"] == "soft_pink_tint"
+    assert candidate_after["final_label"] == "تینت صورتی ملایم"
+
+    _cleanup_service("lip_shading")
+
+
 def test_planned_new_services_are_visible_but_not_publicly_active_yet():
     app = create_app()
     client = app.test_client()
@@ -119,6 +201,7 @@ def test_planned_new_services_are_visible_but_not_publicly_active_yet():
     assert "آینه رنگ و لایت مو گیسو" in text
     assert "آینه لب و شیدینگ گیسو" in text
     assert "در حال آماده‌سازی" in text
+    assert "ورود به لب" in text
 
     hair = client.get("/analysis/mirror/hair-color", follow_redirects=True)
     assert hair.status_code == 200

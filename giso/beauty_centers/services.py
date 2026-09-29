@@ -33,12 +33,12 @@ SERVICES = {
     "extension": "اکستنشن", "braid": "بافت مو", "scalp_care": "مراقبت کف سر",
     "facial": "فیشال", "skin_cleansing": "پاک‌سازی پوست", "skin_hydration": "آبرسانی پوست",
     "face_care": "مراقبت صورت", "makeup": "میکاپ", "hairstyle": "شینیون",
-    "brow": "ابرو", "lash": "مژه", "nail": "ناخن", "bridal": "خدمات عروس",
+    "brow": "ابرو", "lip_shading": "شیدینگ لب", "lash": "مژه", "nail": "ناخن", "bridal": "خدمات عروس",
 }
 CATEGORY_SERVICES = {
     "hair": ("haircut", "hair_color", "bleach", "hair_repair", "keratin", "straightening", "extension", "braid", "scalp_care"),
-    "skin_face": ("facial", "skin_cleansing", "skin_hydration", "face_care", "brow", "lash"),
-    "beauty": ("makeup", "hairstyle", "brow", "lash", "nail", "bridal"),
+    "skin_face": ("facial", "skin_cleansing", "skin_hydration", "face_care", "brow", "lip_shading", "lash"),
+    "beauty": ("makeup", "hairstyle", "brow", "lip_shading", "lash", "nail", "bridal"),
 }
 CATEGORY_CENTER_TYPES = {
     "hair": ("salon", "hair_center", "independent"),
@@ -72,6 +72,7 @@ _KEYWORD_TAGS = {
     "کف سر": ("scalp_care",), "رنگ": ("hair_color",),
     "پوست": ("facial", "skin_cleansing"), "جوش": ("facial", "skin_cleansing"),
     "پاکسازی": ("skin_cleansing",), "پاک‌سازی": ("skin_cleansing",),
+    "شیدینگ لب": ("lip_shading",), "تتو لب": ("lip_shading",),
 }
 
 

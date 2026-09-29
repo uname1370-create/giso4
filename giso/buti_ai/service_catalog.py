@@ -86,13 +86,13 @@ SERVICE_CATALOG: Dict[str, Dict[str, object]] = {
         "tag": "Lip PMU",
         "description": "شیدینگ، تینت و کانتور لب را با حفظ چهره روی عکس خودت ببین.",
         "meta": ["شیدینگ و کانتور", "فقط ماسک لب", "مناسب PMU"],
-        "image": "services/coming_soon.jpg",
+        "image": "services/lip_shading/natural_shading.jpg",
         "sample_dir": "services/lip_shading",
         "upload_sample": "services/lip_shading/upload_sample.jpg",
         "image_blueprint": "buti_ai",
         "service_type": "lip_shading",
-        "beauty_center_service": "brow",
-        "status": "planned",
+        "beauty_center_service": "lip_shading",
+        "status": "active",
     },
 }
 
