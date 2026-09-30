@@ -398,8 +398,9 @@ def build_design_prompt(candidate):
     return (
         f"EDIT ORIGINAL PHOTO ONLY. Keep same person, background, hijab, lighting. "
         f"Apply eyebrow style: {selected_style_key} ({style_en}). Label: {model_label}. "
-        f"Edit ONLY eyebrow hairs inside mask. White mask=editable, black=keep 100%. "
-        f"DO NOT change eyes, skin, hair, hijab, background, identity. NO white background, NO halo, NO eye artifact. "
+        f"Edit ONLY eyebrow hairs inside the provided mask area. Outside mask must be kept 100% identical. "
+        f"DO NOT change eyes, skin, hair, hijab, background, identity. NO white background, NO halo, NO eye artifact, NO white color on eyebrows. "
+        f"Eyebrow color must be natural dark brown/black, not white, not blonde. "
         f"Same photo, only eyebrows edited to {style_en}. Realistic, salon, wearable. "
         f"Location: {region_text}"
     )

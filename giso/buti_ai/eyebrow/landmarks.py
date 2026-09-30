@@ -153,8 +153,8 @@ def _precise_eyebrow_polygon_from_landmarks(
     points: Iterable[Tuple[float, float]],
     image_w: int,
     image_h: int,
-    margin_px: float = 2.5,
-    margin_percent: float = 0.04,
+    margin_px: float = 5.0,
+    margin_percent: float = 0.08,
 ) -> List[List[int]]:
     """ساخت polygon دقیق فقط از landmarkهای واقعی ابرو — بدون حاشیه بزرگ.
 
@@ -162,7 +162,7 @@ def _precise_eyebrow_polygon_from_landmarks(
     اینجا مستقیم از خود نقاط یک polygon تنگ می‌سازیم:
     - مرکز ابرو حساب می‌شود
     - نقاط بر اساس زاویه دور مرکز مرتب می‌شوند تا یک حلقه بسته بسازند
-    - فقط یک حاشیه بسیار کوچک (2.5px + 4%) در امتداد خود ابرو اضافه می‌شود
+    - فقط یک حاشیه کوچک (5px + 8%) در امتداد خود ابرو اضافه می‌شود
     - چشم، پلک، پوست اطراف وارد نمی‌شود
     """
     pts = [(float(x), float(y)) for x, y in points or []]

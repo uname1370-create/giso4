@@ -579,21 +579,27 @@ def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_
     files = {
         "input_image_0": (f"customer-face.{photo_ext}", photo_bytes, photo_mime),
     }
-    # Reference Image: برای کمک به مدل که مدل انتخابی ابرو را بفهمد، اگر عکس مرجع موجود است ارسال می‌شود
-    # IMAGE 0 چهره مشتری (مرجع هویت)، IMAGE 1 فقط نمونه تکنیک ابرو است، نه چهره
-    # قبلا به صورت پیش‌فرض ارسال نمی‌شد، الان برای جلوگیری از تولید چهره جدید و هاله سفید، ارسال می‌شود
-    send_reference = True
-    # اگر env صریحا غیرفعال کرده باشد، احترام می‌گذاریم
-    if _env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE") == "0":
-        send_reference = False
-    if provider.extra.get("send_reference_image") is False:
-        send_reference = False
+    # Reference Image: PNG های مرجع پس‌زمینه سفید دارند (254,254,255) و باعث ابرو سفید می‌شدند
+    # برای flux-2-klein-4b که text-to-image است، فرستادن reference سفید = تولید ابرو سفید/هاله سفید
+    # پس پیش‌فرض را False می‌کنیم تا فقط چهره مشتری فرستاده شود و ابرو از prompt ساخته شود
+    # اگر کاربر واقعاً بخواهد reference بفرستد، باید CLOUDFLARE_SEND_REFERENCE_IMAGE=1 بگذارد
+    send_reference = False
+    if _env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE") == "1":
+        send_reference = True
+    if provider.extra.get("send_reference_image") is True:
+        send_reference = True
+    # فقط JPG بفرست که پس‌زمینه پوست دارد، نه PNG سفید
     if reference_path and send_reference:
-        try:
-            ref_bytes, ref_mime, ref_ext = _image_bytes_for_provider(reference_path, MAX_PROVIDER_INPUT_SIDE, square=True)
-            files["input_image_1"] = (f"technique-macro.{ref_ext}", ref_bytes, ref_mime)
-        except Exception:
+        # اگر PNG سفید است، نفرست
+        if str(reference_path).lower().endswith(".png"):
+            # PNG های فعلی پس‌زمینه سفید دارند، برای جلوگیری از ابرو سفید نفرست
             send_reference = False
+        else:
+            try:
+                ref_bytes, ref_mime, ref_ext = _image_bytes_for_provider(reference_path, MAX_PROVIDER_INPUT_SIDE, square=True)
+                files["input_image_1"] = (f"technique-macro.{ref_ext}", ref_bytes, ref_mime)
+            except Exception:
+                send_reference = False
 
     guidance = str(provider.extra.get("guidance") or _env_value(None, "CLOUDFLARE_GUIDANCE") or "5")
     data = {
@@ -917,15 +923,15 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
         pass
     try:
         mask = Image.open(mask_path).convert("L").resize(size, Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
-        # Binary core + stronger erosion to prevent white halo, only brow pixels editable
+        # Binary core + erosion کم برای جلوگیری از هاله سفید ولی نه خیلی زیاد که خط باریک شود
         mask = mask.point(lambda px: 255 if int(px) >= 128 else 0)
-        # Erode more to avoid eyelashes/eye and white halo artifact - از 5 به 7
+        # قبلاً 7 بود که mask دقیق 28px را به 22px می‌کرد و خط سفید می‌شد، الان 3
         try:
-            mask = mask.filter(ImageFilter.MinFilter(size=7))
+            mask = mask.filter(ImageFilter.MinFilter(size=3))
         except Exception:
             pass
-        # بلور کمتر تا لبه‌ها سفید نشود - از 0.45 به 0.25
-        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.25))
+        # بلور کم تا لبه‌ها سفید نشود
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.35))
         _beauty_log(
             "[EYEBROW_MASK]",
             "provider_mask_ready",
