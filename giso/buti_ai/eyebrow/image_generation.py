@@ -1111,11 +1111,13 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
             fitted_provider = _fit_provider_image_to_source(provider_image, base.size).convert("RGB")
             mask, detection = _provider_eyebrow_mask_for_save(source_path, candidate, base.size)
 
-            # --- پیش‌اعتبارسنجی: خروجی provider قبل از کامپوزیت نباید پس‌زمینه سفید یا چهره جدید داشته باشد ---
-            # اگر provider تصویر با پس‌زمینه سفید یا چهره کاملا متفاوت تولید کرده، رد کن
+            # --- پیش‌اعتبارسنجی: برای flux-2-klein-4b که مدل text-to-image است نه inpainting،
+            # خروجی خام همیشه پس‌زمینه/هویت متفاوت دارد. چون در مرحله بعد با mask کامپوزیت
+            # می‌کنیم و بیرون از ابرو دقیقاً برابر عکس اصلی می‌شود، نباید روی outside سخت‌گیری کنیم.
+            # فقط پس‌زمینه کاملاً سفید را رد می‌کنیم (مدل چهره جدید سفید ساخته).
             try:
                 from PIL import Image as _PILImage
-                # بررسی پس‌زمینه سفید کلی در provider
+                # بررسی پس‌زمینه سفید کلی در provider - فقط سفید خالص زیاد
                 _w, _h = fitted_provider.size
                 _total = max(1, _w * _h)
                 _white_count = 0
@@ -1124,22 +1126,29 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
                 for _yy in range(0, _h, _stride_white):
                     for _xx in range(0, _w, _stride_white):
                         _r, _g, _b = _fpx[_xx, _yy]
-                        if _r > 240 and _g > 240 and _b > 240:
+                        if _r > 242 and _g > 242 and _b > 242:
                             _white_count += 1
                 _white_ratio_total = float(_white_count) / float(max(1, (_w // _stride_white) * (_h // _stride_white)))
-                if _white_ratio_total > 0.28:
+                if _white_ratio_total > 0.55:
                     raise ImageProviderError("خروجی AI پس‌زمینه سفید زیاد دارد و رد شد (مدل چهره جدید ساخت)")
-                # بررسی تغییر بیرون از mask قبل از کامپوزیت - باید شبیه base باشد
-                _outside_metrics_before = _visible_eyebrow_diff_metrics(base, fitted_provider, mask)
-                # اگر بیرون از ابرو خیلی تغییر کرده، یعنی provider چهره/حجاب/پس‌زمینه را عوض کرده
-                if float(_outside_metrics_before.get("outside_mean_delta") or 0) > 12.0:
-                    raise ImageProviderError("خروجی AI هویت/پس‌زمینه را تغییر داد و رد شد")
-                if float(_outside_metrics_before.get("outside_changed_ratio") or 0) > 0.12:
-                    raise ImageProviderError("خروجی AI بیرون از ابرو تغییر زیاد داشت و رد شد")
+                # برای مدل‌های غیر inpainting مثل flux-2-klein-4b، تغییر بیرون از mask طبیعی است
+                # چون بعداً با composite بیرون دقیقاً برابر base می‌شود. فقط لاگ می‌کنیم، رد نمی‌کنیم.
+                try:
+                    _outside_metrics_before = _visible_eyebrow_diff_metrics(base, fitted_provider, mask)
+                    _beauty_log(
+                        "[COMPOSITE]",
+                        "pre_composite_outside_metrics",
+                        outside_mean_delta=_outside_metrics_before.get("outside_mean_delta"),
+                        outside_changed_ratio=_outside_metrics_before.get("outside_changed_ratio"),
+                        inside_mean_delta=_outside_metrics_before.get("inside_mean_delta"),
+                        white_ratio_total=round(_white_ratio_total, 4),
+                        note="flux model - outside change expected, will be fixed by composite",
+                    )
+                except Exception:
+                    pass
             except ImageProviderError:
                 raise
             except Exception:
-                # اگر پیش‌بررسی خطا داد، ادامه بده تا اعتبارسنجی اصلی تصمیم بگیرد
                 pass
 
             final_image = Image.composite(fitted_provider, base, mask)
