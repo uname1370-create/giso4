@@ -149,8 +149,98 @@ def _box(x: float, y: float, w: float, h: float, image_w: int, image_h: int, sid
     return _ensure_region_polygon(region, image_w, image_h)
 
 
-def _box_from_points(points: Iterable[Tuple[float, float]], image_w: int, image_h: int,
-                     side: str, source: str, confidence: float) -> Dict[str, Any]:
+def _precise_eyebrow_polygon_from_landmarks(
+    points: Iterable[Tuple[float, float]],
+    image_w: int,
+    image_h: int,
+    margin_px: float = 2.5,
+    margin_percent: float = 0.04,
+) -> List[List[int]]:
+    """ساخت polygon دقیق فقط از landmarkهای واقعی ابرو — بدون حاشیه بزرگ.
+
+    MediaPipe برای هر ابرو 10 نقطه می‌دهد که دو قوس بالا/پایین ابرو هستند.
+    اینجا مستقیم از خود نقاط یک polygon تنگ می‌سازیم:
+    - مرکز ابرو حساب می‌شود
+    - نقاط بر اساس زاویه دور مرکز مرتب می‌شوند تا یک حلقه بسته بسازند
+    - فقط یک حاشیه بسیار کوچک (2.5px + 4%) در امتداد خود ابرو اضافه می‌شود
+    - چشم، پلک، پوست اطراف وارد نمی‌شود
+    """
+    pts = [(float(x), float(y)) for x, y in points or []]
+    if len(pts) < 3:
+        return []
+    cx = sum(x for x, y in pts) / len(pts)
+    cy = sum(y for x, y in pts) / len(pts)
+    import math
+
+    def _angle(p: Tuple[float, float]) -> float:
+        return math.atan2(p[1] - cy, p[0] - cx)
+
+    sorted_pts = sorted(pts, key=_angle)
+    expanded: List[List[int]] = []
+    for x, y in sorted_pts:
+        dx = x - cx
+        dy = y - cy
+        dist = math.hypot(dx, dy) or 1.0
+        scale = 1.0 + margin_percent + (margin_px / dist)
+        nx = cx + dx * scale
+        ny = cy + dy * scale
+        expanded.append(_clamp_point(nx, ny, image_w, image_h))
+    if len(expanded) < 3 or _polygon_area(expanded) < 8.0:
+        return [_clamp_point(x, y, image_w, image_h) for x, y in sorted_pts]
+    return expanded
+
+
+def _box_from_points_precise(
+    points: Iterable[Tuple[float, float]],
+    image_w: int,
+    image_h: int,
+    side: str,
+    source: str,
+    confidence: float,
+) -> Dict[str, Any]:
+    """نسخه دقیق برای MediaPipe — بدون حاشیه بزرگ، فقط polygon واقعی."""
+    pts = [(float(x), float(y)) for x, y in points or []]
+    if not pts:
+        return {}
+    precise_polygon = _precise_eyebrow_polygon_from_landmarks(
+        pts, image_w, image_h, margin_px=2.5, margin_percent=0.04
+    )
+    if not precise_polygon:
+        return _box_from_points_fallback(pts, image_w, image_h, side, source, confidence)
+
+    min_x = min(p[0] for p in precise_polygon)
+    max_x = max(p[0] for p in precise_polygon)
+    min_y = min(p[1] for p in precise_polygon)
+    max_y = max(p[1] for p in precise_polygon)
+    bw = max(1.0, float(max_x - min_x))
+    bh = max(1.0, float(max_y - min_y))
+    small_margin = 2.0
+    region = _box(
+        float(min_x - small_margin),
+        float(min_y - small_margin),
+        float(bw + small_margin * 2),
+        float(bh + small_margin * 2),
+        image_w,
+        image_h,
+        side,
+        confidence,
+        source,
+    )
+    region["landmark_points"] = [_clamp_point(px, py, image_w, image_h) for px, py in pts]
+    region["polygon"] = precise_polygon
+    region["polygon_source"] = "mediapipe_precise_10_landmarks_tight"
+    return _ensure_region_polygon(region, image_w, image_h)
+
+
+def _box_from_points_fallback(
+    points: Iterable[Tuple[float, float]],
+    image_w: int,
+    image_h: int,
+    side: str,
+    source: str,
+    confidence: float,
+) -> Dict[str, Any]:
+    """نسخه قدیمی با حاشیه بزرگ — فقط برای fallbackهای غیر MediaPipe."""
     pts = [(float(x), float(y)) for x, y in points]
     if not pts:
         return {}
@@ -160,7 +250,6 @@ def _box_from_points(points: Iterable[Tuple[float, float]], image_w: int, image_
     max_y = max(y for _, y in pts)
     bw = max(12.0, max_x - min_x)
     bh = max(8.0, max_y - min_y)
-    # ابرو باریک است؛ حاشیه امن می‌دهیم اما mask نهایی polygon است نه کل rectangle.
     expand_x = bw * 0.28
     expand_top = max(6.0, bh * 1.0)
     expand_bottom = max(7.0, bh * 1.15)
@@ -177,8 +266,16 @@ def _box_from_points(points: Iterable[Tuple[float, float]], image_w: int, image_
     )
     region["landmark_points"] = [_clamp_point(px, py, image_w, image_h) for px, py in pts]
     region["polygon"] = _polygon_from_points(pts, region, image_w, image_h)
-    region["polygon_source"] = "facemesh_landmark_band"
+    region["polygon_source"] = "facemesh_landmark_band_fallback"
     return _ensure_region_polygon(region, image_w, image_h)
+
+
+def _box_from_points(points: Iterable[Tuple[float, float]], image_w: int, image_h: int,
+                     side: str, source: str, confidence: float) -> Dict[str, Any]:
+    """Wrapper — اگر source mediapipe باشد نسخه دقیق، وگرنه fallback قدیمی."""
+    if str(source or "").startswith("mediapipe"):
+        return _box_from_points_precise(points, image_w, image_h, side, source, confidence)
+    return _box_from_points_fallback(points, image_w, image_h, side, source, confidence)
 
 
 def _method_confidence_label(method: str) -> str:
@@ -194,7 +291,11 @@ def _method_confidence_label(method: str) -> str:
 
 
 def _is_plausible_eyebrow_pair(regions: List[Dict[str, Any]], image_w: int, image_h: int) -> bool:
-    """بررسی سریع که دو ROI ابرو از نظر هندسی معقول هستند و چشم را درگیر نمی‌کنند."""
+    """بررسی سریع که دو ROI ابرو از نظر هندسی معقول هستند و چشم را درگیر نمی‌کنند.
+
+    برای polygon دقیق MediaPipe (tight) کمی بازتر می‌کنیم چون mask کوچک‌تر و دقیق‌تر است
+    و نباید به خاطر زاویه صورت یا حجاب رد شود.
+    """
     if len(regions) < 2 or image_w <= 0 or image_h <= 0:
         return False
     try:
@@ -205,13 +306,21 @@ def _is_plausible_eyebrow_pair(regions: List[Dict[str, Any]], image_w: int, imag
         lcx, lcy = float(left.get("cx") or (lx + lw/2)), float(left.get("cy") or (ly + lh/2))
         rcx, rcy = float(right.get("cx") or (rx + rw/2)), float(right.get("cy") or (ry + rh/2))
 
-        # باید در نیمه بالایی تصویر باشند (ابرو بالای چشم است) - سخت‌گیرانه برای جلوگیری از تشخیص چشم به عنوان ابرو
-        if lcy > image_h * 0.45 or rcy > image_h * 0.45:
+        # تشخیص اینکه آیا این detection از نسخه دقیق mediapipe است
+        is_precise = any("precise" in str(r.get("polygon_source") or "") or "tight" in str(r.get("polygon_source") or "") for r in ordered)
+        # برای precise، بازتر چون mask کوچک و دقیق است و زاویه صورت/حجاب نباید رد شود
+        max_cy_ratio = 0.60 if is_precise else 0.45
+        max_y_ratio = 0.55 if is_precise else 0.42
+        max_h_ratio = 0.32 if is_precise else 0.13
+        max_v_sym_ratio = 0.25 if is_precise else 0.08
+
+        # باید در نیمه بالایی تصویر باشند (ابرو بالای چشم است)
+        if lcy > image_h * max_cy_ratio or rcy > image_h * max_cy_ratio:
             return False
-        if ly > image_h * 0.42 or ry > image_h * 0.42:
+        if ly > image_h * max_y_ratio or ry > image_h * max_y_ratio:
             return False
         # نباید خیلی بالا هم باشند (حجاب/پیشانی)
-        if lcy < image_h * 0.15 or rcy < image_h * 0.15:
+        if lcy < image_h * 0.12 or rcy < image_h * 0.12:
             return False
 
         # چپ باید چپ وسط باشد، راست راست وسط
@@ -223,20 +332,19 @@ def _is_plausible_eyebrow_pair(regions: List[Dict[str, Any]], image_w: int, imag
         if dist < image_w * 0.15 or dist > image_w * 0.6:
             return False
 
-        # تقارن عمودی
-        if abs(lcy - rcy) > image_h * 0.08:
+        # تقارن عمودی — برای precise بازتر چون زاویه صورت ممکن است ابروها را ناهم‌تراز کند
+        if abs(lcy - rcy) > image_h * max_v_sym_ratio:
             return False
 
-        # اندازه معقول
+        # اندازه معقول — برای precise ارتفاع تا 22% مجاز چون با حاشیه کوچک باز هم دقیق است
         for w, h in ((lw, lh), (rw, rh)):
-            if w < image_w * 0.05 or w > image_w * 0.38:
+            if w < image_w * 0.04 or w > image_w * 0.42:
                 return False
-            if h < image_h * 0.01 or h > image_h * 0.13:
+            if h < image_h * 0.008 or h > image_h * max_h_ratio:
                 return False
 
         # نباید خیلی هم‌پوشانی داشته باشند
         if not (rx > lx + lw * 0.15 or lx > rx + rw * 0.15):
-            # اگر هم‌پوشانی افقی زیاد، احتمال تشخیص اشتباه
             if abs(lcx - rcx) < image_w * 0.12:
                 return False
 
