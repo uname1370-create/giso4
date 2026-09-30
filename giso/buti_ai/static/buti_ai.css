@@ -3076,39 +3076,112 @@
     }
 }
 
-/* Final override: wide PNG eyebrow samples for model selection - transparent background for AI */
+/* Final override: wide PNG eyebrow samples - transparent, large, hover zoom like 3D preview */
+.bti-style-choice {
+    min-height: 200px !important;
+    padding: 16px 18px !important;
+    gap: 18px !important;
+    align-items: center !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.bti-style-choice .bti-style-info {
+    flex: 1 1 280px !important;
+}
+
 .bti-brow-sample.is-wide-png {
-    flex: 0 0 420px !important;
-    min-height: 148px !important;
-    background: radial-gradient(280px 140px at 50% 50%, rgba(255,173,18,.10), transparent 72%), #0f0f0f !important;
-    border: 1px solid rgba(255,255,255,.08) !important;
+    flex: 0 0 520px !important;
+    min-height: 180px !important;
+    max-height: 200px !important;
+    background: radial-gradient(340px 180px at 50% 50%, rgba(255,173,18,.12), transparent 72%), linear-gradient(135deg, #161616, #0c0c0c) !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
     display: grid !important;
     place-items: center !important;
-    padding: 10px !important;
+    padding: 12px !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    cursor: zoom-in !important;
+    position: relative !important;
+}
+
+.bti-brow-sample.is-wide-png:hover {
+    transform: scale(1.03) !important;
+    border-color: rgba(255,173,18,.45) !important;
+    box-shadow: 0 8px 32px rgba(255,173,18,.18), 0 0 0 1px rgba(255,173,18,.15) !important;
+    background: radial-gradient(380px 200px at 50% 50%, rgba(255,173,18,.16), transparent 72%), linear-gradient(135deg, #1a1a1a, #0e0e0e) !important;
 }
 
 .bti-brow-sample.is-wide-png img {
     width: 100% !important;
     height: auto !important;
-    max-height: 160px !important;
-    min-height: 100px !important;
+    max-height: 190px !important;
+    min-height: 120px !important;
     object-fit: contain !important;
     object-position: center !important;
     filter: none !important;
-    transform: none !important;
+    transform: scale(1.15) !important;
     border-radius: 0 !important;
     background: transparent !important;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.bti-brow-sample.is-wide-png:hover img {
+    transform: scale(1.45) !important;
 }
 
 .bti-brow-sample.is-wide-png small {
     position: absolute !important;
-    bottom: 8px !important;
-    left: 10px !important;
+    bottom: 10px !important;
+    left: 12px !important;
     right: auto !important;
     transform: none !important;
-    background: rgba(0,0,0,.55) !important;
+    background: rgba(0,0,0,.68) !important;
     color: #ffd27a !important;
-    padding: 4px 8px !important;
+    padding: 5px 10px !important;
     border-radius: 999px !important;
-    font-size: .70rem !important;
+    font-size: .72rem !important;
+    font-weight: 800 !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255,173,18,.18) !important;
+    z-index: 3 !important;
+}
+
+.bti-style-choice::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    width: 3px !important;
+    height: 100% !important;
+    background: linear-gradient(180deg, var(--bti-gold), transparent) !important;
+    opacity: 0 !important;
+    transition: opacity 0.3s ease !important;
+}
+
+.bti-style-choice:hover::before {
+    opacity: 1 !important;
+}
+
+.bti-style-choice:hover {
+    background: linear-gradient(135deg, rgba(255,173,18,.06), rgba(255,255,255,.02)) !important;
+    border-color: rgba(255,173,18,.22) !important;
+}
+
+@media (max-width: 920px) {
+    .bti-brow-sample.is-wide-png {
+        flex: 0 0 100% !important;
+        min-height: 200px !important;
+        order: -1 !important;
+    }
+    .bti-style-choice {
+        flex-direction: column !important;
+    }
+    .bti-brow-sample.is-wide-png img {
+        transform: scale(1.25) !important;
+    }
+    .bti-brow-sample.is-wide-png:hover img {
+        transform: scale(1.55) !important;
+    }
 }
