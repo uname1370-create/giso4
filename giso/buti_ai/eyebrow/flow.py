@@ -123,7 +123,7 @@ def process_eyebrow_submission(form, files, user_id=None):
             if quality_report.get("ok") is False:
                 # کیفیت خیلی بد بود، ولی برای تست نهایی اجازه ادامه با هشدار
                 quality_report["ok"] = None
-            ai_analysis = analyze_eyebrow_photo(photo_status.get("path"), quality_report)
+            ai_analysis = analyze_eyebrow_photo(photo_status.get("path"), style_key, change_key)
             eyebrow_detection = detect_eyebrow_regions(photo_status.get("path"), allow_fallback=True)
             result = build_eyebrow_result(
                 style_key,
