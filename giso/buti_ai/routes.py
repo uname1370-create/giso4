@@ -358,21 +358,14 @@ def eyebrow_final_retry():
 
 @buti_ai_bp.route("/eyebrow/final", methods=["GET"])
 def eyebrow_final_design():
-    """صفحه طراحی نهایی: گیت ورود و ساخت طرح راهنمای پایتونی."""
+    """صفحه طراحی نهایی: بدون چک لاگین برای تست — مستقیم طراحی."""
     init_buti_ai_db()
     candidate = get_final_candidate(session)
     if not candidate:
         flash("برای طراحی نهایی، اول مدل ابرو را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.eyebrow_wizard"))
 
-    final_url = url_for("buti_ai.eyebrow_final_design")
-    if not getattr(current_user, "is_authenticated", False):
-        return render_template(
-            "buti_ai/eyebrow_final_auth.html",
-            candidate=candidate,
-            login_url=url_for("login", next=final_url),
-            register_url=url_for("register", next=final_url),
-        )
+    # لاگین غیرفعال برای تست
 
     generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
     if not generation or not generation.get("ok"):
