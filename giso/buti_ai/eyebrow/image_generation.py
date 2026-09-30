@@ -434,9 +434,11 @@ def _upload_relative_path(path: str, upload_dir: str = "") -> str:
 def _reference_image_path(candidate: Dict[str, Any]) -> str:
     style = normalize_style_key((candidate or {}).get("final_style"))
     base = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "brows"))
-    path = os.path.abspath(os.path.join(base, f"{style}.jpg"))
-    if path.startswith(base + os.sep) and os.path.exists(path):
-        return path
+    # اول PNG شفاف (بدون پس‌زمینه) برای تشخیص بهتر هوش مصنوعی، بعد JPG
+    for ext in (".png", ".jpg", ".webp"):
+        path = os.path.abspath(os.path.join(base, f"{style}{ext}"))
+        if path.startswith(base + os.sep) and os.path.exists(path):
+            return path
     return ""
 
 

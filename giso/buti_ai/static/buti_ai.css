@@ -957,7 +957,8 @@
 }
 
 .bti-style-choice {
-    min-height: 138px;
+    min-height: 168px;
+    align-items: stretch;
 }
 
 .bti-style-row-copy small {
@@ -965,12 +966,36 @@
 }
 
 .bti-brow-sample {
-    flex-basis: 198px;
-    min-height: 124px;
+    flex-basis: 380px;
+    min-height: 132px;
+    background: radial-gradient(220px 120px at 50% 50%, rgba(255,173,18,.08), transparent 70%), #0e0e0e;
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 16px;
+    padding: 8px;
+    display: grid;
+    place-items: center;
+}
+
+.bti-brow-sample.is-wide-png {
+    flex-basis: 420px;
+    min-height: 140px;
 }
 
 .bti-brow-sample img {
     min-height: 124px;
+    width: 100%;
+    height: auto;
+    max-height: 132px;
+    object-fit: contain;
+    object-position: center;
+    filter: none;
+    transform: none;
+    background: transparent;
+}
+
+.bti-brow-sample.is-wide-png img {
+    max-height: 148px;
+    width: 100%;
 }
 
 .bti-next-step-row {
@@ -3049,4 +3074,41 @@
     .bti-uploaded-preview-card img {
         min-height: 260px;
     }
+}
+
+/* Final override: wide PNG eyebrow samples for model selection - transparent background for AI */
+.bti-brow-sample.is-wide-png {
+    flex: 0 0 420px !important;
+    min-height: 148px !important;
+    background: radial-gradient(280px 140px at 50% 50%, rgba(255,173,18,.10), transparent 72%), #0f0f0f !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+    display: grid !important;
+    place-items: center !important;
+    padding: 10px !important;
+}
+
+.bti-brow-sample.is-wide-png img {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 160px !important;
+    min-height: 100px !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    filter: none !important;
+    transform: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+}
+
+.bti-brow-sample.is-wide-png small {
+    position: absolute !important;
+    bottom: 8px !important;
+    left: 10px !important;
+    right: auto !important;
+    transform: none !important;
+    background: rgba(0,0,0,.55) !important;
+    color: #ffd27a !important;
+    padding: 4px 8px !important;
+    border-radius: 999px !important;
+    font-size: .70rem !important;
 }
