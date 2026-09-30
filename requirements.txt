@@ -19,6 +19,16 @@ qrcode[pil]>=7.4.0
 arabic-reshaper>=3.0.0
 python-bidi>=0.4.2
 
+# Eyebrow AI precise detection (optional but recommended for real mask)
+# MediaPipe FaceMesh for high-confidence eyebrow polygon + pixel mask
+# If not installed, fallback to OpenCV Haar + dark_pixel_band + proportional
+mediapipe>=0.10.11
+numpy>=1.24.0>=4.8.0,<5
+fpdf2>=2.7.0
+qrcode[pil]>=7.4.0
+arabic-reshaper>=3.0.0
+python-bidi>=0.4.2
+
 # HTTP client
 requests==2.31.0
 
