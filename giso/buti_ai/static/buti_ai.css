@@ -3076,110 +3076,66 @@
     }
 }
 
-/* Final override: BIG WIDE eyebrow samples - fill empty space to text */
+/* Final override: ONLY widen inner sample bti-brow-sample.is-wide-png, keep card original */
 .bti-style-choice {
-    min-height: 220px !important;
-    padding: 0 !important;
-    gap: 0 !important;
-    align-items: stretch !important;
-    position: relative !important;
-    overflow: hidden !important;
-    display: grid !important;
-    grid-template-columns: 1.8fr 1fr !important;
-}
-
-.bti-style-choice .bti-style-info {
-    order: 2 !important;
-    padding: 20px 18px 20px 14px !important;
     display: flex !important;
-    flex-direction: column !important;
-    justify-content: center !important;
-    gap: 8px !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+    padding: 14px !important;
+    min-height: 172px !important;
+    position: relative !important;
+    border: 1px solid rgba(255,255,255,.09) !important;
+    border-radius: 18px !important;
+    background: #101010 !important;
 }
-
+.bti-style-choice .bti-style-info {
+    flex: 1 1 auto !important;
+    order: unset !important;
+    padding: 0 !important;
+    display: grid !important;
+    grid-template-columns: 48px minmax(0,1fr) !important;
+    align-content: center !important;
+}
 .bti-brow-sample.is-wide-png {
-    order: 1 !important;
-    flex: none !important;
-    width: 100% !important;
-    min-height: 220px !important;
-    max-height: 260px !important;
-    background: radial-gradient(420px 200px at 50% 50%, rgba(255,173,18,.14), transparent 70%), #0c0c0c !important;
-    border: none !important;
-    border-left: 1px solid rgba(255,255,255,.08) !important;
+    flex: 0 0 420px !important;
+    width: 420px !important;
+    min-height: 168px !important;
+    max-height: 188px !important;
+    background: radial-gradient(320px 160px at 50% 50%, rgba(255,173,18,.10), transparent 70%), #0e0e0e !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
     display: grid !important;
     place-items: center !important;
-    padding: 18px !important;
-    border-radius: 0 18px 18px 0 !important;
+    padding: 12px !important;
+    border-radius: 15px !important;
     overflow: hidden !important;
-    transition: all 0.35s ease !important;
 }
-
 .bti-brow-sample.is-wide-png img {
     width: 100% !important;
-    height: 180px !important;
-    max-height: 200px !important;
-    min-height: 160px !important;
+    height: 150px !important;
+    max-height: 168px !important;
     object-fit: contain !important;
     object-position: center !important;
     filter: none !important;
     transform: none !important;
-    border-radius: 0 !important;
     background: transparent !important;
-    transition: transform 0.35s ease !important;
+    border-radius: 0 !important;
 }
-
-.bti-brow-sample.is-wide-png:hover img {
-    transform: scale(1.18) !important;
-}
-
 .bti-brow-sample.is-wide-png small {
-    position: absolute !important;
-    bottom: 10px !important;
-    right: 12px !important;
-    left: auto !important;
-    background: rgba(0,0,0,.7) !important;
-    color: #ffd27a !important;
-    padding: 5px 12px !important;
-    border-radius: 999px !important;
-    font-size: .75rem !important;
-    font-weight: 800 !important;
-    z-index: 3 !important;
+    bottom: 8px !important;
+    left: 10px !important;
+    right: auto !important;
 }
-
-.bti-style-choice::before {
-    content: "" !important;
-    position: absolute !important;
-    top: 0 !important;
-    right: 0 !important;
-    width: 3px !important;
-    height: 100% !important;
-    background: linear-gradient(180deg, var(--bti-gold), transparent) !important;
-    opacity: 0 !important;
-    transition: opacity 0.3s ease !important;
-}
-
-.bti-style-choice:hover::before {
-    opacity: 1 !important;
-}
-
-.bti-style-choice:hover {
-    background: linear-gradient(135deg, rgba(255,173,18,.06), rgba(255,255,255,.02)) !important;
-    border-color: rgba(255,173,18,.22) !important;
-}
-
 @media (max-width: 920px) {
-    .bti-brow-sample.is-wide-png {
-        flex: 0 0 100% !important;
-        min-height: 200px !important;
-        order: -1 !important;
-    }
     .bti-style-choice {
         flex-direction: column !important;
     }
-    .bti-brow-sample.is-wide-png img {
-        transform: scale(1.25) !important;
+    .bti-brow-sample.is-wide-png {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        min-height: 200px !important;
     }
-    .bti-brow-sample.is-wide-png:hover img {
-        transform: scale(1.55) !important;
+    .bti-brow-sample.is-wide-png img {
+        height: 180px !important;
     }
 }
+
