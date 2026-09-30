@@ -3109,6 +3109,11 @@
     border-radius: 15px !important;
     overflow: hidden !important;
 }
+.bti-brow-sample.is-wide-png picture {
+    width: 100% !important;
+    display: grid !important;
+    place-items: center !important;
+}
 .bti-brow-sample.is-wide-png img {
     width: 100% !important;
     height: 150px !important;
