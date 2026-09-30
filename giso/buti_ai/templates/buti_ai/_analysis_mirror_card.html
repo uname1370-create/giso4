@@ -1,0 +1,31 @@
+{#
+  کارت ورودی آینه زیبایی در صفحه /analysis.
+  منبع این کارت عمداً داخل giso/buti_ai است تا گزینه آینه از ماژول خودش خوانده شود.
+#}
+<div class="ahs-card mirror">
+    <div class="ahs-card-inner">
+        <img class="ahs-card-bg mirror-bg" loading="lazy"
+             src="{{ url_for('buti_ai.static', filename='brows/eyebrow_ai_mirror.jpg') }}"
+             alt="آینه ابرو گیسو">
+        <div class="ahs-card-overlay"></div>
+        <div class="ahs-scanner-line"></div>
+
+        <div class="ahs-mirror-content">
+            <span class="ahs-mirror-badge">✨ جدید | Buti AI</span>
+            <h2>آینه زیبایی گیسو</h2>
+            <p>قبل از هزینه، مدل ابروت را ببین. یک عکس بفرست؛ گیسو فرم چهره و ابرو را بررسی می‌کند.</p>
+
+            <div class="ahs-mirror-tags">
+                <span class="ahs-mirror-tag">🪞 آینه ابرو</span>
+                <span class="ahs-mirror-tag">💸 انتخاب کم‌ریسک</span>
+                <span class="ahs-mirror-tag">🪄 پیشنهاد هوشمند</span>
+            </div>
+
+            <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-mirror-btn">
+                <span>📸 شروع آینه ابرو</span>
+                <span>←</span>
+            </a>
+        </div>
+    </div>
+    <p class="ahs-card-caption">فعلاً مسیر ابرو فعال است؛ بقیه آینه‌ها بر اساس همین تجربه ساخته می‌شوند.</p>
+</div>
