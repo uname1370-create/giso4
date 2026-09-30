@@ -378,11 +378,20 @@ def _draw_brow(draw, cx, cy, length, arch, color, params, flip=False, mode="comb
 
 
 def build_design_prompt(candidate):
-    """پرامپت دقیق و کوتاه برای provider تصویر — فقط ابرو، هویت حفظ شود."""
+    """پرامپت دقیق برای provider تصویر — دقیقاً مثل buti-test با STYLE CONTRACT."""
     final_style_key = normalize_style_key(candidate.get("final_style"))
     style_label = candidate.get("final_label") or _style_label(final_style_key)
     model_label = candidate.get("selected_label") or style_label
     selected_style_key = normalize_style_key(candidate.get("selected_style") or final_style_key)
+
+    STYLE_CONTRACTS = {
+        "natural": "STYLE CONTRACT: Natural soft eyebrow, keep own hair, light grooming. Preserve customer brow boundary, position, arch, tail, growth direction, gaps and asymmetry. Sparse soft front, natural density, tapered tail. NO powder fill, NO skin tint, NO shadow, NO halo.",
+        "microblading": "STYLE CONTRACT: Microblading fine hair strokes. Transfer ONLY fine individual hair-stroke technique from reference. Preserve customer brow boundary, position, arch, tail, growth direction, gaps and asymmetry. Individual hairs, sparse areas filled, natural direction, medium-low density, tapered tail. NO powder fill, NO skin tint, NO shadow, NO halo.",
+        "powder": "STYLE CONTRACT: Powder ombre shading. Transfer ONLY translucent powder technique from reference. Apply it strictly inside customer's existing brow region, lightest at front and gradually deeper through body/tail. Preserve customer brow position, boundary, arch, tail and asymmetry. NO pigment above/below brow, NO eyelid shadow, NO makeup halo, NO facial retouching.",
+        "combination": "STYLE CONTRACT: Combination strokes front + powder tail. Transfer ONLY combination technique from reference: fine natural hairstrokes at front plus soft translucent powder shading inside customer's existing brow region. Preserve customer brow position, boundary, arch, tail, growth direction, gaps and asymmetry. NO pigment outside brow, NO under-brow shadow, NO eyelid makeup, NEVER blocky.",
+        "giso_suggested": "STYLE CONTRACT: Balanced natural improvement. Transfer ONLY natural improvement technique. Preserve customer brow boundary, position, arch, tail, growth direction, gaps and asymmetry. Balanced density, natural finish. NO heavy fill, NO skin tint, NO halo.",
+    }
+    contract = STYLE_CONTRACTS.get(selected_style_key, STYLE_CONTRACTS.get(final_style_key, ""))
 
     STYLE_ENGLISH = {
         "natural": "natural soft eyebrow, keep own hair, light grooming",
@@ -395,13 +404,14 @@ def build_design_prompt(candidate):
 
     region_text = _eyebrow_region_text(candidate)
 
+    # مثل buti-test: SCOPE دقیق و تاکید بر SAME original photograph
     return (
-        f"EDIT ORIGINAL PHOTO ONLY. Keep same person, background, hijab, lighting. "
-        f"Apply eyebrow style: {selected_style_key} ({style_en}). Label: {model_label}. "
-        f"Edit ONLY eyebrow hairs inside the provided mask area. Outside mask must be kept 100% identical. "
-        f"DO NOT change eyes, skin, hair, hijab, background, identity. NO white background, NO halo, NO eye artifact, NO white color on eyebrows. "
-        f"Eyebrow color must be natural dark brown/black, not white, not blonde. "
-        f"Same photo, only eyebrows edited to {style_en}. Realistic, salon, wearable. "
+        f"STYLE EDITING TASK — apply «{selected_style_key} ({style_en}) Label:{model_label}» onto IMAGE 0 (the customer photo). IMAGE 1 if present is the selected style reference ONLY. "
+        f"{contract} "
+        f"SCOPE: edit ONLY the two existing eyebrow regions of IMAGE 0; never move, reposition or enlarge them. IMAGE 1 is technique-only: never copy its face, skin, brow placement, lighting, color cast or background — transfer only stroke and shading technique, density and finish. "
+        f"Pigment from CUSTOMER'S own brow and hair appearance plus local undertone (never a fixed HEX, never pure white, never blonde, natural dark brown/black). "
+        f"No pigment, shadow, blur, smoothing, relighting or makeup outside the brows; no white-balance or exposure shift. Keep native position, arch, tail, growth direction, gaps and asymmetry. "
+        f"FINAL: the SAME original photograph after professional brow treatment, not a new face. Realistic, salon, wearable. "
         f"Location: {region_text}"
     )
 

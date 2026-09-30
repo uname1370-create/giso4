@@ -1093,7 +1093,8 @@ def _validate_provider_visible_change(base, final_image, mask) -> Dict[str, Any]
 
 
 def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
-                          candidate: Optional[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any]]:
+                          candidate: Optional[Dict[str, Any]] = None,
+                          provider_kind: str = "") -> Tuple[str, Dict[str, Any]]:
     raw, _mime = _decode_image_value(image_value, timeout)
     if not raw:
         raise ImageProviderError("تصویر خروجی خالی است")
@@ -1111,7 +1112,12 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
         final_image = provider_image
         base_for_validation = None
         mask_for_validation = None
-        if source_path and candidate is not None:
+        # برای flux (cloudflare) مثل buti-test، ماسک را حذف کن تا تغییر دقیق و کامل دیده شود
+        # کاربر گفت: "اگر این مسامک خیلی اذیت میکنه حذفش کن"
+        # برای inpainting واقعی، ماسک را نگه دار
+        is_flux = str(provider_kind or "").strip().lower() == "cloudflare"
+        use_mask = bool(source_path and candidate is not None and not is_flux)
+        if use_mask:
             base = Image.open(source_path).convert("RGB")
             base.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
             fitted_provider = _fit_provider_image_to_source(provider_image, base.size).convert("RGB")
@@ -1178,6 +1184,26 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
             })
             meta.update(diff_meta)
         else:
+            # برای flux بدون ماسک (مثل buti-test) فقط سفید زیاد را چک کن
+            try:
+                _w, _h = final_image.size
+                _total = max(1, _w * _h)
+                _white_count = 0
+                _stride_white = max(1, int((_total / 50000) ** 0.5))
+                _fpx = final_image.load()
+                for _yy in range(0, _h, _stride_white):
+                    for _xx in range(0, _w, _stride_white):
+                        _r, _g, _b = _fpx[_xx, _yy]
+                        if _r > 242 and _g > 242 and _b > 242:
+                            _white_count += 1
+                _white_ratio_total = float(_white_count) / float(max(1, (_w // _stride_white) * (_h // _stride_white)))
+                if _white_ratio_total > 0.55:
+                    raise ImageProviderError("خروجی AI پس‌زمینه سفید زیاد دارد و رد شد")
+                _beauty_log("[AI_OUTPUT]", "flux_no_mask_white_check", white_ratio_total=round(_white_ratio_total,4))
+            except ImageProviderError:
+                raise
+            except Exception:
+                pass
             final_image.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
         if final_image.width <= 0 or final_image.height <= 0:
             raise ImageProviderError("ابعاد خروجی provider نامعتبر بود")
@@ -1344,7 +1370,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
         )
         try:
             image_value = _call_provider(provider, source_path, reference_path, candidate, prompt, timeout)
-            filename, save_meta = _save_provider_output(image_value, timeout, source_path, candidate)
+            filename, save_meta = _save_provider_output(image_value, timeout, source_path, candidate, provider_kind=provider.kind)
             if save_meta:
                 last_meta = provider.extra.setdefault("_last_request_meta", {})
                 for meta_key, meta_value in save_meta.items():
