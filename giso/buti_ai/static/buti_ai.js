@@ -34,7 +34,6 @@
 
   // غیرفعال: هیچ تحلیل موقع آپلود انجام نشود
   async function validateEyebrowPhoto(file, validateUrl) {
-    // غیرفعال: فقط Preview، بدون AI تا کلیک نهایی
     return;
   }
 
@@ -87,15 +86,9 @@
         text.textContent = 'عکس انتخاب شد';
         if (fileName) fileName.textContent = file.name;
         if (preview) {
-          try {
-            var url = URL.createObjectURL(file);
-            preview.src = url;
-            preview.onload = function () { URL.revokeObjectURL(url); };
-          } catch (e) {
-            var reader = new FileReader();
-            reader.onload = function (ev) { preview.src = ev.target.result; };
-            reader.readAsDataURL(file);
-          }
+          var reader = new FileReader();
+          reader.onload = function (ev) { preview.src = ev.target.result; };
+          reader.readAsDataURL(file);
           preview.style.display = 'block';
           preview.removeAttribute('hidden');
         }
