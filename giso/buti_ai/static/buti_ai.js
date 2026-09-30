@@ -34,6 +34,7 @@
 
   // غیرفعال: هیچ تحلیل موقع آپلود انجام نشود
   async function validateEyebrowPhoto(file, validateUrl) {
+    // غیرفعال: فقط Preview، بدون AI تا کلیک نهایی
     return;
   }
 
