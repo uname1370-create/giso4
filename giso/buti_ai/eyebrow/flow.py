@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """ارکستریشن سناریوی آینه ابرو؛ بدون وابستگی مستقیم به Flask routeها."""
-from giso.buti_ai.eyebrow.ai import analyze_eyebrow_photo, check_photo_quality
-from giso.buti_ai.eyebrow.landmarks import detect_eyebrow_regions
 from giso.buti_ai.eyebrow.options import initial_form_values, normalize_change_level, normalize_style_key
 from giso.buti_ai.eyebrow.preview import build_before_after_preview
 from giso.buti_ai.eyebrow.result import build_eyebrow_result
@@ -84,7 +82,13 @@ def _demo_analysis_report():
 
 
 def process_eyebrow_submission(form, files, user_id=None):
-    """پردازش POST آینه ابرو و تولید state لازم برای template."""
+    """پردازش POST آینه ابرو — فقط ذخیره عکس و Preview، بدون هیچ تحلیل AI.
+
+    طبق درخواست کاربر:
+    انتخاب عکس → نمایش عکس روی صفحه → تمام
+    هیچ تحلیل، کیفیت، MediaPipe، OpenCV، Mask یا API هوشمندی در این مرحله اجرا نشود.
+    تمام پردازش‌ها فقط وقتی شروع شوند که کاربر روی دکمه طراحی عکس نهایی کلیک کند.
+    """
     form = form or {}
     files = files or {}
     style_key = normalize_style_key(form.get("style"))
@@ -117,14 +121,9 @@ def process_eyebrow_submission(form, files, user_id=None):
         if not photo_status.get("ok"):
             error_message = photo_status.get("message") or "عکس دریافت نشد."
         else:
-            # بررسی کیفیت واقعی و تحلیل هوشمند
-            quality_report = check_photo_quality(photo_status.get("path"))
-            # حتی اگر کیفیت هشدار داشت، ادامه بده تا طراحی نهایی تست شود
-            if quality_report.get("ok") is False:
-                # کیفیت خیلی بد بود، ولی برای تست نهایی اجازه ادامه با هشدار
-                quality_report["ok"] = None
-            ai_analysis = analyze_eyebrow_photo(photo_status.get("path"), style_key, change_key)
-            eyebrow_detection = detect_eyebrow_regions(photo_status.get("path"), allow_fallback=True)
+            quality_report = {"status": "skipped", "ok": None, "message": "بررسی کیفیت در مرحله طراحی نهایی انجام می‌شود."}
+            ai_analysis = {"status": "skipped", "ok": None, "message": "تحلیل در مرحله نهایی انجام می‌شود."}
+            eyebrow_detection = {}
             result = build_eyebrow_result(
                 style_key,
                 change_key,

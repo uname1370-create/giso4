@@ -78,6 +78,11 @@
   }
 
   async function validateEyebrowPhoto(file, validateUrl) {
+    // غیرفعال شد per user request: بعد از انتخاب عکس هیچ تحلیل، API یا MediaPipe اجرا نشود
+    return;
+  }
+
+  async function validateEyebrowPhoto_DISABLED(file, validateUrl) {
     var tokenInput = document.querySelector('input[name="csrf_token"]');
     var formData = new FormData();
     formData.append('photo', file);
@@ -152,6 +157,7 @@
           setAnalyzeEnabled(false);
           return;
         }
+        // فقط نمایش Preview — هیچ تحلیل، AI، کیفیت، MediaPipe اجرا نشود
         text.textContent = 'عکس انتخاب شد';
         if (fileName) fileName.textContent = file.name;
         if (preview) {
@@ -177,13 +183,11 @@
           placeholder.style.display = 'none';
         }
         if (changeBtn) changeBtn.hidden = false;
-        if (zone) zone.classList.add('has-preview');
-        // Fix: always enable next button, validation non-blocking for final design test
+        if (zone) {
+          zone.classList.add('has-preview');
+          zone.classList.remove('is-analyzing');
+        }
         setAnalyzeEnabled(true);
-        setUploadScanning(false, 'عکس آماده است — ادامه بده');
-        try {
-          validateEyebrowPhoto(file, form ? form.getAttribute('data-bti-validate-url') : '');
-        } catch (e) {}
       });
     }
     if (form) {
