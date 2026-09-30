@@ -890,10 +890,10 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
         coverage = float(mask_info.get("coverage_ratio") or 0)
     except Exception:
         coverage = 0.0
-    # سخت‌گیرانه‌تر: پوشش ابرو باید خیلی کوچک باشد تا هاله سفید دور صورت ایجاد نشود
-    if coverage <= 0 or coverage > 0.025:
+    # پوشش ابرو: برای حجاب کمی بازتر می‌کنیم تا تشخیص از دست نرود، ولی هاله سفید را جدا کنترل می‌کنیم
+    if coverage <= 0 or coverage > 0.045:
         raise ImageProviderError("mask ابرو برای ذخیره خروجی AI ایمن نیست؛ محدوده ویرایش بیش از حد وسیع/نامعتبر است")
-    # بررسی اینکه mask به لبه تصویر نچسبیده باشد (حجاب/پس‌زمینه)
+    # بررسی اینکه mask به لبه تصویر نچسبیده باشد (حجاب/پس‌زمینه) - برای حجاب کمی بازتر
     try:
         regions = detection.get("regions") if isinstance(detection, dict) else []
         for r in (regions or [])[:2]:
@@ -901,12 +901,13 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
             y = float(r.get("y") or 0)
             w = float(r.get("width") or 0)
             h = float(r.get("height") or 0)
-            # اگر ابرو خیلی نزدیک لبه تصویر یا خیلی بزرگ باشد، احتمال تشخیص اشتباه حجاب است
-            if w > size[0] * 0.35 or h > size[1] * 0.12:
+            # اگر ابرو خیلی بزرگ باشد، احتمال تشخیص اشتباه حجاب است - کمی بازتر برای حجاب
+            if w > size[0] * 0.42 or h > size[1] * 0.16:
                 raise ImageProviderError("mask ابرو بیش از حد بزرگ است؛ احتمال تشخیص اشتباه حجاب")
-            if x < size[0] * 0.02 or (x + w) > size[0] * 0.98:
+            if x < size[0] * 0.01 or (x + w) > size[0] * 0.99:
                 raise ImageProviderError("mask ابرو به لبه تصویر چسبیده؛ نامعتبر")
-            if y < size[1] * 0.12 or y > size[1] * 0.55:
+            # برای حجاب، ابرو ممکن است کمی بالاتر یا پایین‌تر باشد - بازه بازتر
+            if y < size[1] * 0.08 or y > size[1] * 0.60:
                 raise ImageProviderError("mask ابرو خارج از محدوده معقول صورت است")
     except ImageProviderError:
         raise
@@ -1414,12 +1415,17 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 safe_error[:160],
             )
 
-    # اصلاح شماره 7: Python fallback نباید به عنوان طراحی نهایی AI نمایش داده شود
-    # اگر همه CFها شکست خوردند -> AI FAILED
-    # generate_python_guided_design فقط برای Debug داخلی باقی می‌ماند و در مسیر production استفاده نمی‌شود
-    # مگر اینکه env BUTI_AI_ALLOW_PYTHON_FALLBACK=1 تنظیم شده باشد (برای تست داخلی)
-    allow_python_fallback = _truthy(_env_value(env, "BUTI_AI_ALLOW_PYTHON_FALLBACK"))
-    if allow_python_fallback:
+    # اصلاح: اگر همه CFها شکست خوردند، به جای AI FAILED یک پیش‌نمایش راهنمای پایتونی نشان بده
+    # تا کاربر عکس الکی نبیند و فلو قطع نشود. این پیش‌نمایش غیر AI است ولی واقعی و قابل دیدن است
+    # و به مشتری می‌گوید مدل انتخابی چطوری می‌شود، تا وقتی مدل inpainting درست تنظیم شود
+    _beauty_log(
+        "[FINAL]",
+        "ai_failed_try_python_fallback",
+        is_ai_generated=False,
+        configured_provider_count=len(providers),
+        attempts_count=len(attempts),
+    )
+    try:
         fallback = final_design.generate_python_guided_design(candidate)
         fallback["attempts"] = attempts
         fallback["configured_provider_count"] = len(providers)
@@ -1430,25 +1436,31 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
         fallback["fallback_type"] = "non_ai_guided_fallback"
         if fallback.get("ok"):
             if providers:
-                fallback["status"] = "non_ai_guided_fallback_ready"
-                fallback["message"] = "خروجی مدل‌های AI برای این عکس قابل تأیید نبود؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI نمایش داده می‌شود."
+                # اگر مدل‌ها تلاش کردند و سفید رد شدند، پیام دقیق بده
+                white_failed = any("سفید" in str(a.get("error") or "") for a in attempts)
+                if white_failed:
+                    fallback["status"] = "non_ai_guided_preview_ready"
+                    fallback["message"] = "مدل فعلی CF با پس‌زمینه سفید خروجی داد و رد شد. این یک پیش‌نمایش راهنمای غیر AI با مدل انتخابی شماست تا وقتی مدل inpainting درست تنظیم شود. برای نتیجه واقعی AI، در مدیریت AI مدل @cf/runwayml/stable-diffusion-v1-5-inpainting را با نوع inpainting بگذار."
+                else:
+                    fallback["status"] = "non_ai_guided_fallback_ready"
+                    fallback["message"] = "خروجی مدل‌های AI برای این عکس قابل تأیید نبود؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI نمایش داده می‌شود."
             else:
                 fallback["status"] = "non_ai_guided_preview_ready"
                 fallback["message"] = "مدل تصویرسازی هنوز در مدیریت AI تنظیم نشده؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI آماده شد."
-        elif providers:
-            fallback["message"] = "فعلاً طراحی عکس نهایی قابل نمایش نشد؛ عکس و انتخاب شما حفظ شد."
-        _beauty_log(
-            "[FINAL]",
-            "fallback_final_ready" if fallback.get("ok") else "fallback_final_failed",
-            final_path=fallback.get("filename"),
-            is_ai_generated=False,
-            status=fallback.get("status"),
-            configured_provider_count=len(providers),
-            fallback_used=fallback.get("fallback_used"),
-        )
-        return fallback
+            _beauty_log(
+                "[FINAL]",
+                "fallback_final_ready",
+                final_path=fallback.get("filename"),
+                is_ai_generated=False,
+                status=fallback.get("status"),
+                configured_provider_count=len(providers),
+                fallback_used=fallback.get("fallback_used"),
+            )
+            return fallback
+    except Exception as exc:
+        _beauty_log("[FINAL]", "python_fallback_failed", error=str(exc)[:120])
 
-    # مسیر اصلی production: AI FAILED
+    # اگر حتی پایتونی هم شکست خورد -> AI FAILED
     _beauty_log(
         "[FINAL]",
         "ai_failed_all_providers",
@@ -1460,7 +1472,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
     return {
         "ok": False,
         "status": "ai_failed",
-        "message": "AI FAILED - هر سه مدل CF1, CF2, CF3 برای این عکس ناموفق بودند. لطفاً دوباره تلاش کن یا عکس واضح‌تری بفرست.",
+        "message": "هر سه مدل CF1, CF2, CF3 برای این عکس ناموفق بودند و پیش‌نمایش راهنما هم ساخته نشد. لطفاً عکس واضح‌تری بفرست.",
         "attempts": attempts,
         "configured_provider_count": len(providers),
         "fallback_used": False,

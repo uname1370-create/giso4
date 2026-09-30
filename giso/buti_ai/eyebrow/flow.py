@@ -117,21 +117,14 @@ def process_eyebrow_submission(form, files, user_id=None):
         if not photo_status.get("ok"):
             error_message = photo_status.get("message") or "عکس دریافت نشد."
         else:
-            # تست طراحی نهایی: تحلیل هوشمند موقتاً غیرفعال — فقط عکس و تشخیص ابرو
-            quality_report = {
-                "status": "analysis_disabled_for_test",
-                "ok": True,
-                "message": "عکس دریافت شد؛ تحلیل هوشمند موقتاً غیرفعال است تا طراحی نهایی تست شود.",
-                "checks": {"face_visible": True, "eyebrows_visible": True},
-                "reasons": [],
-            }
-            ai_analysis = {
-                "status": "ai_disabled_for_test",
-                "ok": None,
-                "message": "تحلیل هوشمند موقتاً غیرفعال است.",
-                "data": {},
-            }
-            eyebrow_detection = detect_eyebrow_regions(photo_status.get("path"), allow_fallback=False)
+            # بررسی کیفیت واقعی و تحلیل هوشمند
+            quality_report = check_photo_quality(photo_status.get("path"))
+            # حتی اگر کیفیت هشدار داشت، ادامه بده تا طراحی نهایی تست شود
+            if quality_report.get("ok") is False:
+                # کیفیت خیلی بد بود، ولی برای تست نهایی اجازه ادامه با هشدار
+                quality_report["ok"] = None
+            ai_analysis = analyze_eyebrow_photo(photo_status.get("path"), quality_report)
+            eyebrow_detection = detect_eyebrow_regions(photo_status.get("path"), allow_fallback=True)
             result = build_eyebrow_result(
                 style_key,
                 change_key,

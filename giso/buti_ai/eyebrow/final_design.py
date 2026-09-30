@@ -20,11 +20,12 @@ FINAL_DESIGN_DIR = os.path.join(EYEBROW_UPLOAD_DIR, "final")
 
 
 STYLE_RENDER = {
-    "natural": {"alpha": 112, "width": 6, "shade": 0.14, "strokes": 11, "blur": 0.9},
-    "microblading": {"alpha": 140, "width": 3, "shade": 0.04, "strokes": 24, "blur": 0.4},
-    "powder": {"alpha": 132, "width": 10, "shade": 0.26, "strokes": 4, "blur": 1.5},
-    "combination": {"alpha": 142, "width": 8, "shade": 0.18, "strokes": 16, "blur": 0.85},
-    "giso_suggested": {"alpha": 126, "width": 7, "shade": 0.15, "strokes": 14, "blur": 0.75},
+    # آلفا و ضخامت متعادل‌تر برای اینکه پیش‌نمایش راهنما طبیعی‌تر باشد، نه ماژیک
+    "natural": {"alpha": 98, "width": 5, "shade": 0.10, "strokes": 13, "blur": 0.7},
+    "microblading": {"alpha": 125, "width": 2, "shade": 0.03, "strokes": 28, "blur": 0.3},
+    "powder": {"alpha": 110, "width": 8, "shade": 0.20, "strokes": 5, "blur": 1.2},
+    "combination": {"alpha": 120, "width": 6, "shade": 0.14, "strokes": 18, "blur": 0.65},
+    "giso_suggested": {"alpha": 108, "width": 6, "shade": 0.12, "strokes": 16, "blur": 0.6},
 }
 
 
@@ -189,7 +190,11 @@ def ensure_eyebrow_detection(candidate):
         return existing
     if not src:
         return {}
+    # اول سعی با تشخیص واقعی، اگر نشد با fallback نسبتی تا پیش‌نمایش قطع نشود
     detection = detect_eyebrow_regions(src, allow_fallback=False)
+    if not (isinstance(detection, dict) and detection.get("regions")):
+        # برای پیش‌نمایش راهنما، fallback مجاز است تا کاربر عکس خالی نبیند
+        detection = detect_eyebrow_regions(src, allow_fallback=True)
     if isinstance(detection, dict) and detection.get("regions"):
         detection = ensure_eyebrow_mask(src, detection)
     candidate["eyebrow_detection"] = detection
