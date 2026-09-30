@@ -363,61 +363,9 @@
                 {% endfor %}
             </div>
 
-            <!-- سایر خدمات — مخفی پیش‌فرض -->
-            <details style="margin-top:20px;">
-                <summary style="cursor:pointer;font-weight:bold;">🎨 سایر خدمات: ناخن، لب، رنگ مو (پیشرفته)</summary>
-                <div class="pnl-grid-2" style="margin-top:12px;">
-                    {% for slot in bm.get('slots', []) %}
-                        {% if slot.task_key not in ('eyebrow_image_design','eyebrow_analysis','mirror_output_validation') %}
-                        <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-card pnl-stack-form" style="margin:0;opacity:0.95;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="ai_action" value="save_beauty_mirror_model">
-                            <input type="hidden" name="task_key" value="{{ slot.task_key }}">
-                            <input type="hidden" name="priority" value="{{ slot.priority }}">
-                            <h4 style="margin:0 0 4px;font-size:13px;">{{ slot.task_label }} — {{ slot.slot_label }}</h4>
-                            <select name="provider_name" required>
-                                <option value="">پروایدر</option>
-                                {% for p in bm.get('providers', []) %}
-                                <option value="{{ p.name }}" {% if slot.provider_name==p.name %}selected{% endif %}>{{ p.name }}</option>
-                                {% endfor %}
-                            </select>
-                            <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" placeholder="مدل" required style="margin-top:6px;">
-                            <input type="hidden" name="image_kind" value="{{ slot.image_kind or 'cloudflare' }}">
-                            <input type="hidden" name="endpoint_override" value="{{ slot.endpoint_override }}">
-                            <label class="pnl-check"><input type="checkbox" name="enabled" value="1" {% if slot.enabled %}checked{% endif %}> فعال</label>
-                            <button class="pnl-btn pnl-btn-outline pnl-btn-sm">💾 ذخیره</button>
-                        </form>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            </details>
+            <!-- سایر خدمات و fallback حذف شد per user request -->
 
-            <!-- fallback های اضافی تحلیل — مخفی -->
-            <details style="margin-top:12px;">
-                <summary style="cursor:pointer;">📦 Fallback های تحلیل (اولویت ۲ و ۳)</summary>
-                <div class="pnl-grid-2" style="margin-top:12px;">
-                    {% for slot in bm.get('slots', []) %}
-                        {% if slot.task_key in ('eyebrow_analysis','mirror_output_validation') and slot.priority>1 %}
-                        <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-card pnl-stack-form" style="margin:0;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="ai_action" value="save_beauty_mirror_model">
-                            <input type="hidden" name="task_key" value="{{ slot.task_key }}">
-                            <input type="hidden" name="priority" value="{{ slot.priority }}">
-                            <h4 style="margin:0 0 4px;">{{ slot.task_label }} — {{ slot.slot_label }}</h4>
-                            <select name="provider_name" required>
-                                <option value="">پروایدر</option>
-                                {% for p in bm.get('providers', []) %}
-                                <option value="{{ p.name }}" {% if slot.provider_name==p.name %}selected{% endif %}>{{ p.name }}</option>
-                                {% endfor %}
-                            </select>
-                            <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" required style="margin-top:6px;">
-                            <label class="pnl-check"><input type="checkbox" name="enabled" value="1" {% if slot.enabled %}checked{% endif %}> فعال</label>
-                            <button class="pnl-btn pnl-btn-outline pnl-btn-sm">💾 ذخیره</button>
-                        </form>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-            </details>
+            
         </div>
     </section>
 
