@@ -1,4 +1,4 @@
-// Buti AI — رفتار کوچک اختصاصی ماژول، بدون وابستگی به صفحات دیگر Giso.
+// Buti AI — فقط Preview عکس، بدون هیچ تحلیل AI تا کلیک نهایی
 (function () {
   function ready(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
@@ -12,14 +12,7 @@
     btn.classList.toggle('is-disabled', !enabled);
   }
 
-  function setUploadScanning(active, label) {
-    var zone = document.getElementById('btiUploadZone');
-    var scanLabel = document.getElementById('btiUploadScanLabel');
-    if (zone) zone.classList.toggle('is-analyzing', !!active);
-    if (scanLabel) scanLabel.textContent = label || (active ? 'در حال آنالیز عکس...' : 'عکس آماده ادامه است');
-  }
-
-    function showFinalLoading(imageSrc, message) {
+  function showFinalLoading(imageSrc, message) {
     try { console.log('Final design requested'); } catch(e) {}
     return;
   }
@@ -39,79 +32,9 @@
     requestAnimationFrame(function () { box.classList.add('is-visible'); });
   }
 
-  function setCheckState(kind, message, checks, warnings) {
-    var box = document.getElementById('btiUploadChecks');
-    var status = document.getElementById('btiUploadCheckStatus');
-    var list = document.getElementById('btiUploadCheckList');
-    if (!box || !status || !list) return;
-    box.hidden = false;
-    box.classList.remove('is-ok', 'is-bad', 'is-loading', 'is-warn');
-    box.classList.add(kind || 'is-loading');
-    status.textContent = message || 'در حال بررسی اولیه عکس...';
-    list.innerHTML = '';
-    var labels = {
-      face_visible: 'صورت مشخص باشد',
-      eyebrows_visible: 'ابروها واضح باشند',
-      hands_visible: 'دست و ناخن‌ها واضح باشند',
-      nails_visible: 'صفحه ناخن مشخص باشد',
-      lips_visible: 'لب‌ها واضح باشند',
-      hair_visible: 'مو در عکس مشخص باشد',
-      lighting: 'نور مناسب باشد',
-      angle: 'زاویه عکس مناسب باشد',
-      sharpness: 'عکس تار نباشد'
-    };
-    Object.keys(labels).forEach(function (key) {
-      var value = checks && checks[key];
-      if (value === undefined || value === null || value === '') return;
-      var ok = value === true || value === 'good' || value === 'front' || value === 'yes' || value === 'clear';
-      var item = document.createElement('span');
-      item.className = ok ? 'pass' : 'info';
-      item.textContent = (ok ? '✅ ' : '• ') + labels[key];
-      list.appendChild(item);
-    });
-    (warnings || []).forEach(function (warning) {
-      var item = document.createElement('span');
-      item.className = 'warn';
-      item.textContent = '⚠️ ' + warning;
-      list.appendChild(item);
-    });
-  }
-
+  // غیرفعال: هیچ تحلیل موقع آپلود انجام نشود
   async function validateEyebrowPhoto(file, validateUrl) {
-    // غیرفعال شد per user request: بعد از انتخاب عکس هیچ تحلیل، API یا MediaPipe اجرا نشود
     return;
-  }
-
-  async function validateEyebrowPhoto_DISABLED(file, validateUrl) {
-    var tokenInput = document.querySelector('input[name="csrf_token"]');
-    var formData = new FormData();
-    formData.append('photo', file);
-    setCheckState('is-loading', 'در حال آنالیز عکس...', {}, []);
-    setUploadScanning(true, 'در حال آنالیز عکس...');
-    setAnalyzeEnabled(true);
-    try {
-      var response = await fetch(validateUrl || '/analysis/mirror/eyebrow/validate-photo', {
-        method: 'POST',
-        headers: { 'X-GISO-CSRF': tokenInput ? tokenInput.value : '' },
-        body: formData
-      });
-      var result = await response.json();
-      if (result.valid) {
-        var kind = result.warnings && result.warnings.length ? 'is-warn' : 'is-ok';
-        setCheckState(kind, result.message || 'عکس برای طراحی مناسب است.', result.checks || {}, result.warnings || []);
-        setUploadScanning(false, 'عکس آماده طراحی است');
-        setAnalyzeEnabled(true);
-      } else {
-        // Non-blocking for final design test
-        setCheckState('is-warn', (result.message || 'بررسی اولیه کامل نیست') + ' — برای تست طراحی نهایی می‌توانی ادامه بدهی.', result.checks || {}, []);
-        setUploadScanning(false, 'عکس انتخاب شد — ادامه بده');
-        setAnalyzeEnabled(true);
-      }
-    } catch (error) {
-      setCheckState('is-warn', 'بررسی اولیه کامل نشد؛ اگر عکس واضح است می‌توانی ادامه بدهی.', {}, []);
-      setUploadScanning(false, 'عکس انتخاب شد');
-      setAnalyzeEnabled(true);
-    }
   }
 
   ready(function () {
@@ -125,9 +48,11 @@
     var zone = document.getElementById('btiUploadZone');
     var form = input ? input.closest('form') : null;
     setAnalyzeEnabled(false);
+
     if (changeBtn && input) {
       changeBtn.addEventListener('click', function () { input.click(); });
     }
+
     if (input && text) {
       input.addEventListener('change', function () {
         var file = input.files && input.files[0];
@@ -157,7 +82,7 @@
           setAnalyzeEnabled(false);
           return;
         }
-        // فقط نمایش Preview — هیچ تحلیل، AI، کیفیت، MediaPipe اجرا نشود
+        // فقط نمایش Preview — هیچ تحلیل، AI، کیفیت، MediaPipe، Mask اجرا نشود
         text.textContent = 'عکس انتخاب شد';
         if (fileName) fileName.textContent = file.name;
         if (preview) {
@@ -187,15 +112,17 @@
           zone.classList.add('has-preview');
           zone.classList.remove('is-analyzing');
         }
+        // دکمه طراحی نهایی فعال، بدون هیچ API call
         setAnalyzeEnabled(true);
       });
     }
+
     if (form) {
       form.addEventListener('submit', function (event) {
         var btn = document.getElementById('btiAnalyzeBtn');
         if (btn && btn.disabled) {
           event.preventDefault();
-          alert('لطفاً اول یک عکس واضح انتخاب کن تا بررسی اولیه انجام شود.');
+          alert('لطفاً اول یک عکس واضح انتخاب کن.');
           return;
         }
         var src = preview && preview.src ? preview.src : '';
