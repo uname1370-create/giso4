@@ -57,15 +57,15 @@
                             <span class="bti-style-row-copy">
                                 <b>{{ item.label }}</b>
                                 <small>{{ item.summary }}</small>
+                                <em class="bti-sample-badge">نمونه {{ item.label }}</em>
+                                {% if key == 'giso_suggested' %}<em class="bti-safe-badge">انتخاب امن</em>{% endif %}
                             </span>
-                            {% if key == 'giso_suggested' %}<em>انتخاب امن</em>{% endif %}
                         </span>
                         <span class="bti-brow-sample is-wide-png">
                             <picture>
                                 <source srcset="{{ url_for('buti_ai.static', filename='brows/' ~ key ~ '.webp') }}" type="image/webp">
                                 <img src="{{ url_for('buti_ai.static', filename='brows/' ~ key ~ '.png') }}" alt="نمونه {{ item.label }} - {{ item.summary }}" loading="lazy" width="420" height="168">
                             </picture>
-                            <small>نمونه {{ item.label }}</small>
                         </span>
                     </label>
                     {% endfor %}
