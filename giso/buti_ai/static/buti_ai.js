@@ -24,17 +24,35 @@
     if (existing) existing.remove();
     var overlay = document.createElement('div');
     overlay.className = 'bti-final-loading-overlay';
+    var steps = [
+      'در حال آنالیز چهره و تشخیص ابرو...',
+      'تطابق اندازه و فرم ابرو با مدل انتخابی...',
+      'بررسی رنگ پوست و هماهنگی طبیعی...',
+      'اعمال مدل انتخابی با هوش مصنوعی (مدل اول مدیریت)...',
+      'نهایی‌سازی تصویر واقعی و زنده...'
+    ];
+    var stepIndex = 0;
     overlay.innerHTML = '' +
       '<div class="bti-final-loading-card">' +
       '  <div class="bti-final-loading-photo">' +
       (imageSrc ? '<img src="' + imageSrc.replace(/"/g, '&quot;') + '" alt="عکس در حال پردازش">' : '<i class="fas fa-wand-magic-sparkles"></i>') +
       '    <span class="bti-laser-scan" aria-hidden="true"></span>' +
       '  </div>' +
-      '  <strong>' + (message || 'در حال ساخت طراحی عکس نهایی...') + '</strong>' +
-      '  <small>عکس و مدل انتخابی حفظ شده؛ لطفاً چند لحظه صبر کن.</small>' +
+      '  <strong id="btiLoadingMain">' + (message || 'در حال ساخت طراحی عکس نهایی...') + '</strong>' +
+      '  <small id="btiLoadingStep">' + steps[0] + '</small>' +
+      '  <div class="bti-loading-dots" style="display:flex;gap:6px;margin-top:10px;"><span style="width:8px;height:8px;border-radius:50%;background:#ffad12;animation:btiDot 1s infinite;"></span><span style="width:8px;height:8px;border-radius:50%;background:#ffad12;animation:btiDot 1s .2s infinite;"></span><span style="width:8px;height:8px;border-radius:50%;background:#ffad12;animation:btiDot 1s .4s infinite;"></span></div>' +
+      '  <small style="opacity:.65;font-size:.78rem;margin-top:6px;">مدل اول مدیریت هوش مصنوعی آینه گیسو استفاده می‌شود</small>' +
       '</div>';
     document.body.appendChild(overlay);
     requestAnimationFrame(function () { overlay.classList.add('is-visible'); });
+    var stepEl = overlay.querySelector('#btiLoadingStep');
+    var mainEl = overlay.querySelector('#btiLoadingMain');
+    var interval = setInterval(function () {
+      stepIndex = (stepIndex + 1) % steps.length;
+      if (stepEl) stepEl.textContent = steps[stepIndex];
+      if (mainEl && stepIndex === 3) mainEl.textContent = 'در حال تولید با هوش مصنوعی...';
+    }, 1100);
+    overlay._btiInterval = interval;
   }
 
   function openImageLightbox(src) {

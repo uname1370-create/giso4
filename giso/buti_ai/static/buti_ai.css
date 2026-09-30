@@ -2927,6 +2927,17 @@
     0% { transform: translateY(-55%); }
     100% { transform: translateY(560%); }
 }
+@keyframes btiDot {
+    0%, 80%, 100% { transform: scale(0.6); opacity: .5; }
+    40% { transform: scale(1); opacity: 1; }
+}
+.bti-loading-dots span { display: inline-block; }
+.bti-final-loading-card #btiLoadingStep { color: #ffd27a !important; font-size: .88rem !important; font-weight: 600 !important; min-height: 1.6em !important; transition: all .3s ease !important; }
+
+@keyframes btiLaserScanOrig {
+    0% { transform: translateY(-55%); }
+    100% { transform: translateY(560%); }
+}
 
 @media (max-width: 820px) {
     .bti-step-actions,

@@ -44,6 +44,48 @@ def _render_params_for_candidate(candidate):
         params["shade"] = min(0.42, float(params.get("shade") or 0) * 1.18)
     return params
 
+def _sample_skin_color(image, regions):
+    try:
+        w, h = image.size
+        samples = []
+        for region in regions[:2]:
+            x = int(region.get("x") or 0)
+            y = int(region.get("y") or 0)
+            rw = int(region.get("width") or 0)
+            rh = int(region.get("height") or 0)
+            for dx, dy in [(rw*0.3, -rh*0.8), (rw*0.7, -rh*0.8), (rw*0.5, rh*1.5)]:
+                sx = max(0, min(w-1, int(x + dx)))
+                sy = max(0, min(h-1, int(y + dy)))
+                try:
+                    r, g, b = image.getpixel((sx, sy))[:3]
+                    if 60 < r < 230 and 40 < g < 210 and 30 < b < 200:
+                        samples.append((r, g, b))
+                except Exception:
+                    continue
+        if not samples:
+            return (195, 165, 135)
+        avg_r = sum(s[0] for s in samples) // len(samples)
+        avg_g = sum(s[1] for s in samples) // len(samples)
+        avg_b = sum(s[2] for s in samples) // len(samples)
+        return (avg_r, avg_g, avg_b)
+    except Exception:
+        return (195, 165, 135)
+
+def _brow_color_for_skin(skin_rgb, style_key):
+    sr, sg, sb = skin_rgb
+    brightness = (sr + sg + sb) / 3.0
+    if brightness > 180:
+        base = (58, 38, 28)
+    elif brightness > 130:
+        base = (46, 29, 21)
+    else:
+        base = (38, 24, 18)
+    if style_key == "microblading":
+        base = (base[0]+8, base[1]+6, base[2]+4)
+    elif style_key == "powder":
+        base = (max(0, base[0]-4), max(0, base[1]-4), max(0, base[2]-3))
+    return base
+
 def _clean_text(value, fallback="", limit=220):
     text = str(value or "").strip() or fallback
     return text[:limit]
@@ -422,8 +464,9 @@ def generate_python_guided_design(candidate):
 
         regions, detection_method, detection = _scaled_regions_for_image(candidate, w, h)
         alpha = int(params["alpha"])
-        # رنگ و شفافیت عمداً ملایم است تا خروجی fallback شبیه راهنمای مشاوره بماند، نه اجرای قطعی.
-        color = (46, 29, 21, alpha)
+        skin_rgb = _sample_skin_color(base, regions)
+        brow_rgb = _brow_color_for_skin(skin_rgb, final_style)
+        color = (brow_rgb[0], brow_rgb[1], brow_rgb[2], alpha)
         mode = "combination" if final_style in ("combination", "giso_suggested") else final_style
 
         for idx, region in enumerate(regions[:2]):
