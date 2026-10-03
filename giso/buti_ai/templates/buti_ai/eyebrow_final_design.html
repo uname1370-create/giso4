@@ -178,7 +178,7 @@
                         </div>
                     </div>
                     <div class="bti-center-card-actions">
-                        <a class="bti-primary-action" href="{{ url_for('beauty_reservations.reserve', slug=center.slug) }}">رزرو/بررسی زمان</a>
+                        <a class="bti-primary-action" href="{{ url_for('beauty_reservations.reserve', slug=center.slug, final_design_id=candidate.final_design_id or '', service_key='eyebrow', selected_style=candidate.final_style or '') }}">رزرو/بررسی زمان</a>
                         <a class="bti-secondary-action" href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}">مشاهده مرکز</a>
                     </div>
                 </article>
@@ -221,6 +221,33 @@
                 <article><span>چه زمانی منصرف شوم؟</span><p>اگر مرکز بدون بررسی چهره و سابقه حساسیت فقط قول نتیجه قطعی داد، با احتیاط انتخاب کن.</p></article>
             </div>
         </details>
+
+        
+        {% if consultant_invite %}
+        <section class="bti-final-consultant" aria-label="مشاور هوشمند گیسو">
+            <div class="bti-consultant-card">
+                <div class="bti-consultant-head">
+                    <i class="fas fa-robot"></i>
+                    <div>
+                        <b>مشاور هوشمند گیسو</b>
+                        <small>Context: {{ consultant_context.service_label }} + {{ consultant_context.style_label }} + {{ consultant_context.detection_method }}</small>
+                    </div>
+                </div>
+                <p>{{ consultant_invite }}</p>
+                {% if consultant_context.prompt %}
+                <details class="bti-provider-technical">
+                    <summary>متن Context مشاور</summary>
+                    <p style="white-space: pre-wrap; line-height: 1.8;">{{ consultant_context.prompt }}</p>
+                </details>
+                {% endif %}
+                <div class="bti-consultant-meta">
+                    <span>AI: {{ 'واقعی' if consultant_context.is_ai_generated else 'راهنما' }}</span>
+                    <span>Mask: {{ 'واقعی' if consultant_context.mask_real else 'fallback' }}</span>
+                    <span>Coverage: {{ consultant_context.mask_coverage }}</span>
+                </div>
+            </div>
+        </section>
+        {% endif %}
 
         <div class="bti-result-actions">
             {% if center_suggestions %}

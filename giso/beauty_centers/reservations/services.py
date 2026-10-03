@@ -51,7 +51,7 @@ _COLUMNS = (
     "id,center_id,user_id,user_phone,user_name,service_id,service_name,"
     "service_price_min,duration_minutes,reservation_date,reservation_time,status,"
     "user_note,center_note,reject_reason,reminded_24h,reminded_2h,created_at,"
-    "confirmed_at,cancelled_at"
+    "confirmed_at,cancelled_at,final_design_id,service_key,selected_style"
 )
 _SELECT_COLS = _COLUMNS  # ردیف میانی/درون‌تراکنشی (بدون JOIN)
 _SELECT_COLS_R = ", ".join(f"r.{name}" for name in _COLUMNS.split(","))
@@ -320,7 +320,7 @@ def get_calendar_month(center_id, year, month) -> list:
 
 def create_reservation(center_id, user_id, user_phone="", user_name="", service_id=0,
                        reservation_date="", reservation_time="", user_note="",
-                       duration_minutes=None) -> int:
+                       duration_minutes=None, final_design_id=0, service_key="", selected_style="") -> int:
     """Book a slot and return the new reservation id (0 when it could not be booked).
 
     Snapshot rule: center/service name, price and duration are copied into the row, so
@@ -390,13 +390,14 @@ def create_reservation(center_id, user_id, user_phone="", user_name="", service_
                 "(center_id,user_id,user_phone,user_name,service_id,service_name,"
                 "service_price_min,duration_minutes,reservation_date,reservation_time,"
                 "status,user_note,center_note,reject_reason,reminded_24h,reminded_2h,"
-                "created_at,confirmed_at,cancelled_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,'pending',?,'','',0,0,?,'','')",
+                "created_at,confirmed_at,cancelled_at,final_design_id,service_key,selected_style) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,'pending',?,'','',0,0,?,'','',?,?,?)",
                 (center_id, user_id, _clean_text(user_phone or user["phone"], 20),
                  _clean_text(user_name or user["name"], 100), _to_int(service.get("id")),
                  _clean_text(service.get("name"), 200), _to_int(service.get("price_min")),
                  duration, reservation_date, reservation_time,
-                 _clean_text(user_note, 500), _now()),
+                 _clean_text(user_note, 500), _now(),
+                 _to_int(final_design_id), _clean_text(service_key, 40), _clean_text(selected_style, 60)),
             )
             reservation_id = int(cursor.lastrowid or 0)
             conn.commit()

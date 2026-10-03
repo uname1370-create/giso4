@@ -55,6 +55,10 @@ RESERVATIONS_COLUMNS = {
     "created_at": "TEXT DEFAULT ''",
     "confirmed_at": "TEXT DEFAULT ''",
     "cancelled_at": "TEXT DEFAULT ''",
+    # اتصال به آینه هوشمند: final_design_id از buti_ai_final_designs
+    "final_design_id": "INTEGER NOT NULL DEFAULT 0",
+    "service_key": "TEXT DEFAULT ''",
+    "selected_style": "TEXT DEFAULT ''",
 }
 
 RESERVATIONS_CONSTRAINTS = (

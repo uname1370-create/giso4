@@ -3211,3 +3211,19 @@
     }
 }
 
+
+/* Phase 5 – AI Consultant */
+.bti-final-consultant { margin: 18px 0; }
+.bti-consultant-card {
+    padding: 16px;
+    border: 1px solid rgba(255,173,18,.22);
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(255,173,18,.08), rgba(0,0,0,.18));
+}
+.bti-consultant-head { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+.bti-consultant-head i { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; background: rgba(255,173,18,.18); }
+.bti-consultant-head b { color: #fff; }
+.bti-consultant-head small { color: var(--bti-muted); font-size: .75rem; }
+.bti-consultant-card p { color: #e9e9e9; line-height: 1.9; }
+.bti-consultant-meta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.bti-consultant-meta span { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.08); font-size: .72rem; }

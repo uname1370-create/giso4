@@ -426,6 +426,14 @@ def eyebrow_final_design():
         if getattr(current_user, "is_authenticated", False)
         else url_for("login", next=url_for("beauty_centers.register_center"))
     )
+    # Phase 5 – AI Consultant context for eyebrow
+    try:
+        from giso.buti_ai.consultant import build_consultant_context, consultant_invite_text
+        consultant_context = build_consultant_context("eyebrow", candidate, generation)
+        consultant_invite = consultant_invite_text(consultant_context)
+    except Exception:
+        consultant_context = {}
+        consultant_invite = ""
 
     return render_template(
         "buti_ai/eyebrow_final_design.html",
@@ -437,6 +445,8 @@ def eyebrow_final_design():
         centers_url=centers_url,
         register_center_url=register_center_url,
         default_phone=user_default_phone(current_user),
+        consultant_context=consultant_context,
+        consultant_invite=consultant_invite,
     )
 
 
@@ -957,6 +967,14 @@ def generic_service_final_design(service_slug):
         if getattr(current_user, "is_authenticated", False)
         else url_for("login", next=url_for("beauty_centers.register_center"))
     )
+    # Phase 5 – AI Consultant context
+    try:
+        from giso.buti_ai.consultant import build_consultant_context, consultant_invite_text
+        consultant_context = build_consultant_context(service_key, candidate, generation)
+        consultant_invite = consultant_invite_text(consultant_context)
+    except Exception:
+        consultant_context = {}
+        consultant_invite = ""
 
     return render_template(
         "buti_ai/generic_final_design.html",
@@ -972,6 +990,8 @@ def generic_service_final_design(service_slug):
         default_phone=user_default_phone(current_user),
         service_center_label=_service_center_label(service_key),
         uploaded_url_builder=_new_service_uploaded_url,
+        consultant_context=consultant_context,
+        consultant_invite=consultant_invite,
     )
 
 
