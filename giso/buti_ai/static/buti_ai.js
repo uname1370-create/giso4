@@ -204,6 +204,14 @@
     document.querySelectorAll('[data-bti-lightbox-image]').forEach(function (btn) {
       btn.addEventListener('click', function () { openImageLightbox(btn.getAttribute('data-bti-lightbox-image')); });
     });
+    // مدل ابرو – کلیک روی عکس مدل هم بزرگنما
+    document.querySelectorAll('.bti-brow-sample img').forEach(function (img) {
+      img.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        openImageLightbox(img.getAttribute('src'));
+      });
+    });
 
     var styleOptions = Array.prototype.slice.call(document.querySelectorAll('.bti-style-option, .bti-style-row, .bti-style-choice'));
     styleOptions.forEach(function (option) {
