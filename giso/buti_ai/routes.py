@@ -1068,3 +1068,64 @@ def generic_service_centers(service_slug):
         else url_for("login", next=url_for("beauty_centers.register_center")),
         centers_url=centers_url,
     )
+
+@buti_ai_bp.route("/<service_slug>/consultant", methods=["POST"])
+def generic_service_consultant_chat(service_slug):
+    """AI Consultant for generic services – context: Service+Style+Analysis+Preview"""
+    init_buti_ai_db()
+    service_key = _active_service_from_slug(service_slug)
+    if not service_key:
+        return {"ok": False, "error": "خدمت فعال نیست."}, 404
+    candidate = _get_new_service_candidate(service_key)
+    if not candidate:
+        return {"ok": False, "error": "ابتدا مدل و عکس را انتخاب کن."}, 400
+    try:
+        from giso.buti_ai.consultant import build_consultant_context
+        generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
+        context = build_consultant_context(service_key, candidate, generation)
+        user_message = (request.get_json(silent=True) or {}).get("message") or request.form.get("message") or ""
+        user_message = str(user_message).strip()[:800]
+        if not user_message:
+            return {"ok": False, "error": "پیام خالی است."}, 400
+        # Use ai_brain chat with context
+        from giso.ai_brain import chat_with_managed_ai as _chat_managed
+        # Build prompt with context
+        system_prompt = context.get("prompt") or ""
+        full_prompt = f"{system_prompt}\n\nکاربر: {user_message}\nمشاور:"
+        try:
+            reply = str(_chat_managed([{'role':'user','content':full_prompt}], actor_key='beauty_mirror') or {}).strip() or f"برای {context.get('service_label')} با مدل {context.get('style_label')}: {context.get('short_reason')}"
+        except Exception:
+            # Fallback to simple echo with context
+            reply = f"برای {context.get('service_label')} با مدل {context.get('style_label')}: {context.get('short_reason')} – {user_message} – لطفاً برای اجرای دقیق به متخصص مراجعه کن."
+        return {"ok": True, "reply": reply, "context": context}
+    except Exception as exc:
+        return {"ok": False, "error": f"خطای مشاور: {str(exc)[:200]}"}, 500
+
+
+@buti_ai_bp.route("/eyebrow/consultant", methods=["POST"])
+def eyebrow_consultant_chat():
+    """AI Consultant for eyebrow – same context pattern"""
+    init_buti_ai_db()
+    candidate = get_final_candidate(session)
+    if not candidate:
+        return {"ok": False, "error": "ابتدا مدل و عکس ابرو را انتخاب کن."}, 400
+    try:
+        from giso.buti_ai.consultant import build_consultant_context
+        generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
+        context = build_consultant_context("eyebrow", candidate, generation)
+        user_message = (request.get_json(silent=True) or {}).get("message") or request.form.get("message") or ""
+        user_message = str(user_message).strip()[:800]
+        if not user_message:
+            return {"ok": False, "error": "پیام خالی است."}, 400
+        from giso.ai_brain import chat_with_managed_ai as _chat_managed
+        system_prompt = context.get("prompt") or ""
+        full_prompt = f"{system_prompt}\n\nکاربر: {user_message}\nمشاور:"
+        try:
+            reply = str(_chat_managed([{'role':'user','content':full_prompt}], actor_key='beauty_mirror') or {}).strip() or f"برای ابرو با مدل {context.get('style_label')}: {context.get('short_reason')}"
+        except Exception:
+            reply = f"برای ابرو با مدل {context.get('style_label')}: {context.get('short_reason')} – {user_message}"
+        return {"ok": True, "reply": reply, "context": context}
+    except Exception as exc:
+        return {"ok": False, "error": f"خطای مشاور ابرو: {str(exc)[:200]}"}, 500
+
+
