@@ -110,12 +110,38 @@ def process_service_submission(service_key: str, form, files, user_id=None) -> D
     if not photo_status.get("ok"):
         error_message = photo_status.get("message") or "عکس دریافت نشد."
     else:
-        quality_report = module.local_quality_report(photo_status.get("path"))
+        quality_fn = getattr(module, "check_photo_quality", None) or getattr(module, "local_quality_report", None)
+        try:
+            quality_report = quality_fn(photo_status.get("path")) if quality_fn else {"ok": True, "status": "local_checked", "message": "عکس دریافت شد."}
+        except Exception:
+            quality_report = module.local_quality_report(photo_status.get("path")) if hasattr(module, "local_quality_report") else {"ok": True, "status": "local_checked"}
         if quality_report.get("ok") is False:
             error_message = quality_report.get("message") or "این عکس برای طراحی دقیق مناسب نیست."
         else:
             detection = module.detect_regions(photo_status.get("path"), allow_fallback=True)
+            analysis_data = {}
+            try:
+                analysis_fn_name = {
+                    "nail": "analyze_nail_photo",
+                    "hair_color": "analyze_hair_color_photo",
+                    "lip_shading": "analyze_lip_photo",
+                }.get(service_key, "")
+                analysis_fn = getattr(module, analysis_fn_name, None) if analysis_fn_name else None
+                if callable(analysis_fn):
+                    analysis_result = analysis_fn(photo_status.get("path"), style_key, change_key)
+                    if isinstance(analysis_result, dict) and analysis_result.get("data"):
+                        analysis_data = analysis_result.get("data") or {}
+            except Exception:
+                analysis_data = {}
             result = build_result(service_key, style_key, change_key, photo_status, detection=detection, quality_report=quality_report)
+            if analysis_data:
+                result["ai_analysis"] = analysis_data
+                if analysis_data.get("short_reason"):
+                    result["short_reason"] = analysis_data.get("short_reason")
+                if analysis_data.get("do"):
+                    result["do"] = list(analysis_data.get("do") or [])[:3]
+                if analysis_data.get("avoid"):
+                    result["avoid"] = list(analysis_data.get("avoid") or [])[:3]
             session_id = save_mirror_session(
                 user_id=user_id,
                 service_type=str(get_service_meta(service_key).get("service_type") or service_key),
