@@ -41,11 +41,10 @@ P1:
 5. مدیریت خدمت‌محور در Admin.
 6. مدیریت رزروها در Admin.
 7. Analytics همه سرویس‌های Mirror.
-8. specialist_user_id فقط اگر سناریوی متخصص داخل سالن واقعاً لازم شد.
 9. Bale Mirror Flow در صورت فعال شدن این Scope.
 
 P2 و فعلاً خارج از Scope:
-specialist table، staff table، wishlist، Instagram/Logo مستقل، AI boosting، تصاویر 800+، معماری جدید و بازنویسی Bot.
+staff table، wishlist، Instagram/Logo مستقل، AI boosting، تصاویر 800+، معماری جدید و بازنویسی Bot.
 
 ## 2. معماری نهایی چهار پنل
 
@@ -82,11 +81,6 @@ specialist table، staff table، wishlist، Instagram/Logo مستقل، AI boost
 → Analytics
 → Mirror Demand
 
-### Specialist
-فعلاً پنل مستقل ندارد.
-متخصص مستقل با center_type=independent از ساختار موجود استفاده می‌کند.
-متخصص داخل سالن فقط در صورت نیاز واقعی با specialist_user_id + service_key در service تعریف می‌شود.
-جدول جدید Specialist فعلاً ممنوع.
 
 ## 3. پنل کاربر — زیبایی من
 
@@ -347,8 +341,6 @@ beauty_center_services منبع اصلی خدمات باقی می‌ماند.
 P1:
 - service_key
 - is_featured_service
-- specialist_user_id فقط در صورت نیاز واقعی
-
 فیلدهای موجود حفظ شوند:
 - name
 - category
@@ -442,7 +434,6 @@ Migration احتمالی:
 beauty_center_services:
 service_key
 is_featured_service
-specialist_user_id در صورت نیاز
 
 beauty_center_images:
 service_key
@@ -592,7 +583,7 @@ Code Truth.
 service_key
 featured service
 portfolio mapping
-و فقط در صورت اثبات نیاز specialist/promotion fields.
+و فقط در صورت اثبات نیاز promotion fields.
 
 ### Phase 4 — P1 Owner/Admin
 - service management
