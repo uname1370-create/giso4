@@ -63,8 +63,6 @@ def lip_analysis_prompt(selected_style_label, change_level_label):
 
 
 LIP_SHADING_PROMPTS = {
-
-LIP_SHADING_PROMPTS = {
     "natural_shading": "Edit the original face/lip photo with natural lip shading. Apply a soft natural pigment only within the lips. Preserve teeth, skin, face shape, makeup, lighting, and background.",
     "soft_pink_tint": "Edit the original face/lip photo with a soft pink lip tint only within the lip area. Keep texture realistic and preserve teeth, skin, face, lighting, and background.",
     "peach_nude": "Edit the original face/lip photo with a warm peach-nude lip color only inside the lips. Preserve lip texture, teeth, surrounding skin, face, and background.",

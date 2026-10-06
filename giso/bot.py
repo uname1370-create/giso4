@@ -1135,9 +1135,11 @@ async def _run_async(token=None, test_mode=False):
         from giso.models import migrate_giso_tables
         from giso.marketplace.schema import migrate_marketplace_tables
         from giso.beauty_centers.schema import migrate_beauty_center_tables
+        from giso.beauty_centers.reservations.schema import migrate_reservation_tables
         migrate_giso_tables()
         migrate_marketplace_tables()
         migrate_beauty_center_tables()
+        migrate_reservation_tables()
     except Exception as migration_exc:
         logger.error("bot startup migrations failed: %s", migration_exc)
     try:

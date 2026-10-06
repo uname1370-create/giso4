@@ -62,8 +62,6 @@ def hair_color_analysis_prompt(selected_style_label, change_level_label):
 
 
 HAIR_COLOR_PROMPTS = {
-
-HAIR_COLOR_PROMPTS = {
     "chocolate_nescafe": "Edit the original portrait by changing only the visible hair to a natural chocolate or nescafe brown tone. Preserve face, skin, eyes, clothes, background, haircut shape, and lighting.",
     "caramel_balayage": "Edit the original portrait with subtle caramel balayage on the hair. Keep the roots natural and add realistic warm caramel highlights only on hair strands. Preserve face, skin, clothes, and background.",
     "natural_highlight": "Edit the original portrait with natural soft highlights only on the hair. The highlights must follow the original hair shape and light direction. Preserve everything outside hair.",

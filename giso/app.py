@@ -2258,6 +2258,11 @@ def create_app():
         except Exception as exc:
             logger.warning("beauty center tables init failed: %s", exc)
         try:
+            from giso.beauty_centers.reservations.schema import migrate_reservation_tables
+            migrate_reservation_tables()
+        except Exception as exc:
+            logger.warning("reservations tables init failed: %s", exc)
+        try:
             db.create_all(bind="bot")
         except Exception:
             pass

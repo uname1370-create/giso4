@@ -61,8 +61,6 @@ def nail_analysis_prompt(selected_style_label, change_level_label):
 
 
 NAIL_PROMPTS = {
-
-NAIL_PROMPTS = {
     "nude_minimal": "Edit the original hand photo with nude minimal gel nails. Apply a clean nude polish only on the visible nail plates. Do not change skin, fingers, rings, background, hand shape, lighting, or shadows.",
     "classic_french": "Edit the original hand photo with classic French manicure. Keep the nail base natural pink-nude and add clean white French tips only on the nail plates. Do not change skin, fingers, rings, background, pose, or lighting.",
     "baby_boomer": "Edit the original hand photo with baby boomer ombre nails. Apply a soft pink-to-white gradient only on the nail plates. Preserve skin, fingers, jewelry, background, hand shape, and shadows.",
