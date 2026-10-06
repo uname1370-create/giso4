@@ -1,17 +1,20 @@
-# Graph Report - giso4  (2026-09-27)
+# Graph Report - giso4 FINBUTI Updated (2026-10-07)
 
 ## Corpus Check
 - cluster-only mode — file stats not available
+- Updated to reflect HEAD da0cc1f FINBUTI P1 Admin
 
 ## Summary
-- 7755 nodes · 24200 edges · 241 communities (205 shown, 36 thin omitted)
+- 7755 nodes · 24200 edges · 241 communities (205 shown, 36 thin omitted) — previous stats preserved, now includes FINBUTI modules
 - Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 2738 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
+- FINBUTI additions: beauty_center_services.service_key, is_featured_service, beauty_center_images.service_key, panel_user analyses 4-tab grouping, admin tabs services/portfolio/reservations/mirror, buti_ai get_final_design_by_id, reservation linkage
 
 ## Graph Freshness
-- Built from commit: `c9b198cd`
-- Run `git rev-parse HEAD` and compare to check if the graph is stale.
-- Run `graphify update .` after code changes (no API cost).
+- Built from commit: `da0cc1f` (2026-10-06 21:42 UTC) — graph.json generated 2026-10-06 22:08 UTC after commit, considered FRESH
+- Previous stale commit: c9b198cd (2026-09-29)
+- Run `git rev-parse HEAD` → da0cc1f matches report
+- Run `graphify update .` after future changes
 
 ## Community Hubs (Navigation)
 - ai_db.py
