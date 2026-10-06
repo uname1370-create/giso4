@@ -14,38 +14,49 @@ logger = logging.getLogger("giso_panel_user_permissions")
 
 # Seven visible top-level choices. Hair tools are stacked as sibling links
 # (فروش مو / بازارچه / خریدار) without a drawer.
+# FINBUTI — Beauty Ecosystem 4-Panel: Customer → پیشخوان → زیبایی من → سالن‌های زیبایی/نوبت‌ها/گفتگوها/آنالیزها
+# Owner → مدیریت سالن زیبایی جدا از زیبایی من (مالک همزمان Customer است)
 USER_MODULES = [
     ("overview", "پیشخوان (خلاصه من)", "🏠"),
+    ("beauty_centers_list", "سالن‌های زیبایی", "🏥"),
+    ("reservations", "نوبت‌های من", "📅"),
+    ("center_chats", "گفتگوهای من", "💌"),
+    ("analyses", "آنالیزهای من", "🔬"),
+    ("beauty_center", "مدیریت سالن زیبایی", "🏢"),
     ("hair_sale", "مدیریت مو", "💇‍♀️"),
     ("orders", "خریدهای من از فروشگاه", "🛍️"),
-    ("analyses", "آنالیزها و برنامه من", "🔬"),
-    ("reservations", "نوبت‌های من", "📅"),
-    ("center_chats", "پیام‌های مرکز", "💌"),
+    ("marketplace", "بازارچه مو", "🏪"),
     ("wallet", "کیف پول و اعتبار", "💰"),
     ("chats", "پیام‌ها و پشتیبانی", "💬"),
     ("profile", "پروفایل", "👤"),
 ]
 
-# گروه‌بندی منو بر اساس سفر کاربر (سناریوی Master Guide §۷)
+# گروه‌بندی منو بر اساس سفر کاربر (سناریوی Master Guide §۷ + FINBUTI)
+# FINBUTI final menu: پیشخوان → زیبایی من [سالن‌ها/نوبت‌ها/گفتگوها/آنالیزها] → مدیریت سالن (فقط مالک) → فروش مو → خریدها → کیف پول → پیام‌ها → پروفایل
 USER_MODULE_GROUPS = {
-    "اصلی": ["overview", "orders", "notifications"],
-    "خدمات": ["hair_sale", "marketplace", "buyer_request", "analyses", "beauty_center", "reservations", "center_chats"],
-    "پشتیبانی": ["chats", "ai_assistant"],
-    "حساب کاربری": ["wallet", "profile"],
+    "اصلی": ["overview"],
+    "زیبایی من": ["beauty_centers_list", "reservations", "center_chats", "analyses"],
+    "مدیریت سالن زیبایی": ["beauty_center"],
+    "فروش مو": ["hair_sale", "marketplace", "buyer_request"],
+    "خریدها": ["orders"],
+    "کیف پول و اعتبار": ["wallet"],
+    "پیام‌ها و پشتیبانی": ["chats", "ai_assistant", "notifications"],
+    "حساب کاربری": ["profile"],
 }
 
 MODULES_META = {
     **{m: (label, icon) for m, label, icon in USER_MODULES},
     "marketplace": ("بازارچه مو", "🏪"),
     "buyer_request": ("خریدار مو", "🧑‍💼"),
-    "beauty_center": ("مرکز زیبایی من", "🏥"),
+    "beauty_center": ("مدیریت سالن زیبایی", "🏢"),
+    "beauty_centers_list": ("سالن‌های زیبایی", "🏥"),
     "shop": ("فروشگاه من", "🛒"),
     "notifies": ("اعلان موجودی", "🔔"),
     "wishlist": ("علاقه‌مندی‌ها", "❤️"),
     "notifications": ("اعلان‌های من", "📣"),
     "reviews": ("نظرها و امتیازها", "⭐"),
     "reservations": ("نوبت‌های من", "📅"),
-    "center_chats": ("پیام‌های مرکز", "💌"),
+    "center_chats": ("گفتگوهای من", "💌"),
     # دستیار هوشمند سایت در پنل کاربر؛ فقط متادیتا — به USER_MODULES اضافه نشده تا
     # طیف اصلی منو حفظ شود و لینک آن از سایدبار به‌صورت اختصاصی داده شود.
     "ai_assistant": ("دستیار هوشمند گیسو", "🤖"),

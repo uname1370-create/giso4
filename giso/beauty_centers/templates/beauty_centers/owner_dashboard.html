@@ -12,7 +12,7 @@
  <section class="pu-card bc-edit-section"><header><i class="fas fa-address-card"></i><div><h2>ارتباط و معرفی</h2><p>شماره‌های تماس و توضیح کوتاه مرکز.</p></div></header><div class="bc-form-grid"><label>شماره موبایل شخصی شما <small>شمارهٔ ثبت‌نام</small><input name="business_phone" value="{{ owner_phone or center.business_phone }}" readonly required><small>غیرقابل تغییر — شمارهٔ حساب کاربری شماست</small></label><label>تلفن ثابت آرایشگاه <small>اختیاری</small><input name="salon_phone" value="{{ center.salon_phone|default('') }}" inputmode="tel" maxlength="20" placeholder="مثلاً 05136000000"><small>اگر می‌خواهید شمارهٔ جدا برای مرکز داشته باشید</small></label><div class="bc-form-wide"><span class="bc-form-wide-title">کدام شماره در آگهی شما نمایش داده شود؟</span><div class="bc-phone-choice"><label class="bc-phone-opt"><input type="radio" name="display_phone_choice" value="business" {{ 'checked' if (center.display_phone_choice|default('business'))!='salon' }}><span><b>موبایل شخصی</b> — <span dir="ltr">{{ owner_phone or center.business_phone }}</span></span></label><label class="bc-phone-opt"><input type="radio" name="display_phone_choice" value="salon" {{ 'checked' if (center.display_phone_choice|default(''))=='salon' }}><span><b>تلفن آرایشگاه</b>{% if center.salon_phone %} — <span dir="ltr">{{ center.salon_phone }}</span>{% endif %}</span></label></div><small class="bc-phone-show-note">📌 مشتریان بعد از زدن «نمایش شماره تماس» همین شماره را می‌بینند.</small></div><label>زمان پاسخ‌گویی<input name="contact_time" value="{{ center.contact_time }}"></label><label class="is-wide">توضیحات<textarea name="description" rows="4" maxlength="700">{{ center.description }}</textarea></label></div></section>
  
 </form>
-<section class="pu-card bc-gallery-manager bc-unified-images"><header class="bc-gallery-head"><div><h2>تصاویر مرکز</h2><p>هر تصویری که اضافه کنید با اندازه یکسان در اسلایدر آگهی نمایش داده می‌شود.</p></div><small>حداکثر ۳ تصویر</small></header>{% set image_count=(gallery_images|length)+(1 if center.image_path else 0) %}<div class="bc-gallery-strip">{% if center.image_path %}<figure><img src="{{ url_for('beauty_centers.center_media', center_id=center.id) }}" alt="تصویر اول" width="400" height="300" loading="lazy" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'"><figcaption>تصویر اول اسلایدر</figcaption><form method="post" action="{{ url_for('beauty_centers.owner_main_image_delete') }}" onsubmit="return confirm('این تصویر حذف شود؟');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button aria-label="حذف تصویر اول">×</button></form></figure>{% endif %}{% for image in gallery_images %}<figure><img src="{{ url_for('beauty_centers.gallery_media', image_id=image.id) }}" alt="تصویر {{ loop.index + 1 }}" width="400" height="300" loading="lazy" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'"><figcaption>تصویر {{ loop.index + 1 }}</figcaption><form method="post" action="{{ url_for('beauty_centers.owner_gallery_delete', image_id=image.id) }}" onsubmit="return confirm('این تصویر حذف شود؟');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button aria-label="حذف تصویر">×</button></form></figure>{% endfor %}{% for _ in range(3-image_count) %}<div class="bc-gallery-empty"><i class="fas fa-image"></i><span>جای تصویر {{ image_count + loop.index }}</span></div>{% endfor %}</div>{% if image_count < 3 %}<form class="bc-gallery-upload" method="post" enctype="multipart/form-data" action="{{ url_for('beauty_centers.owner_gallery_upload') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="bc-gallery-picker"><i class="fas fa-plus"></i><span><b>افزودن تصویر به اسلایدر</b><small>JPG، PNG یا WebP؛ تصویر واضح و واقعی</small></span><input type="file" name="center_image" accept="image/jpeg,image/png,image/webp" required></label><button class="pu-btn pu-btn-rose">افزودن تصویر</button></form>{% else %}<p class="bc-gallery-limit"><i class="fas fa-circle-check"></i> هر سه جایگاه اسلایدر تکمیل شده است.</p>{% endif %}</section>
+<section class="pu-card bc-gallery-manager bc-unified-images"><header class="bc-gallery-head"><div><h2>تصاویر مرکز</h2><p>هر تصویری که اضافه کنید با اندازه یکسان در اسلایدر آگهی نمایش داده می‌شود.</p></div><small>حداکثر ۳ تصویر</small></header>{% set image_count=(gallery_images|length)+(1 if center.image_path else 0) %}<div class="bc-gallery-strip">{% if center.image_path %}<figure><img src="{{ url_for('beauty_centers.center_media', center_id=center.id) }}" alt="تصویر اول" width="400" height="300" loading="lazy" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'"><figcaption>تصویر اول اسلایدر</figcaption><form method="post" action="{{ url_for('beauty_centers.owner_main_image_delete') }}" onsubmit="return confirm('این تصویر حذف شود؟');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button aria-label="حذف تصویر اول">×</button></form></figure>{% endif %}{% for image in gallery_images %}<figure><img src="{{ url_for('beauty_centers.gallery_media', image_id=image.id) }}" alt="تصویر {{ loop.index + 1 }}" width="400" height="300" loading="lazy" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'"><figcaption>تصویر {{ loop.index + 1 }}</figcaption><form method="post" action="{{ url_for('beauty_centers.owner_gallery_delete', image_id=image.id) }}" onsubmit="return confirm('این تصویر حذف شود؟');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button aria-label="حذف تصویر">×</button></form></figure>{% endfor %}{% for _ in range(3-image_count) %}<div class="bc-gallery-empty"><i class="fas fa-image"></i><span>جای تصویر {{ image_count + loop.index }}</span></div>{% endfor %}</div>{% if image_count < 3 %}<form class="bc-gallery-upload" method="post" enctype="multipart/form-data" action="{{ url_for('beauty_centers.owner_gallery_upload') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="bc-gallery-picker"><i class="fas fa-plus"></i><span><b>افزودن تصویر به اسلایدر</b><small>JPG، PNG یا WebP؛ تصویر واضح و واقعی</small></span><input type="file" name="center_image" accept="image/jpeg,image/png,image/webp" required></label><label style="display:grid; gap:4px; font-size:.74rem;">کلید خدمت نمونه‌کار — برای فیلتر per-service<select name="service_key" style="min-height:38px; border:1px solid #eadfe0; border-radius:10px; padding:6px;"><option value="">عمومی</option><option value="brow">ابرو</option><option value="hair_color">مو</option><option value="nail">ناخن</option><option value="lip_shading">آرایش</option><option value="facial">پوست</option></select></label><button class="pu-btn pu-btn-rose">افزودن تصویر</button></form>{% else %}<p class="bc-gallery-limit"><i class="fas fa-circle-check"></i> هر سه جایگاه اسلایدر تکمیل شده است.</p>{% endif %}</section>
 {% elif beauty_tab=='services' %}
 <section class="pu-card bc-owner-services">
 <header class="bc-owner-section-head"><div><span class="bc-kicker">قیمت و زمان‌بندی</span><h2>🧾 خدمات و ساعات کاری</h2><p>خدمات مرکز را با بازه قیمت ثبت کنید؛ همین فهرست در صفحه عمومی مرکز به کاربران نشان داده می‌شود و مبلغ نهایی همچنان با خود مرکز هماهنگ میشود.</p></div><span class="bc-service-count">{{ center_services|length }} خدمت ثبت‌شده</span></header>
@@ -21,7 +21,7 @@
 {% for service in center_services %}
 <article class="bc-service-row{{ '' if service.is_active else ' is-off' }}">
 <div class="bc-service-row-main">
-<div class="bc-service-row-title"><h3>{{ service.name }}</h3>{% if service.category %}<span class="bc-category">{{ service.category }}</span>{% endif %}{% if not service.is_active %}<em class="bc-service-off">غیرفعال در صفحه عمومی</em>{% endif %}</div>
+<div class="bc-service-row-title"><h3>{{ service.name }}</h3>{% if service.category %}<span class="bc-category">{{ service.category }}</span>{% endif %}{% if service.service_key %}<span class="bc-category" style="background:#fff6db; color:#8a6d1b;">{{ service.service_key }}</span>{% endif %}{% if service.is_featured_service %}<span class="bc-category" style="background:#e9f7ef; color:#1c7a45;">⭐ ویژه</span>{% endif %}{% if not service.is_active %}<em class="bc-service-off">غیرفعال در صفحه عمومی</em>{% endif %}</div>
 {% if service.description %}<p>{{ service.description }}</p>{% endif %}
 <div class="bc-service-row-meta"><span><i class="fas fa-clock"></i> {{ service.duration_label }}</span><strong>{{ service.price_label }}</strong></div>
 </div>
@@ -31,9 +31,25 @@
 </div>
 <form method="post" action="{{ url_for('beauty_centers.owner_service_add') }}" class="bc-service-add">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<h3>افزودن خدمت</h3>
+<h3>افزودن خدمت — سطح خدمت FINBUTI</h3>
 <label>نام خدمت<input name="name" maxlength="120" required placeholder="مثلاً کراتین و احیای مو"></label>
 <label>دسته خدمت<input name="category" maxlength="100" placeholder="مثلاً مراقبت مو"></label>
+<label>کلید خدمت — اتصال به آینه هوشمند
+  <select name="service_key">
+    <option value="">عمومی — بدون اتصال خاص</option>
+    <option value="brow">🪞 ابرو — brow</option>
+    <option value="hair_color">💇 رنگ مو — hair_color</option>
+    <option value="haircut">✂️ کوتاهی — haircut</option>
+    <option value="keratin">💆 کراتین — keratin</option>
+    <option value="nail">💅 ناخن — nail</option>
+    <option value="lip_shading">💋 لب — lip_shading</option>
+    <option value="facial">✨ پوست — facial</option>
+    <option value="makeup">💄 آرایش — makeup</option>
+    <option value="lash">👁️ مژه — lash</option>
+    <option value="extension">💇 اکستنشن — extension</option>
+  </select>
+  <small>این کلید برای فیلتر نمونه‌کار و رزرو از Mirror استفاده می‌شود.</small>
+</label>
 <label>توضیح کوتاه<textarea name="description" rows="2" maxlength="500" placeholder="شرایط، نکات یا توضیح خدمت"></textarea></label>
 <div class="bc-service-add-grid">
 <label>مدت (دقیقه)<input type="number" name="duration_minutes" min="1" max="1440" value="30" inputmode="numeric"></label>
@@ -42,7 +58,8 @@
 <label>حداکثر قیمت (تومان)<input type="number" name="price_max" min="0" value="0" inputmode="numeric"></label>
 </div>
 <label class="bc-check"><input type="checkbox" name="is_active" value="1" checked> نمایش این خدمت در صفحه عمومی</label>
-<small class="bc-service-add-note">قیمت‌ها اعلامی خود مرکز است؛ گیسو مبلغ نهایی را تعیین، دریافت یا تضمین نمی‌کند.</small>
+<label class="bc-check"><input type="checkbox" name="is_featured_service" value="1"> ⭐ خدمت ویژه — در ابتدای فهرست نمایش داده شود</label>
+<small class="bc-service-add-note">قیمت‌ها اعلامی خود مرکز است؛ گیسو مبلغ نهایی را تعیین، دریافت یا تضمین نمی‌کند. service_key برای اتصال Mirror→رزرو است.</small>
 <button class="pu-btn pu-btn-rose">افزودن به فهرست خدمات</button>
 </form>
 </div>

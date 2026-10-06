@@ -123,6 +123,76 @@
     }
   }
 
+  // FINBUTI — Service chip filter [همه][ابرو][مو][آرایش][ناخن]
+  const serviceGrid = document.getElementById('bcServiceGrid');
+  if (serviceGrid) {
+    const chips = document.querySelectorAll('[data-service-filter]');
+    const cards = [...serviceGrid.querySelectorAll('.bc-service-card-lux')];
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        chips.forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        chip.setAttribute('aria-selected', 'true');
+        chips.forEach((c) => { if (c !== chip) c.setAttribute('aria-selected', 'false'); });
+        const filter = (chip.dataset.serviceFilter || 'all').toLowerCase();
+        if (filter === 'all') {
+          cards.forEach((card) => { card.style.display = ''; });
+          return;
+        }
+        const allowed = filter.split(/\s+/);
+        cards.forEach((card) => {
+          const key = (card.dataset.serviceKey || '').toLowerCase();
+          const cat = (card.dataset.category || '').toLowerCase();
+          const name = (card.textContent || '').toLowerCase();
+          const match = allowed.some((a) => key.includes(a) || cat.includes(a) || name.includes(a));
+          card.style.display = match ? '' : 'none';
+        });
+      });
+    });
+  }
+
+  // FINBUTI — Gallery filter per service_key
+  const galleryGrid = document.getElementById('bcGalleryGrid');
+  if (galleryGrid) {
+    const chips = document.querySelectorAll('[data-gallery-filter]');
+    const items = [...galleryGrid.querySelectorAll('.bc-gallery-item-lux')];
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        chips.forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        chip.setAttribute('aria-selected', 'true');
+        chips.forEach((c) => { if (c !== chip) c.setAttribute('aria-selected', 'false'); });
+        const filter = (chip.dataset.galleryFilter || 'all').toLowerCase();
+        if (filter === 'all') {
+          items.forEach((it) => { it.style.display = ''; });
+          return;
+        }
+        const allowed = filter.split(/\s+/);
+        items.forEach((it) => {
+          const key = (it.dataset.serviceKey || '').toLowerCase();
+          if (!key) { it.style.display = filter === 'all' ? '' : 'none'; return; }
+          const match = allowed.some((a) => key.includes(a));
+          it.style.display = match ? '' : 'none';
+        });
+      });
+    });
+  }
+
+  // FINBUTI — Sticky CTA visibility (hide near footer)
+  const sticky = document.getElementById('bcStickyCta');
+  if (sticky) {
+    const contact = document.getElementById('center-contact');
+    if (contact && 'IntersectionObserver' in window) {
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          sticky.style.opacity = e.isIntersecting ? '0' : '1';
+          sticky.style.pointerEvents = e.isIntersecting ? 'none' : 'auto';
+        });
+      }, { threshold: 0.1 });
+      obs.observe(contact);
+    }
+  }
+
   // Lightbox داخلی صفحه.
   const lightbox = document.getElementById('bcCenterLightbox');
   const lightboxImage = lightbox?.querySelector('img');

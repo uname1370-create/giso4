@@ -362,6 +362,21 @@ def eyebrow_final_design():
     init_buti_ai_db()
     candidate = get_final_candidate(session)
     if not candidate:
+        fd_id = request.args.get("final_design_id", type=int)
+        if fd_id:
+            try:
+                from giso.buti_ai.services import get_final_design_by_id
+                db_row = get_final_design_by_id(fd_id, _safe_current_user_id())
+                if db_row and db_row.get("candidate"):
+                    candidate = db_row["candidate"]
+                    if db_row.get("generation"):
+                        candidate["generation"] = db_row["generation"]
+                    candidate["final_design_id"] = db_row.get("id")
+                    session[FINAL_DESIGN_SESSION_KEY] = candidate
+                    session.modified = True
+            except Exception:
+                pass
+    if not candidate:
         flash("برای طراحی نهایی، اول مدل ابرو را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.eyebrow_wizard"))
 
@@ -882,6 +897,26 @@ def generic_service_final_design(service_slug):
     candidate = _get_new_service_candidate(service_key)
     if not candidate:
         candidate = _rebuild_new_service_candidate_from_finalize_form(service_key)
+    # FINBUTI — Load from DB if final_design_id provided (for analyses history deep link)
+    if not candidate:
+        fd_id = request.args.get("final_design_id", type=int)
+        if fd_id:
+            try:
+                from giso.buti_ai.services import get_final_design_by_id
+                db_row = get_final_design_by_id(fd_id, _safe_current_user_id())
+                if db_row and db_row.get("candidate"):
+                    candidate = db_row["candidate"]
+                    # Ensure generation present
+                    if db_row.get("generation"):
+                        candidate["generation"] = db_row["generation"]
+                    candidate["final_design_id"] = db_row.get("id")
+                    # Ensure service_key matches
+                    candidate["service_type"] = candidate.get("service_type") or db_row.get("service_type") or service_key
+                    # Store back to session for continuity
+                    session[_new_service_candidate_key(service_key)] = candidate
+                    session.modified = True
+            except Exception:
+                pass
     if not candidate:
         flash("برای طراحی نهایی، اول مدل را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.generic_service_wizard", service_slug=slug_for_service(service_key)))

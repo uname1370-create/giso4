@@ -25,6 +25,10 @@ _TIME_RE = re.compile(r"^([01]?\d|2[0-3]):[0-5]\d$")
 
 _SERVICE_SELECT = (
     "id,center_id,name,category,description,duration_minutes,price_min,price_max,"
+    "is_active,sort_order,created_at,service_key,is_featured_service"
+)
+_SERVICE_SELECT_LEGACY = (
+    "id,center_id,name,category,description,duration_minutes,price_min,price_max,"
     "is_active,sort_order,created_at"
 )
 _WORKING_HOURS_SELECT = (
@@ -90,6 +94,21 @@ def _clean_service(data: dict) -> dict:
     price_max = _coerce_int(data.get("price_max"), field="حداکثر قیمت", default=0, minimum=0)
     if price_max < price_min:
         raise ValueError("حداقل قیمت نمی‌تواند از حداکثر قیمت بزرگ‌تر باشد.")
+    raw_key = " ".join(str(data.get("service_key") or "").split()).lower()[:60]
+    allowed_keys = {
+        "brow", "eyebrow", "microblading", "brow_lamination",
+        "haircut", "hair_color", "bleach", "hair_repair", "keratin",
+        "straightening", "extension", "braid", "scalp_care",
+        "makeup", "hairstyle", "lip_shading", "lash", "bridal",
+        "nail", "manicure", "pedicure",
+        "facial", "skin_cleansing", "skin_hydration", "face_care",
+        "waxing", "massage",
+    }
+    key_map = {"eyebrow": "brow", "hair-color": "hair_color", "lip-shading": "lip_shading"}
+    if raw_key:
+        raw_key = key_map.get(raw_key, raw_key)
+        if raw_key not in allowed_keys:
+            raw_key = ""
     return {
         "name": name,
         "category": category,
@@ -99,6 +118,8 @@ def _clean_service(data: dict) -> dict:
         "price_max": price_max,
         "is_active": _coerce_flag(data.get("is_active"), default=1),
         "sort_order": _coerce_int(data.get("sort_order"), field="ترتیب نمایش", default=0, minimum=0),
+        "service_key": raw_key,
+        "is_featured_service": _coerce_flag(data.get("is_featured_service"), default=0),
     }
 
 
@@ -131,15 +152,31 @@ def _clean_working_day(data: dict) -> dict:
 
 
 def get_center_services(center_id) -> list:
-    """Return all services of a center, active first, then sort_order/id."""
+    """Return all services of a center, active first, then sort_order/id. FINBUTI adds service_key."""
     if not int(center_id or 0):
         return []
     with get_giso_db_conn() as conn:
-        rows = conn.execute(
-            f"SELECT {_SERVICE_SELECT} FROM beauty_center_services "
-            "WHERE center_id=? ORDER BY is_active DESC, sort_order ASC, id ASC",
-            (int(center_id),),
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                f"SELECT {_SERVICE_SELECT} FROM beauty_center_services "
+                "WHERE center_id=? ORDER BY is_active DESC, sort_order ASC, id ASC",
+                (int(center_id),),
+            ).fetchall()
+        except Exception:
+            # Fallback if columns not yet migrated
+            rows = conn.execute(
+                f"SELECT {_SERVICE_SELECT_LEGACY} FROM beauty_center_services "
+                "WHERE center_id=? ORDER BY is_active DESC, sort_order ASC, id ASC",
+                (int(center_id),),
+            ).fetchall()
+            # Pad missing keys
+            padded = []
+            for r in rows:
+                d = dict(r)
+                d.setdefault("service_key", "")
+                d.setdefault("is_featured_service", 0)
+                padded.append(d)
+            return padded
     return [dict(row) for row in rows]
 
 
@@ -151,14 +188,28 @@ def add_service(center_id, data) -> int:
     fields = _clean_service(data or {})
     stamp = _now()
     with get_giso_db_conn() as conn:
-        cur = conn.execute(
-            "INSERT INTO beauty_center_services "
-            "(center_id,name,category,description,duration_minutes,price_min,price_max,"
-            "is_active,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            (center_id, fields["name"], fields["category"], fields["description"],
-             fields["duration_minutes"], fields["price_min"], fields["price_max"],
-             fields["is_active"], fields["sort_order"], stamp, stamp),
-        )
+        # Check if new columns exist
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(beauty_center_services)").fetchall()}
+        has_new = "service_key" in cols and "is_featured_service" in cols
+        if has_new:
+            cur = conn.execute(
+                "INSERT INTO beauty_center_services "
+                "(center_id,name,category,description,duration_minutes,price_min,price_max,"
+                "is_active,sort_order,created_at,updated_at,service_key,is_featured_service) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (center_id, fields["name"], fields["category"], fields["description"],
+                 fields["duration_minutes"], fields["price_min"], fields["price_max"],
+                 fields["is_active"], fields["sort_order"], stamp, stamp,
+                 fields["service_key"], fields["is_featured_service"]),
+            )
+        else:
+            cur = conn.execute(
+                "INSERT INTO beauty_center_services "
+                "(center_id,name,category,description,duration_minutes,price_min,price_max,"
+                "is_active,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (center_id, fields["name"], fields["category"], fields["description"],
+                 fields["duration_minutes"], fields["price_min"], fields["price_max"],
+                 fields["is_active"], fields["sort_order"], stamp, stamp),
+            )
         conn.commit()
         return int(cur.lastrowid)
 
@@ -171,14 +222,28 @@ def update_service(service_id, center_id, data) -> bool:
         return False
     fields = _clean_service(data or {})
     with get_giso_db_conn() as conn:
-        cur = conn.execute(
-            "UPDATE beauty_center_services SET name=?,category=?,description=?,"
-            "duration_minutes=?,price_min=?,price_max=?,is_active=?,sort_order=?,updated_at=? "
-            "WHERE id=? AND center_id=?",
-            (fields["name"], fields["category"], fields["description"],
-             fields["duration_minutes"], fields["price_min"], fields["price_max"],
-             fields["is_active"], fields["sort_order"], _now(), service_id, center_id),
-        )
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(beauty_center_services)").fetchall()}
+        has_new = "service_key" in cols and "is_featured_service" in cols
+        if has_new:
+            cur = conn.execute(
+                "UPDATE beauty_center_services SET name=?,category=?,description=?,"
+                "duration_minutes=?,price_min=?,price_max=?,is_active=?,sort_order=?,updated_at=?,"
+                "service_key=?,is_featured_service=? WHERE id=? AND center_id=?",
+                (fields["name"], fields["category"], fields["description"],
+                 fields["duration_minutes"], fields["price_min"], fields["price_max"],
+                 fields["is_active"], fields["sort_order"], _now(),
+                 fields["service_key"], fields["is_featured_service"],
+                 service_id, center_id),
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE beauty_center_services SET name=?,category=?,description=?,"
+                "duration_minutes=?,price_min=?,price_max=?,is_active=?,sort_order=?,updated_at=? "
+                "WHERE id=? AND center_id=?",
+                (fields["name"], fields["category"], fields["description"],
+                 fields["duration_minutes"], fields["price_min"], fields["price_max"],
+                 fields["is_active"], fields["sort_order"], _now(), service_id, center_id),
+            )
         conn.commit()
         return cur.rowcount > 0
 

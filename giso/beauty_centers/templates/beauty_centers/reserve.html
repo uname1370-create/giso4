@@ -23,7 +23,27 @@
             <div class="bc-reserve-chips">
               <span class="bc-reserve-chip"><i class="fas fa-coins" aria-hidden="true"></i>{{ service.price_label }}</span>
               <span class="bc-reserve-chip"><i class="fas fa-clock" aria-hidden="true"></i>{{ service.duration_label }}</span>
+              {% if service.service_key %}<span class="bc-reserve-chip"><i class="fas fa-link" aria-hidden="true"></i>{{ service.service_key }}</span>{% endif %}
             </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {# FINBUTI — Mirror linkage: show final_design_id / service_key / selected_style if present #}
+        {% set _fd = request.args.get('final_design_id') or '' %}
+        {% set _sk = request.args.get('service_key') or '' %}
+        {% set _ss = request.args.get('selected_style') or '' %}
+        {% if _fd or _sk or _ss %}
+        <div class="bc-reserve-service-card" style="border-style:dashed; background:linear-gradient(135deg,#fff8fa,#fff);">
+          <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+          <div class="bc-reserve-service-info">
+            <b>رزرو از آینه هوشمند</b>
+            <div class="bc-reserve-chips">
+              {% if _fd %}<span class="bc-reserve-chip">🪞 طرح نهایی #{{ _fd }}</span>{% endif %}
+              {% if _sk %}<span class="bc-reserve-chip">خدمت: {{ _sk }}</span>{% endif %}
+              {% if _ss %}<span class="bc-reserve-chip">استایل: {{ _ss }}</span>{% endif %}
+            </div>
+            <small style="color:#76696c;">این رزرو با طراحی آینه شما لینک شده و در پنل مرکز نمایش داده می‌شود.</small>
           </div>
         </div>
         {% endif %}
@@ -35,10 +55,13 @@
           <a href="{{ url_for('login') }}?next={{ request.path }}" class="bc-btn bc-btn-primary">ورود / ثبت‌نام</a>
         </div>
         {% else %}
-        <form id="bc-reserve-form" method="post" action="{{ url_for('beauty_reservations.reserve', slug=center.slug) }}" novalidate>
+        <form id="bc-reserve-form" method="post" action="{{ url_for('beauty_reservations.reserve', slug=center.slug) }}?final_design_id={{ request.args.get('final_design_id','') }}&service_key={{ request.args.get('service_key','') }}&selected_style={{ request.args.get('selected_style','') }}" novalidate>
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <input type="hidden" name="service_id" value="{{ service.id if service else '' }}">
           <input type="hidden" name="center_id" value="{{ center.id }}">
+          <input type="hidden" name="final_design_id" value="{{ request.args.get('final_design_id','') }}">
+          <input type="hidden" name="service_key" value="{{ request.args.get('service_key','') }}">
+          <input type="hidden" name="selected_style" value="{{ request.args.get('selected_style','') }}">
 
           <div class="bc-reserve-field">
             <label for="bc-reserve-date">تاریخ رزرو</label>
