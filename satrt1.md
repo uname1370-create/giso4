@@ -1,620 +1,469 @@
-# SATRT1 — سناریوی تست کامل ۱۰ اصلاحیه Giso4
+# SATRT1 — سناریوی جامع تست و Audit دو ساعته کل Giso4
 
-## هدف
+## 0) هدف اصلی
+این فایل سناریوی جامع تست ۲ ساعته کل پروژه Giso4 است؛ نه فقط تست ۱۰ اصلاحیه قبلی.
 
-این سناریو فقط برای **تست و راستی‌آزمایی** اصلاحات انجام‌شده روی همین برنچ است:
+هدف این است که Agent در حدود ۲ ساعت، پروژه را مثل QA/Code Auditor ارشد از ابتدا تا انتها بررسی کند و مشخص کند:
+- ساختار و startup سالم است یا نه.
+- هر بخش اصلی واقعاً کار می‌کند یا فقط در کد وجود دارد.
+- اتصال بین بخش‌ها درست است یا نه.
+- Bug، Security، Permission، Data Integrity، AI، SEO، Runtime، Error Handling، Regression و Code/Architecture مشکل دارند یا نه.
+- هر مشکل دقیقاً با عنوان، محل، علت، اثر، شدت و روش رفع گزارش شود.
+- برای هر Domain گزارش مستقل و در پایان یک گزارش جامع ساخته شود.
 
-- Repository: `uname1370-create/giso4`
-- Branch: `arena/09bed010-giso4`
+**Repository:** `uname1370-create/giso4`  
+**Branch:** `arena/09bed010-giso4`
 
-مبنای تست، همان ۱۰ موردی است که قبلاً به‌عنوان مشکل قطعی شناسایی و برای اصلاح به ایجنت داده شده‌اند.
+## 1) قانون قطعی: فقط Audit/Test
+در این اجرای ۲ ساعته:
+- هیچ کد پروژه را اصلاح نکن.
+- refactor، feature، migration یا architecture change انجام نده.
+- UI را redesign نکن.
+- bug را fix نکن؛ فقط اثبات و گزارش کن.
+- فقط فایل گزارش را بساز.
+- هیچ PASS را بر اساس حدس اعلام نکن.
+- برای داده موقت فقط Test DB/Test Environment استفاده کن.
+- **Code Truth بر همه چیز مقدم است.**
 
-## قانون بسیار مهم
+## 2) منابع اجباری
+روش بررسی را از کل `giso-dev/` بگیر، مخصوصاً:
+- `giso-dev/SKILL.md`
+- `giso-dev/references/phase-0-freshness.md`
+- `giso-dev/references/discovery-method.md`
+- `giso-dev/references/patterns-extraction.md`
+- `giso-dev/references/council-checklists.md`
+- `giso-dev/references/test-regression.md`
+- `giso-dev/references/stale-handling.md`
 
-این مرحله **فقط TEST / AUDIT / VERIFICATION** است.
+برای **هر Domain** این Scale را اجرا کن:
+> Freshness → Section Identification → Pattern/Architecture → Dependency/Impact → Graph/Memory/Docs → Architect → Domain → Security → Regression → Runtime/Test → Finding
 
-- هیچ کدی را تغییر نده.
-- هیچ فایل کدی را اصلاح نکن.
-- هیچ refactor انجام نده.
-- هیچ feature جدید نساز.
-- هیچ migration جدید نساز.
-- هیچ ساختار جدیدی اضافه نکن.
-- UI را تغییر نده.
-- اگر تستی شکست خورد، فقط علت، محل کد و شواهد را گزارش کن.
-- اگر برای اجرای تست نیاز به داده یا تنظیم موقت داری، فقط از Test DB / Test Environment استفاده کن و چیزی را در سورس تغییر نده.
-- فایل‌های گزارش را فقط در پایان و برای ثبت نتیجه بساز.
-- مبنا فقط **Code Truth همین برنچ** است؛ گزارش‌ها یا Project Memory قدیمی را به‌عنوان اثبات سلامت کد قبول نکن.
+از `graphify-out/` و مخصوصاً `GRAPH_REPORT.md`, `graph.json`, communityها، God Nodes، dependencyها و test hubs برای ساخت نقشه تست استفاده کن. Graphify فقط navigation است؛ اگر Built-from commit با HEAD فرق دارد STALE اعلام کن و Code Truth را ملاک قرار بده.
 
----
-
-# مرحله ۱ — تثبیت وضعیت برنچ
-
-ابتدا:
-
-1. branch فعلی را دقیقاً بررسی کن.
-2. HEAD و commit فعلی را ثبت کن.
-3. مطمئن شو تست روی `arena/09bed010-giso4` انجام می‌شود.
-4. وضعیت working tree را بررسی کن.
-5. قبل از شروع تست، هیچ تغییر محلی ایجاد نکن.
-
-در گزارش نهایی ثبت کن:
-
-- Branch
+## 3) مرحله صفر — Freshness
+ثبت کن:
+- branch
 - HEAD
-- وضعیت working tree
-- زمان شروع تست
+- working tree
+- Python/runtime
+- dependencies
+- test framework
+- DB
+- external AI/provider availability
+- Graph freshness
+- Guide freshness
+- Project Memory freshness
 
----
+خروجی:
+```
+HEAD=
+Branch=
+WorkingTree=
+Graph=
+Docs=
+Memory=
+Runtime=
+```
 
-# مرحله ۲ — بررسی تغییرات مربوط به ۱۰ مشکل
+اگر Graph/Memory stale بود، تست را متوقف نکن؛ ساختار را از code دوباره استخراج کن.
 
-قبل از اجرای تست، برای هر ۱۰ مورد مسیر واقعی کد را پیدا کن.
+## 4) ساخت نقشه کامل پروژه
+قبل از flow test، کل tree را به Domain/Subsystem تقسیم کن. حداقل این‌ها را پیدا کن و اگر Domain دیگری وجود داشت اضافه کن:
 
-برای هر مورد مشخص کن:
+### Core / Runtime
+`main.py`, `giso/app.py`, `giso/base.py`, DB/core helpers، config/env، auth/session، models، startup.
 
-- فایل
-- function / route / template مرتبط
-- منطق اصلاح‌شده
-- نقطه‌ای که باید تست شود
+### Authentication / Authorization
+login/register، Flask-Login، roles، admin/super admin، permission helpers، ownership، CSRF، sensitive routes.
 
-اگر اصلاحی واقعاً در کد وجود ندارد، آن مورد را FAIL کن؛ صرفاً به خاطر وجود comment یا documentation آن را PASS نکن.
+### User Panel
+dashboard، profile، analyses/history، reservations، wallet، messages/notifications، marketplace/shop، center interactions.
 
----
+### Admin / Super Admin
+dashboard، users، AI management، Beauty Centers، analyses، wallet/finance، settings، notifications، reports، marketplace/shop، permissions.
 
-# مرحله ۳ — تست امنیت Final Design و فایل‌های Mirror
+### Beauty Centers
+registration، review/approval، publication، detail، services، pricing، portfolio/images، reservations، owner dashboard، messages، promotions، Mirror linkage.
 
-## هدف
-
-بررسی کن آیا کاربر بدون مجوز می‌تواند Final Design یا فایل عکس متعلق به کاربر دیگر را با ID/path حدس‌زدنی مشاهده یا دریافت کند یا خیر.
-
-### تست‌ها
-
-### 3.1 کاربر مهمان
-
-با session بدون login:
-
-- Final Design متعلق به user A را با ID مستقیم درخواست کن.
-- مسیر عکس upload شده متعلق به user A را مستقیم درخواست کن.
-- مسیر فایل final design متعلق به user A را مستقیم درخواست کن.
-
-نتیجه مورد انتظار:
-
-- دسترسی غیرمجاز نباید ممکن باشد.
-- نباید اطلاعات خصوصی یا تصویر خصوصی user A برگردد.
-
-### 3.2 کاربر B
-
-با login به‌عنوان user B:
-
-- Final Design user A را با ID مستقیم درخواست کن.
-- upload user A را با filename/path مستقیم درخواست کن.
-- final image user A را مستقیم درخواست کن.
-
-نتیجه مورد انتظار:
-
-- user B نباید هیچ‌کدام را ببیند.
-
-### 3.3 مالک واقعی
-
-با login به‌عنوان user A:
-
-- Final Design خودش را باز کند.
-- فایل‌های متعلق به خودش را دریافت کند.
-
-نتیجه مورد انتظار:
-
-- دسترسی مجاز و بدون خطا.
-
-### مسیرهای مورد بررسی
-
-حداقل این بخش‌ها را بررسی کن:
-
-- `giso/buti_ai/routes.py`
-- `giso/buti_ai/services.py`
-- مسیرهای upload/final image مربوط به eyebrow
-- مسیرهای generic service
-
-در گزارش، برای هر تست نتیجه دقیق HTTP/redirect/error و علت PASS/FAIL را بنویس.
-
----
-
-# مرحله ۴ — تست Reservation و خطای id=0
-
-## هدف
-
-اطمینان از اینکه reservation ناموفق دیگر به‌عنوان موفق گزارش نمی‌شود.
-
-### تست 4.1 رزرو موفق
-
-یک slot معتبر و آزاد را رزرو کن.
-
-انتظار:
-
-- reservation واقعی ساخته شود.
-- ID معتبر و بزرگ‌تر از صفر برگردد.
-- پیام/redirect موفقیت صحیح باشد.
-
-### تست 4.2 slot اشغال‌شده
-
-همان slot را دوباره رزرو کن.
-
-انتظار:
-
-- reservation جدید ساخته نشود.
-- نتیجه SUCCESS نباشد.
-- `id=0` نباید به معنی موفقیت تفسیر شود.
-
-### تست 4.3 مرکز بسته / روز غیرکاری
-
-رزرو در زمان غیرمجاز انجام بده.
-
-انتظار:
-
-- reservation ساخته نشود.
-- نتیجه شکست واقعی باشد.
-
-### تست 4.4 service نامعتبر یا غیرفعال
-
-با service نامعتبر/غیرفعال تست کن.
-
-انتظار:
-
-- reservation ساخته نشود.
-- نتیجه موفقیت نباشد.
-
-### تست 4.5 JSON و HTML
-
-اگر route هر دو حالت JSON و browser redirect دارد، هر دو را تست کن.
-
-خصوصاً بررسی کن که:
-
-`create_reservation() == 0`
-
-دیگر به:
-
-`{"ok": true, "id": 0}`
-
-تبدیل نشود.
-
----
-
-# مرحله ۵ — تست Mirror → Reservation با Service دقیق
-
-## هدف
-
-وقتی کاربر از Mirror برای یک خدمت مشخص وارد رزرو می‌شود، همان service باید رزرو شود؛ نه اولین service فعال مرکز.
-
-### تست
-
-حداقل یک مرکز با بیش از یک service فعال داشته باش.
-
-مثلاً:
-
+### Reservation
+center، service، date/time، availability، collision، status، ownership، cancellation/management، Mirror linkage.
+
+### Buti AI / Mirror
+eyebrow، nail، hair_color، lip_shading، upload، validation، analysis، model/style، provider، image generation، mask/composite، final design، retry، history، center recommendation، reservation handoff.
+
+### AI Provider / AI Runtime
+provider registry/DB، startup sync، health، failover، credits، model selection، Vision، text، image generation، Cloudflare/proxy/external providers، admin assignment، task assignment.
+
+### Analysis
+hair/skin/other analysis routes، result generation، validation، history، AI dependency، reports.
+
+### Marketplace / Shop / Hair Sale
+products، inventory، orders، payment، notifications، seller/owner/admin، user history.
+
+### Wallet / Payment / Financial
+balance، credit، spend، refund، idempotency، callbacks، invoices، financial integrity.
+
+### Notifications / Messaging
+site، bot، center، admin notifications، duplicate prevention.
+
+### Bot Integration
+Giso Bale bot، shared DB/config، handlers، admin/user actions، notification bridges.
+
+### SEO / Public Web
+public routes، sitemap، robots، canonical، metadata، structured data، indexability، public centers/services، 404/redirect، duplicate URLs، internal links.
+
+### Deployment / Operations
+services، nginx، ports، startup، environment، backup/restore، logs، health، recovery.
+
+## 5) Scale ثابت برای تک‌تک Domainها
+برای **هر Domain/Section**:
+
+### S1 — Structure
+Blueprint، routes، services، schema، templates، static، tests و فایل‌های واقعی را inventory کن.
+
+### S2 — Entry Point
+از نقطه ورود واقعی user/admin/bot شروع کن.
+
+### S3 — End-to-End
+هر جا ممکن است:
+`UI → Route → Auth → Service → DB → AI/External → Result → UI/Notification`
+
+### S4 — Data Integrity
+ID، relations، ownership، status، duplicates، null/empty، transaction، rollback، idempotency، stale records.
+
+### S5 — Security
+Authentication، Authorization، IDOR، ownership، privilege escalation، CSRF، XSS، SQL injection، path traversal، upload abuse، unsafe redirect، secret leakage، sensitive data exposure، rate limit، error leakage.
+
+### S6 — Runtime/Error
+startup، exception، timeout، missing dependency، external failure، DB failure، malformed input، retry/fallback، user-facing error.
+
+### S7 — Architecture/Code
+Reuse > Extend > New، duplicate logic، parallel systems، wrong layer dependency، cycles، direct DB misuse، dead/unreachable code، inconsistent source of truth، unsafe global state، swallowed exceptions، hard-coded config.
+
+### S8 — SEO
+اگر public است: indexability، canonical، title/meta، robots، sitemap، structured data، duplicate URLs، status/redirect، internal links.
+
+### S9 — Regression
+sibling features و shared symbols را تست کن.
+
+### S10 — Verdict
+PASS / PASS WITH LIMITATIONS / PARTIAL / FAIL / BLOCKED
+
+## 6) Startup و اجرای سیستم
+بررسی کن:
+- importها
+- app creation
+- DB connection
+- table initialization
+- blueprint registration
+- startup exceptions
+- config/env
+- health endpoints
+- component contracts
+
+برای تست، در صورت امکان app را in-process اجرا کن؛ `main.py` را فقط برای تستی اجرا نکن که botهای واقعی را spawn کند.
+
+## 7) Auth / Permission
+سناریوهای اجباری:
+- Guest → public/private/direct URL
+- User A → own resources
+- User B → تلاش برای resource A
+- Admin → admin-only / user-only
+- Super Admin → super-only
+- IDOR، role escalation، forged IDs، CSRF، unsafe redirect
+
+## 8) User Panel
+حداقل flow:
+`Register/Login → Dashboard → Profile → Analysis → Mirror → History → Reservation → Wallet → Notifications`
+برای هر مرحله route/auth/DB/ownership/state/error/regression را بررسی کن.
+
+## 9) Beauty Center
+Flow:
+`Register → Pending → Review → Publish → Public Detail → Services → Pricing → Portfolio → Reservation → Owner Dashboard`
+
+تست:
+- ثبت/validation
+- approval/publish/pause
+- expiry
+- services/inactive services
+- images
+- public detail
+- reservation
+- owner/admin/user permissions
+- Mirror linkage
+
+تعارض بین `beauty_center_services`, `services_json` یا هر source دیگر را گزارش کن.
+
+## 10) Reservation
+اجباری:
+1. success
+2. occupied slot
+3. inactive/invalid service
+4. inactive center
+5. expired listing
+6. closed day
+7. duplicate submit
+8. User B vs User A
+9. invalid `final_design_id`
+10. wrong service
+11. concurrent/duplicate booking
+12. JSON
+13. browser redirect
+
+خصوصاً `create_reservation() == 0` نباید success شود.
+
+## 11) Buti AI / Mirror
+برای هر چهار سرویس جداگانه:
 - eyebrow
 - nail
-
-از Mirror یک نتیجه با:
-
-- `final_design_id`
-- `service_key`
-- service مربوطه
-
-را وارد مسیر reservation کن.
-
-بررسی کن:
-
-1. service ID صحیح منتقل شود.
-2. فرم reservation همان service را نگه دارد.
-3. service دیگری به‌صورت fallback انتخاب نشود.
-4. snapshot رزرو با Mirror هماهنگ باشد.
-
-### تست منفی
-
-عمداً service موردنظر را حذف/غیرفعال کن.
-
-انتظار:
-
-- سیستم نباید به‌صورت بی‌صدا اولین service دیگر را انتخاب کند.
-- باید failure/عدم امکان رزرو مشخص باشد.
-
----
-
-# مرحله ۶ — تست تب‌های Super Admin Beauty Centers
-
-## هدف
-
-بررسی کن تب‌هایی که قبلاً از route حذف/رد می‌شدند واقعاً قابل دسترسی هستند.
-
-این تب‌ها را جداگانه تست کن:
-
-- dashboard
-- requests
-- published
-- paused
-- services
-- portfolio
-- reservations
-- mirror
-- promotions
-- feedback
-- settings
-
-### برای هر تب
-
-1. با Super Admin وارد شو.
-2. URL واقعی را باز کن.
-3. status code / redirect را بررسی کن.
-4. محتوای درست همان tab را بررسی کن.
-5. مطمئن شو به `requests` fallback نمی‌کند.
-
-### تست نقش غیر-Super
-
-اگر محدودیت نقش برای برخی tabها وجود دارد، آن را نیز بررسی کن.
-
-نتیجه مورد انتظار:
-
-- Super Admin تب‌های مجاز را می‌بیند.
-- role restriction خراب نشده باشد.
-
----
-
-# مرحله ۷ — تست Listing Expiration
-
-## هدف
-
-یکپارچگی وضعیت انتشار و expiration مرکز را بررسی کن.
-
-### تست 7.1 مرکز معتبر
-
-مرکز:
-
-- published
-- active
-- listing هنوز منقضی نشده
-
-باید:
-
-- در لیست عمومی دیده شود.
-- صفحه جزئیات عمومی داشته باشد.
-- در مسیر رزرو قابل استفاده باشد.
-
-### تست 7.2 مرکز منقضی‌شده
-
-`listing_expires_at` را در Test DB در گذشته قرار بده.
-
-بررسی:
-
-- در public list نباشد.
-- direct detail عمومی قابل دسترسی نباشد.
-- reservation عمومی برای آن امکان‌پذیر نباشد.
-
-### تست 7.3 owner/admin
-
-بررسی کن اگر طراحی فعلی اجازه مشاهده مدیریتی مرکز منقضی‌شده را می‌دهد، این دسترسی مدیریتی با public access قاطی نشده باشد.
-
-اصل تست:
-
-**Expired public listing نباید به‌صورت مستقیم قابل رزرو یا مشاهده عمومی باقی بماند.**
-
----
-
-# مرحله ۸ — تست منبع Service در Beauty Center و Mirror
-
-## هدف
-
-بررسی کن Mirror و Beauty Center از دو منبع متناقض برای service استفاده نمی‌کنند.
-
-مخصوصاً مقایسه کن:
-
-- `beauty_center_services`
-- `services_json`
-
-### سناریو A
-
-یک مرکز فقط از مسیر جدید service registration، service معتبر دارد.
-
-بررسی:
-
-- آیا در Mirror recommendation ظاهر می‌شود؟
-- آیا service قابل رزرو است؟
-- آیا همان service در detail نمایش داده می‌شود؟
-
-### سناریو B
-
-یک service در داده قدیمی وجود دارد ولی در registered services فعال نیست.
-
-بررسی:
-
-- آیا Mirror آن را اشتباه پیشنهاد می‌دهد؟
-- آیا service غیرفعال یا غیرقابل رزرو نمایش داده می‌شود؟
-
-### نتیجه مورد انتظار
-
-منبع واقعی و فعال service باید با چیزی که Mirror پیشنهاد می‌دهد و چیزی که Reservation رزرو می‌کند سازگار باشد.
-
-اگر هنوز دو منبع متفاوت در مسیرهای مختلف استفاده می‌شوند، دقیقاً گزارش کن کجا و چه اثری دارد.
-
----
-
-# مرحله ۹ — تست User History و بازکردن همان Final Design
-
-## هدف
-
-وقتی کاربر از تاریخچه Mirror روی «مشاهده نتیجه» یا «رزرو همین خدمت» می‌زند، همان نتیجه قبلی باز شود.
-
-### تست
-
-1. user A یک Mirror result ایجاد کند.
-2. `final_design_id` را ثبت کن.
-3. از User Panel وارد history/analyses شو.
-4. روی مشاهده نتیجه بزن.
-5. ID نتیجه مقصد را بررسی کن.
-
-انتظار:
-
-- همان `final_design_id` قبلی باز شود.
-- wizard جدید یا نتیجه session فعلی جایگزین نتیجه تاریخی نشود.
-
-### تست Reservation
-
-از history روی رزرو همان خدمت بزن.
-
-بررسی:
-
-- `final_design_id` حفظ شود.
-- `service_key` حفظ شود.
-- `selected_style` حفظ شود.
-- service صحیح انتخاب شود.
-
----
-
-# مرحله ۱۰ — تست Owner Dashboard و Mirror Linkage
-
-## هدف
-
-بررسی کن owner وقتی reservation حاصل از Mirror را می‌بیند، اطلاعات linkage لازم را از دست نداده باشد.
-
-برای یک reservation دارای Mirror:
-
-- `final_design_id`
-- `service_key`
-- `selected_style`
-
-را بررسی کن.
-
-در Owner Dashboard بررسی کن اطلاعات مرتبط با Mirror طبق اصلاح انجام‌شده قابل مشاهده/پیگیری است.
-
-اگر UI عمداً فقط بخشی را نمایش می‌دهد، از روی code truth مشخص کن چه چیزی طراحی شده و آیا linkage backend سالم باقی مانده است.
-
----
-
-# مرحله ۱۱ — تست Ownership و اعتبارسنجی Mirror در Reservation
-
-## هدف
-
-کاربر نتواند reservation خود را به Final Design کاربر دیگر یا یک ID جعلی وصل کند.
-
-### تست 11.1
-
-user A یک Final Design واقعی دارد.
-
-user B تلاش کند reservation خودش را با:
-
-`final_design_id = user A`
-
-ثبت کند.
-
-انتظار:
-
-- رد شود.
-
-### تست 11.2
-
-با `final_design_id` جعلی تست کن.
-
-انتظار:
-
-- reservation نباید با linkage جعلی ثبت شود.
-
-### تست 11.3
-
-Final Design متعلق به user A ولی service_key متعلق به یک service نامرتبط.
-
-انتظار:
-
-- mismatch باید رد شود یا حداقل linkage ناسازگار ثبت نشود.
-
-### تست 11.4
-
-کاربر بدون login تلاش کند reservation را با final_design_id شخص دیگر بسازد.
-
-انتظار:
-
-- نباید امکان دستکاری linkage وجود داشته باشد.
-
----
-
-# مرحله ۱۲ — Regression Test
-
-بعد از ۱۰ مورد بالا، فقط regressionهای مرتبط را تست کن؛ نه کل پروژه را.
-
-حداقل:
-
-1. Eyebrow Mirror
-2. Generic Mirror:
-   - nail
-   - hair_color
-   - lip_shading
-3. Beauty Center public list
-4. Beauty Center detail
-5. Reservation
-6. User Panel history
-7. Owner Dashboard
-8. Super Admin Beauty Centers
-
-هدف regression:
-
-بررسی کن اصلاحات امنیتی و reservation باعث شکستن flowهای موجود نشده باشند.
-
----
-
-# مرحله ۱۳ — تست Code Path و تست واقعی
-
-برای هر مورد دو سطح را جدا کن:
-
-## A. Code-level verification
-
-بررسی static:
-
-- route
-- function
-- query
-- ownership check
-- validation
-- fallback
-- redirect
-- template parameter
-
-## B. Runtime verification
-
-تا جایی که محیط تست اجازه می‌دهد:
-
-- درخواست واقعی
-- session واقعی
-- DB test
-- response
-- status code
-- redirect
-- returned JSON
-- reservation row
-
-را تست کن.
-
-**فقط code review به‌تنهایی PASS محسوب نمی‌شود اگر runtime قابل تست باشد.**
-
-اگر runtime به دلیل نبود dependency / DB / credential / service خارجی ممکن نیست، آن را صریحاً:
-
-`NOT TESTED — ENVIRONMENT BLOCKED`
-
-ثبت کن، نه PASS.
-
----
-
-# مرحله ۱۴ — بررسی عدم Regression در فایل‌های حساس
-
-بدون تغییر دادن آن‌ها، فقط بررسی کن که این تست‌ها باعث دستکاری یا تغییر ناخواسته این بخش‌ها نشده باشند:
-
-- `main.py`
-- `web`
-- `bot_edu`
+- hair_color
+- lip_shading
+
+Flow:
+`Landing → Selection → Upload → Validate → Analysis → Style/Model → AI → Final → Retry → History → Center → Reservation`
+
+### Eyebrow
+upload، photo validation، detection، mask، generation، inpainting، composite، outside-mask protection، final image، retry.
+
+### Generic
+بررسی کن Vision واقعاً اجرا می‌شود، خروجی analysis وارد generation می‌شود، prompt/service_key درست است و final متعلق به همان service است.
+
+## 12) AI Provider / Runtime
+کل chain:
+`Super Admin UI → Route → Handler → Provider DB → Startup Sync → Provider Selection → Model → Task → Vision/Text/Image → Credits → Failover → Result`
+
+تست:
+- list/add/edit/disable/delete
+- persistence
+- startup sync
+- canonical/duplicates
+- API key/base URL
+- health
+- text
+- Vision
+- image
+- failover/circuit breaker
+- credits/refund
+- ordering
+- task assignment
+
+**Text health به‌تنهایی اثبات Vision/Image نیست.**
+
+## 13) Analysis
+تمام analysisها را پیدا کن و route/input/AI/schema/output/validator/history/ownership/failure را بررسی کن. Prompt، schema و validator باید واقعاً سازگار باشند.
+
+## 14) Marketplace / Shop / Hair Sale
+برای هر زیرسیستم browse/detail/order/inventory/payment/order-state/notification/admin/user-history/duplicate/unauthorized را بررسی کن.
+
+## 15) Wallet / Payment
+balance، credit، debit، refund، payment، callback، invoice، duplicate callback، idempotency، negative balance، concurrent spend، authorization، audit trail.
+
+## 16) Notifications / Messaging
+event، recipient، permission، duplicate، failure/retry، read/unread، isolation، admin، center، bot. اگر event چند بار emit می‌شود، علت را trace کن.
+
+## 17) Bot / Site / Giso Integration
+بدون تغییر:
+- `bot_edu/`
+- `web/`
 - `giso/bot.py`
+- `main.py`
 
-اگر تغییر unrelated وجود دارد، گزارش کن.
+قراردادهای integration، shared config/DB، identity mapping، admin mapping، notification bridge، callbacks، site↔bot data flow و startup dependency را بررسی کن. مشکل خارج از Giso را گزارش کن، اصلاح نکن.
 
----
+## 18) SEO Audit
+برای تمام public surface:
+- sitemap
+- robots
+- canonical
+- status/redirect/404
+- trailing slash
+- duplicate URLs
+- index/noindex
+- title/meta
+- headings
+- alt
+- internal links/breadcrumbs
+- structured data
+- public center/service pages
+- expired/inactive center indexability
+- public/private leakage
 
-# مرحله ۱۵ — ساخت گزارش نهایی
+SEO را جدا از Security گزارش کن.
 
-بعد از تمام تست‌ها، یک فایل گزارش Markdown در **همین branch** بساز.
+## 19) Security Audit عمیق
+### P0/P1
+auth bypass، authz bypass، IDOR، privilege escalation، arbitrary file read/write، RCE، secret exposure، financial manipulation.
 
-نام فایل را خودت انتخاب کن، ولی نام باید واضح باشد؛ مثلاً:
+### P1/P2
+CSRF، XSS، SQL injection، path traversal، unsafe upload، sensitive API exposure.
 
-`satrt1_test_report.md`
+### P2/P3
+error leakage، weak validation، missing rate limit، insecure logging، predictable sensitive IDs.
 
-یا یک نام مشابه و معنادار.
+هر finding:
+**عنوان دقیق + path + function/route/class + exploit condition + اثر + روش رفع**
 
-گزارش باید شامل این بخش‌ها باشد:
+## 20) Bug / Logic Audit
+کل پروژه را برای:
+wrong fallback، silent failure، success-on-failure، wrong user/resource، stale state، duplicate record، race condition، missing transaction، swallowed exception، dead route، unreachable branch، wrong redirect، inconsistent parameter، wrong service، wrong DB source، broken history، missing validation
+بررسی کن.
 
-## 1. Test Identity
+## 21) Code / Architecture Audit
+با giso-dev بررسی:
+- domain boundaries
+- duplicated systems/helpers
+- parallel implementations
+- shared DB misuse
+- dependency direction/cycles
+- God nodes
+- overly coupled functions
+- giant routes
+- dead code
+- hard-coded values
+- hidden side effects
+- inconsistent naming
+- missing/outdated tests
 
-- Repository
+وجود کد زیاد به‌تنهایی finding نیست؛ فقط مشکل فنی اثبات‌شده را گزارش کن.
+
+## 22) Graphify به‌عنوان نقشه تست
+برای هر Domain:
+1. community را پیدا کن.
+2. hub/God Nodeها را ثبت کن.
+3. ورودی/خروجی را trace کن.
+4. shared symbols را پیدا کن.
+5. cross-domain dependencies را ثبت کن.
+6. testهای مرتبط را پیدا کن.
+7. همان dependencyها را در regression تست کن.
+
+اگر Domain به `get_giso_db_conn()`, `create_app()`, `User`, `ai_runtime`, `notifications` یا سایر God Nodeها وصل است، اثر آن را روی siblingها بررسی کن.
+
+## 23) قالب گزارش هر Domain
+برای هر قسمت پروژه یک بخش مستقل:
+
+### [Domain]
+**Scope:** فایل‌ها/routes/services  
+**Entry Points:**  
+**Flow:**  
+**Runtime Tests:**  
+**Security:**  
+**Bugs:**  
+**SEO:**  
+**Code/Architecture:**  
+**Regression:**  
+
+| ID | Severity | عنوان دقیق | محل | مشکل چیست | اثر | روش رفع |
+|---|---|---|---|---|---|---|
+
+**Verdict:** PASS / PASS WITH LIMITATIONS / PARTIAL / FAIL / BLOCKED
+
+## 24) Severity
+- **P0/Critical:** امنیت بحرانی، RCE، داده حساس گسترده، financial corruption جدی.
+- **P1/High:** security bypass، IDOR، financial/reservation integrity، data corruption، core flow broken.
+- **P2/Medium:** bug/regression/state/SEO مهم.
+- **P3/Low:** UX، validation ضعیف، cleanup، minor SEO/code quality.
+
+## 25) برنامه زمانی دقیق ۲ ساعت
+**0–10 دقیقه:** Freshness + tree map + Graphify + runtime.  
+**10–25:** Core + Auth + Permissions + DB.  
+**25–40:** User Panel + Public + SEO.  
+**40–60:** Beauty Centers + Services + Pricing.  
+**60–75:** Reservation + Ownership + Data Integrity.  
+**75–100:** Buti AI چهار سرویس + AI Runtime.  
+**100–112:** Analysis + Marketplace/Shop/Hair Sale + Wallet/Payment.  
+**112–120:** Notifications + Bot/Site integration + global Security/Regression + report.
+
+روی یک فایل گیر نکن. اگر یک Domain کامل در زمان موجود نشد، آن را PARTIAL/BLOCKED ثبت کن؛ از وقت Domainهای بعدی کم نکن.
+
+## 26) حداقل تست اجباری هر Domain
+حتی با کمبود وقت:
+1. Happy Path
+2. Invalid Input
+3. Unauthorized Access
+4. Ownership/Permission
+5. Failure/Exception
+6. Data Integrity
+7. Regression
+
+Auth/Reservation/Wallet/AI/Upload باید عمیق‌تر تست شوند.
+
+## 27) تعریف نتیجه
+- **CODE VERIFIED:** code path بررسی شده، runtime نشده.
+- **RUNTIME VERIFIED:** واقعاً اجرا و evidence ثبت شده.
+- **PASS:** معیار واقعاً تأیید شده.
+- **PARTIAL:** بخشی سالم/بخشی مشکل‌دار.
+- **BLOCKED:** محیط اجازه تست نداده.
+- **FAIL:** مشکل واقعی با evidence.
+
+BLOCKED هرگز PASS نیست.
+
+## 28) ۱۰ اصلاحیه قبلی هم باید جداگانه verify شوند
+این ۱۰ مورد در همین تست جامع دوباره بررسی شوند:
+1. Final Design/Mirror ownership
+2. reservation `id=0`
+3. Mirror → exact service ID
+4. Super Admin Beauty Center tabs
+5. listing expiration consistency
+6. service source consistency
+7. exact user history/final design
+8. owner Mirror linkage
+9. reservation final-design ownership/service validation
+10. Project/Memory consistency
+
+برای هرکدام CODE/RUNTIME evidence بده.
+
+## 29) گزارش نهایی اجباری
+در همان Branch یک فایل مثل:
+`satrt1_full_test_report.md`
+
+بساز و شامل این‌ها کن:
+- Executive Summary
+- Freshness
+- Architecture Map
+- Domain-by-Domain Results
+- 10 اصلاحیه قبلی
+- Security Findings
+- Bug/Logic Findings
+- SEO Findings
+- Code/Architecture Findings
+- Runtime Failures
+- Regression Results
+- Cross-Domain Findings
+- Final Verdict
+
+### Exact Fix Plan
+برای **هر مشکل**:
+1. عنوان
+2. Severity
+3. فایل
+4. function/route/class
+5. مشکل دقیق
+6. علت
+7. اثر
+8. روش رفع دقیق
+9. چه چیزی نباید تغییر کند
+10. تست بعد از رفع
+
+**هیچ fix در این مرحله انجام نده.**
+
+## 30) Final Verdict
+یکی از:
+- **GREEN:** هیچ P0/P1 و Core flow failure در محدوده تست وجود ندارد.
+- **YELLOW:** قابل اجراست ولی مشکلات مشخص باقی است.
+- **RED:** P0/P1 یا Core flow شکسته وجود دارد.
+- **BLOCKED:** محیط اجازه ارزیابی کافی نداده.
+
+## 31) خروجی نهایی Agent
+در پاسخ نهایی فقط:
 - Branch
 - HEAD
-- Date/time
-- Test environment
-- Runtime availability
+- مدت تست
+- تعداد Domainهای بررسی‌شده
+- PASS / PARTIAL / FAIL / BLOCKED
+- تعداد P0/P1/P2/P3
+- ۵ مشکل مهم
+- نام و path گزارش
+- commit SHA گزارش
+- آیا کد پروژه تغییر کرده یا خیر
 
-## 2. Summary
-
-یک جدول دقیق:
-
-| # | مورد | نتیجه |
-|---|---|---|
-| 1 | Final Design / Mirror ownership | PASS / FAIL / PARTIAL / BLOCKED |
-| 2 | Reservation id=0 | ... |
-| 3 | Mirror service ID | ... |
-| 4 | Super Admin tabs | ... |
-| 5 | Listing expiration | ... |
-| 6 | Service source consistency | ... |
-| 7 | User history exact result | ... |
-| 8 | Owner Mirror linkage | ... |
-| 9 | Reservation ownership validation | ... |
-| 10 | Project/Memory consistency | ... |
-
-## 3. Evidence
-
-برای هر مورد:
-
-- فایل
-- function/route
-- test scenario
-- expected
-- actual
-- result
-- اگر ممکن است status code / DB evidence
-
-## 4. Failed Tests
-
-فقط موارد FAIL/PARTIAL/BLOCKED را با علت دقیق بیاور.
-
-## 5. Regression
-
-نتیجه regressionهای مرتبط را ثبت کن.
-
-## 6. Final Verdict
-
-یکی از این حالت‌ها:
-
-- **PASS — هر ۱۰ مورد تأیید شد**
-- **PASS WITH LIMITATIONS — موردی runtime قابل تست نبود**
-- **FAIL — حداقل یک مشکل هنوز باقی است**
-
----
-
-# قانون نهایی گزارش
-
-گزارش باید بر اساس **نتیجه واقعی تست** باشد، نه حدس.
-
-اگر یک مورد فقط از روی code قابل تأیید است، بنویس:
-
-`CODE VERIFIED`
-
-اگر runtime هم تست شده:
-
-`RUNTIME VERIFIED`
-
-اگر قابل تست نبوده:
-
-`BLOCKED / NOT TESTED`
-
-اگر مشکل هنوز وجود دارد:
-
-`FAIL`
-
-هیچ موردی را برای اینکه گزارش تمیزتر شود PASS اعلام نکن.
-
----
-
-# خروجی نهایی مورد انتظار از Agent
-
-در پایان فقط این موارد را به کاربر اعلام کن:
-
-1. branch و HEAD تست‌شده
-2. تعداد PASS / FAIL / PARTIAL / BLOCKED
-3. خلاصه ۱۰ مورد
-4. نام دقیق فایل گزارش ساخته‌شده
-5. مسیر فایل گزارش در repository
-6. commit SHA ایجادشده
-7. اگر مشکلی باقی مانده، دقیقاً کدام مورد و کجاست
-
-**هیچ کد پروژه را تغییر نده.**
+**کد پروژه نباید تغییر کند؛ فقط گزارش تست ساخته شود.**
