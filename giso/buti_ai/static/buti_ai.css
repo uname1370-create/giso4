@@ -3211,6 +3211,71 @@
     }
 }
 
+/* Unified sample class — bti-style-sample is canonical, bti-brow-sample kept for backward compat */
+.bti-style-sample.is-wide-png,
+.bti-brow-sample.is-wide-png {
+    flex: 0 0 420px !important;
+    width: 420px !important;
+    min-height: 168px !important;
+    max-height: 188px !important;
+    background: radial-gradient(320px 160px at 50% 50%, rgba(255,173,18,.10), transparent 70%), #0e0e0e !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+    display: grid !important;
+    place-items: center !important;
+    padding: 12px !important;
+    border-radius: 15px !important;
+    overflow: hidden !important;
+    transition: all .28s cubic-bezier(.4,0,.2,1) !important;
+}
+.bti-style-sample.is-wide-png picture,
+.bti-brow-sample.is-wide-png picture {
+    width: 100% !important;
+    display: grid !important;
+    place-items: center !important;
+}
+.bti-style-sample.is-wide-png img,
+.bti-brow-sample.is-wide-png img {
+    width: 100% !important;
+    height: 150px !important;
+    max-height: 168px !important;
+    object-fit: contain !important;
+    object-position: center !important;
+    filter: none !important;
+    transform: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    transition: transform .35s cubic-bezier(.4,0,.2,1) !important;
+}
+.bti-style-choice:hover .bti-style-sample.is-wide-png,
+.bti-style-choice:hover .bti-brow-sample.is-wide-png {
+    border-color: rgba(255,173,18,.22) !important;
+    background: radial-gradient(340px 180px at 50% 50%, rgba(255,173,18,.14), transparent 70%), #111 !important;
+}
+.bti-style-choice:hover .bti-style-sample.is-wide-png img,
+.bti-style-choice:hover .bti-brow-sample.is-wide-png img {
+    transform: scale(1.14) !important;
+}
+.bti-style-choice.is-selected .bti-style-sample.is-wide-png,
+.bti-style-choice.is-selected .bti-brow-sample.is-wide-png {
+    border-color: rgba(255,173,18,.45) !important;
+    box-shadow: 0 0 0 1px rgba(255,173,18,.18), 0 4px 18px rgba(255,173,18,.12) !important;
+}
+.bti-style-choice.is-selected .bti-style-sample.is-wide-png img,
+.bti-style-choice.is-selected .bti-brow-sample.is-wide-png img {
+    transform: scale(1.10) !important;
+}
+@media (max-width: 920px) {
+    .bti-style-sample.is-wide-png,
+    .bti-brow-sample.is-wide-png {
+        flex: 0 0 auto !important;
+        width: 100% !important;
+        min-height: 200px !important;
+    }
+    .bti-style-sample.is-wide-png img,
+    .bti-brow-sample.is-wide-png img {
+        height: 180px !important;
+    }
+}
 
 /* Phase 5 – AI Consultant */
 .bti-final-consultant { margin: 18px 0; }
