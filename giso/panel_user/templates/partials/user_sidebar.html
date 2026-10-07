@@ -29,12 +29,17 @@
             'wishlist': 'علاقه‌مندی‌ها؛ محصولات و موارد ذخیره‌شده برای بعد.',
             'profile': 'پروفایل شما؛ نام، شهر و اطلاعات حساب.',
             'beauty_center': 'پنل مرکز زیبایی؛ اگر مرکز دارید، خدمات و اطلاعات مرکزتان را مدیریت کنید.',
+            'beauty_centers_list': 'سالن‌های زیبایی؛ مراکز فعال، فیلتر خدمت/شهر و رزرو.',
             'reservations': 'نوبت‌های شما در مراکز زیبایی؛ وضعیت تأیید و تاریخ مراجعه.',
             'center_chats': 'پیام‌های شما با مراکز زیبایی؛ سؤال و هماهنگی اولیه.'
         } %}
         {% for m, label, icon in menu %}
         {% if m == '__group' %}
         <div class="pu-nav-group">{{ label }}</div>
+        {% elif m == 'beauty_centers_list' %}
+        <a href="{{ url_for('beauty_centers.list_centers') }}" title="{{ pu_tips.get('beauty_centers_list', '') }}" class="pu-nav-item {{ 'active' if current_module == 'beauty_centers_list' else '' }}">
+            <span class="pu-nav-ico">{{ icon }}</span><span>{{ label }}</span>
+        </a>
         {% elif m == 'reservations' %}
         <a href="{{ url_for('beauty_reservations.my_reservations') }}" title="{{ pu_tips.get('reservations', '') }}" class="pu-nav-item {{ 'active' if current_module == 'reservations' else '' }}">
             <span class="pu-nav-ico">{{ icon }}</span><span>{{ label }}</span>

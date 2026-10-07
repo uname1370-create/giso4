@@ -196,3 +196,34 @@ def add_to_waitlist(phone_number, city, service_type):
         None, phone_number, city, service_type, source="legacy_waitlist", payload={},
     )
     return row_id if ok else None
+
+
+def get_final_design_by_id(design_id, user_id=None):
+    """FINBUTI — Load final design by id, optionally scoped to user."""
+    try:
+        import json
+        conn = get_giso_db_conn()
+        if user_id:
+            row = conn.execute(
+                "SELECT * FROM buti_ai_final_designs WHERE id=? AND user_id=?",
+                (int(design_id), int(user_id)),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT * FROM buti_ai_final_designs WHERE id=?",
+                (int(design_id),),
+            ).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        try:
+            payload = json.loads(d.get("prompt_json") or "{}")
+            d["candidate"] = payload.get("candidate") or {}
+            d["generation"] = payload.get("generation") or {}
+        except Exception:
+            d["candidate"] = {}
+            d["generation"] = {}
+        return d
+    except Exception as e:
+        logger.error("Error loading final design %s: %s", design_id, e)
+        return None

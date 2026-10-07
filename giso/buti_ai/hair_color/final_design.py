@@ -77,6 +77,87 @@ def _image_size(path: str) -> Tuple[int, int]:
         return 0, 0
 
 
+def _call_vision_json(image_path: str, prompt: str, max_tokens: int = 800) -> Dict[str, Any]:
+    try:
+        from giso.async_compat import run_async_safe
+        from giso.ai_brain import ask_ai_vision
+        from giso.analysis import _is_ai_refusal, _parse_ai_json
+        from giso.buti_ai.ai_models import configured_vision_chain
+        chain = configured_vision_chain()
+        if not chain:
+            return {"ok": False, "error": "no_vision_chain"}
+        errors = []
+        for item in chain:
+            provider = item.get("provider_name") or ""
+            model = item.get("model_name") or ""
+            if not provider or not model:
+                continue
+            try:
+                result = run_async_safe(ask_ai_vision(provider, image_path, prompt, model=model, max_tokens=max_tokens))
+            except Exception as exc:
+                result = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+            if result and result.get("ok"):
+                text = result.get("text", "") or ""
+                if _is_ai_refusal(text):
+                    errors.append(f"{provider}/{model}: refused")
+                    continue
+                parsed = _parse_ai_json(text)
+                if parsed is not None:
+                    return {"ok": True, "provider": provider, "model": model, "data": parsed, "text": text}
+                errors.append(f"{provider}/{model}: json")
+            else:
+                errors.append(f"{provider}/{model}: {(result or {}).get('error', 'error')}")
+        return {"ok": False, "error": "; ".join(errors[-3:]) or "vision_failed"}
+    except Exception as exc:
+        return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:120]}"}
+
+
+def check_photo_quality(image_path: str) -> Dict[str, Any]:
+    if not image_path:
+        return {"status": "missing", "ok": False, "message": "عکسی برای بررسی دریافت نشد.", "checks": {}, "reasons": ["no_image"]}
+    try:
+        from giso.buti_ai.hair_color.prompts import PHOTO_QUALITY_PROMPT
+        result = _call_vision_json(image_path, PHOTO_QUALITY_PROMPT, max_tokens=700)
+        if result.get("ok"):
+            data = result.get("data") or {}
+            ok = bool(data.get("ok"))
+            return {
+                "status": "ai_checked",
+                "ok": ok,
+                "message": data.get("message") or ("عکس مو مناسب است." if ok else "این عکس برای رنگ مو مناسب نیست."),
+                "checks": {
+                    "hair_visible": data.get("hair_visible"),
+                    "hair_coverage": data.get("hair_coverage"),
+                    "lighting": data.get("lighting"),
+                    "angle": data.get("angle"),
+                    "sharpness": data.get("sharpness"),
+                },
+                "reasons": data.get("reasons") or [],
+                "provider": result.get("provider"),
+                "model": result.get("model"),
+            }
+    except Exception:
+        pass
+    return local_quality_report(image_path)
+
+
+def analyze_hair_color_photo(image_path: str, selected_style_key: str, change_level_key: str) -> Dict[str, Any]:
+    if not image_path:
+        return {"status": "missing", "ok": False, "message": "برای تحلیل مو عکس لازم است.", "data": {}}
+    try:
+        from giso.buti_ai.hair_color.prompts import hair_color_analysis_prompt
+        style_label = STYLES.get(str(selected_style_key or DEFAULT_STYLE), STYLES[DEFAULT_STYLE]).get("label") or selected_style_key
+        change_label = str(change_level_key or "medium")
+        prompt = hair_color_analysis_prompt(style_label, change_label)
+        result = _call_vision_json(image_path, prompt, max_tokens=900)
+        if not result.get("ok"):
+            return {"status": "ai_unavailable", "ok": None, "message": "تحلیل هوشمند مو فعلاً در دسترس نیست.", "data": {}, "error": result.get("error")}
+        data = result.get("data") or {}
+        return {"status": "ai_analyzed", "ok": True, "message": "تحلیل مو انجام شد.", "data": data, "provider": result.get("provider"), "model": result.get("model")}
+    except Exception as exc:
+        return {"status": "ai_unavailable", "ok": None, "message": "تحلیل هوشمند در دسترس نیست.", "data": {}, "error": str(exc)[:120]}
+
+
 def local_quality_report(path: str) -> Dict[str, Any]:
     w, h = _image_size(path)
     ok = bool(w >= 220 and h >= 220)

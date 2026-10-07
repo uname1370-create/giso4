@@ -22,9 +22,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_credit_phone ON giso_ai_credit_accounts
 CREATE TABLE IF NOT EXISTS giso_ai_credit_ledger(
  id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,delta INTEGER NOT NULL,
  balance_after INTEGER NOT NULL,reason TEXT DEFAULT '',channel TEXT DEFAULT '',request_key TEXT UNIQUE NOT NULL,
- actor TEXT DEFAULT '',created_at TEXT DEFAULT ''
+ actor TEXT DEFAULT '',created_at TEXT DEFAULT '',service_key TEXT DEFAULT '',selected_style TEXT DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_ai_credit_ledger_user ON giso_ai_credit_ledger(user_id,id);
+CREATE INDEX IF NOT EXISTS idx_ai_credit_ledger_service ON giso_ai_credit_ledger(service_key,created_at);
 """
 
 
@@ -38,6 +39,18 @@ def ensure_ai_credit_tables(conn=None):
             conn.execute("ALTER TABLE giso_ai_credit_accounts ADD COLUMN deduct_scope TEXT NOT NULL DEFAULT 'spend'")
         except Exception:
             pass  # ستون از قبل وجود دارد
+        try:
+            conn.execute("ALTER TABLE giso_ai_credit_ledger ADD COLUMN service_key TEXT DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            conn.execute("ALTER TABLE giso_ai_credit_ledger ADD COLUMN selected_style TEXT DEFAULT ''")
+        except Exception:
+            pass
+        try:
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_ai_credit_ledger_service ON giso_ai_credit_ledger(service_key,created_at)")
+        except Exception:
+            pass
         if own:
             conn.commit()
     finally:

@@ -16,8 +16,11 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 # FaceMesh indices around both eyebrow ridges. These are used only when
 # mediapipe is installed in the runtime; the project does not require it.
-_FACE_MESH_LEFT_BROW = (70, 63, 105, 66, 107, 46, 53, 52, 65, 55)
-_FACE_MESH_RIGHT_BROW = (336, 296, 334, 293, 300, 285, 295, 282, 283, 276)
+# Order is a closed loop: upper ridge outer->inner, then lower ridge inner->outer
+# Left brow (person's right): upper 70,63,105,66,107 + lower reversed 55,65,52,53,46
+# Right brow (person's left): upper 300,293,334,296,336 + lower 285,295,282,283,276
+_FACE_MESH_LEFT_BROW = (70, 63, 105, 66, 107, 55, 65, 52, 53, 46)
+_FACE_MESH_RIGHT_BROW = (300, 293, 334, 296, 336, 285, 295, 282, 283, 276)
 
 MASK_EDIT_VALUE = 255
 MASK_KEEP_VALUE = 0
@@ -149,8 +152,175 @@ def _box(x: float, y: float, w: float, h: float, image_w: int, image_h: int, sid
     return _ensure_region_polygon(region, image_w, image_h)
 
 
-def _box_from_points(points: Iterable[Tuple[float, float]], image_w: int, image_h: int,
-                     side: str, source: str, confidence: float) -> Dict[str, Any]:
+def _precise_eyebrow_polygon_from_landmarks(
+    points: Iterable[Tuple[float, float]],
+    image_w: int,
+    image_h: int,
+    margin_px: float = 0.0,
+    margin_percent: float = 0.0,
+) -> List[List[int]]:
+    """ساخت polygon دقیق فقط از landmarkهای واقعی ابرو — بدون حاشیه بزرگ.
+
+    MediaPipe برای هر ابرو 10 نقطه در ترتیب حلقه بسته می‌دهد:
+    - left: upper outer->inner (70,63,105,66,107) + lower inner->outer (55,65,52,53,46)
+    - right: upper inner->outer (300,293,334,296,336) + lower outer->inner (285,295,282,283,276)
+    برای جلوگیری از self-intersection، اول ترتیب اصلی حلقه تست می‌شود؛
+    اگر تقاطع داشت، angle-sort به‌عنوان fallback استفاده می‌شود.
+    حاشیه بسیار کوچک فقط در مرحله mask (MaxFilter) اضافه می‌شود.
+    """
+    pts = [(float(x), float(y)) for x, y in points or []]
+    if len(pts) < 3:
+        return []
+    import math
+
+    def _area(poly):
+        return _polygon_area(poly)
+
+    def _has_intersection(poly):
+        def _orient(a, b, c):
+            v = (b[1] - a[1]) * (c[0] - b[0]) - (b[0] - a[0]) * (c[1] - b[1])
+            if v == 0:
+                return 0
+            return 1 if v > 0 else 2
+
+        def _intersect(p1, p2, q1, q2):
+            o1 = _orient(p1, p2, q1)
+            o2 = _orient(p1, p2, q2)
+            o3 = _orient(q1, q2, p1)
+            o4 = _orient(q1, q2, p2)
+            return o1 != o2 and o3 != o4
+
+        n = len(poly)
+        if n < 4:
+            return False
+        for i in range(n):
+            for j in range(i + 2, n):
+                if j == n - 1 and i == 0:
+                    continue
+                if _intersect(poly[i], poly[(i + 1) % n], poly[j], poly[(j + 1) % n]):
+                    return True
+        return False
+
+    cx = sum(x for x, y in pts) / len(pts)
+    cy = sum(y for x, y in pts) / len(pts)
+
+    def _angle(p):
+        return math.atan2(p[1] - cy, p[0] - cx)
+
+    # ترتیب اصلی حلقه (pts) را اول تست کن — برای ابروهای معمولی بدون تقاطع است
+    candidates: List[List[Tuple[float, float]]] = []
+    candidates.append(pts)  # original loop
+
+    # اگر اصلی تقاطع داشت، angle-sort و ترکیبات دیگر را امتحان کن
+    if _has_intersection(pts) or _area(pts) < 8.0:
+        candidates.append(sorted(pts, key=_angle))
+        if len(pts) >= 10:
+            upper = pts[:5]
+            lower = pts[5:10]
+            candidates.append(upper + lower)
+            candidates.append(upper + list(reversed(lower)))
+            candidates.append(list(reversed(upper)) + lower)
+            candidates.append(list(reversed(upper)) + list(reversed(lower)))
+            upper_sorted = sorted(upper, key=lambda p: p[0])
+            lower_sorted = sorted(lower, key=lambda p: p[0])
+            candidates.append(upper_sorted + list(reversed(lower_sorted)))
+
+    best = None
+    best_area = -1.0
+    for cand in candidates:
+        if len(cand) < 3:
+            continue
+        if _has_intersection(cand):
+            continue
+        a = _area(cand)
+        if a < 8.0:
+            continue
+        # برای ابروی چپ که فقط angle-sort بدون تقاطع می‌ماند، همان را بگیر
+        # برای راست که اصلی بدون تقاطع است، اصلی را ترجیح بده (اولین کاندید)
+        if best is None:
+            best = cand
+            best_area = a
+        # اگر اصلی نبود، بزرگ‌ترین مساحت بدون تقاطع را بگیر
+        elif cand is not pts and a > best_area:
+            best_area = a
+            best = cand
+        # اگر اصلی بدون تقاطع بود، همان را نگه دار و بقیه را نادیده بگیر
+        if best is pts:
+            break
+
+    if best is None:
+        best = sorted(pts, key=_angle)
+
+    if margin_px == 0 and margin_percent == 0:
+        result = [_clamp_point(x, y, image_w, image_h) for x, y in best]
+    else:
+        expanded: List[List[int]] = []
+        for x, y in best:
+            dx = x - cx
+            dy = y - cy
+            dist = math.hypot(dx, dy) or 1.0
+            scale = 1.0 + margin_percent + (margin_px / dist)
+            nx = cx + dx * scale
+            ny = cy + dy * scale
+            expanded.append(_clamp_point(nx, ny, image_w, image_h))
+        result = expanded
+
+    if len(result) < 3 or _polygon_area(result) < 8.0:
+        return [_clamp_point(x, y, image_w, image_h) for x, y in best]
+    return result
+
+
+def _box_from_points_precise(
+    points: Iterable[Tuple[float, float]],
+    image_w: int,
+    image_h: int,
+    side: str,
+    source: str,
+    confidence: float,
+) -> Dict[str, Any]:
+    """نسخه دقیق برای MediaPipe — بدون حاشیه بزرگ، فقط polygon واقعی."""
+    pts = [(float(x), float(y)) for x, y in points or []]
+    if not pts:
+        return {}
+    precise_polygon = _precise_eyebrow_polygon_from_landmarks(
+        pts, image_w, image_h, margin_px=0.0, margin_percent=0.0
+    )
+    if not precise_polygon:
+        return _box_from_points_fallback(pts, image_w, image_h, side, source, confidence)
+
+    min_x = min(p[0] for p in precise_polygon)
+    max_x = max(p[0] for p in precise_polygon)
+    min_y = min(p[1] for p in precise_polygon)
+    max_y = max(p[1] for p in precise_polygon)
+    bw = max(1.0, float(max_x - min_x))
+    bh = max(1.0, float(max_y - min_y))
+    small_margin = 2.0
+    region = _box(
+        float(min_x - small_margin),
+        float(min_y - small_margin),
+        float(bw + small_margin * 2),
+        float(bh + small_margin * 2),
+        image_w,
+        image_h,
+        side,
+        confidence,
+        source,
+    )
+    region["landmark_points"] = [_clamp_point(px, py, image_w, image_h) for px, py in pts]
+    region["polygon"] = precise_polygon
+    region["polygon_source"] = "mediapipe_precise_10_landmarks_tight"
+    return _ensure_region_polygon(region, image_w, image_h)
+
+
+def _box_from_points_fallback(
+    points: Iterable[Tuple[float, float]],
+    image_w: int,
+    image_h: int,
+    side: str,
+    source: str,
+    confidence: float,
+) -> Dict[str, Any]:
+    """نسخه قدیمی با حاشیه بزرگ — فقط برای fallbackهای غیر MediaPipe."""
     pts = [(float(x), float(y)) for x, y in points]
     if not pts:
         return {}
@@ -160,7 +330,6 @@ def _box_from_points(points: Iterable[Tuple[float, float]], image_w: int, image_
     max_y = max(y for _, y in pts)
     bw = max(12.0, max_x - min_x)
     bh = max(8.0, max_y - min_y)
-    # ابرو باریک است؛ حاشیه امن می‌دهیم اما mask نهایی polygon است نه کل rectangle.
     expand_x = bw * 0.28
     expand_top = max(6.0, bh * 1.0)
     expand_bottom = max(7.0, bh * 1.15)
@@ -177,8 +346,16 @@ def _box_from_points(points: Iterable[Tuple[float, float]], image_w: int, image_
     )
     region["landmark_points"] = [_clamp_point(px, py, image_w, image_h) for px, py in pts]
     region["polygon"] = _polygon_from_points(pts, region, image_w, image_h)
-    region["polygon_source"] = "facemesh_landmark_band"
+    region["polygon_source"] = "facemesh_landmark_band_fallback"
     return _ensure_region_polygon(region, image_w, image_h)
+
+
+def _box_from_points(points: Iterable[Tuple[float, float]], image_w: int, image_h: int,
+                     side: str, source: str, confidence: float) -> Dict[str, Any]:
+    """Wrapper — اگر source mediapipe باشد نسخه دقیق، وگرنه fallback قدیمی."""
+    if str(source or "").startswith("mediapipe"):
+        return _box_from_points_precise(points, image_w, image_h, side, source, confidence)
+    return _box_from_points_fallback(points, image_w, image_h, side, source, confidence)
 
 
 def _method_confidence_label(method: str) -> str:
@@ -193,23 +370,90 @@ def _method_confidence_label(method: str) -> str:
     return "unknown"
 
 
+def _is_plausible_eyebrow_pair(regions: List[Dict[str, Any]], image_w: int, image_h: int) -> bool:
+    """بررسی سریع که دو ROI ابرو از نظر هندسی معقول هستند و چشم را درگیر نمی‌کنند.
+
+    برای polygon دقیق MediaPipe (tight) کمی بازتر می‌کنیم چون mask کوچک‌تر و دقیق‌تر است
+    و نباید به خاطر زاویه صورت یا حجاب رد شود.
+    """
+    if len(regions) < 2 or image_w <= 0 or image_h <= 0:
+        return False
+    try:
+        ordered = sorted(regions, key=lambda r: r.get("cx", 0))
+        left, right = ordered[0], ordered[1]
+        lx, ly, lw, lh = float(left.get("x") or 0), float(left.get("y") or 0), float(left.get("width") or 0), float(left.get("height") or 0)
+        rx, ry, rw, rh = float(right.get("x") or 0), float(right.get("y") or 0), float(right.get("width") or 0), float(right.get("height") or 0)
+        lcx, lcy = float(left.get("cx") or (lx + lw/2)), float(left.get("cy") or (ly + lh/2))
+        rcx, rcy = float(right.get("cx") or (rx + rw/2)), float(right.get("cy") or (ry + rh/2))
+
+        # تشخیص اینکه آیا این detection از نسخه دقیق mediapipe است
+        is_precise = any("precise" in str(r.get("polygon_source") or "") or "tight" in str(r.get("polygon_source") or "") for r in ordered)
+        # برای precise، بازتر چون mask کوچک و دقیق است و زاویه صورت/حجاب نباید رد شود
+        max_cy_ratio = 0.60 if is_precise else 0.45
+        max_y_ratio = 0.55 if is_precise else 0.42
+        max_h_ratio = 0.32 if is_precise else 0.13
+        max_v_sym_ratio = 0.25 if is_precise else 0.08
+
+        # باید در نیمه بالایی تصویر باشند (ابرو بالای چشم است)
+        if lcy > image_h * max_cy_ratio or rcy > image_h * max_cy_ratio:
+            return False
+        if ly > image_h * max_y_ratio or ry > image_h * max_y_ratio:
+            return False
+        # نباید خیلی بالا هم باشند (حجاب/پیشانی)
+        if lcy < image_h * 0.12 or rcy < image_h * 0.12:
+            return False
+
+        # چپ باید چپ وسط باشد، راست راست وسط
+        if lcx >= image_w * 0.5 or rcx <= image_w * 0.5:
+            return False
+
+        # فاصله افقی معقول
+        dist = abs(rcx - lcx)
+        if dist < image_w * 0.15 or dist > image_w * 0.6:
+            return False
+
+        # تقارن عمودی — برای precise بازتر چون زاویه صورت ممکن است ابروها را ناهم‌تراز کند
+        if abs(lcy - rcy) > image_h * max_v_sym_ratio:
+            return False
+
+        # اندازه معقول — برای precise ارتفاع تا 22% مجاز چون با حاشیه کوچک باز هم دقیق است
+        for w, h in ((lw, lh), (rw, rh)):
+            if w < image_w * 0.04 or w > image_w * 0.42:
+                return False
+            if h < image_h * 0.008 or h > image_h * max_h_ratio:
+                return False
+
+        # نباید خیلی هم‌پوشانی داشته باشند
+        if not (rx > lx + lw * 0.15 or lx > rx + rw * 0.15):
+            if abs(lcx - rcx) < image_w * 0.12:
+                return False
+
+        return True
+    except Exception:
+        return False
+
+
 def _ok(method: str, image_w: int, image_h: int, regions: List[Dict[str, Any]], confidence: float) -> Dict[str, Any]:
     ordered = sorted(regions, key=lambda r: r.get("cx", 0))
     for idx, region in enumerate(ordered):
         region["side"] = "left" if idx == 0 else "right"
         _ensure_region_polygon(region, image_w, image_h)
     fallback_only = method == "proportional_fallback"
+    plausible = _is_plausible_eyebrow_pair(ordered[:2], image_w, image_h) if len(ordered) >= 2 else False
+    # اگر fallback نیست و plausible نیست، ok=False تا detector بعدی امتحان شود
+    ok_flag = len(ordered) >= 2 and (fallback_only or plausible)
     return {
-        "ok": len(ordered) >= 2,
-        "method": method,
+        "ok": ok_flag,
+        "method": method if ok_flag else f"{method}_implausible",
         "confidence": round(float(confidence), 3),
         "confidence_label": _method_confidence_label(method),
-        "detection_reliable": not fallback_only and len(ordered) >= 2,
+        "detection_reliable": not fallback_only and ok_flag and plausible,
         "is_fallback": fallback_only,
+        "plausible": plausible,
         "image_width": int(image_w),
         "image_height": int(image_h),
-        "regions": ordered[:2],
-        "mask": {"ok": False, "reason": "not_generated"},
+        "regions": ordered[:2] if ok_flag else [],
+        "mask": {"ok": False, "reason": "not_generated" if ok_flag else "implausible_regions"},
         "mask_width": 0,
         "mask_height": 0,
         "mask_path": "",
@@ -240,17 +484,20 @@ def ensure_eyebrow_mask(image_path: str, detection: Optional[Dict[str, Any]] = N
         return detection
 
     try:
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFilter
 
         mask = Image.new("L", (image_w, image_h), MASK_KEEP_VALUE)
         draw = ImageDraw.Draw(mask)
         total_pixels = 0
         updated_regions: List[Dict[str, Any]] = []
+        is_precise = False
         for raw_region in regions[:2]:
             region = _ensure_region_polygon(dict(raw_region or {}), image_w, image_h)
             polygon = [tuple(point) for point in region.get("polygon") or []]
             if len(polygon) < 4:
                 continue
+            if "precise" in str(region.get("polygon_source") or ""):
+                is_precise = True
             region_mask = Image.new("L", (image_w, image_h), MASK_KEEP_VALUE)
             region_draw = ImageDraw.Draw(region_mask)
             region_draw.polygon(polygon, fill=MASK_EDIT_VALUE)
@@ -259,6 +506,15 @@ def ensure_eyebrow_mask(image_path: str, detection: Optional[Dict[str, Any]] = N
             total_pixels += int(pixel_count)
             draw.polygon(polygon, fill=MASK_EDIT_VALUE)
             updated_regions.append(region)
+        # برای precise mask نازک، یک dilation کوچک (MaxFilter 3) تا ابرو پر شود ولی چشم درگیر نشود
+        # این جایگزین margin بزرگ قبلی است و فقط 1-2px اضافه می‌کند
+        if is_precise and len(updated_regions) >= 2:
+            try:
+                # فقط اگر coverage خیلی کم باشد (<0.008) کمی ضخیم‌تر کن
+                # در غیر این صورت MaxFilter 3 کافی است
+                mask = mask.filter(ImageFilter.MaxFilter(size=3))
+            except Exception:
+                pass
         if len(updated_regions) < 2 or total_pixels <= 0:
             detection["mask"] = {"ok": False, "reason": "empty_polygon_mask", "width": int(image_w), "height": int(image_h)}
             detection["regions"] = updated_regions

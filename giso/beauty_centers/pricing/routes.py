@@ -53,6 +53,9 @@ def owner_service_add():
             "price_max": request.form.get("price_max"),
             "sort_order": request.form.get("sort_order"),
             "is_active": 1 if request.form.get("is_active") else 0,
+            # FINBUTI P1
+            "service_key": request.form.get("service_key") or "",
+            "is_featured_service": 1 if request.form.get("is_featured_service") else 0,
         })
     except ValueError as exc:
         flash(str(exc), "warning")

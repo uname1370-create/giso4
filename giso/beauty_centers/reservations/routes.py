@@ -110,6 +110,9 @@ def reserve(slug):
             reservation_date=form.get("date") or form.get("reservation_date"),
             reservation_time=form.get("time") or form.get("reservation_time"),
             user_note=form.get("user_note", ""),
+            final_design_id=form.get("final_design_id") or request.args.get("final_design_id") or 0,
+            service_key=form.get("service_key") or request.args.get("service_key") or "",
+            selected_style=form.get("selected_style") or request.args.get("selected_style") or "",
         )
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400

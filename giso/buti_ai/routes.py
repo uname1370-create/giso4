@@ -252,7 +252,7 @@ def eyebrow_model_selection():
 
 @buti_ai_bp.route("/eyebrow/upload", methods=["GET", "POST"])
 def eyebrow_upload():
-    """مرحله مستقل آپلود عکس؛ پس از اعتبارسنجی، پیش‌نمایش واقعی عکس را نشان می‌دهد."""
+    """مرحله مستقل آپلود عکس؛ بعد از آپلود مستقیم به طراحی نهایی می‌رود (4 مرحله‌ای)."""
     init_buti_ai_db()
     selection = _current_selection()
     if request.method == "GET":
@@ -266,15 +266,18 @@ def eyebrow_upload():
         request.files,
         user_id=_safe_current_user_id(),
     )
-    state["flow_step"] = "result" if state.get("result") else "upload"
+    # برای 4 مرحله‌ای شدن، دیگر flow_step=result نمایش داده نمی‌شود
+    # بعد از آپلود موفق مستقیم به /eyebrow/final می‌رویم
     if state.get("result"):
         candidate = store_final_candidate(session, state.get("result"), state.get("photo_status"))
         _log_preview_candidate(candidate, source="upload_route")
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
-        return _render_eyebrow_wizard(state)
+        return redirect(url_for("buti_ai.eyebrow_final_design"))
     if state.get("flash_message"):
         flash(state["flash_message"], state.get("flash_category") or "info")
+    # در صورت خطا، همان صفحه آپلود با پیام خطا
+    state["flow_step"] = "upload"
     return _render_eyebrow_wizard(state)
 
 
@@ -355,21 +358,29 @@ def eyebrow_final_retry():
 
 @buti_ai_bp.route("/eyebrow/final", methods=["GET"])
 def eyebrow_final_design():
-    """صفحه طراحی نهایی: گیت ورود و ساخت طرح راهنمای پایتونی."""
+    """صفحه طراحی نهایی: بدون چک لاگین برای تست — مستقیم طراحی."""
     init_buti_ai_db()
     candidate = get_final_candidate(session)
+    if not candidate:
+        fd_id = request.args.get("final_design_id", type=int)
+        if fd_id:
+            try:
+                from giso.buti_ai.services import get_final_design_by_id
+                db_row = get_final_design_by_id(fd_id, _safe_current_user_id())
+                if db_row and db_row.get("candidate"):
+                    candidate = db_row["candidate"]
+                    if db_row.get("generation"):
+                        candidate["generation"] = db_row["generation"]
+                    candidate["final_design_id"] = db_row.get("id")
+                    session[FINAL_DESIGN_SESSION_KEY] = candidate
+                    session.modified = True
+            except Exception:
+                pass
     if not candidate:
         flash("برای طراحی نهایی، اول مدل ابرو را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.eyebrow_wizard"))
 
-    final_url = url_for("buti_ai.eyebrow_final_design")
-    if not getattr(current_user, "is_authenticated", False):
-        return render_template(
-            "buti_ai/eyebrow_final_auth.html",
-            candidate=candidate,
-            login_url=url_for("login", next=final_url),
-            register_url=url_for("register", next=final_url),
-        )
+    # لاگین غیرفعال برای تست
 
     generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
     if not generation or not generation.get("ok"):
@@ -430,6 +441,14 @@ def eyebrow_final_design():
         if getattr(current_user, "is_authenticated", False)
         else url_for("login", next=url_for("beauty_centers.register_center"))
     )
+    # Phase 5 – AI Consultant context for eyebrow
+    try:
+        from giso.buti_ai.consultant import build_consultant_context, consultant_invite_text
+        consultant_context = build_consultant_context("eyebrow", candidate, generation)
+        consultant_invite = consultant_invite_text(consultant_context)
+    except Exception:
+        consultant_context = {}
+        consultant_invite = ""
 
     return render_template(
         "buti_ai/eyebrow_final_design.html",
@@ -441,6 +460,8 @@ def eyebrow_final_design():
         centers_url=centers_url,
         register_center_url=register_center_url,
         default_phone=user_default_phone(current_user),
+        consultant_context=consultant_context,
+        consultant_invite=consultant_invite,
     )
 
 
@@ -876,6 +897,26 @@ def generic_service_final_design(service_slug):
     candidate = _get_new_service_candidate(service_key)
     if not candidate:
         candidate = _rebuild_new_service_candidate_from_finalize_form(service_key)
+    # FINBUTI — Load from DB if final_design_id provided (for analyses history deep link)
+    if not candidate:
+        fd_id = request.args.get("final_design_id", type=int)
+        if fd_id:
+            try:
+                from giso.buti_ai.services import get_final_design_by_id
+                db_row = get_final_design_by_id(fd_id, _safe_current_user_id())
+                if db_row and db_row.get("candidate"):
+                    candidate = db_row["candidate"]
+                    # Ensure generation present
+                    if db_row.get("generation"):
+                        candidate["generation"] = db_row["generation"]
+                    candidate["final_design_id"] = db_row.get("id")
+                    # Ensure service_key matches
+                    candidate["service_type"] = candidate.get("service_type") or db_row.get("service_type") or service_key
+                    # Store back to session for continuity
+                    session[_new_service_candidate_key(service_key)] = candidate
+                    session.modified = True
+            except Exception:
+                pass
     if not candidate:
         flash("برای طراحی نهایی، اول مدل را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.generic_service_wizard", service_slug=slug_for_service(service_key)))
@@ -961,6 +1002,14 @@ def generic_service_final_design(service_slug):
         if getattr(current_user, "is_authenticated", False)
         else url_for("login", next=url_for("beauty_centers.register_center"))
     )
+    # Phase 5 – AI Consultant context
+    try:
+        from giso.buti_ai.consultant import build_consultant_context, consultant_invite_text
+        consultant_context = build_consultant_context(service_key, candidate, generation)
+        consultant_invite = consultant_invite_text(consultant_context)
+    except Exception:
+        consultant_context = {}
+        consultant_invite = ""
 
     return render_template(
         "buti_ai/generic_final_design.html",
@@ -976,6 +1025,8 @@ def generic_service_final_design(service_slug):
         default_phone=user_default_phone(current_user),
         service_center_label=_service_center_label(service_key),
         uploaded_url_builder=_new_service_uploaded_url,
+        consultant_context=consultant_context,
+        consultant_invite=consultant_invite,
     )
 
 
@@ -1052,3 +1103,64 @@ def generic_service_centers(service_slug):
         else url_for("login", next=url_for("beauty_centers.register_center")),
         centers_url=centers_url,
     )
+
+@buti_ai_bp.route("/<service_slug>/consultant", methods=["POST"])
+def generic_service_consultant_chat(service_slug):
+    """AI Consultant for generic services – context: Service+Style+Analysis+Preview"""
+    init_buti_ai_db()
+    service_key = _active_service_from_slug(service_slug)
+    if not service_key:
+        return {"ok": False, "error": "خدمت فعال نیست."}, 404
+    candidate = _get_new_service_candidate(service_key)
+    if not candidate:
+        return {"ok": False, "error": "ابتدا مدل و عکس را انتخاب کن."}, 400
+    try:
+        from giso.buti_ai.consultant import build_consultant_context
+        generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
+        context = build_consultant_context(service_key, candidate, generation)
+        user_message = (request.get_json(silent=True) or {}).get("message") or request.form.get("message") or ""
+        user_message = str(user_message).strip()[:800]
+        if not user_message:
+            return {"ok": False, "error": "پیام خالی است."}, 400
+        # Use ai_brain chat with context
+        from giso.ai_brain import chat_with_managed_ai as _chat_managed
+        # Build prompt with context
+        system_prompt = context.get("prompt") or ""
+        full_prompt = f"{system_prompt}\n\nکاربر: {user_message}\nمشاور:"
+        try:
+            reply = str(_chat_managed([{'role':'user','content':full_prompt}], actor_key='beauty_mirror') or {}).strip() or f"برای {context.get('service_label')} با مدل {context.get('style_label')}: {context.get('short_reason')}"
+        except Exception:
+            # Fallback to simple echo with context
+            reply = f"برای {context.get('service_label')} با مدل {context.get('style_label')}: {context.get('short_reason')} – {user_message} – لطفاً برای اجرای دقیق به متخصص مراجعه کن."
+        return {"ok": True, "reply": reply, "context": context}
+    except Exception as exc:
+        return {"ok": False, "error": f"خطای مشاور: {str(exc)[:200]}"}, 500
+
+
+@buti_ai_bp.route("/eyebrow/consultant", methods=["POST"])
+def eyebrow_consultant_chat():
+    """AI Consultant for eyebrow – same context pattern"""
+    init_buti_ai_db()
+    candidate = get_final_candidate(session)
+    if not candidate:
+        return {"ok": False, "error": "ابتدا مدل و عکس ابرو را انتخاب کن."}, 400
+    try:
+        from giso.buti_ai.consultant import build_consultant_context
+        generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
+        context = build_consultant_context("eyebrow", candidate, generation)
+        user_message = (request.get_json(silent=True) or {}).get("message") or request.form.get("message") or ""
+        user_message = str(user_message).strip()[:800]
+        if not user_message:
+            return {"ok": False, "error": "پیام خالی است."}, 400
+        from giso.ai_brain import chat_with_managed_ai as _chat_managed
+        system_prompt = context.get("prompt") or ""
+        full_prompt = f"{system_prompt}\n\nکاربر: {user_message}\nمشاور:"
+        try:
+            reply = str(_chat_managed([{'role':'user','content':full_prompt}], actor_key='beauty_mirror') or {}).strip() or f"برای ابرو با مدل {context.get('style_label')}: {context.get('short_reason')}"
+        except Exception:
+            reply = f"برای ابرو با مدل {context.get('style_label')}: {context.get('short_reason')} – {user_message}"
+        return {"ok": True, "reply": reply, "context": context}
+    except Exception as exc:
+        return {"ok": False, "error": f"خطای مشاور ابرو: {str(exc)[:200]}"}, 500
+
+

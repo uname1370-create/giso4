@@ -1,9 +1,200 @@
 {% extends "base.html" %}
 {% block title %}{{ center.name }} در مشهد | مراکز زیبایی گیسو{% endblock %}
 {% block meta %}{% set canonical_url=url_for('beauty_centers.center_detail',slug=center.slug,_external=True) %}{% set meta_description=(center.description or (center.type_label ~ ' در مشهد؛ خدمات، تصاویر و گفتگوی آنلاین با مرکز'))[:155] %}<meta name="robots" content="{{ 'index, follow' if center.status=='published' and center.is_active else 'noindex, nofollow' }}"><meta name="description" content="{{ meta_description }}"><link rel="canonical" href="{{ canonical_url }}"><meta property="og:type" content="business.business"><meta property="og:title" content="{{ center.name }}"><meta property="og:description" content="{{ meta_description }}"><meta property="og:url" content="{{ canonical_url }}"><meta property="og:image" content="{{ url_for('beauty_centers.center_media',center_id=center.id,_external=True) }}"><meta name="twitter:card" content="summary_large_image">{% endblock %}
-{% block head %}{{ super() }}<meta name="theme-color" content="#c85873"><link rel="stylesheet" href="{{ url_for('beauty_centers.static',filename='beauty_centers.css') }}?v=12">{% endblock %}
-{% block content %}<main class="bc-page bc-detail-page" dir="rtl"><div class="bc-shell"><nav class="bc-breadcrumb"><a href="{{ url_for('index') }}">خانه</a><i class="fas fa-chevron-left"></i><a href="{{ url_for('beauty_centers.list_centers') }}">مراکز زیبایی</a><i class="fas fa-chevron-left"></i><span>{{ center.name }}</span></nav>
-<div class="bc-detail-grid"><section class="bc-detail-copy"><div class="bc-detail-eyebrow"><span class="bc-kicker">{{ center.type_label }}</span><span class="bc-category">{{ center.category_label }}</span></div><h1>{{ center.name }}</h1><div class="bc-trust-line"><span class="bc-checked"><i class="fas fa-circle-check"></i> اطلاعات تماس و مشخصات اولیه بررسی شده</span><small>این بررسی به معنی تضمین نتیجه یا کیفیت خدمت نیست.</small></div><p class="bc-detail-location"><i class="fas fa-location-dot"></i>مشهد{% if center.region %}، {{ center.region }}{% endif %}</p>{% if center.description %}<p class="bc-description">{{ center.description }}</p>{% endif %}<section class="bc-detail-cost"><span>سطح هزینه اعلامی: <b>{{ center.price_level_label }}</b></span>{% if center.starting_price %}<strong>شروع خدمات از {{ toman(center.starting_price) }}</strong>{% else %}<strong>قیمت پس از بررسی شرایط خدمت</strong>{% endif %}<small>این مبلغ قیمت نهایی نیست؛ مبلغ نهایی را پیش از مراجعه مستقیماً با مرکز هماهنگ کنید.</small></section><section class="bc-services"><header><h2>خدمات این مرکز</h2><p>هزینه و مدت هر خدمت اعلامی خود مرکز است؛ شرایط و مبلغ نهایی را پیش از مراجعه با مرکز هماهنگ کنید.</p></header>{% if center_services %}<div class="bc-service-list">{% for service in center_services %}<article class="bc-service-item"><div class="bc-service-item-head"><i class="fas fa-wand-sparkles"></i><b>{{ service.name }}</b>{% if service.category %}<span class="bc-category">{{ service.category }}</span>{% endif %}</div>{% if service.description %}<p class="bc-service-item-note">{{ service.description }}</p>{% endif %}<div class="bc-service-item-meta"><strong>{{ service.price_label }}</strong><span><i class="fas fa-clock"></i> {{ service.duration_label }}</span></div><a href="{{ url_for('beauty_reservations.reserve', slug=center.slug, service_id=service.id) }}" class="bc-btn bc-btn-primary" style="margin-top:8px;display:inline-block">📅 رزرو نوبت</a></article>{% endfor %}</div><small class="bc-service-legal">این مبلغ قیمت نهایی نیست؛ مبلغ و شرایط قطعی را مستقیم با مرکز هماهنگ کنید.</small>{% else %}<div class="bc-service-grid">{% for label in center.service_labels %}<article><i class="fas fa-wand-sparkles"></i><b>{{ label }}</b><span>اطلاعات و هماهنگی مستقیم با مرکز</span></article>{% else %}<p>خدمتی ثبت نشده است.</p>{% endfor %}</div>{% endif %}{% if beauty_hours %}<div class="bc-hours-public"><h3><i class="fas fa-clock"></i> ساعات کاری مرکز</h3><ul>{% for day in beauty_hours %}<li><span>{{ day.day_label }}</span><b>{{ day.time_label }}</b></li>{% endfor %}</ul></div>{% endif %}</section><dl class="bc-facts"><div><dt>آدرس تقریبی</dt><dd>{{ center.address_summary or 'ثبت نشده' }}</dd></div><div><dt>زمان پاسخ‌گویی</dt><dd>{{ center.contact_time or 'با مرکز هماهنگ کنید' }}</dd></div><div><dt>بازدید صفحه</dt><dd>{{ center.views_count }}</dd></div></dl></section>
-<aside class="bc-detail-side"><div class="bc-center-carousel" data-center-carousel><div class="bc-carousel-track"><button type="button" class="bc-carousel-slide" data-lightbox-src="{{ url_for('beauty_centers.center_media',center_id=center.id) }}" aria-label="بزرگ‌نمایی تصویر اصلی"><img src="{{ url_for('beauty_centers.center_media',center_id=center.id) }}" alt="نمای {{ center.name }}" width="800" height="600" decoding="async" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'"><span class="bc-img-fallback"><i class="fas fa-spa"></i><b>تصویر مرکز ثبت نشده است</b><small>اطلاعات و خدمات مرکز همچنان قابل مشاهده است.</small></span></button>{% for image in gallery_images %}<button type="button" class="bc-carousel-slide" data-lightbox-src="{{ url_for('beauty_centers.gallery_media',image_id=image.id) }}" aria-label="بزرگ‌نمایی تصویر {{ loop.index + 1 }}"><img src="{{ url_for('beauty_centers.gallery_media',image_id=image.id) }}" alt="تصویر {{ loop.index + 1 }} از {{ center.name }}" loading="lazy" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'"></button>{% endfor %}</div>{% if gallery_images %}<button type="button" class="bc-carousel-nav bc-carousel-prev" data-carousel-prev aria-label="تصویر قبلی"><i class="fas fa-chevron-right"></i></button><button type="button" class="bc-carousel-nav bc-carousel-next" data-carousel-next aria-label="تصویر بعدی"><i class="fas fa-chevron-left"></i></button><div class="bc-carousel-dots" aria-hidden="true">{% for _ in range((gallery_images|length)+1) %}<i class="{{ 'active' if loop.first }}"></i>{% endfor %}</div>{% endif %}</div><section class="bc-contact" id="center-contact"><span class="bc-kicker">ارتباط مستقیم</span><h2>گفتگو و تماس با مرکز</h2><p>برای سؤال درباره خدمت، هزینه تقریبی یا زمان مراجعه مستقیماً پیام بدهید.</p>{% if current_user.is_authenticated and current_user.id==center.owner_user_id %}<a class="bc-btn bc-owner-manage" href="{{ url_for('beauty_centers.owner_dashboard',tab='edit') }}"><i class="fas fa-gear"></i> مدیریت این آگهی</a>{% elif current_user.is_authenticated %}<a class="bc-btn bc-btn-primary bc-chat-primary" href="{{ url_for('beauty_centers.center_chat',slug=center.slug) }}"><i class="fas fa-comments"></i> گفتگوی آنلاین با مرکز</a>{% else %}<a class="bc-btn bc-btn-primary bc-chat-primary" href="{{ url_for('login',next=url_for('beauty_centers.center_chat',slug=center.slug)) }}"><i class="fas fa-comments"></i> ورود و گفتگوی آنلاین</a>{% endif %}{% if not current_user.is_authenticated %}<div class="bc-contact-locked"><i class="fas fa-lock"></i><p>برای مشاهده شماره تماس وارد حساب شوید.</p><a class="bc-btn bc-btn-outline" href="{{ url_for('login',next=request.path) }}">ورود</a><a class="bc-btn bc-btn-soft" href="{{ url_for('register',next=request.path) }}">ثبت‌نام</a></div>{% elif current_user.id==center.owner_user_id %}<p class="bc-owner-note">این صفحه عمومی مرکز شماست؛ اطلاعات تماس برای سایر اعضای واردشده نمایش داده می‌شود.</p>{% elif contact_revealed %}{% set shown_phone = center.salon_phone if (center.display_phone_choice|default(''))=='salon' and center.salon_phone else center.business_phone %}{% set phone_label = 'تلفن آرایشگاه' if (center.display_phone_choice|default(''))=='salon' and center.salon_phone else 'شماره تماس کاری' %}<div class="bc-phone"><small>{{ phone_label }}</small><strong dir="ltr">{{ display_phone(shown_phone) }}</strong><a class="bc-btn bc-btn-outline" href="tel:{{ shown_phone }}"><i class="fas fa-phone"></i> تماس مستقیم</a></div>{% else %}<form method="post" action="{{ url_for('beauty_centers.center_contact',center_id=center.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="intent" value="price_inquiry"><button class="bc-btn bc-btn-outline" type="submit"><i class="fas fa-eye"></i> نمایش شماره تماس</button></form>{% endif %}<p class="bc-contact-note">گیسو بستر معرفی و ارتباط است؛ توافق، قیمت و ارائه خدمت مستقیماً میان شما و مرکز انجام می‌شود.</p></section></aside></div><div class="bc-lightbox" id="bcCenterLightbox" hidden role="dialog" aria-modal="true" aria-label="نمایش بزرگ تصویر"><button type="button" class="bc-lightbox-close" aria-label="بستن">×</button><img src="" alt="تصویر بزرگ مرکز"></div>
-<section class="bc-center-score"><header><span class="bc-kicker">ارزیابی‌های واقعی کاربران</span><h2>امتیاز کلی مرکز</h2></header>{% if feedback.count>=3 %}<div class="bc-score-value"><strong>{{ feedback.score }}</strong><span>از ۵</span><em>{{ feedback.score100 }} از ۱۰۰</em></div><div class="bc-score-summary"><b>{{ feedback.label }}</b><p>بر اساس {{ feedback.count }} ارزیابی معتبر پس از گفتگوی واقعی با مرکز</p></div>{% else %}<div class="bc-score-empty"><i class="fas fa-chart-simple"></i><p>هنوز ارزیابی کافی برای نمایش امتیاز عمومی ثبت نشده است.</p></div>{% endif %}<small>این امتیاز از انتخاب خوب، متوسط یا ضعیف کاربران محاسبه می‌شود و تضمین کیفیت یا نتیجه خدمات حضوری نیست.</small></section><section class="bc-legal"><i class="fas fa-scale-balanced"></i><div><h2>حدود نقش گیسو</h2><p>{{ disclaimer }}</p></div></section></div></main>{% if center.status=='published' and center.is_active %}<script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":{{ center.name|tojson }},"description":{{ (center.description or center.type_label)|tojson }},"image":{{ url_for('beauty_centers.center_media',center_id=center.id,_external=True)|tojson }},"address":{"@type":"PostalAddress","addressLocality":"مشهد","addressRegion":{{ center.region|tojson }}},"url":{{ url_for('beauty_centers.center_detail',slug=center.slug,_external=True)|tojson }}}</script><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"خانه","item":{{ url_for('index',_external=True)|tojson }}},{"@type":"ListItem","position":2,"name":"مراکز زیبایی","item":{{ url_for('beauty_centers.list_centers',_external=True)|tojson }}},{"@type":"ListItem","position":3,"name":{{ center.name|tojson }},"item":{{ url_for('beauty_centers.center_detail',slug=center.slug,_external=True)|tojson }}}]}</script>{% endif %}{% endblock %}
-{% block scripts %}{{ super() }}<script src="{{ url_for('beauty_centers.static',filename='beauty_centers.js') }}?v=4" defer></script>{% endblock %}
+{% block head %}{{ super() }}<meta name="theme-color" content="#c85873"><link rel="stylesheet" href="{{ url_for('beauty_centers.static',filename='beauty_centers.css') }}?v=14">{% endblock %}
+{% block content %}
+<main class="bc-page bc-detail-page" dir="rtl">
+<div class="bc-shell">
+<nav class="bc-breadcrumb"><a href="{{ url_for('index') }}">خانه</a><i class="fas fa-chevron-left"></i><a href="{{ url_for('beauty_centers.list_centers') }}">مراکز زیبایی</a><i class="fas fa-chevron-left"></i><span>{{ center.name }}</span></nav>
+
+{# FINBUTI Hero: تصویر اصلی + نام + شهر/منطقه + امتیاز + تأیید گیسو + توضیح کوتاه + CTA اصلی رزرو + CTA دوم گفتگو #}
+<section class="bc-hero-lux" aria-label="معرفی سالن">
+  <div class="bc-hero-lux-grid">
+    <div class="bc-hero-media" data-center-carousel>
+      <div class="bc-carousel-track">
+        <button type="button" class="bc-carousel-slide is-hero" data-lightbox-src="{{ url_for('beauty_centers.center_media',center_id=center.id) }}" aria-label="بزرگ‌نمایی تصویر اصلی">
+          <img src="{{ url_for('beauty_centers.center_media',center_id=center.id) }}" alt="نمای {{ center.name }}" width="900" height="600" decoding="async" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'">
+          <span class="bc-img-fallback"><i class="fas fa-spa"></i><b>تصویر مرکز ثبت نشده است</b><small>اطلاعات و خدمات مرکز همچنان قابل مشاهده است.</small></span>
+          <span class="bc-card-shade"></span>
+        </button>
+        {% for image in gallery_images %}
+        <button type="button" class="bc-carousel-slide is-hero" data-lightbox-src="{{ url_for('beauty_centers.gallery_media',image_id=image.id) }}" aria-label="بزرگ‌نمایی تصویر {{ loop.index + 1 }}">
+          <img src="{{ url_for('beauty_centers.gallery_media',image_id=image.id) }}" alt="تصویر {{ loop.index + 1 }} از {{ center.name }}" loading="lazy" onerror="this.onerror=null;this.src='/static/images/logo-96.webp'">
+          <span class="bc-card-shade"></span>
+        </button>
+        {% endfor %}
+      </div>
+      {% if gallery_images %}
+      <button type="button" class="bc-carousel-nav bc-carousel-prev" data-carousel-prev aria-label="تصویر قبلی"><i class="fas fa-chevron-right"></i></button>
+      <button type="button" class="bc-carousel-nav bc-carousel-next" data-carousel-next aria-label="تصویر بعدی"><i class="fas fa-chevron-left"></i></button>
+      <div class="bc-carousel-dots" aria-hidden="true">{% for _ in range((gallery_images|length)+1) %}<i class="{{ 'active' if loop.first }}"></i>{% endfor %}</div>
+      {% endif %}
+      <div class="bc-hero-ribbons">
+        {% if center.is_featured %}<span class="bc-ribbon is-featured">منتخب گیسو</span>{% endif %}
+        {% if center.promotion_active %}<span class="bc-ribbon is-selected">پیشنهاد ویژه</span>{% endif %}
+        {% if feedback and feedback.count>=3 %}<span class="bc-ribbon is-score">⭐ {{ feedback.score }} از ۵ — {{ feedback.count }} نظر</span>{% endif %}
+      </div>
+    </div>
+    <div class="bc-hero-copy">
+      <div class="bc-detail-eyebrow"><span class="bc-kicker">{{ center.type_label }}</span><span class="bc-category">{{ center.category_label }}</span>{% if center.region %}<span class="bc-category is-region">{{ center.region }}</span>{% endif %}</div>
+      <h1>{{ center.name }} {% if center.status=='published' %}<span class="bc-verified-badge" title="اطلاعات تماس بررسی شده"><i class="fas fa-circle-check"></i> تأیید گیسو</span>{% endif %}</h1>
+      <p class="bc-detail-location"><i class="fas fa-location-dot"></i> مشهد{% if center.region %}، {{ center.region }}{% endif %} {% if feedback and feedback.count>=3 %}— <span class="bc-hero-score"><span class="bc-stars">★★★★★<span class="bc-stars-fill" style="width: {{ (feedback.score/5*100)|int }}%">★★★★★</span></span> {{ feedback.score }} ({{ feedback.count }})</span>{% endif %}</p>
+      {% if center.description %}<p class="bc-description bc-hero-desc">{{ center.description }}</p>{% endif %}
+      <div class="bc-detail-cost bc-hero-cost"><span>سطح هزینه: <b>{{ center.price_level_label }}</b></span>{% if center.starting_price %}<strong>شروع از {{ toman(center.starting_price) }}</strong>{% else %}<strong>قیمت پس از بررسی</strong>{% endif %}<small>مبلغ نهایی پس از هماهنگی با مرکز</small></div>
+      <div class="bc-hero-ctas">
+        {% if center_services and center_services|length>0 %}
+        <a href="#bcServices" class="bc-btn bc-btn-primary bc-hero-primary">📅 رزرو نوبت — مشاهده خدمات</a>
+        {% else %}
+        <a href="{{ url_for('beauty_reservations.reserve', slug=center.slug) }}" class="bc-btn bc-btn-primary bc-hero-primary">📅 رزرو نوبت</a>
+        {% endif %}
+        {% if current_user.is_authenticated and current_user.id==center.owner_user_id %}
+        <a class="bc-btn bc-btn-outline" href="{{ url_for('beauty_centers.owner_dashboard',tab='edit') }}"><i class="fas fa-gear"></i> مدیریت</a>
+        {% elif current_user.is_authenticated %}
+        <a class="bc-btn bc-btn-outline bc-chat-primary" href="{{ url_for('beauty_centers.center_chat',slug=center.slug) }}"><i class="fas fa-comments"></i> گفتگو</a>
+        {% else %}
+        <a class="bc-btn bc-btn-outline bc-chat-primary" href="{{ url_for('login',next=url_for('beauty_centers.center_chat',slug=center.slug)) }}"><i class="fas fa-comments"></i> گفتگو</a>
+        {% endif %}
+      </div>
+      <div class="bc-trust-line"><span class="bc-checked"><i class="fas fa-circle-check"></i> اطلاعات تماس و مشخصات اولیه بررسی شده</span><small>تضمین کیفیت نیست</small></div>
+      <dl class="bc-facts bc-facts-inline"><div><dt>بازدید</dt><dd>{{ center.views_count }}</dd></div><div><dt>تماس</dt><dd>{{ center.contact_clicks or 0 }}</dd></div><div><dt>آدرس</dt><dd>{{ (center.address_summary or 'ثبت نشده')[:60] }}</dd></div></dl>
+    </div>
+  </div>
+</section>
+
+{# معرفی کوتاه #}
+{% if center.description %}
+<section class="bc-intro-section"><h2>معرفی سالن</h2><p class="bc-description">{{ center.description }}</p></section>
+{% endif %}
+
+{# خدمات — قلب صفحه — Service Cards + service_key filter — FINBUTI #}
+<section class="bc-services bc-services-lux" id="bcServices">
+  <header><h2>خدمات این مرکز</h2><p>خدماتی که مدیر سالن هنگام ثبت انتخاب کرده — قیمت و مدت اعلامی خود مرکز است.</p></header>
+
+  {# Chip filter [همه][ابرو][مو][آرایش][ناخن] — Reuse SERVICES dict #}
+  <div class="bc-chip-filter" role="tablist" aria-label="فیلتر خدمات">
+    <button type="button" class="bc-chip active" data-service-filter="all" role="tab" aria-selected="true">همه</button>
+    <button type="button" class="bc-chip" data-service-filter="brow" role="tab">ابرو</button>
+    <button type="button" class="bc-chip" data-service-filter="haircut hair_color bleach hair_repair keratin straightening extension braid scalp_care" role="tab">مو</button>
+    <button type="button" class="bc-chip" data-service-filter="makeup hairstyle lip_shading lash bridal" role="tab">آرایش</button>
+    <button type="button" class="bc-chip" data-service-filter="nail" role="tab">ناخن</button>
+    <button type="button" class="bc-chip" data-service-filter="facial skin_cleansing skin_hydration face_care" role="tab">پوست</button>
+  </div>
+
+  {% if center_services %}
+  <div class="bc-service-grid-lux" id="bcServiceGrid">
+    {% for service in center_services %}
+    {% set svc_key = service.service_key or '' %}
+    {% set svc_cat = service.category or '' %}
+    <article class="bc-service-card-lux" data-service-key="{{ svc_key }}" data-category="{{ svc_cat }}" data-service-id="{{ service.id }}">
+      <div class="bc-service-card-head"><i class="fas fa-wand-sparkles"></i><b>{{ service.name }}</b>{% if service.category %}<span class="bc-category">{{ service.category }}</span>{% endif %}{% if service.is_featured_service %}<span class="bc-ribbon is-featured" style="position:static;">ویژه</span>{% endif %}{% if service.service_key %}<span class="bc-category is-service-key">{{ service.service_key }}</span>{% endif %}</div>
+      {% if service.description %}<p class="bc-service-item-note">{{ service.description }}</p>{% endif %}
+      <div class="bc-service-item-meta"><strong>{{ service.price_label }}</strong><span><i class="fas fa-clock"></i> {{ service.duration_label }}</span></div>
+      <div class="bc-service-card-actions">
+        <a href="{{ url_for('beauty_reservations.reserve', slug=center.slug, service_id=service.id) }}" class="bc-btn bc-btn-primary bc-btn-sm">📅 رزرو {{ service.name[:20] }}</a>
+        <a href="{{ url_for('beauty_centers.center_chat', slug=center.slug) }}" class="bc-btn bc-btn-outline bc-btn-sm">💬 مشاوره</a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <small class="bc-service-legal">این مبلغ قیمت نهایی نیست؛ مبلغ و شرایط قطعی را مستقیم با مرکز هماهنگ کنید.</small>
+  {% else %}
+  <div class="bc-service-grid">{% for label in center.service_labels %}<article><i class="fas fa-wand-sparkles"></i><b>{{ label }}</b><span>اطلاعات و هماهنگی مستقیم با مرکز</span></article>{% else %}<p>خدمتی ثبت نشده است.</p>{% endfor %}</div>
+  {% endif %}
+</section>
+
+{# خدمت انتخاب‌شده — اگر ?service= یا ?service_id= — نمایش جزئیات + نمونه‌کار همان خدمت + قیمت + رزرو #}
+{% if selected_service %}
+<section class="bc-selected-service" id="bcSelectedService">
+  <div class="bc-selected-info"><i class="fas fa-star"></i><div><h3>خدمت انتخاب‌شده: {{ selected_service.name }}</h3><p>{{ selected_service.description or 'خدمت انتخاب‌شده از همین سالن' }} — {{ selected_service.price_label }} — {{ selected_service.duration_label }}</p><span>این بخش مستقیماً با Mirror service_key هماهنگ است.</span></div></div>
+</section>
+{% endif %}
+
+{# نمونه‌کارها — Portfolio — Gallery filter per service — FINBUTI #}
+<section class="bc-portfolio-section" id="bcPortfolio">
+  <header><span class="bc-kicker">گالری واقعی سالن</span><h2>نمونه‌کارها</h2><p>تصاویر عمومی و تصاویر به تفکیک خدمت — service_key خالی = عمومی</p></header>
+  <div class="bc-chip-filter" role="tablist" aria-label="فیلتر نمونه‌کار">
+    <button type="button" class="bc-chip active" data-gallery-filter="all" role="tab" aria-selected="true">همه</button>
+    <button type="button" class="bc-chip" data-gallery-filter="brow" role="tab">ابرو</button>
+    <button type="button" class="bc-chip" data-gallery-filter="hair_color" role="tab">مو</button>
+    <button type="button" class="bc-chip" data-gallery-filter="lip_shading" role="tab">آرایش</button>
+    <button type="button" class="bc-chip" data-gallery-filter="nail" role="tab">ناخن</button>
+    <button type="button" class="bc-chip" data-gallery-filter="facial" role="tab">پوست</button>
+  </div>
+  <div class="bc-gallery-grid-lux" id="bcGalleryGrid">
+    <button type="button" class="bc-gallery-item-lux" data-lightbox-src="{{ url_for('beauty_centers.center_media',center_id=center.id) }}" data-service-key="" aria-label="تصویر اصلی">
+      <img src="{{ url_for('beauty_centers.center_media',center_id=center.id) }}" alt="نمای {{ center.name }}" loading="lazy" onerror="this.style.display='none'">
+      <span class="bc-gallery-badge">اصلی</span>
+    </button>
+    {% for image in gallery_images %}
+    <button type="button" class="bc-gallery-item-lux" data-lightbox-src="{{ url_for('beauty_centers.gallery_media',image_id=image.id) }}" data-service-key="{{ image.service_key if image.service_key is defined else '' }}" aria-label="تصویر {{ loop.index + 1 }}">
+      <img src="{{ url_for('beauty_centers.gallery_media',image_id=image.id) }}" alt="تصویر {{ loop.index + 1 }} از {{ center.name }}" loading="lazy" onerror="this.style.display='none'">
+      {% if image.service_key %}<span class="bc-gallery-badge">{{ image.service_key }}</span>{% else %}<span class="bc-gallery-badge is-general">عمومی</span>{% endif %}
+    </button>
+    {% endfor %}
+  </div>
+  {% if not gallery_images %}<div class="bc-empty"><p>هنوز نمونه‌کاری ثبت نشده — تصاویر عمومی در اسلایدر بالا نمایش داده می‌شود.</p></div>{% endif %}
+</section>
+
+{# اعتماد — امتیاز + نظر + تأیید گیسو + تعداد رزرو + سابقه + تصاویر واقعی #}
+<section class="bc-center-score bc-trust-lux" id="bcTrust">
+  <header><span class="bc-kicker">ارزیابی‌های واقعی کاربران</span><h2>اعتماد و امتیاز</h2></header>
+  {% if feedback and feedback.count>=3 %}
+  <div class="bc-score-value"><strong>{{ feedback.score }}</strong><span>از ۵</span><em>{{ feedback.score100 }} از ۱۰۰</em></div>
+  <div class="bc-score-summary"><b>{{ feedback.label }}</b><p>بر اساس {{ feedback.count }} ارزیابی معتبر پس از گفتگوی واقعی با مرکز</p><div class="bc-stars">★★★★★<span class="bc-stars-fill" style="width: {{ (feedback.score/5*100)|int }}%">★★★★★</span></div></div>
+  {% else %}
+  <div class="bc-score-empty"><i class="fas fa-chart-simple"></i><p>هنوز ارزیابی کافی برای نمایش امتیاز عمومی ثبت نشده است.</p></div>
+  {% endif %}
+  <div class="bc-trust-badges">
+    <span class="bc-checked"><i class="fas fa-circle-check"></i> اطلاعات تماس بررسی شده</span>
+    <span class="bc-checked"><i class="fas fa-eye"></i> {{ center.views_count }} بازدید</span>
+    <span class="bc-checked"><i class="fas fa-phone"></i> {{ center.contact_clicks or 0 }} تماس</span>
+    {% if center.is_featured %}<span class="bc-checked"><i class="fas fa-crown"></i> منتخب گیسو</span>{% endif %}
+  </div>
+  {% if feedback_rows %}
+  <div class="bc-feedback-list">
+    {% for fb in feedback_rows[:10] %}
+    <article class="bc-feedback-item"><header><b>{{ fb.user_name or 'کاربر گیسو' }}</b><time>{{ fb.created_at[:10] if fb.created_at else '' }}</time><span class="bc-stars" style="font-size:.8rem;">★★★★★<span class="bc-stars-fill" style="width: {{ (fb.overall_level|default(3)*20)|int }}%">★★★★★</span></span></header><p>{{ fb.comment or fb.overall_level or 'ارزیابی ثبت شده' }}</p><small>پاسخ‌گویی: {{ fb.response_level }} — قیمت: {{ fb.price_level }} — کلی: {{ fb.overall_level }}</small></article>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <small>این امتیاز از انتخاب خوب، متوسط یا ضعیف کاربران محاسبه می‌شود و تضمین کیفیت یا نتیجه خدمات حضوری نیست.</small>
+</section>
+
+{# ساعات و موقعیت #}
+<div class="bc-info-grid">
+  {% if beauty_hours %}
+  <div class="bc-hours-public bc-card-lux"><h3><i class="fas fa-clock"></i> ساعات کاری مرکز</h3><ul>{% for day in beauty_hours %}<li class="{{ 'is-today' if day.day_of_week == today_weekday else '' }} {{ 'is-closed' if day.is_closed else '' }}"><span>{{ day.day_label }}</span><b>{{ day.time_label }}</b></li>{% endfor %}</ul></div>
+  {% endif %}
+  <dl class="bc-facts bc-card-lux"><div><dt>آدرس تقریبی</dt><dd>{{ center.address_summary or 'ثبت نشده' }}</dd></div><div><dt>زمان پاسخ‌گویی</dt><dd>{{ center.contact_time or 'با مرکز هماهنگ کنید' }}</dd></div><div><dt>شهر/منطقه</dt><dd>مشهد{% if center.region %}، {{ center.region }}{% endif %}</dd></div><div><dt>بازدید صفحه</dt><dd>{{ center.views_count }}</dd></div></dl>
+</div>
+
+{# گفتگو / رزرو #}
+<section class="bc-contact bc-card-lux" id="center-contact"><span class="bc-kicker">ارتباط مستقیم</span><h2>گفتگو و تماس با مرکز</h2><p>برای سؤال درباره خدمت، هزینه تقریبی یا زمان مراجعه مستقیماً پیام بدهید.</p>
+{% if current_user.is_authenticated and current_user.id==center.owner_user_id %}<a class="bc-btn bc-owner-manage" href="{{ url_for('beauty_centers.owner_dashboard',tab='edit') }}"><i class="fas fa-gear"></i> مدیریت این آگهی</a>
+{% elif current_user.is_authenticated %}<a class="bc-btn bc-btn-primary bc-chat-primary" href="{{ url_for('beauty_centers.center_chat',slug=center.slug) }}"><i class="fas fa-comments"></i> گفتگوی آنلاین با مرکز</a>
+{% else %}<a class="bc-btn bc-btn-primary bc-chat-primary" href="{{ url_for('login',next=url_for('beauty_centers.center_chat',slug=center.slug)) }}"><i class="fas fa-comments"></i> ورود و گفتگوی آنلاین</a>{% endif %}
+{% if not current_user.is_authenticated %}<div class="bc-contact-locked"><i class="fas fa-lock"></i><p>برای مشاهده شماره تماس وارد حساب شوید.</p><a class="bc-btn bc-btn-outline" href="{{ url_for('login',next=request.path) }}">ورود</a><a class="bc-btn bc-btn-soft" href="{{ url_for('register',next=request.path) }}">ثبت‌نام</a></div>
+{% elif current_user.id==center.owner_user_id %}<p class="bc-owner-note">این صفحه عمومی مرکز شماست؛ اطلاعات تماس برای سایر اعضای واردشده نمایش داده می‌شود.</p>
+{% elif contact_revealed %}{% set shown_phone = center.salon_phone if (center.display_phone_choice|default(''))=='salon' and center.salon_phone else center.business_phone %}{% set phone_label = 'تلفن آرایشگاه' if (center.display_phone_choice|default(''))=='salon' and center.salon_phone else 'شماره تماس کاری' %}<div class="bc-phone"><small>{{ phone_label }}</small><strong dir="ltr">{{ display_phone(shown_phone) }}</strong><a class="bc-btn bc-btn-outline" href="tel:{{ shown_phone }}"><i class="fas fa-phone"></i> تماس مستقیم</a></div>
+{% else %}<form method="post" action="{{ url_for('beauty_centers.center_contact',center_id=center.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="intent" value="price_inquiry"><button class="bc-btn bc-btn-outline" type="submit"><i class="fas fa-eye"></i> نمایش شماره تماس</button></form>{% endif %}
+<p class="bc-contact-note">گیسو بستر معرفی و ارتباط است؛ توافق، قیمت و ارائه خدمت مستقیماً میان شما و مرکز انجام می‌شود.</p></section>
+
+<section class="bc-legal bc-card-lux"><i class="fas fa-scale-balanced"></i><div><h2>حدود نقش گیسو</h2><p>{{ disclaimer }}</p></div></section>
+
+</div>
+
+<div class="bc-lightbox" id="bcCenterLightbox" hidden role="dialog" aria-modal="true" aria-label="نمایش بزرگ تصویر"><button type="button" class="bc-lightbox-close" aria-label="بستن">×</button><img src="" alt="تصویر بزرگ مرکز"></div>
+
+{# Bottom sticky CTA for mobile — FINBUTI + 3d site.md Mobile-first #}
+<div class="bc-sticky-cta" id="bcStickyCta" aria-label="رزرو سریع">
+  <a href="#bcServices" class="bc-btn bc-btn-primary">📅 رزرو نوبت</a>
+  {% if current_user.is_authenticated %}<a href="{{ url_for('beauty_centers.center_chat',slug=center.slug) }}" class="bc-btn bc-btn-outline">💬 گفتگو</a>{% else %}<a href="{{ url_for('login',next=url_for('beauty_centers.center_chat',slug=center.slug)) }}" class="bc-btn bc-btn-outline">💬 گفتگو</a>{% endif %}
+</div>
+
+</main>
+{% if center.status=='published' and center.is_active %}
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":{{ center.name|tojson }},"description":{{ (center.description or center.type_label)|tojson }},"image":{{ url_for('beauty_centers.center_media',center_id=center.id,_external=True)|tojson }},"address":{"@type":"PostalAddress","addressLocality":"مشهد","addressRegion":{{ center.region|tojson }}},"url":{{ url_for('beauty_centers.center_detail',slug=center.slug,_external=True)|tojson }}{% if feedback and feedback.count>=3 %},"aggregateRating":{"@type":"AggregateRating","ratingValue":{{ feedback.score|tojson }},"reviewCount":{{ feedback.count|tojson }}}{% endif %}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"خانه","item":{{ url_for('index',_external=True)|tojson }}},{"@type":"ListItem","position":2,"name":"مراکز زیبایی","item":{{ url_for('beauty_centers.list_centers',_external=True)|tojson }}},{"@type":"ListItem","position":3,"name":{{ center.name|tojson }},"item":{{ url_for('beauty_centers.center_detail',slug=center.slug,_external=True)|tojson }}}]}</script>
+{% endif %}
+{% endblock %}
+{% block scripts %}{{ super() }}<script src="{{ url_for('beauty_centers.static',filename='beauty_centers.js') }}?v=14" defer></script>{% endblock %}

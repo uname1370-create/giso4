@@ -4,25 +4,247 @@
 {% if request.args.get('tab') == 'consultant' %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/consultant.css') }}?v=2">
 {% endif %}
+<style>
+/* FINBUTI — Beauty Ecosystem / Mirror History — Luxury Minimal */
+.pu-analysis-hub { --lux-rose:#c85873; --lux-gold:#c9962e; --lux-line:#f3dcdc; --lux-radius:18px; }
+.pu-analysis-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 20px; }
+.pu-analysis-tabs a { padding:8px 14px; border:1px solid var(--lux-line); border-radius:99px; background:#fff; color:#352d2f; font-size:.82rem; font-weight:700; text-decoration:none; transition:all .15s ease; }
+.pu-analysis-tabs a.active { background:linear-gradient(135deg,var(--lux-rose),#a8425c); color:#fff; border-color:var(--lux-rose); box-shadow:0 8px 20px rgba(200,88,115,.18); }
+.pu-analysis-tabs a em { margin-right:6px; padding:2px 7px; border-radius:99px; background:rgba(0,0,0,.08); font-style:normal; font-size:.7rem; }
+.pu-analysis-tabs a.active em { background:rgba(255,255,255,.22); }
+.mirror-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:18px; }
+.mirror-card { border:1px solid var(--lux-line); border-radius:var(--lux-radius); background:#fff; box-shadow:0 12px 28px rgba(91,52,59,.07); overflow:hidden; display:flex; flex-direction:column; transition:transform .22s ease, box-shadow .22s ease; }
+.mirror-card:hover { transform:translateY(-4px); box-shadow:0 20px 40px rgba(200,88,115,.14); }
+.mirror-card-media { position:relative; display:grid; grid-template-columns:1fr 1fr; gap:2px; background:#f7ece8; aspect-ratio: 2/1; overflow:hidden; }
+.mirror-card-media img { width:100%; height:100%; object-fit:cover; display:block; }
+.mirror-card-media .mirror-fallback { grid-column:1/-1; display:grid; place-items:center; padding:20px; color:#76696c; background:#f7ece8; }
+.mirror-card-body { padding:14px 16px; display:grid; gap:8px; flex:1; }
+.mirror-card-body h3 { margin:0; font-size:1rem; line-height:1.6; }
+.mirror-card-meta { display:flex; flex-wrap:wrap; gap:6px; }
+.mirror-chip { padding:4px 10px; border-radius:99px; background:#fff1f3; border:1px solid #f0cdd4; color:#8f3850; font-size:.68rem; font-weight:800; }
+.mirror-chip.is-ai { background:#e9f7ef; border-color:#b9e2c8; color:#1c7a45; }
+.mirror-chip.is-fallback { background:#fff6db; border-color:#ecd9a4; color:#8a6d1b; }
+.mirror-card-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.mirror-card-actions .pu-btn { flex:1; justify-content:center; min-width:120px; }
+.pu-analysis-overview { display:grid; gap:18px; }
+.pu-overview-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+.pu-overview-card { padding:16px; border:1px solid var(--lux-line); border-radius:16px; background:#fff; }
+.pu-overview-card strong { display:block; font-size:1.4rem; color:var(--lux-rose); }
+.pu-overview-card span { color:#76696c; font-size:.78rem; }
+@media(max-width:640px){ .mirror-grid{grid-template-columns:1fr;} .pu-analysis-tabs a{flex:1 1 auto; text-align:center;} }
+</style>
 {% endblock %}
 {% block content %}
-{% set tab=request.args.get('tab','overview') %}{% if tab not in ('overview','hair','skin','consultant','archive') %}{% set tab='overview' %}{% endif %}
+{% set tab=request.args.get('tab','overview') %}
+{% if tab not in ('overview','eyebrow','hair','makeup','nail','consultant','archive','skin') %}{% set tab='overview' %}{% endif %}
 <div class="pu-page pu-analysis-hub">
-<header class="pu-market-page-head"><div><h1 class="pu-h1">🔍 آنالیزهای من</h1><p class="pu-sub">گزارش، برنامه و پیشنهادهای مو و پوست را جدا و منظم ببینید.</p></div><a href="{{ url_for('analysis') }}" class="pu-btn pu-btn-rose">➕ آنالیز جدید</a></header>
-<nav class="pu-tabs pu-analysis-tabs"><a class="{{ 'active' if tab=='overview' }}" href="{{ url_for('panel_user.analyses',tab='overview') }}">وضعیت کلی من</a><a class="{{ 'active' if tab=='hair' }}" href="{{ url_for('panel_user.analyses',tab='hair') }}">آنالیز مو <em>{{ hair_analyses|length }}</em></a><a class="{{ 'active' if tab=='skin' }}" href="{{ url_for('panel_user.analyses',tab='skin') }}">آنالیز پوست <em>{{ skin_analyses|length }}</em></a><a class="{{ 'active' if tab=='consultant' }}" href="{{ url_for('panel_user.analyses',tab='consultant') }}">گفتگو با مشاور</a><a class="{{ 'active' if tab=='archive' }}" href="{{ url_for('panel_user.analyses',tab='archive') }}">بایگانی <em>{{ archived_analyses|length }}</em></a></nav>
-{% if tab=='overview' %}<div class="pu-analysis-overview"><section class="pu-card"><h2>💇 وضعیت آخرین آنالیز مو</h2>{% if latest_hair %}{% set a=latest_hair %}{% include 'user_modules/_analysis_summary.html' %}{% else %}<p>آنالیز مویی ثبت نشده است.</p>{% endif %}</section><section class="pu-card"><h2>✨ وضعیت آخرین آنالیز پوست</h2>{% if latest_skin %}{% set a=latest_skin %}{% include 'user_modules/_analysis_summary.html' %}{% else %}<p>آنالیز پوستی ثبت نشده است.</p>{% endif %}</section></div>
-{% elif tab in ('hair','skin') %}{% set items=hair_analyses if tab=='hair' else skin_analyses %}<div class="pu-analysis-list">{% for a in items %}<article class="pu-card pu-analysis-card"><header><div><b>{{ 'آنالیز مو' if tab=='hair' else 'آنالیز پوست' }} #{{ a.row.id }}</b><time>{{ a.date_fa }}</time></div><span>{{ 'گزارش آماده' if a.has_report else 'در حال تکمیل' }}</span></header>{% include 'user_modules/_analysis_summary.html' %}<div class="pu-btn-row">{% if a.has_report %}<a class="pu-btn pu-btn-rose pu-btn-sm" href="/analysis/{{ tab }}/report?id={{ a.row.id }}">مشاهده گزارش</a>{% endif %}{% if a.has_plan %}<a class="pu-btn pu-btn-outline pu-btn-sm" href="{{ url_for('analysis_plan') }}?id={{ a.row.id }}">برنامه اختصاصی</a>{% endif %}{% if a.has_quick %}<a class="pu-btn pu-btn-outline pu-btn-sm" href="{{ url_for('analysis_quick_solution') }}?id={{ a.row.id }}">راهکار سریع</a>{% endif %}<form method="post" action="{{ url_for('panel_user.analysis_archive',analysis_id=a.row.id) }}" onsubmit="return confirm('این آنالیز بایگانی شود؟');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pu-btn pu-btn-quiet pu-btn-sm">بایگانی</button></form></div></article>{% else %}<div class="pu-empty"><p>هنوز آنالیزی در این بخش ندارید.</p></div>{% endfor %}</div>{% if analysis_products %}<section class="pu-card pu-analysis-products-section"><h2>{{ 'محصولات مرتبط با وضعیت شما' if products_personalized else 'محصولات عمومی برای مراقبت' }}</h2>{% if not products_personalized %}<div class="pu-analysis-ai-cta"><div><b>پیشنهاد دقیق‌تری می‌خواهید؟</b><p>نتیجه آنالیزتان را با همراه هوشمند بررسی کنید تا مسیر مناسب‌تری پیدا کنید.</p></div><a class="pu-btn pu-btn-rose" href="{{ url_for('panel_user.analyses',tab='consultant') }}">گفتگو با همراه هوشمند</a></div>{% endif %}<div class="pu-analysis-product-grid">{% for p in analysis_products[:3] %}<a class="pu-analysis-product-card" href="{{ url_for('product_detail',product_id=p.product_id) }}">{% if p.image_path %}<img src="{{ url_for('static',filename=p.image_path) }}" alt="{{ p.name }}" loading="lazy">{% else %}<span class="pu-product-placeholder"><i class="fas fa-bag-shopping"></i></span>{% endif %}<div><b>{{ p.name }}</b><p>{{ p.short_description or p.description or ('محصول موجود برای مراقبت ' ~ (p.category or 'زیبایی')) }}</p><small>{{ 'مرتبط با اطلاعات ثبت‌شده شما' if p.personalized else 'محصول عمومی موجود در فروشگاه' }}</small><strong>{{ toman(p.price) }}</strong></div></a>{% endfor %}</div></section>{% endif %}
-{% elif tab=='archive' %}<section class="pu-analysis-list">{% for a in archived_analyses %}<article class="pu-card pu-analysis-card"><header><div><b>{{ 'آنالیز مو' if a.row.type=='hair' else 'آنالیز پوست' }} #{{ a.row.id }}</b><time>{{ a.date_fa }}</time></div><span>بایگانی‌شده</span></header>{% include 'user_modules/_analysis_summary.html' %}<div class="pu-btn-row">{% if a.has_report %}<a class="pu-btn pu-btn-outline pu-btn-sm" href="/analysis/{{ a.row.type }}/report?id={{ a.row.id }}">مشاهده گزارش</a>{% endif %}<form method="post" action="{{ url_for('panel_user.analysis_restore',analysis_id=a.row.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pu-btn pu-btn-rose pu-btn-sm">بازیابی آنالیز</button></form></div></article>{% else %}<div class="pu-empty"><p>آنالیز بایگانی‌شده‌ای ندارید.</p></div>{% endfor %}</section>{% else %}
+<header class="pu-market-page-head">
+  <div>
+    <h1 class="pu-h1">💎 زیبایی من — آنالیزهای من</h1>
+    <p class="pu-sub">یک صفحه واحد برای آنالیزهای قدیمی مو/پوست و تاریخچه آینه هوشمند — تب‌های ابرو، مو، آرایش، ناخن — مشاهده نتیجه و رزرو همان خدمت.</p>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <a href="{{ url_for('buti_ai.mirror_home') }}" class="pu-btn pu-btn-outline">🪞 آینه زیبایی</a>
+    <a href="{{ url_for('analysis') }}" class="pu-btn pu-btn-rose">➕ آنالیز جدید</a>
+  </div>
+</header>
+
+<nav class="pu-tabs pu-analysis-tabs">
+  <a class="{{ 'active' if tab=='overview' }}" href="{{ url_for('panel_user.analyses',tab='overview') }}">وضعیت کلی <em>{{ tab_counts.overview if tab_counts else 0 }}</em></a>
+  <a class="{{ 'active' if tab=='eyebrow' }}" href="{{ url_for('panel_user.analyses',tab='eyebrow') }}">🪞 ابرو <em>{{ tab_counts.eyebrow if tab_counts else 0 }}</em></a>
+  <a class="{{ 'active' if tab=='hair' }}" href="{{ url_for('panel_user.analyses',tab='hair') }}">💇 مو <em>{{ tab_counts.hair if tab_counts else 0 }}</em></a>
+  <a class="{{ 'active' if tab=='makeup' }}" href="{{ url_for('panel_user.analyses',tab='makeup') }}">💋 آرایش <em>{{ tab_counts.makeup if tab_counts else 0 }}</em></a>
+  <a class="{{ 'active' if tab=='nail' }}" href="{{ url_for('panel_user.analyses',tab='nail') }}">💅 ناخن <em>{{ tab_counts.nail if tab_counts else 0 }}</em></a>
+  <a class="{{ 'active' if tab=='consultant' }}" href="{{ url_for('panel_user.analyses',tab='consultant') }}">گفتگو با مشاور</a>
+  <a class="{{ 'active' if tab=='archive' }}" href="{{ url_for('panel_user.analyses',tab='archive') }}">بایگانی <em>{{ tab_counts.archive if tab_counts else 0 }}</em></a>
+</nav>
+
+{% if tab=='overview' %}
+<div class="pu-analysis-overview">
+  <div class="pu-overview-grid">
+    <div class="pu-overview-card"><strong>{{ tab_counts.eyebrow if tab_counts else 0 }}</strong><span>طراحی ابرو (Mirror)</span><small style="display:block; color:#9a8a8e; margin-top:4px;">{{ latest_eyebrow.short_title if latest_eyebrow else 'هنوز طراحی ندارید' }}</small></div>
+    <div class="pu-overview-card"><strong>{{ tab_counts.hair if tab_counts else 0 }}</strong><span>آنالیز مو + رنگ مو</span><small style="display:block; color:#9a8a8e; margin-top:4px;">قدیمی: {{ tab_counts.hair_old if tab_counts else 0 }} — Mirror: {{ mirror_counts.hair_color if mirror_counts else 0 }}</small></div>
+    <div class="pu-overview-card"><strong>{{ tab_counts.makeup if tab_counts else 0 }}</strong><span>آرایش (لب + پوست قدیمی)</span><small style="display:block; color:#9a8a8e; margin-top:4px;">لب: {{ mirror_counts.lip_shading if mirror_counts else 0 }} — پوست: {{ tab_counts.skin_old if tab_counts else 0 }}</small></div>
+    <div class="pu-overview-card"><strong>{{ tab_counts.nail if tab_counts else 0 }}</strong><span>طراحی ناخن</span><small style="display:block; color:#9a8a8e; margin-top:4px;">{{ latest_nail.short_title if latest_nail else 'هنوز طراحی ندارید' }}</small></div>
+  </div>
+
+  <section class="pu-card"><h2>💇 آخرین آنالیز مو</h2>
+    {% if latest_hair %}{% set a=latest_hair %}{% include 'user_modules/_analysis_summary.html' %}{% else %}<p>آنالیز مویی ثبت نشده است.</p>{% endif %}
+  </section>
+  <section class="pu-card"><h2>🪞 آخرین طراحی ابرو</h2>
+    {% if latest_eyebrow %}
+      <div style="display:flex; gap:12px; align-items:center;">
+        <div style="flex:1;"><b>{{ latest_eyebrow.service_label }}</b> — {{ latest_eyebrow.selected_style }}<br><small>{{ latest_eyebrow.date_fa }} — {{ latest_eyebrow.short_reason }}</small></div>
+        <a class="pu-btn pu-btn-rose pu-btn-sm" href="{{ url_for('buti_ai.eyebrow_wizard') }}">مشاهده</a>
+      </div>
+    {% else %}<p>طراحی ابرویی ثبت نشده است.</p>{% endif %}
+  </section>
+  <section class="pu-card"><h2>✨ آخرین آنالیز پوست (Legacy)</h2>
+    {% if latest_skin %}{% set a=latest_skin %}{% include 'user_modules/_analysis_summary.html' %}{% else %}<p>آنالیز پوستی ثبت نشده است — داده قدیمی حفظ شده و در تب آرایش نمایش داده می‌شود.</p>{% endif %}
+  </section>
+</div>
+
+{% elif tab=='eyebrow' %}
+<div class="mirror-grid">
+  {% for m in mirror_eyebrow %}
+  <article class="mirror-card">
+    <div class="mirror-card-media">
+      {% if m.has_original %}
+        <img src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=m.original_filename) }}" alt="قبل" loading="lazy" onerror="this.style.display='none'">
+      {% else %}<div class="mirror-fallback">قبل موجود نیست</div>{% endif %}
+      {% if m.has_final %}
+        <img src="{{ url_for('buti_ai.eyebrow_uploaded_file', filename=m.final_filename) }}" alt="بعد" loading="lazy" onerror="this.style.display='none'">
+      {% else %}<div class="mirror-fallback">طراحی نهایی موجود نیست — graceful fallback</div>{% endif %}
+    </div>
+    <div class="mirror-card-body">
+      <h3>{{ m.service_label }} — {{ m.selected_style }}</h3>
+      <div class="mirror-card-meta">
+        <span class="mirror-chip">{{ m.date_fa }}</span>
+        <span class="mirror-chip">{{ m.change_level }}</span>
+        {% if m.is_ai_generated %}<span class="mirror-chip is-ai">AI واقعی — {{ m.provider }}/{{ m.model }}</span>{% else %}<span class="mirror-chip is-fallback">راهنما — غیر AI — {{ m.provider }}</span>{% endif %}
+      </div>
+      <p style="margin:0; color:#76696c; font-size:.82rem; line-height:1.8;">{{ m.short_reason }}</p>
+      <div class="mirror-card-actions">
+        <a class="pu-btn pu-btn-rose pu-btn-sm" href="{{ url_for('buti_ai.eyebrow_wizard') }}">مشاهده نتیجه</a>
+        <a class="pu-btn pu-btn-outline pu-btn-sm" href="{{ url_for('beauty_centers.list_centers', service='brow') }}?final_design_id={{ m.final_design_id }}&service_key={{ m.service_key }}&selected_style={{ m.selected_style }}">رزرو همین خدمت</a>
+      </div>
+    </div>
+  </article>
+  {% else %}
+  <div class="pu-empty"><p>هنوز طراحی ابرو ندارید — از آینه ابرو شروع کنید.</p><a class="pu-btn pu-btn-rose" href="{{ url_for('buti_ai.eyebrow_wizard') }}">شروع آینه ابرو</a></div>
+  {% endfor %}
+</div>
+
+{% elif tab=='hair' %}
+<div class="mirror-grid">
+  {# Old hair analyses #}
+  {% for a in hair_analyses %}
+  <article class="pu-card pu-analysis-card">
+    <header><div><b>آنالیز مو #{{ a.row.id }}</b><time>{{ a.date_fa }}</time></div><span>{{ 'گزارش آماده' if a.has_report else 'در حال تکمیل' }}</span></header>
+    {% include 'user_modules/_analysis_summary.html' %}
+    <div class="pu-btn-row">
+      {% if a.has_report %}<a class="pu-btn pu-btn-rose pu-btn-sm" href="/analysis/hair/report?id={{ a.row.id }}">مشاهده گزارش</a>{% endif %}
+      {% if a.has_plan %}<a class="pu-btn pu-btn-outline pu-btn-sm" href="{{ url_for('analysis_plan') }}?id={{ a.row.id }}">برنامه</a>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+  {# Mirror hair_color #}
+  {% for m in mirror_hair_color %}
+  <article class="mirror-card">
+    <div class="mirror-card-media">
+      {% if m.has_original %}<img src="{{ url_for('buti_ai.generic_service_uploaded_file', service_slug=m.slug, filename=m.original_filename) }}" alt="قبل" loading="lazy" onerror="this.style.display='none'">{% else %}<div class="mirror-fallback">قبل موجود نیست</div>{% endif %}
+      {% if m.has_final %}<img src="{{ url_for('buti_ai.generic_service_uploaded_file', service_slug=m.slug, filename=m.final_filename) }}" alt="بعد" loading="lazy" onerror="this.style.display='none'">{% else %}<div class="mirror-fallback">طراحی نهایی موجود نیست</div>{% endif %}
+    </div>
+    <div class="mirror-card-body">
+      <h3>{{ m.service_label }} — {{ m.selected_style }}</h3>
+      <div class="mirror-card-meta">
+        <span class="mirror-chip">{{ m.date_fa }}</span>
+        <span class="mirror-chip">{{ m.change_level }}</span>
+        {% if m.is_ai_generated %}<span class="mirror-chip is-ai">AI واقعی</span>{% else %}<span class="mirror-chip is-fallback">راهنما</span>{% endif %}
+      </div>
+      <p style="margin:0; color:#76696c; font-size:.82rem; line-height:1.8;">{{ m.short_reason }}</p>
+      <div class="mirror-card-actions">
+        <a class="pu-btn pu-btn-rose pu-btn-sm" href="{{ url_for('buti_ai.generic_service_wizard', service_slug=m.slug) }}">مشاهده</a>
+        <a class="pu-btn pu-btn-outline pu-btn-sm" href="{{ url_for('beauty_centers.list_centers', service='hair_color') }}?final_design_id={{ m.final_design_id }}&service_key={{ m.service_key }}&selected_style={{ m.selected_style }}">رزرو همین خدمت</a>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+  {% if not hair_analyses and not mirror_hair_color %}
+  <div class="pu-empty"><p>هنوز آنالیز مو ندارید.</p><a class="pu-btn pu-btn-rose" href="{{ url_for('analysis') }}">آنالیز مو</a> <a class="pu-btn pu-btn-outline" href="{{ url_for('buti_ai.generic_service_wizard', service_slug='hair-color') }}">آینه رنگ مو</a></div>
+  {% endif %}
+</div>
+
+{% elif tab=='makeup' %}
+<div class="mirror-grid">
+  {% for m in mirror_lip %}
+  <article class="mirror-card">
+    <div class="mirror-card-media">
+      {% if m.has_original %}<img src="{{ url_for('buti_ai.generic_service_uploaded_file', service_slug=m.slug, filename=m.original_filename) }}" alt="قبل" loading="lazy" onerror="this.style.display='none'">{% else %}<div class="mirror-fallback">قبل موجود نیست</div>{% endif %}
+      {% if m.has_final %}<img src="{{ url_for('buti_ai.generic_service_uploaded_file', service_slug=m.slug, filename=m.final_filename) }}" alt="بعد" loading="lazy" onerror="this.style.display='none'">{% else %}<div class="mirror-fallback">طراحی نهایی موجود نیست</div>{% endif %}
+    </div>
+    <div class="mirror-card-body">
+      <h3>{{ m.service_label }} — {{ m.selected_style }}</h3>
+      <div class="mirror-card-meta">
+        <span class="mirror-chip">{{ m.date_fa }}</span>
+        {% if m.is_ai_generated %}<span class="mirror-chip is-ai">AI واقعی</span>{% else %}<span class="mirror-chip is-fallback">راهنما</span>{% endif %}
+      </div>
+      <p style="margin:0; color:#76696c; font-size:.82rem; line-height:1.8;">{{ m.short_reason }}</p>
+      <div class="mirror-card-actions">
+        <a class="pu-btn pu-btn-rose pu-btn-sm" href="{{ url_for('buti_ai.generic_service_wizard', service_slug=m.slug) }}">مشاهده</a>
+        <a class="pu-btn pu-btn-outline pu-btn-sm" href="{{ url_for('beauty_centers.list_centers', service='lip_shading') }}?final_design_id={{ m.final_design_id }}&service_key={{ m.service_key }}&selected_style={{ m.selected_style }}">رزرو همین خدمت</a>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+  {% for a in skin_analyses %}
+  <article class="pu-card pu-analysis-card">
+    <header><div><b>آنالیز پوست (Legacy) #{{ a.row.id }}</b><time>{{ a.date_fa }}</time></div><span>قدیمی</span></header>
+    {% include 'user_modules/_analysis_summary.html' %}
+    <div class="pu-btn-row">
+      {% if a.has_report %}<a class="pu-btn pu-btn-outline pu-btn-sm" href="/analysis/skin/report?id={{ a.row.id }}">مشاهده گزارش</a>{% endif %}
+    </div>
+  </article>
+  {% endfor %}
+  {% if not mirror_lip and not skin_analyses %}
+  <div class="pu-empty"><p>هنوز طراحی آرایش ندارید.</p><a class="pu-btn pu-btn-rose" href="{{ url_for('buti_ai.generic_service_wizard', service_slug='lip-shading') }}">آینه لب</a></div>
+  {% endif %}
+</div>
+
+{% elif tab=='nail' %}
+<div class="mirror-grid">
+  {% for m in mirror_nail %}
+  <article class="mirror-card">
+    <div class="mirror-card-media">
+      {% if m.has_original %}<img src="{{ url_for('buti_ai.generic_service_uploaded_file', service_slug=m.slug, filename=m.original_filename) }}" alt="قبل" loading="lazy" onerror="this.style.display='none'">{% else %}<div class="mirror-fallback">قبل موجود نیست</div>{% endif %}
+      {% if m.has_final %}<img src="{{ url_for('buti_ai.generic_service_uploaded_file', service_slug=m.slug, filename=m.final_filename) }}" alt="بعد" loading="lazy" onerror="this.style.display='none'">{% else %}<div class="mirror-fallback">طراحی نهایی موجود نیست</div>{% endif %}
+    </div>
+    <div class="mirror-card-body">
+      <h3>{{ m.service_label }} — {{ m.selected_style }}</h3>
+      <div class="mirror-card-meta">
+        <span class="mirror-chip">{{ m.date_fa }}</span>
+        {% if m.is_ai_generated %}<span class="mirror-chip is-ai">AI واقعی</span>{% else %}<span class="mirror-chip is-fallback">راهنما</span>{% endif %}
+      </div>
+      <p style="margin:0; color:#76696c; font-size:.82rem; line-height:1.8;">{{ m.short_reason }}</p>
+      <div class="mirror-card-actions">
+        <a class="pu-btn pu-btn-rose pu-btn-sm" href="{{ url_for('buti_ai.generic_service_wizard', service_slug=m.slug) }}">مشاهده</a>
+        <a class="pu-btn pu-btn-outline pu-btn-sm" href="{{ url_for('beauty_centers.list_centers', service='nail') }}?final_design_id={{ m.final_design_id }}&service_key={{ m.service_key }}&selected_style={{ m.selected_style }}">رزرو همین خدمت</a>
+      </div>
+    </div>
+  </article>
+  {% else %}
+  <div class="pu-empty"><p>هنوز طراحی ناخن ندارید.</p><a class="pu-btn pu-btn-rose" href="{{ url_for('buti_ai.generic_service_wizard', service_slug='nail') }}">آینه ناخن</a></div>
+  {% endfor %}
+</div>
+
+{% elif tab=='archive' %}
+<section class="pu-analysis-list">
+  {% for a in archived_analyses %}
+  <article class="pu-card pu-analysis-card">
+    <header><div><b>{{ 'آنالیز مو' if a.row.type=='hair' else 'آنالیز پوست' }} #{{ a.row.id }}</b><time>{{ a.date_fa }}</time></div><span>بایگانی‌شده</span></header>
+    {% include 'user_modules/_analysis_summary.html' %}
+    <div class="pu-btn-row">
+      {% if a.has_report %}<a class="pu-btn pu-btn-outline pu-btn-sm" href="/analysis/{{ a.row.type }}/report?id={{ a.row.id }}">مشاهده گزارش</a>{% endif %}
+      <form method="post" action="{{ url_for('panel_user.analysis_restore',analysis_id=a.row.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="pu-btn pu-btn-rose pu-btn-sm">بازیابی</button></form>
+    </div>
+  </article>
+  {% else %}<div class="pu-empty"><p>آنالیز بایگانی‌شده‌ای ندارید.</p></div>{% endfor %}
+</section>
+
+{% else %}
+{# consultant tab #}
 {% set analysis = (latest_hair.row if latest_hair else (latest_skin.row if latest_skin else none)) %}
 {% if analysis %}
 {% include 'consultant_component.html' %}
 {% else %}
-<section class="pu-card pu-analysis-consultant"><i class="fas fa-comments"></i><div><h2>گفتگو با مشاور هوشمند</h2><p>برای گفتگو با مشاور، ابتدا یک آنالیز مو یا پوست انجام دهید.</p></div><a class="pu-btn pu-btn-rose" href="{{ url_for('analysis') }}">شروع آنالیز</a></section>
+<section class="pu-card pu-analysis-consultant"><i class="fas fa-comments"></i><div><h2>گفتگو با مشاور هوشمند</h2><p>برای گفتگو با مشاور، ابتدا یک آنالیز مو یا پوست یا طراحی آینه انجام دهید.</p></div><a class="pu-btn pu-btn-rose" href="{{ url_for('analysis') }}">شروع آنالیز</a></section>
 {% endif %}
 {% endif %}
-</div>{% endblock %}
+
+</div>
+{% endblock %}
 {% block scripts %}
-{% if request.args.get('tab') == 'consultant' and (latest_hair or latest_skin) %}
+{% if tab == 'consultant' and (latest_hair or latest_skin) %}
 <script src="{{ url_for('static', filename='js/consultant.js') }}?v=2"></script>
 <script>initConsultant({{ (latest_hair or latest_skin).row.id }});</script>
 {% endif %}

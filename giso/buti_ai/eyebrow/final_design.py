@@ -20,11 +20,12 @@ FINAL_DESIGN_DIR = os.path.join(EYEBROW_UPLOAD_DIR, "final")
 
 
 STYLE_RENDER = {
-    "natural": {"alpha": 112, "width": 6, "shade": 0.14, "strokes": 11, "blur": 0.9},
-    "microblading": {"alpha": 140, "width": 3, "shade": 0.04, "strokes": 24, "blur": 0.4},
-    "powder": {"alpha": 132, "width": 10, "shade": 0.26, "strokes": 4, "blur": 1.5},
-    "combination": {"alpha": 142, "width": 8, "shade": 0.18, "strokes": 16, "blur": 0.85},
-    "giso_suggested": {"alpha": 126, "width": 7, "shade": 0.15, "strokes": 14, "blur": 0.75},
+    # آلفا و ضخامت متعادل‌تر برای اینکه پیش‌نمایش راهنما طبیعی‌تر باشد، نه ماژیک
+    "natural": {"alpha": 98, "width": 5, "shade": 0.10, "strokes": 13, "blur": 0.7},
+    "microblading": {"alpha": 125, "width": 2, "shade": 0.03, "strokes": 28, "blur": 0.3},
+    "powder": {"alpha": 110, "width": 8, "shade": 0.20, "strokes": 5, "blur": 1.2},
+    "combination": {"alpha": 120, "width": 6, "shade": 0.14, "strokes": 18, "blur": 0.65},
+    "giso_suggested": {"alpha": 108, "width": 6, "shade": 0.12, "strokes": 16, "blur": 0.6},
 }
 
 
@@ -42,6 +43,48 @@ def _render_params_for_candidate(candidate):
         params["width"] = max(2, int(params["width"] * 1.08))
         params["shade"] = min(0.42, float(params.get("shade") or 0) * 1.18)
     return params
+
+def _sample_skin_color(image, regions):
+    try:
+        w, h = image.size
+        samples = []
+        for region in regions[:2]:
+            x = int(region.get("x") or 0)
+            y = int(region.get("y") or 0)
+            rw = int(region.get("width") or 0)
+            rh = int(region.get("height") or 0)
+            for dx, dy in [(rw*0.3, -rh*0.8), (rw*0.7, -rh*0.8), (rw*0.5, rh*1.5)]:
+                sx = max(0, min(w-1, int(x + dx)))
+                sy = max(0, min(h-1, int(y + dy)))
+                try:
+                    r, g, b = image.getpixel((sx, sy))[:3]
+                    if 60 < r < 230 and 40 < g < 210 and 30 < b < 200:
+                        samples.append((r, g, b))
+                except Exception:
+                    continue
+        if not samples:
+            return (195, 165, 135)
+        avg_r = sum(s[0] for s in samples) // len(samples)
+        avg_g = sum(s[1] for s in samples) // len(samples)
+        avg_b = sum(s[2] for s in samples) // len(samples)
+        return (avg_r, avg_g, avg_b)
+    except Exception:
+        return (195, 165, 135)
+
+def _brow_color_for_skin(skin_rgb, style_key):
+    sr, sg, sb = skin_rgb
+    brightness = (sr + sg + sb) / 3.0
+    if brightness > 180:
+        base = (58, 38, 28)
+    elif brightness > 130:
+        base = (46, 29, 21)
+    else:
+        base = (38, 24, 18)
+    if style_key == "microblading":
+        base = (base[0]+8, base[1]+6, base[2]+4)
+    elif style_key == "powder":
+        base = (max(0, base[0]-4), max(0, base[1]-4), max(0, base[2]-3))
+    return base
 
 def _clean_text(value, fallback="", limit=220):
     text = str(value or "").strip() or fallback
@@ -189,7 +232,11 @@ def ensure_eyebrow_detection(candidate):
         return existing
     if not src:
         return {}
+    # اول سعی با تشخیص واقعی، اگر نشد با fallback نسبتی تا پیش‌نمایش قطع نشود
     detection = detect_eyebrow_regions(src, allow_fallback=False)
+    if not (isinstance(detection, dict) and detection.get("regions")):
+        # برای پیش‌نمایش راهنما، fallback مجاز است تا کاربر عکس خالی نبیند
+        detection = detect_eyebrow_regions(src, allow_fallback=True)
     if isinstance(detection, dict) and detection.get("regions"):
         detection = ensure_eyebrow_mask(src, detection)
     candidate["eyebrow_detection"] = detection
@@ -331,42 +378,41 @@ def _draw_brow(draw, cx, cy, length, arch, color, params, flip=False, mode="comb
 
 
 def build_design_prompt(candidate):
-    """پرامپت دقیق برای provider تصویر؛ فقط ناحیه ابرو و حفظ هویت کاربر."""
-    style_label = candidate.get("final_label") or _style_label(candidate.get("final_style"))
-    service_label = candidate.get("service_label") or "intelligent eyebrow design"
+    """پرامپت دقیق برای provider تصویر — دقیقاً مثل buti-test با STYLE CONTRACT."""
+    final_style_key = normalize_style_key(candidate.get("final_style"))
+    style_label = candidate.get("final_label") or _style_label(final_style_key)
     model_label = candidate.get("selected_label") or style_label
+    selected_style_key = normalize_style_key(candidate.get("selected_style") or final_style_key)
 
-    def _prompt_text(value):
-        if isinstance(value, dict):
-            return "; ".join(f"{k}: {v}" for k, v in value.items() if v)[:420]
-        if isinstance(value, (list, tuple)):
-            return "; ".join(str(x) for x in value if x)[:420]
-        return str(value or "")[:420]
+    STYLE_CONTRACTS = {
+        "natural": "STYLE CONTRACT: Natural soft eyebrow, keep own hair, light grooming. Preserve customer brow boundary, position, arch, tail, growth direction, gaps and asymmetry. Sparse soft front, natural density, tapered tail. NO powder fill, NO skin tint, NO shadow, NO halo.",
+        "microblading": "STYLE CONTRACT: Microblading fine hair strokes. Transfer ONLY fine individual hair-stroke technique from reference. Preserve customer brow boundary, position, arch, tail, growth direction, gaps and asymmetry. Individual hairs, sparse areas filled, natural direction, medium-low density, tapered tail. NO powder fill, NO skin tint, NO shadow, NO halo.",
+        "powder": "STYLE CONTRACT: Powder ombre shading. Transfer ONLY translucent powder technique from reference. Apply it strictly inside customer's existing brow region, lightest at front and gradually deeper through body/tail. Preserve customer brow position, boundary, arch, tail and asymmetry. NO pigment above/below brow, NO eyelid shadow, NO makeup halo, NO facial retouching.",
+        "combination": "STYLE CONTRACT: Combination strokes front + powder tail. Transfer ONLY combination technique from reference: fine natural hairstrokes at front plus soft translucent powder shading inside customer's existing brow region. Preserve customer brow position, boundary, arch, tail, growth direction, gaps and asymmetry. NO pigment outside brow, NO under-brow shadow, NO eyelid makeup, NEVER blocky.",
+        "giso_suggested": "STYLE CONTRACT: Balanced natural improvement. Transfer ONLY natural improvement technique. Preserve customer brow boundary, position, arch, tail, growth direction, gaps and asymmetry. Balanced density, natural finish. NO heavy fill, NO skin tint, NO halo.",
+    }
+    contract = STYLE_CONTRACTS.get(selected_style_key, STYLE_CONTRACTS.get(final_style_key, ""))
 
-    face_notes = _prompt_text(candidate.get("face_analysis"))
-    current_brows = _prompt_text(candidate.get("current_brow_summary"))
-    style_instructions = _prompt_text(candidate.get("do") or candidate.get("short_reason"))
-    avoid = _prompt_text(candidate.get("avoid"))
+    STYLE_ENGLISH = {
+        "natural": "natural soft eyebrow, keep own hair, light grooming",
+        "microblading": "microblading fine hair strokes, individual hairs, sparse areas",
+        "powder": "powder ombre shading, soft gradient, filled tail",
+        "combination": "combination strokes front + powder tail",
+        "giso_suggested": "balanced natural improvement",
+    }
+    style_en = STYLE_ENGLISH.get(selected_style_key, STYLE_ENGLISH.get(final_style_key, ""))
+
     region_text = _eyebrow_region_text(candidate)
+
+    # مثل buti-test: SCOPE دقیق و تاکید بر SAME original photograph
     return (
-        "Photorealistic image edit of the ORIGINAL customer face photo. "
-        "The selected beauty service is intelligent eyebrow design preview; apply ONLY the user-selected eyebrow model to the natural brow location. "
-        "Use the provided eyebrow pixel mask when the API request includes one; white mask pixels are the editable eyebrow area and black pixels must be preserved. "
-        "Prompt text and ROI coordinates are only descriptive metadata, not a substitute for the mask. "
-        "Edit ONLY the two eyebrow regions: brow hairs, shape, fill, tail, arch, and very local brow shadow if needed. "
-        "Hard constraint: every pixel outside the two eyebrow hair regions must remain identical to the original photo. "
-        "Do not change identity, face shape, eyes, eyelids, lashes, eye color, skin texture, hair, makeup, lips, nose, lighting, camera angle, background, jewelry, clothes, or expression. "
-        "Do not add eyeliner, mascara, eye shadow, extra eyelashes, eye retouching, skin smoothing, or glam makeup. "
-        "Keep pores, shadows and natural asymmetry realistic. No beauty filter, no new face, no illustration, no heavy retouching. "
-        f"Selected service: {service_label}. "
-        f"Selected eyebrow model: {model_label}. Final design label: {style_label}. "
-        f"Requested change level: {candidate.get('change_label', '')}. "
-        f"Real eyebrow location: {region_text}. "
-        f"Current eyebrow notes: {current_brows}. "
-        f"Face preservation notes: {face_notes}. "
-        f"Selected-style instructions: {style_instructions}. "
-        f"Avoid: {avoid}. "
-        "The result should look like the same photo after a professional eyebrow consultation preview; subtle, wearable, and salon-realistic."
+        f"STYLE EDITING TASK — apply «{selected_style_key} ({style_en}) Label:{model_label}» onto IMAGE 0 (the customer photo). IMAGE 1 if present is the selected style reference ONLY. "
+        f"{contract} "
+        f"SCOPE: edit ONLY the two existing eyebrow regions of IMAGE 0; never move, reposition or enlarge them. IMAGE 1 is technique-only: never copy its face, skin, brow placement, lighting, color cast or background — transfer only stroke and shading technique, density and finish. "
+        f"Pigment from CUSTOMER'S own brow and hair appearance plus local undertone (never a fixed HEX, never pure white, never blonde, natural dark brown/black). "
+        f"No pigment, shadow, blur, smoothing, relighting or makeup outside the brows; no white-balance or exposure shift. Keep native position, arch, tail, growth direction, gaps and asymmetry. "
+        f"FINAL: the SAME original photograph after professional brow treatment, not a new face. Realistic, salon, wearable. "
+        f"Location: {region_text}"
     )
 
 
@@ -393,8 +439,9 @@ def generate_python_guided_design(candidate):
 
         regions, detection_method, detection = _scaled_regions_for_image(candidate, w, h)
         alpha = int(params["alpha"])
-        # رنگ و شفافیت عمداً ملایم است تا خروجی fallback شبیه راهنمای مشاوره بماند، نه اجرای قطعی.
-        color = (46, 29, 21, alpha)
+        skin_rgb = _sample_skin_color(base, regions)
+        brow_rgb = _brow_color_for_skin(skin_rgb, final_style)
+        color = (brow_rgb[0], brow_rgb[1], brow_rgb[2], alpha)
         mode = "combination" if final_style in ("combination", "giso_suggested") else final_style
 
         for idx, region in enumerate(regions[:2]):

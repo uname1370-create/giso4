@@ -56,6 +56,18 @@ def _dashboard(conn) -> dict:
         "promotion_revenue": q1("SELECT COALESCE(SUM(amount),0) FROM beauty_center_promotions WHERE status<>'cancelled'"),
         "eyebrow_waitlist": qopt("SELECT COUNT(*) FROM buti_ai_waitlist WHERE service_type='eyebrow' AND status='open'"),
         "eyebrow_pre_need": qopt("SELECT COUNT(*) FROM buti_ai_service_demand WHERE service_type='eyebrow' AND status='open'"),
+        # FINBUTI P1 — all Mirror services analytics
+        "nail_final": qopt("SELECT COUNT(*) FROM buti_ai_final_designs WHERE service_type IN ('nail','manicure','pedicure')"),
+        "hair_color_final": qopt("SELECT COUNT(*) FROM buti_ai_final_designs WHERE service_type IN ('hair_color','hair')"),
+        "lip_final": qopt("SELECT COUNT(*) FROM buti_ai_final_designs WHERE service_type IN ('lip_shading','lip')"),
+        "eyebrow_final": qopt("SELECT COUNT(*) FROM buti_ai_final_designs WHERE service_type IN ('eyebrow','brow','microblading')"),
+        "total_reservations": qopt("SELECT COUNT(*) FROM beauty_center_reservations"),
+        "pending_reservations": qopt("SELECT COUNT(*) FROM beauty_center_reservations WHERE status='pending'"),
+        "mirror_linked_reservations": qopt("SELECT COUNT(*) FROM beauty_center_reservations WHERE final_design_id>0"),
+        "total_services": qopt("SELECT COUNT(*) FROM beauty_center_services WHERE is_active=1"),
+        "featured_services": qopt("SELECT COUNT(*) FROM beauty_center_services WHERE is_featured_service=1"),
+        "services_with_key": qopt("SELECT COUNT(*) FROM beauty_center_services WHERE service_key<>''"),
+        "images_with_key": qopt("SELECT COUNT(*) FROM beauty_center_images WHERE service_key<>''"),
     }
     totals["eyebrow_interest"] = totals.get("eyebrow_waitlist", 0) + totals.get("eyebrow_pre_need", 0)
     performance = [dict(r) for r in conn.execute("""
@@ -86,12 +98,21 @@ def _dashboard(conn) -> dict:
             FROM buti_ai_service_demand WHERE service_type='eyebrow'
         ) ORDER BY created_at DESC LIMIT 30
     """)
+    # FINBUTI P1 — Mirror demand per service
+    mirror_demand_by_service = rows_opt("""
+        SELECT service_type, COUNT(*) cnt FROM buti_ai_final_designs GROUP BY service_type ORDER BY cnt DESC
+    """)
+    mirror_demand_by_city_service = rows_opt("""
+        SELECT city, service_type, COUNT(*) cnt FROM buti_ai_service_demand WHERE status='open' GROUP BY city, service_type ORDER BY cnt DESC LIMIT 20
+    """)
     return {
         "totals": totals,
         "performance": performance,
         "events": event_rows,
         "eyebrow_demand_by_city": demand_by_city,
         "eyebrow_demand_recent": demand_recent,
+        "mirror_demand_by_service": mirror_demand_by_service,
+        "mirror_demand_by_city_service": mirror_demand_by_city_service,
     }
 
 
@@ -101,6 +122,8 @@ def context(tab: str = "requests") -> dict:
     feedback_rows, promotion_rows, discount_rows = [], [], []
     dashboard = {"totals": {}, "performance": [], "events": []}
     counts = {}
+    # FINBUTI P1 — admin service/portfolio/reservation/mirror tabs
+    service_rows, portfolio_rows, reservation_rows, mirror_rows = [], [], [], []
     with get_giso_db_conn() as conn:
         if tab == "feedback":
             feedback_rows=[dict(r) for r in conn.execute("SELECT f.*,c.name center_name FROM beauty_center_feedback f JOIN beauty_centers c ON c.id=f.center_id ORDER BY f.id DESC LIMIT 200").fetchall()]
@@ -110,12 +133,59 @@ def context(tab: str = "requests") -> dict:
             discount_rows=[dict(r) for r in conn.execute("SELECT d.*,c.name center_name FROM beauty_center_discounts d JOIN beauty_centers c ON c.id=d.center_id ORDER BY d.id DESC LIMIT 200").fetchall()]
         if tab == "dashboard":
             dashboard = _dashboard(conn)
+        # FINBUTI P1 tabs
+        if tab == "services":
+            try:
+                service_rows = [dict(r) for r in conn.execute("""
+                    SELECT s.*, c.name center_name FROM beauty_center_services s
+                    JOIN beauty_centers c ON c.id=s.center_id
+                    ORDER BY c.name, s.is_active DESC, s.is_featured_service DESC, s.sort_order, s.id DESC LIMIT 500
+                """).fetchall()]
+            except Exception:
+                try:
+                    service_rows = [dict(r) for r in conn.execute("""
+                        SELECT s.*, c.name center_name FROM beauty_center_services s
+                        JOIN beauty_centers c ON c.id=s.center_id
+                        ORDER BY c.name, s.id DESC LIMIT 500
+                    """).fetchall()]
+                except Exception:
+                    service_rows = []
+        if tab == "portfolio":
+            try:
+                portfolio_rows = [dict(r) for r in conn.execute("""
+                    SELECT i.*, c.name center_name FROM beauty_center_images i
+                    JOIN beauty_centers c ON c.id=i.center_id
+                    ORDER BY c.name, i.id DESC LIMIT 500
+                """).fetchall()]
+            except Exception:
+                portfolio_rows = []
+        if tab == "reservations":
+            try:
+                reservation_rows = [dict(r) for r in conn.execute("""
+                    SELECT r.*, c.name center_name FROM beauty_center_reservations r
+                    JOIN beauty_centers c ON c.id=r.center_id
+                    ORDER BY r.id DESC LIMIT 500
+                """).fetchall()]
+            except Exception:
+                reservation_rows = []
+        if tab == "mirror":
+            try:
+                mirror_rows = [dict(r) for r in conn.execute("""
+                    SELECT f.*, COALESCE(u.first_name || ' ' || u.last_name, u.name, 'کاربر') as user_name
+                    FROM buti_ai_final_designs f LEFT JOIN giso_web_auth u ON u.id=f.user_id
+                    ORDER BY f.id DESC LIMIT 200
+                """).fetchall()]
+            except Exception:
+                mirror_rows = []
+            dashboard = _dashboard(conn)
         for status in STATUS_FA:
             counts[status] = conn.execute("SELECT COUNT(*) FROM beauty_centers WHERE status=?", (status,)).fetchone()[0]
     return {"centers": centers, "beauty_counts": counts, "beauty_dashboard": dashboard,
             "beauty_settings": _settings(), "beauty_tab": tab, "status_fa": STATUS_FA,
             "beauty_feedback": feedback_rows, "beauty_promotions": promotion_rows,
-            "beauty_discounts": discount_rows}
+            "beauty_discounts": discount_rows,
+            "beauty_services": service_rows, "beauty_portfolio": portfolio_rows,
+            "beauty_reservations": reservation_rows, "beauty_mirror": mirror_rows}
 
 
 def handle_settings():

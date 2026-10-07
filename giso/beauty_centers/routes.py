@@ -214,15 +214,97 @@ def center_detail(slug):
         increment_view(center["id"])
         center["views_count"] = int(center.get("views_count") or 0) + 1
     revealed = is_owner or is_staff or int(center["id"]) in set(session.get("revealed_beauty_centers") or [])
+    # FINBUTI: service selection via ?service= or ?service_id=
+    selected_service_key = (request.args.get("service") or request.args.get("service_key") or "").strip()[:60]
+    selected_service_id = request.args.get("service_id", type=int) or 0
+    # Gallery + feedback + today weekday
+    gallery_images = []
+    feedback_rows = []
+    today_weekday = 0
+    try:
+        from datetime import datetime
+        # 0=شنبه per BEAUTY_WEEKDAYS, Python weekday 0=Mon, need mapping: Saturday=0
+        # Jalali? Use simple: Python weekday -> Persian: Sat=0, Sun=1, Mon=2, Tue=3, Wed=4, Thu=5, Fri=6
+        py_wd = datetime.now().weekday()  # Mon=0
+        # Map: Mon(0)->2, Tue(1)->3, Wed(2)->4, Thu(3)->5, Fri(4)->6, Sat(5)->0, Sun(6)->1
+        mapping = {0: 2, 1: 3, 2: 4, 3: 5, 4: 6, 5: 0, 6: 1}
+        today_weekday = mapping.get(py_wd, 0)
+    except Exception:
+        today_weekday = 0
     with get_giso_db_conn() as conn:
-        gallery_images = [dict(row) for row in conn.execute(
-            "SELECT * FROM beauty_center_images WHERE center_id=? ORDER BY sort_order,id", (int(center["id"]),)
-        ).fetchall()]
+        # Ensure additive columns exist for P1 (service_key in images, service_key/is_featured in services)
+        try:
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(beauty_center_images)").fetchall()}
+            if "service_key" not in cols:
+                # Migration will be done in Phase 3, but allow template to work without column
+                pass
+        except Exception:
+            pass
+        try:
+            gallery_images = [dict(row) for row in conn.execute(
+                "SELECT * FROM beauty_center_images WHERE center_id=? ORDER BY sort_order,id", (int(center["id"]),)
+            ).fetchall()]
+        except Exception:
+            gallery_images = []
+        # Feedback rows for trust section (if count>=3)
+        try:
+            feedback_rows = [dict(r) for r in conn.execute(
+                "SELECT f.*, COALESCE(u.first_name || ' ' || u.last_name, u.name, 'کاربر گیسو') as user_name FROM beauty_center_feedback f LEFT JOIN giso_web_auth u ON u.id=f.user_id WHERE f.center_id=? ORDER BY f.id DESC LIMIT 20",
+                (int(center["id"]),),
+            ).fetchall()]
+        except Exception:
+            feedback_rows = []
+    center_services = _center_services_for_display(center["id"])
+    # Selected service resolution
+    selected_service = None
+    if selected_service_id:
+        for svc in center_services:
+            if int(svc.get("id") or 0) == int(selected_service_id):
+                selected_service = svc
+                selected_service_key = str(svc.get("service_key") or selected_service_key or "")
+                break
+    elif selected_service_key:
+        # Try match by service_key or name
+        key_lower = selected_service_key.lower()
+        for svc in center_services:
+            if str(svc.get("service_key") or "").lower() == key_lower:
+                selected_service = svc
+                break
+        if not selected_service:
+            for svc in center_services:
+                if key_lower in str(svc.get("name") or "").lower() or key_lower in str(svc.get("category") or "").lower():
+                    selected_service = svc
+                    break
+    # Filter gallery by selected service if service_key column exists and selected
+    filtered_gallery = gallery_images
+    if selected_service_key:
+        try:
+            # If service_key column exists, prioritize matching
+            has_key = any("service_key" in img for img in gallery_images)
+            if has_key:
+                matched = [img for img in gallery_images if str(img.get("service_key") or "").lower() == selected_service_key.lower()]
+                if matched:
+                    filtered_gallery = matched
+        except Exception:
+            pass
+
     return render_template(
-        "beauty_centers/detail.html", center=center, gallery_images=gallery_images, feedback=center_feedback_summary(center['id']), center_categories=CENTER_CATEGORIES,
-        center_types=CENTER_TYPES, services=SERVICES, disclaimer=DISCLAIMER, contact_revealed=revealed,
-        center_services=_center_services_for_display(center["id"]),
+        "beauty_centers/detail.html",
+        center=center,
+        gallery_images=filtered_gallery,
+        gallery_all=gallery_images,
+        feedback=center_feedback_summary(center['id']),
+        feedback_rows=feedback_rows,
+        center_categories=CENTER_CATEGORIES,
+        center_types=CENTER_TYPES,
+        services=SERVICES,
+        disclaimer=DISCLAIMER,
+        contact_revealed=revealed,
+        center_services=center_services,
         beauty_hours=_center_hours_for_display(center["id"]),
+        selected_service=selected_service,
+        selected_service_key=selected_service_key,
+        today_weekday=today_weekday,
     )
 
 
@@ -490,11 +572,25 @@ def owner_gallery_upload():
     if image_error:
         flash(image_error, "danger")
     else:
+        # FINBUTI P1: service_key for portfolio
+        svc_key = (request.form.get("service_key") or "").strip().lower()[:60]
+        # Normalize mapping
+        key_map = {"eyebrow": "brow", "hair-color": "hair_color", "lip-shading": "lip_shading"}
+        svc_key = key_map.get(svc_key, svc_key)
+        allowed = {"brow", "hair_color", "haircut", "keratin", "nail", "lip_shading", "facial", "makeup", "lash", "extension", "hair_repair", "bleach", "makeup", "hairstyle", "manicure", "pedicure", ""}
+        if svc_key not in allowed:
+            svc_key = ""
         with get_giso_db_conn() as conn:
+            # Check if service_key column exists
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(beauty_center_images)").fetchall()}
+            has_svc = "service_key" in cols
             if not center.get("image_path"):
                 conn.execute("UPDATE beauty_centers SET image_path=?,updated_at=datetime('now','localtime') WHERE id=? AND owner_user_id=?", (image_path, int(center["id"]), _user_id()))
             else:
-                conn.execute("INSERT INTO beauty_center_images(center_id,image_path,sort_order,created_at) VALUES (?,?,?,datetime('now','localtime'))", (int(center["id"]), image_path, count + 1))
+                if has_svc:
+                    conn.execute("INSERT INTO beauty_center_images(center_id,image_path,sort_order,created_at,service_key) VALUES (?,?,?,?,datetime('now','localtime'),?)", (int(center["id"]), image_path, count + 1, svc_key))
+                else:
+                    conn.execute("INSERT INTO beauty_center_images(center_id,image_path,sort_order,created_at) VALUES (?,?,?,datetime('now','localtime'))", (int(center["id"]), image_path, count + 1))
             conn.commit()
         flash("تصویر به اسلایدر مرکز اضافه شد.", "success")
     return redirect(url_for("beauty_centers.owner_dashboard", tab="edit"))

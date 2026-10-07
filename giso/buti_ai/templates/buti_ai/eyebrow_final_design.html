@@ -23,14 +23,14 @@
                 <div>
                     <b>طراحی عکس نهایی ابرو</b>
                     <small>
-                        {% if generation and generation.ai_inpainting and generation.is_ai_generated %}AI Inpainting با ماسک ابرو{% elif generation and generation.fallback_used %}نسخه راهنمای غیر AI بعد از تلاش مدل{% elif generation and generation.is_ai_generated %}ساخته‌شده با مدل AI{% else %}راهنمای غیر AI{% endif %}
+                        {% if generation and generation.status == 'ai_failed' %}AI FAILED - تلاش مجدد{% elif generation and generation.ai_inpainting and generation.is_ai_generated %}AI Inpainting با ماسک ابرو{% elif generation and generation.fallback_used %}نسخه راهنمای غیر AI بعد از تلاش مدل{% elif generation and generation.is_ai_generated %}ساخته‌شده با مدل AI{% else %}AI FAILED{% endif %}
                     </small>
                 </div>
             </div>
         </div>
 
         <header class="bti-result-header">
-            <span>مرحله ۵: طراحی عکس نهایی</span>
+            <span>مرحله ۴: طراحی عکس نهایی</span>
             <h2>{{ candidate.final_label }}</h2>
             <p>{{ generation.message if generation else 'طراحی عکس نهایی آماده‌سازی شد.' }}</p>
         </header>
@@ -56,6 +56,15 @@
         </div>
         {% else %}
         <div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ generation.message }}</div>
+        {% if generation and generation.status == 'ai_failed' %}
+        <div class="bti-final-retry" style="margin:16px 0;">
+            <form method="post" action="{{ url_for('buti_ai.eyebrow_final_retry') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="bti-primary-action" type="submit">تلاش مجدد با CF1 → CF2 → CF3</button>
+            </form>
+            <a class="bti-secondary-action" href="{{ url_for('buti_ai.eyebrow_upload') }}" style="margin-top:8px;display:inline-block;">آپلود عکس جدید</a>
+        </div>
+        {% endif %}
         {% endif %}
 
         {% if generation %}
@@ -63,18 +72,24 @@
             <i class="fas fa-wand-magic-sparkles"></i>
             <div>
                 <b>
-                    {% if generation.ai_inpainting and generation.is_ai_generated %}
+                    {% if generation.status == 'ai_failed' %}
+                    AI FAILED - هر سه مدل ناموفق بودند
+                    {% elif generation.ai_inpainting and generation.is_ai_generated %}
                     طراحی با AI Inpainting و ماسک واقعی ابرو آماده شد
                     {% elif generation.fallback_used %}
                     خروجی AI قابل استفاده نبود؛ نسخه راهنمای غیر AI نمایش داده شد
                     {% elif generation.is_ai_generated %}
                     طراحی عکس نهایی با مدل AI و تغییر قابل مشاهده ابرو آماده شد
                     {% else %}
-                    طراحی راهنمای غیر AI آماده شد
+                    AI FAILED - طراحی با AI انجام نشد
                     {% endif %}
                 </b>
                 <span>
+                    {% if generation.status == 'ai_failed' %}
+                    عکس و انتخابت حفظ شده است. هر سه مدل CF1, CF2, CF3 تلاش کردند ولی خروجی معتبر تولید نشد. لطفاً دوباره تلاش کن یا عکس واضح‌تری بفرست. Python fallback نمایش داده نمی‌شود.
+                    {% else %}
                     عکس و انتخابت حفظ شده است. {% if generation.ai_inpainting and generation.is_ai_generated %}این خروجی با ماسک واقعی ابرو ساخته شده{% elif generation.is_ai_generated and generation.provider_output_constrained_to_eyebrow_mask %}خروجی AI فقط داخل محدوده واقعی ابرو روی عکس اصلی اعمال شده و تغییر ROI تأیید شده{% else %}این نسخه AI واقعی نیست و به‌عنوان راهنمای غیر AI نمایش داده می‌شود{% endif %} و اجرای دقیق باید با متخصص انجام شود.
+                    {% endif %}
                 </span>
                 {% if generation.attempts %}
                 <details class="bti-provider-technical">
@@ -121,16 +136,28 @@
 
         <div class="bti-final-design-note">
             <b>مهم:</b>
-            {% if generation and generation.ai_inpainting and generation.is_ai_generated %}
+            {% if generation and generation.status == 'ai_failed' %}
+            <span>AI FAILED - هر سه مدل CF1, CF2, CF3 ناموفق بودند. هیچ تصویر Python/Pillow به عنوان طراحی نهایی نمایش داده نمی‌شود. لطفاً دوباره تلاش کن.</span>
+            {% elif generation and generation.ai_inpainting and generation.is_ai_generated %}
             <span>این تصویر با AI Inpainting و ماسک واقعی ابرو ساخته شده؛ بااین‌حال نتیجه فقط پیش‌نمایش طراحی است و اجرای دقیق باید با متخصص کنترل شود.</span>
             {% elif generation and generation.is_ai_generated and not generation.fallback_used %}
             <span>این تصویر، طراحی عکس نهایی AI در گیسو است؛ خروجی فقط بعد از تأیید تغییر قابل مشاهده داخل ابرو نمایش داده شده و بیرون از mask حفظ شده است.</span>
             {% else %}
-            <span>این تصویر، راهنمای غیر AI برای طراحی عکس نهایی است؛ AI Inpainting واقعی نیست. برای طراحی دقیق و انجام کار، از مراکز زیبایی ارائه‌دهنده ابرو کمک بگیر.</span>
+            <span>AI FAILED - این تصویر AI واقعی نیست و نمایش داده نمی‌شود.</span>
             {% endif %}
         </div>
 
-        <section class="bti-final-centers" aria-label="مراکز پیشنهادی ابرو">
+        
+        <section class="bti-final-interest" aria-label="آیا می‌خواهید این خدمت را انجام دهید؟" style="margin: 18px 0; padding: 16px; border: 1px dashed rgba(255,173,18,.35); border-radius: 16px; background: rgba(255,173,18,.06);">
+            <h3 style="color:#fff; margin:0 0 8px;">آیا می‌خواهید این خدمت را انجام دهید؟</h3>
+            <p style="color:var(--bti-muted); line-height:1.8;">اگر از پیش‌نمایش خوشت آمد، سالن‌های تخصصی همین خدمت را ببین و درخواست رزرو ثبت کن. این مرحله Lead واقعی محسوب می‌شود، نه فقط مشاهده تحلیل.</p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                <a class="bti-primary-action" href="#btiFinalCenters">بله، نمایش سالن‌های همین خدمت</a>
+                <a class="bti-secondary-action" href="#btiFinalConsultant">اول از مشاور بپرسم</a>
+            </div>
+        </section>
+
+        <section class="bti-final-centers" id="btiFinalCenters" aria-label="مراکز پیشنهادی ابرو">
             <header>
                 <span>بعد از طراحی: انتخاب مرکز</span>
                 <div>
@@ -161,7 +188,7 @@
                         </div>
                     </div>
                     <div class="bti-center-card-actions">
-                        <a class="bti-primary-action" href="{{ url_for('beauty_reservations.reserve', slug=center.slug) }}">رزرو/بررسی زمان</a>
+                        <a class="bti-primary-action" href="{{ url_for('beauty_reservations.reserve', slug=center.slug, final_design_id=candidate.final_design_id or '', service_key='eyebrow', selected_style=candidate.final_style or '') }}">رزرو/بررسی زمان</a>
                         <a class="bti-secondary-action" href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}">مشاهده مرکز</a>
                     </div>
                 </article>
@@ -204,6 +231,78 @@
                 <article><span>چه زمانی منصرف شوم؟</span><p>اگر مرکز بدون بررسی چهره و سابقه حساسیت فقط قول نتیجه قطعی داد، با احتیاط انتخاب کن.</p></article>
             </div>
         </details>
+
+        
+        {% if consultant_invite %}
+        <section class="bti-final-consultant" aria-label="مشاور هوشمند گیسو">
+            <div class="bti-consultant-card">
+                <div class="bti-consultant-head">
+                    <i class="fas fa-robot"></i>
+                    <div>
+                        <b>مشاور هوشمند گیسو</b>
+                        <small>Context: {{ consultant_context.service_label }} + {{ consultant_context.style_label }} + {{ consultant_context.detection_method }}</small>
+                    </div>
+                </div>
+                <p>{{ consultant_invite }}</p>
+                {% if consultant_context.prompt %}
+                <details class="bti-provider-technical">
+                    <summary>متن Context مشاور</summary>
+                    <p style="white-space: pre-wrap; line-height: 1.8;">{{ consultant_context.prompt }}</p>
+                </details>
+                {% endif %}
+                <div class="bti-consultant-meta">
+                    <span>AI: {{ 'واقعی' if consultant_context.is_ai_generated else 'راهنما' }}</span>
+                    <span>Mask: {{ 'واقعی' if consultant_context.mask_real else 'fallback' }}</span>
+                    <span>Coverage: {{ consultant_context.mask_coverage }}</span>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if consultant_context %}
+        <section class="bti-final-consultant-chat" id="btiFinalConsultant" style="margin: 18px 0;">
+            <div class="bti-consultant-card">
+                <h4 style="color:#fff;">💬 گفتگو با مشاور {{ consultant_context.service_label }}</h4>
+                <div id="btiConsultantMessages" style="max-height: 260px; overflow-y:auto; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; margin:10px 0; background: rgba(0,0,0,.2);"></div>
+                <form id="btiConsultantForm" onsubmit="return false;" style="display:flex; gap:8px;">
+                    <input id="btiConsultantInput" type="text" placeholder="سوالت درباره {{ consultant_context.style_label }} را بپرس..." maxlength="800" style="flex:1; padding:10px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:#111; color:#fff;">
+                    <button id="btiConsultantSend" class="bti-primary-action" type="button">ارسال</button>
+                </form>
+                <small style="color:var(--bti-muted);">Context: {{ consultant_context.service_label }} + {{ consultant_context.style_label }} + {{ consultant_context.detection_method }} + {{ 'AI واقعی' if consultant_context.is_ai_generated else 'راهنما' }}</small>
+            </div>
+        </section>
+        <script>
+        (function(){
+            var form = document.getElementById('btiConsultantForm');
+            var input = document.getElementById('btiConsultantInput');
+            var msgs = document.getElementById('btiConsultantMessages');
+            var send = document.getElementById('btiConsultantSend');
+            if(!form || !input || !msgs || !send) return;
+            function addMsg(role, text){
+                var div = document.createElement('div');
+                div.style.margin='6px 0'; div.style.padding='8px 10px'; div.style.borderRadius='10px';
+                div.style.background = role==='user' ? 'rgba(255,173,18,.12)' : 'rgba(255,255,255,.06)';
+                div.style.color = '#e9e9e9'; div.style.lineHeight='1.7';
+                div.textContent = (role==='user' ? 'شما: ' : 'مشاور: ') + text;
+                msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
+            }
+            async function doSend(){
+                var text = input.value.trim(); if(!text) return;
+                addMsg('user', text); input.value='';
+                try{
+                    var slug = "{{ service_meta.slug if service_meta is defined else 'eyebrow' }}";
+                    var url = slug==='eyebrow' ? '/analysis/mirror/eyebrow/consultant' : '/analysis/mirror/' + slug + '/consultant';
+                    var resp = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.content || ''}, body: JSON.stringify({message: text})});
+                    var data = await resp.json();
+                    if(data.ok) addMsg('assistant', data.reply || 'پاسخی دریافت نشد.');
+                    else addMsg('assistant', 'خطا: ' + (data.error || 'نامشخص'));
+                }catch(e){ addMsg('assistant', 'خطای ارتباط با مشاور.'); }
+            }
+            send.addEventListener('click', doSend);
+            input.addEventListener('keydown', function(e){ if(e.key==='Enter') doSend(); });
+        })();
+        </script>
+        {% endif %}
 
         <div class="bti-result-actions">
             {% if center_suggestions %}

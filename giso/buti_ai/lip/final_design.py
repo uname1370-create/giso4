@@ -78,6 +78,89 @@ def _image_size(path: str) -> Tuple[int, int]:
         return 0, 0
 
 
+def _call_vision_json(image_path: str, prompt: str, max_tokens: int = 800) -> Dict[str, Any]:
+    try:
+        from giso.async_compat import run_async_safe
+        from giso.ai_brain import ask_ai_vision
+        from giso.analysis import _is_ai_refusal, _parse_ai_json
+        from giso.buti_ai.ai_models import configured_vision_chain
+        chain = configured_vision_chain()
+        if not chain:
+            return {"ok": False, "error": "no_vision_chain"}
+        errors = []
+        for item in chain:
+            provider = item.get("provider_name") or ""
+            model = item.get("model_name") or ""
+            if not provider or not model:
+                continue
+            try:
+                result = run_async_safe(ask_ai_vision(provider, image_path, prompt, model=model, max_tokens=max_tokens))
+            except Exception as exc:
+                result = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+            if result and result.get("ok"):
+                text = result.get("text", "") or ""
+                if _is_ai_refusal(text):
+                    errors.append(f"{provider}/{model}: refused")
+                    continue
+                parsed = _parse_ai_json(text)
+                if parsed is not None:
+                    return {"ok": True, "provider": provider, "model": model, "data": parsed, "text": text}
+                errors.append(f"{provider}/{model}: json")
+            else:
+                errors.append(f"{provider}/{model}: {(result or {}).get('error', 'error')}")
+        return {"ok": False, "error": "; ".join(errors[-3:]) or "vision_failed"}
+    except Exception as exc:
+        return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:120]}"}
+
+
+def check_photo_quality(image_path: str) -> Dict[str, Any]:
+    if not image_path:
+        return {"status": "missing", "ok": False, "message": "عکسی برای بررسی دریافت نشد.", "checks": {}, "reasons": ["no_image"]}
+    try:
+        from giso.buti_ai.lip.prompts import PHOTO_QUALITY_PROMPT
+        result = _call_vision_json(image_path, PHOTO_QUALITY_PROMPT, max_tokens=700)
+        if result.get("ok"):
+            data = result.get("data") or {}
+            ok = bool(data.get("ok"))
+            return {
+                "status": "ai_checked",
+                "ok": ok,
+                "message": data.get("message") or ("عکس لب مناسب است." if ok else "این عکس برای طراحی لب مناسب نیست."),
+                "checks": {
+                    "face_visible": data.get("face_visible"),
+                    "lips_visible": data.get("lips_visible"),
+                    "upper_lip_visible": data.get("upper_lip_visible"),
+                    "lower_lip_visible": data.get("lower_lip_visible"),
+                    "lighting": data.get("lighting"),
+                    "angle": data.get("angle"),
+                    "sharpness": data.get("sharpness"),
+                },
+                "reasons": data.get("reasons") or [],
+                "provider": result.get("provider"),
+                "model": result.get("model"),
+            }
+    except Exception:
+        pass
+    return local_quality_report(image_path)
+
+
+def analyze_lip_photo(image_path: str, selected_style_key: str, change_level_key: str) -> Dict[str, Any]:
+    if not image_path:
+        return {"status": "missing", "ok": False, "message": "برای تحلیل لب عکس لازم است.", "data": {}}
+    try:
+        from giso.buti_ai.lip.prompts import lip_analysis_prompt
+        style_label = STYLES.get(str(selected_style_key or DEFAULT_STYLE), STYLES[DEFAULT_STYLE]).get("label") or selected_style_key
+        change_label = str(change_level_key or "medium")
+        prompt = lip_analysis_prompt(style_label, change_label)
+        result = _call_vision_json(image_path, prompt, max_tokens=900)
+        if not result.get("ok"):
+            return {"status": "ai_unavailable", "ok": None, "message": "تحلیل هوشمند لب فعلاً در دسترس نیست.", "data": {}, "error": result.get("error")}
+        data = result.get("data") or {}
+        return {"status": "ai_analyzed", "ok": True, "message": "تحلیل لب انجام شد.", "data": data, "provider": result.get("provider"), "model": result.get("model")}
+    except Exception as exc:
+        return {"status": "ai_unavailable", "ok": None, "message": "تحلیل هوشمند در دسترس نیست.", "data": {}, "error": str(exc)[:120]}
+
+
 def local_quality_report(path: str) -> Dict[str, Any]:
     w, h = _image_size(path)
     ok = bool(w >= 180 and h >= 180)
@@ -142,7 +225,7 @@ def _try_detect_lip_by_color(image_path: str) -> Dict[str, Any]:
     coverage = len(points) / float(max(1, w * h))
     aspect = bw / float(max(1, bh))
     center_y = (y0 + y1) / 2.0 / float(max(1, h))
-    if not (0.003 <= coverage <= 0.055 and 1.35 <= aspect <= 7.5 and 0.48 <= center_y <= 0.78 and bw >= w * 0.10 and bh >= h * 0.025):
+    if not (0.002 <= coverage <= 0.12 and 1.15 <= aspect <= 8.5 and 0.40 <= center_y <= 0.85 and bw >= w * 0.08 and bh >= h * 0.02):
         raise ValueError("lip_geometry_not_plausible")
     # Clamp to a soft mouth ellipse to avoid cheeks/teeth being considered editable.
     ellipse = Image.new("L", (w, h), 0)

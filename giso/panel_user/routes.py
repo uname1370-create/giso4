@@ -241,6 +241,12 @@ def buyer_request():
     )
 
 
+@panel_user_bp.route("/beauty-centers")
+def beauty_centers_list():
+    # FINBUTI: سالن‌های زیبایی در گروه زیبایی من — لینک به لیست عمومی مراکز
+    return redirect(url_for("beauty_centers.list_centers"))
+
+
 @panel_user_bp.route("/analyses")
 def analyses():
     return _render("analyses", **(_an.context() or {}))

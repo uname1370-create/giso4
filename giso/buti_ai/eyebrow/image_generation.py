@@ -57,11 +57,16 @@ MAX_SAVE_SIDE = 1600
 MAX_PROVIDER_INPUT_SIDE = 512
 MAX_INPAINTING_INPUT_SIDE = 512
 MAX_DIFF_SAMPLE_PIXELS = 260_000
-MIN_VISIBLE_EYEBROW_MEAN_DELTA = 4.0
+# سخت‌گیرانه‌تر برای جلوگیری از artifact روی چشم/صورت و ماسک سفید (تصویر کاربر با حجاب)
+# مقادیر سخت‌گیرانه‌تر بعد از مشاهده هاله سفید در عکس نهایی
+MIN_VISIBLE_EYEBROW_MEAN_DELTA = 4.5
+MAX_VISIBLE_EYEBROW_MEAN_DELTA = 32.0
 MIN_VISIBLE_EYEBROW_CHANGED_RATIO = 0.018
 VISIBLE_EYEBROW_PIXEL_DELTA = 8.0
-MAX_OUTSIDE_MASK_MEAN_DELTA = 1.25
-MAX_OUTSIDE_MASK_P99_DELTA = 6.0
+MAX_OUTSIDE_MASK_MEAN_DELTA = 0.65
+MAX_OUTSIDE_MASK_P99_DELTA = 3.5
+MAX_OUTSIDE_CHANGED_RATIO = 0.012
+MAX_INSIDE_WHITE_RATIO = 0.12
 
 
 class ImageProviderError(RuntimeError):
@@ -429,9 +434,11 @@ def _upload_relative_path(path: str, upload_dir: str = "") -> str:
 def _reference_image_path(candidate: Dict[str, Any]) -> str:
     style = normalize_style_key((candidate or {}).get("final_style"))
     base = os.path.abspath(os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "brows"))
-    path = os.path.abspath(os.path.join(base, f"{style}.jpg"))
-    if path.startswith(base + os.sep) and os.path.exists(path):
-        return path
+    # اول PNG شفاف (بدون پس‌زمینه) برای تشخیص بهتر هوش مصنوعی، بعد JPG
+    for ext in (".png", ".jpg", ".webp"):
+        path = os.path.abspath(os.path.join(base, f"{style}{ext}"))
+        if path.startswith(base + os.sep) and os.path.exists(path):
+            return path
     return ""
 
 
@@ -559,26 +566,52 @@ def _parse_response_image(response: requests.Response) -> str:
 
 
 def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_path: str, prompt: str, timeout: int) -> str:
-    if str(provider.model or "").strip() != DEFAULT_CLOUDFLARE_MODEL:
+    model_name = str(provider.model or "").strip()
+    if model_name == CLOUDFLARE_INPAINTING_MODEL:
         raise ImageProviderError(
-            "این مدل Cloudflare برای طراحی عکس نهایی ابرو با عکس ورودی پشتیبانی‌شده نیست؛ "
-            "مدل @cf/black-forest-labs/flux-2-klein-4b را انتخاب کن."
+            "این مدل باید با kind=cloudflare_inpainting استفاده شود؛ "
+            "در مدیریت AI نوع را inpainting بگذار یا از flux-2-klein-4b استفاده کن."
         )
+    if model_name != DEFAULT_CLOUDFLARE_MODEL:
+        _beauty_log("[AI]", "cloudflare_model_not_default", model=model_name, expected=DEFAULT_CLOUDFLARE_MODEL)
     width, height = _output_size_for_cloudflare(source_path)
     photo_bytes, photo_mime, photo_ext = _image_bytes_for_provider(source_path, MAX_PROVIDER_INPUT_SIDE, square=False)
     files = {
         "input_image_0": (f"customer-face.{photo_ext}", photo_bytes, photo_mime),
     }
-    send_reference = bool(provider.extra.get("send_reference_image")) or _truthy(_env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE"))
+    # Reference Image: PNG های مرجع پس‌زمینه سفید دارند (254,254,255) و باعث ابرو سفید می‌شدند
+    # برای flux-2-klein-4b که text-to-image است، فرستادن reference سفید = تولید ابرو سفید/هاله سفید
+    # پس پیش‌فرض را False می‌کنیم تا فقط چهره مشتری فرستاده شود و ابرو از prompt ساخته شود
+    # اگر کاربر واقعاً بخواهد reference بفرستد، باید CLOUDFLARE_SEND_REFERENCE_IMAGE=1 بگذارد
+    send_reference = False
+    if _env_value(None, "CLOUDFLARE_SEND_REFERENCE_IMAGE") == "1":
+        send_reference = True
+    if provider.extra.get("send_reference_image") is True:
+        send_reference = True
+    # فقط JPG بفرست که پس‌زمینه پوست دارد، نه PNG سفید
     if reference_path and send_reference:
-        ref_bytes, ref_mime, ref_ext = _image_bytes_for_provider(reference_path, MAX_PROVIDER_INPUT_SIDE, square=True)
-        files["input_image_1"] = (f"technique-macro.{ref_ext}", ref_bytes, ref_mime)
+        # اگر PNG سفید است، نفرست
+        if str(reference_path).lower().endswith(".png"):
+            # PNG های فعلی پس‌زمینه سفید دارند، برای جلوگیری از ابرو سفید نفرست
+            send_reference = False
+        else:
+            try:
+                ref_bytes, ref_mime, ref_ext = _image_bytes_for_provider(reference_path, MAX_PROVIDER_INPUT_SIDE, square=True)
+                files["input_image_1"] = (f"technique-macro.{ref_ext}", ref_bytes, ref_mime)
+            except Exception:
+                send_reference = False
 
     guidance = str(provider.extra.get("guidance") or _env_value(None, "CLOUDFLARE_GUIDANCE") or "5")
     data = {
         "prompt": (
-            f"{prompt} ROLE: IMAGE 0 is the customer-face authority; "
-            "IMAGE 1 if present is only a technique swatch, never a face source."
+            f"{prompt} ROLE: IMAGE 0 is the customer-face authority and must be kept 100% identical except eyebrows; "
+            "IMAGE 1 if present is ONLY a technique swatch showing eyebrow style, never a face source, never use its background, face, or skin. "
+            "Do NOT create white background, white halo, or new face."
+        ),
+        "negative_prompt": (
+            "new face, changed identity, changed eyes, changed eyelids, changed eyelashes, red streak, white overlay, white halo, white background, "
+            "transparent background, cutout face, face cutout, eye artifact, forehead artifact, skin retouching, hair change, hijab change, background change, "
+            "makeup change outside eyebrows, distorted face, cartoon, illustration, blurry, low quality, white border around face"
         ),
         "guidance": guidance,
         "width": str(width),
@@ -645,7 +678,7 @@ def _prepare_cloudflare_inpainting_assets(source_path: str, mask_path: str) -> T
     coverage = float(mask_pixels) / float(total_pixels)
     if mask_pixels <= 0:
         raise ImageProviderError("mask واقعی ابرو خالی است؛ inpainting متوقف شد")
-    if coverage > 0.18:
+    if coverage > 0.12:
         raise ImageProviderError("mask ابرو بیش از حد وسیع است؛ برای حفظ صورت inpainting متوقف شد")
 
     image_out = BytesIO()
@@ -668,6 +701,8 @@ def _real_eyebrow_mask_for_candidate(source_path: str, candidate: Dict[str, Any]
         raise ImageProviderError("برای Cloudflare Inpainting، mask واقعی ابرو در دسترس نیست")
     if mask.get("is_fallback") or mask.get("real_mask") is False or str(detection.get("method") or "") == "proportional_fallback":
         raise ImageProviderError("mask نسبتی/fallback برای AI Inpainting واقعی استفاده نمی‌شود")
+    if detection.get("plausible") is False:
+        raise ImageProviderError("mask ابرو از نظر هندسی نامعتبر است")
     return detection, mask_path
 
 
@@ -857,17 +892,46 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
         raise ImageProviderError("خروجی AI ذخیره نشد؛ mask ابرو برای حفظ چشم/مژه ساخته نشد")
     if mask_info.get("is_fallback") or mask_info.get("real_mask") is False or bool(detection.get("is_fallback")):
         raise ImageProviderError("خروجی AI پذیرفته نشد؛ mask fallback/نسبتی برای ادعای AI واقعی استفاده نمی‌شود")
+    if detection.get("plausible") is False:
+        raise ImageProviderError("خروجی AI پذیرفته نشد؛ محدوده ابرو از نظر هندسی نامعتبر است")
     try:
         coverage = float(mask_info.get("coverage_ratio") or 0)
     except Exception:
         coverage = 0.0
-    if coverage <= 0 or coverage > 0.08:
+    # پوشش ابرو: برای حجاب کمی بازتر می‌کنیم تا تشخیص از دست نرود، ولی هاله سفید را جدا کنترل می‌کنیم
+    if coverage <= 0 or coverage > 0.045:
         raise ImageProviderError("mask ابرو برای ذخیره خروجی AI ایمن نیست؛ محدوده ویرایش بیش از حد وسیع/نامعتبر است")
+    # بررسی اینکه mask به لبه تصویر نچسبیده باشد (حجاب/پس‌زمینه) - برای حجاب کمی بازتر
+    try:
+        regions = detection.get("regions") if isinstance(detection, dict) else []
+        for r in (regions or [])[:2]:
+            x = float(r.get("x") or 0)
+            y = float(r.get("y") or 0)
+            w = float(r.get("width") or 0)
+            h = float(r.get("height") or 0)
+            # اگر ابرو خیلی بزرگ باشد، احتمال تشخیص اشتباه حجاب است - کمی بازتر برای حجاب
+            if w > size[0] * 0.42 or h > size[1] * 0.16:
+                raise ImageProviderError("mask ابرو بیش از حد بزرگ است؛ احتمال تشخیص اشتباه حجاب")
+            if x < size[0] * 0.01 or (x + w) > size[0] * 0.99:
+                raise ImageProviderError("mask ابرو به لبه تصویر چسبیده؛ نامعتبر")
+            # برای حجاب، ابرو ممکن است کمی بالاتر یا پایین‌تر باشد - بازه بازتر
+            if y < size[1] * 0.08 or y > size[1] * 0.60:
+                raise ImageProviderError("mask ابرو خارج از محدوده معقول صورت است")
+    except ImageProviderError:
+        raise
+    except Exception:
+        pass
     try:
         mask = Image.open(mask_path).convert("L").resize(size, Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
-        # Binary core + tiny feather: only brow pixels are editable; edge remains natural.
+        # Binary core + erosion کم برای جلوگیری از هاله سفید ولی نه خیلی زیاد که خط باریک شود
         mask = mask.point(lambda px: 255 if int(px) >= 128 else 0)
-        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.65))
+        # قبلاً 7 بود که mask دقیق 28px را به 22px می‌کرد و خط سفید می‌شد، الان 3
+        try:
+            mask = mask.filter(ImageFilter.MinFilter(size=3))
+        except Exception:
+            pass
+        # بلور کم تا لبه‌ها سفید نشود
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.35))
         _beauty_log(
             "[EYEBROW_MASK]",
             "provider_mask_ready",
@@ -952,6 +1016,20 @@ def _visible_eyebrow_diff_metrics(base, final_image, mask) -> Dict[str, Any]:
     outside_mean = sum(outside_deltas) / outside_pixels if outside_pixels else 0.0
     inside_changed_ratio = float(changed_inside) / float(max(1, inside_pixels))
     outside_changed_ratio = float(changed_outside) / float(max(1, outside_pixels))
+    # بررسی ماسک سفید: اگر داخل ماسک خیلی سفید باشد، خروجی نامعتبر است (مشکل تصویر کاربر)
+    white_inside = 0
+    try:
+        final_px_for_white = final_image.load()
+        mask_px_for_white = mask.load()
+        for y in range(0, height, stride):
+            for x in range(0, width, stride):
+                if int(mask_px_for_white[x, y]) >= 128:
+                    r, g, b = final_px_for_white[x, y]
+                    if r > 235 and g > 235 and b > 235:
+                        white_inside += 1
+    except Exception:
+        white_inside = 0
+    white_ratio = float(white_inside) / float(max(1, inside_pixels))
     metrics = {
         "diff_stride": int(stride),
         "inside_mask_sampled_pixels": int(inside_pixels),
@@ -959,6 +1037,7 @@ def _visible_eyebrow_diff_metrics(base, final_image, mask) -> Dict[str, Any]:
         "inside_mean_delta": round(float(inside_mean), 4),
         "inside_p95_delta": round(_percentile(inside_deltas, 0.95), 4),
         "inside_changed_ratio": round(float(inside_changed_ratio), 6),
+        "inside_white_ratio": round(float(white_ratio), 6),
         "outside_mean_delta": round(float(outside_mean), 4),
         "outside_p99_delta": round(_percentile(outside_deltas, 0.99), 4),
         "outside_changed_ratio": round(float(outside_changed_ratio), 6),
@@ -971,11 +1050,14 @@ def _visible_eyebrow_diff_metrics(base, final_image, mask) -> Dict[str, Any]:
             or inside_changed_ratio >= MIN_VISIBLE_EYEBROW_CHANGED_RATIO
         )
         and metrics["inside_p95_delta"] >= VISIBLE_EYEBROW_PIXEL_DELTA
+        and inside_mean <= MAX_VISIBLE_EYEBROW_MEAN_DELTA
+        and white_ratio <= MAX_INSIDE_WHITE_RATIO
     )
     safe_outside = (
         outside_pixels > 0
         and outside_mean <= MAX_OUTSIDE_MASK_MEAN_DELTA
         and metrics["outside_p99_delta"] <= MAX_OUTSIDE_MASK_P99_DELTA
+        and outside_changed_ratio <= MAX_OUTSIDE_CHANGED_RATIO
     )
     metrics["eyebrow_roi_changed"] = bool(visible)
     metrics["outside_mask_preserved"] = bool(safe_outside)
@@ -992,12 +1074,18 @@ def _validate_provider_visible_change(base, final_image, mask) -> Dict[str, Any]
         mask_size=f"{mask.size[0]}x{mask.size[1]}",
         inside_mean_delta=metrics.get("inside_mean_delta"),
         inside_changed_ratio=metrics.get("inside_changed_ratio"),
+        inside_white_ratio=metrics.get("inside_white_ratio"),
         outside_mean_delta=metrics.get("outside_mean_delta"),
         outside_p99_delta=metrics.get("outside_p99_delta"),
         eyebrow_roi_changed=metrics.get("eyebrow_roi_changed"),
         outside_mask_preserved=metrics.get("outside_mask_preserved"),
     )
     if not metrics.get("eyebrow_roi_changed"):
+        # اگر سفید زیاد باشد، پیام دقیق‌تر
+        if float(metrics.get("inside_white_ratio") or 0) > MAX_INSIDE_WHITE_RATIO:
+            raise ImageProviderError("خروجی AI داخل ابرو ماسک سفید تولید کرد و رد شد")
+        if float(metrics.get("inside_mean_delta") or 0) > MAX_VISIBLE_EYEBROW_MEAN_DELTA:
+            raise ImageProviderError("خروجی AI تغییر بیش از حد شدید داخل ابرو داشت و رد شد")
         raise ImageProviderError("خروجی AI در محدوده واقعی ابرو تغییر قابل مشاهده ایجاد نکرد")
     if not metrics.get("outside_mask_preserved"):
         raise ImageProviderError("خروجی AI بیرون از mask ابرو تغییر ناخواسته داشت و رد شد")
@@ -1005,7 +1093,8 @@ def _validate_provider_visible_change(base, final_image, mask) -> Dict[str, Any]
 
 
 def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
-                          candidate: Optional[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any]]:
+                          candidate: Optional[Dict[str, Any]] = None,
+                          provider_kind: str = "") -> Tuple[str, Dict[str, Any]]:
     raw, _mime = _decode_image_value(image_value, timeout)
     if not raw:
         raise ImageProviderError("تصویر خروجی خالی است")
@@ -1023,12 +1112,58 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
         final_image = provider_image
         base_for_validation = None
         mask_for_validation = None
-        if source_path and candidate is not None:
+        # برای flux (cloudflare) مثل buti-test، ماسک را حذف کن تا تغییر دقیق و کامل دیده شود
+        # کاربر گفت: "اگر این مسامک خیلی اذیت میکنه حذفش کن"
+        # برای inpainting واقعی، ماسک را نگه دار
+        is_flux = str(provider_kind or "").strip().lower() == "cloudflare"
+        use_mask = bool(source_path and candidate is not None and not is_flux)
+        if use_mask:
             base = Image.open(source_path).convert("RGB")
             base.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
-            final_image = _fit_provider_image_to_source(provider_image, base.size).convert("RGB")
+            fitted_provider = _fit_provider_image_to_source(provider_image, base.size).convert("RGB")
             mask, detection = _provider_eyebrow_mask_for_save(source_path, candidate, base.size)
-            final_image = Image.composite(final_image, base, mask)
+
+            # --- پیش‌اعتبارسنجی: برای flux-2-klein-4b که مدل text-to-image است نه inpainting،
+            # خروجی خام همیشه پس‌زمینه/هویت متفاوت دارد. چون در مرحله بعد با mask کامپوزیت
+            # می‌کنیم و بیرون از ابرو دقیقاً برابر عکس اصلی می‌شود، نباید روی outside سخت‌گیری کنیم.
+            # فقط پس‌زمینه کاملاً سفید را رد می‌کنیم (مدل چهره جدید سفید ساخته).
+            try:
+                from PIL import Image as _PILImage
+                # بررسی پس‌زمینه سفید کلی در provider - فقط سفید خالص زیاد
+                _w, _h = fitted_provider.size
+                _total = max(1, _w * _h)
+                _white_count = 0
+                _stride_white = max(1, int((_total / 50000) ** 0.5))
+                _fpx = fitted_provider.load()
+                for _yy in range(0, _h, _stride_white):
+                    for _xx in range(0, _w, _stride_white):
+                        _r, _g, _b = _fpx[_xx, _yy]
+                        if _r > 242 and _g > 242 and _b > 242:
+                            _white_count += 1
+                _white_ratio_total = float(_white_count) / float(max(1, (_w // _stride_white) * (_h // _stride_white)))
+                if _white_ratio_total > 0.55:
+                    raise ImageProviderError("خروجی AI پس‌زمینه سفید زیاد دارد و رد شد (مدل چهره جدید ساخت)")
+                # برای مدل‌های غیر inpainting مثل flux-2-klein-4b، تغییر بیرون از mask طبیعی است
+                # چون بعداً با composite بیرون دقیقاً برابر base می‌شود. فقط لاگ می‌کنیم، رد نمی‌کنیم.
+                try:
+                    _outside_metrics_before = _visible_eyebrow_diff_metrics(base, fitted_provider, mask)
+                    _beauty_log(
+                        "[COMPOSITE]",
+                        "pre_composite_outside_metrics",
+                        outside_mean_delta=_outside_metrics_before.get("outside_mean_delta"),
+                        outside_changed_ratio=_outside_metrics_before.get("outside_changed_ratio"),
+                        inside_mean_delta=_outside_metrics_before.get("inside_mean_delta"),
+                        white_ratio_total=round(_white_ratio_total, 4),
+                        note="flux model - outside change expected, will be fixed by composite",
+                    )
+                except Exception:
+                    pass
+            except ImageProviderError:
+                raise
+            except Exception:
+                pass
+
+            final_image = Image.composite(fitted_provider, base, mask)
             diff_meta = _validate_provider_visible_change(base, final_image, mask)
             base_for_validation = base.copy()
             mask_for_validation = mask.copy()
@@ -1049,6 +1184,26 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
             })
             meta.update(diff_meta)
         else:
+            # برای flux بدون ماسک (مثل buti-test) فقط سفید زیاد را چک کن
+            try:
+                _w, _h = final_image.size
+                _total = max(1, _w * _h)
+                _white_count = 0
+                _stride_white = max(1, int((_total / 50000) ** 0.5))
+                _fpx = final_image.load()
+                for _yy in range(0, _h, _stride_white):
+                    for _xx in range(0, _w, _stride_white):
+                        _r, _g, _b = _fpx[_xx, _yy]
+                        if _r > 242 and _g > 242 and _b > 242:
+                            _white_count += 1
+                _white_ratio_total = float(_white_count) / float(max(1, (_w // _stride_white) * (_h // _stride_white)))
+                if _white_ratio_total > 0.55:
+                    raise ImageProviderError("خروجی AI پس‌زمینه سفید زیاد دارد و رد شد")
+                _beauty_log("[AI_OUTPUT]", "flux_no_mask_white_check", white_ratio_total=round(_white_ratio_total,4))
+            except ImageProviderError:
+                raise
+            except Exception:
+                pass
             final_image.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
         if final_image.width <= 0 or final_image.height <= 0:
             raise ImageProviderError("ابعاد خروجی provider نامعتبر بود")
@@ -1215,7 +1370,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
         )
         try:
             image_value = _call_provider(provider, source_path, reference_path, candidate, prompt, timeout)
-            filename, save_meta = _save_provider_output(image_value, timeout, source_path, candidate)
+            filename, save_meta = _save_provider_output(image_value, timeout, source_path, candidate, provider_kind=provider.kind)
             if save_meta:
                 last_meta = provider.extra.setdefault("_last_request_meta", {})
                 for meta_key, meta_value in save_meta.items():
@@ -1303,33 +1458,73 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 safe_error[:160],
             )
 
-    fallback = final_design.generate_python_guided_design(candidate)
-    fallback["attempts"] = attempts
-    fallback["configured_provider_count"] = len(providers)
-    fallback["fallback_used"] = bool(providers)
-    fallback["prompt"] = prompt
-    fallback["ai_inpainting"] = False
-    fallback["is_ai_generated"] = False
-    fallback["fallback_type"] = "non_ai_guided_fallback"
-    if fallback.get("ok"):
-        if providers:
-            fallback["status"] = "non_ai_guided_fallback_ready"
-            fallback["message"] = "خروجی مدل‌های AI برای این عکس قابل تأیید نبود؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI نمایش داده می‌شود."
-        else:
-            fallback["status"] = "non_ai_guided_preview_ready"
-            fallback["message"] = "مدل تصویرسازی هنوز در مدیریت AI تنظیم نشده؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI آماده شد."
-    elif providers:
-        fallback["message"] = "فعلاً طراحی عکس نهایی قابل نمایش نشد؛ عکس و انتخاب شما حفظ شد."
+    # اصلاح: اگر همه CFها شکست خوردند، به جای AI FAILED یک پیش‌نمایش راهنمای پایتونی نشان بده
+    # تا کاربر عکس الکی نبیند و فلو قطع نشود. این پیش‌نمایش غیر AI است ولی واقعی و قابل دیدن است
+    # و به مشتری می‌گوید مدل انتخابی چطوری می‌شود، تا وقتی مدل inpainting درست تنظیم شود
     _beauty_log(
         "[FINAL]",
-        "fallback_final_ready" if fallback.get("ok") else "fallback_final_failed",
-        final_path=fallback.get("filename"),
+        "ai_failed_try_python_fallback",
         is_ai_generated=False,
-        status=fallback.get("status"),
         configured_provider_count=len(providers),
-        fallback_used=fallback.get("fallback_used"),
+        attempts_count=len(attempts),
     )
-    return fallback
+    try:
+        fallback = final_design.generate_python_guided_design(candidate)
+        fallback["attempts"] = attempts
+        fallback["configured_provider_count"] = len(providers)
+        fallback["fallback_used"] = bool(providers)
+        fallback["prompt"] = prompt
+        fallback["ai_inpainting"] = False
+        fallback["is_ai_generated"] = False
+        fallback["fallback_type"] = "non_ai_guided_fallback"
+        if fallback.get("ok"):
+            if providers:
+                # اگر مدل‌ها تلاش کردند و سفید رد شدند، پیام دقیق بده
+                white_failed = any("سفید" in str(a.get("error") or "") for a in attempts)
+                if white_failed:
+                    fallback["status"] = "non_ai_guided_preview_ready"
+                    fallback["message"] = "مدل فعلی CF با پس‌زمینه سفید خروجی داد و رد شد. این یک پیش‌نمایش راهنمای غیر AI با مدل انتخابی شماست تا وقتی مدل inpainting درست تنظیم شود. برای نتیجه واقعی AI، در مدیریت AI مدل @cf/runwayml/stable-diffusion-v1-5-inpainting را با نوع inpainting بگذار."
+                else:
+                    fallback["status"] = "non_ai_guided_fallback_ready"
+                    fallback["message"] = "خروجی مدل‌های AI برای این عکس قابل تأیید نبود؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI نمایش داده می‌شود."
+            else:
+                fallback["status"] = "non_ai_guided_preview_ready"
+                fallback["message"] = "مدل تصویرسازی هنوز در مدیریت AI تنظیم نشده؛ عکس و انتخاب شما حفظ شد و فقط نسخه راهنمای غیر AI آماده شد."
+            _beauty_log(
+                "[FINAL]",
+                "fallback_final_ready",
+                final_path=fallback.get("filename"),
+                is_ai_generated=False,
+                status=fallback.get("status"),
+                configured_provider_count=len(providers),
+                fallback_used=fallback.get("fallback_used"),
+            )
+            return fallback
+    except Exception as exc:
+        _beauty_log("[FINAL]", "python_fallback_failed", error=str(exc)[:120])
+
+    # اگر حتی پایتونی هم شکست خورد -> AI FAILED
+    _beauty_log(
+        "[FINAL]",
+        "ai_failed_all_providers",
+        is_ai_generated=False,
+        status="ai_failed",
+        configured_provider_count=len(providers),
+        attempts_count=len(attempts),
+    )
+    return {
+        "ok": False,
+        "status": "ai_failed",
+        "message": "هر سه مدل CF1, CF2, CF3 برای این عکس ناموفق بودند و پیش‌نمایش راهنما هم ساخته نشد. لطفاً عکس واضح‌تری بفرست.",
+        "attempts": attempts,
+        "configured_provider_count": len(providers),
+        "fallback_used": False,
+        "ai_inpainting": False,
+        "is_ai_generated": False,
+        "prompt": prompt,
+        "eyebrow_detection": eyebrow_detection,
+        "eyebrow_detection_method": eyebrow_detection.get("method") if isinstance(eyebrow_detection, dict) else "",
+    }
 
 
 __all__ = [

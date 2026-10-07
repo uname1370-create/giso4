@@ -119,7 +119,17 @@
             {% endif %}
         </div>
 
-        <section class="bti-final-centers" aria-label="مراکز پیشنهادی {{ service_meta.short_title }}">
+        
+        <section class="bti-final-interest" aria-label="آیا می‌خواهید این خدمت را انجام دهید؟" style="margin: 18px 0; padding: 16px; border: 1px dashed rgba(255,173,18,.35); border-radius: 16px; background: rgba(255,173,18,.06);">
+            <h3 style="color:#fff; margin:0 0 8px;">آیا می‌خواهید این خدمت را انجام دهید؟</h3>
+            <p style="color:var(--bti-muted); line-height:1.8;">اگر از پیش‌نمایش خوشت آمد، سالن‌های تخصصی همین خدمت را ببین و درخواست رزرو ثبت کن. این مرحله Lead واقعی محسوب می‌شود، نه فقط مشاهده تحلیل.</p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                <a class="bti-primary-action" href="#btiFinalCenters">بله، نمایش سالن‌های همین خدمت</a>
+                <a class="bti-secondary-action" href="#btiFinalConsultant">اول از مشاور بپرسم</a>
+            </div>
+        </section>
+
+        <section class="bti-final-centers" id="btiFinalCenters" aria-label="مراکز پیشنهادی {{ service_meta.short_title }}">
             <header>
                 <span>بعد از طراحی: انتخاب مرکز</span>
                 <div>
@@ -150,7 +160,7 @@
                         </div>
                     </div>
                     <div class="bti-center-card-actions">
-                        <a class="bti-primary-action" href="{{ url_for('beauty_reservations.reserve', slug=center.slug) }}">رزرو/بررسی زمان</a>
+                        <a class="bti-primary-action" href="{{ url_for('beauty_reservations.reserve', slug=center.slug, final_design_id=candidate.final_design_id or '', service_key=service_key, selected_style=candidate.final_style or '') }}">رزرو/بررسی زمان</a>
                         <a class="bti-secondary-action" href="{{ url_for('beauty_centers.center_detail', slug=center.slug) }}">مشاهده مرکز</a>
                     </div>
                 </article>
@@ -193,6 +203,78 @@
                 <article><span>چه زمانی منصرف شوم؟</span><p>اگر مرکز بدون بررسی شرایط واقعی فقط قول نتیجه قطعی داد، با احتیاط انتخاب کن.</p></article>
             </div>
         </details>
+
+        
+        {% if consultant_invite %}
+        <section class="bti-final-consultant" aria-label="مشاور هوشمند گیسو">
+            <div class="bti-consultant-card">
+                <div class="bti-consultant-head">
+                    <i class="fas fa-robot"></i>
+                    <div>
+                        <b>مشاور هوشمند گیسو</b>
+                        <small>Context: {{ consultant_context.service_label }} + {{ consultant_context.style_label }} + {{ consultant_context.detection_method }}</small>
+                    </div>
+                </div>
+                <p>{{ consultant_invite }}</p>
+                {% if consultant_context.prompt %}
+                <details class="bti-provider-technical">
+                    <summary>متن Context مشاور</summary>
+                    <p style="white-space: pre-wrap; line-height: 1.8;">{{ consultant_context.prompt }}</p>
+                </details>
+                {% endif %}
+                <div class="bti-consultant-meta">
+                    <span>AI: {{ 'واقعی' if consultant_context.is_ai_generated else 'راهنما' }}</span>
+                    <span>Mask: {{ 'واقعی' if consultant_context.mask_real else 'fallback' }}</span>
+                    <span>Coverage: {{ consultant_context.mask_coverage }}</span>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if consultant_context %}
+        <section class="bti-final-consultant-chat" id="btiFinalConsultant" style="margin: 18px 0;">
+            <div class="bti-consultant-card">
+                <h4 style="color:#fff;">💬 گفتگو با مشاور {{ consultant_context.service_label }}</h4>
+                <div id="btiConsultantMessages" style="max-height: 260px; overflow-y:auto; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; margin:10px 0; background: rgba(0,0,0,.2);"></div>
+                <form id="btiConsultantForm" onsubmit="return false;" style="display:flex; gap:8px;">
+                    <input id="btiConsultantInput" type="text" placeholder="سوالت درباره {{ consultant_context.style_label }} را بپرس..." maxlength="800" style="flex:1; padding:10px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:#111; color:#fff;">
+                    <button id="btiConsultantSend" class="bti-primary-action" type="button">ارسال</button>
+                </form>
+                <small style="color:var(--bti-muted);">Context: {{ consultant_context.service_label }} + {{ consultant_context.style_label }} + {{ consultant_context.detection_method }} + {{ 'AI واقعی' if consultant_context.is_ai_generated else 'راهنما' }}</small>
+            </div>
+        </section>
+        <script>
+        (function(){
+            var form = document.getElementById('btiConsultantForm');
+            var input = document.getElementById('btiConsultantInput');
+            var msgs = document.getElementById('btiConsultantMessages');
+            var send = document.getElementById('btiConsultantSend');
+            if(!form || !input || !msgs || !send) return;
+            function addMsg(role, text){
+                var div = document.createElement('div');
+                div.style.margin='6px 0'; div.style.padding='8px 10px'; div.style.borderRadius='10px';
+                div.style.background = role==='user' ? 'rgba(255,173,18,.12)' : 'rgba(255,255,255,.06)';
+                div.style.color = '#e9e9e9'; div.style.lineHeight='1.7';
+                div.textContent = (role==='user' ? 'شما: ' : 'مشاور: ') + text;
+                msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
+            }
+            async function doSend(){
+                var text = input.value.trim(); if(!text) return;
+                addMsg('user', text); input.value='';
+                try{
+                    var slug = "{{ service_meta.slug if service_meta is defined else 'eyebrow' }}";
+                    var url = slug==='eyebrow' ? '/analysis/mirror/eyebrow/consultant' : '/analysis/mirror/' + slug + '/consultant';
+                    var resp = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.content || ''}, body: JSON.stringify({message: text})});
+                    var data = await resp.json();
+                    if(data.ok) addMsg('assistant', data.reply || 'پاسخی دریافت نشد.');
+                    else addMsg('assistant', 'خطا: ' + (data.error || 'نامشخص'));
+                }catch(e){ addMsg('assistant', 'خطای ارتباط با مشاور.'); }
+            }
+            send.addEventListener('click', doSend);
+            input.addEventListener('keydown', function(e){ if(e.key==='Enter') doSend(); });
+        })();
+        </script>
+        {% endif %}
 
         <div class="bti-result-actions">
             {% if center_suggestions %}
