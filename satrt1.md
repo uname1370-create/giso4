@@ -1,3 +1,111 @@
+# ⚠️ دستور اجرایی اجباری Agent — قبل از اجرای کل سناریو
+
+> اگر Agent فقط این فایل را بخواند، باید کل مأموریت را بدون سؤال از کاربر و بدون نیاز به دستور مرحله‌ای اجرا کند.
+
+## A) اجرای کامل و مستقل
+- این فایل دستور کامل اجراست؛ از کاربر هیچ تأیید، انتخاب، اجازه یا سؤال مرحله‌ای نپرس.
+- کل سناریو را از ابتدا تا انتها اجرا کن.
+- هیچ Domain یا تست اجباری را حذف نکن.
+- اگر چیزی واقعاً قابل اجرا نیست، علت فنی را خودت پیدا کن، آن را BLOCKED یا NOT VERIFIED ثبت کن و ادامه بده.
+- بررسی سطحی، چند فایل، grep ساده یا گزارش‌سازی به‌جای تست واقعی ممنوع است.
+- هرجا Runtime ممکن است، واقعاً Runtime Test انجام بده.
+- هرجا End-to-End ممکن است، Flow را کامل اجرا کن.
+- هیچ PASS را با حدس اعلام نکن.
+
+## B) استاندارد دقت
+برای هر Domain این زنجیره اجباری است:
+
+**Freshness → Map → Entry Point → Call Chain → Data Flow → Dependency → Security → Runtime → Failure Path → Regression → Evidence → Finding**
+
+برای مسیرهای حساس دو Pass انجام بده:
+1. Discovery: ساختار، Entry Point، وابستگی و نقاط حساس.
+2. Verification: اثبات با Code / Runtime / DB / API / Test / Graph.
+
+هر Finding باید Evidence داشته باشد. Duplicate و False Positive را قبل از گزارش نهایی دوباره بررسی کن.
+
+اولویت:
+**Security → Data Integrity → Auth/Authorization → Financial/Reservation → AI Runtime → Core Runtime → Bugs → Architecture → SEO → Code Quality**
+
+## C) عدم تغییر پروژه
+در این مأموریت:
+- هیچ Code Fix، Refactor، Feature، Migration، DB Schema Change، UI Redesign یا Architecture Change انجام نده.
+- تست را برای PASS شدن دستکاری نکن.
+- رفتار سیستم را برای پنهان کردن مشکل تغییر نده.
+- فقط فایل گزارش نهایی مجاز به ایجاد/تغییر است.
+
+**هدف Audit کشف وضعیت واقعی فعلی است، نه سبز کردن تست‌ها.**
+
+## D) عدم سؤال از کاربر
+در طول مأموریت از کاربر سؤال نکن.
+
+اگر مانعی وجود داشت:
+1. Repository را بررسی کن.
+2. Runtime و Configuration را بررسی کن.
+3. giso-dev را بررسی کن.
+4. Graphify و Memory را بررسی کن.
+5. راه موجود برای ادامه را خودت پیدا کن.
+6. اگر واقعاً غیرممکن بود، BLOCKED با دلیل فنی دقیق ثبت کن و ادامه سناریو را اجرا کن.
+
+## E) Memory / Graphify / giso-dev
+قبل از Domain Testing:
+- giso-dev را طبق منابع همین فایل بررسی کن.
+- graphify-out را برای Map و Dependency Navigation استفاده کن.
+- project_memory/letta را بررسی کن.
+- Branch و HEAD واقعی را ثبت کن.
+- Freshness را مشخص کن.
+- اگر Memory یا Graphify مربوط به Commit دیگری است، STALE ثبت کن.
+- **Code فعلی مرجع وضعیت واقعی سیستم است.**
+- Memory برای Intent/Architecture و Graphify برای Navigation است، نه اثبات وضعیت فعلی.
+
+## F) تست عمیق بخش‌های حساس
+با بالاترین دقت این موارد را بررسی کن:
+
+### Security
+Auth bypass، Authorization bypass، IDOR، User A → User B، privilege escalation، file ownership، sensitive result access، path traversal، SQL injection، XSS، CSRF، unsafe redirect، arbitrary file read/write، upload abuse، secret exposure، sensitive API exposure، rate limit و error leakage.
+
+### Reservation / Financial
+Wrong service/user/center، duplicate، race condition، occupied slot، closed day، inactive/expired center، invalid service، invalid final_design_id، id=0، success-on-failure، duplicate callback/payment، idempotency، negative balance، double spending، refund و authorization.
+
+### Buti AI / AI Runtime
+Provider، model، task assignment، Vision، Text، Image، inpainting، mask، composite، outside-mask protection، final result، retry، ownership، credits، fallback، failover و اینکه fallback اشتباهاً به‌عنوان AI success گزارش نشود.
+
+### Data Integrity
+برای Flowهای حساس این مسیر را trace کن:
+
+**Input → Validation → Transformation → DB → External Service → DB → Output**
+
+## G) Credential تست Cloudflare
+اگر برای اثبات واقعی AI/Cloudflare نیاز به Credential داشتی، فقط از Credentialی که کاربر خارج از Repository در اختیار تست قرار داده استفاده کن.
+
+**مقدار Credential را در این فایل، Code، Comment، Log، Screenshot، Report یا Git Commit ننویس.**
+
+Credential فقط به‌صورت Environment Variable/Secret Runtime مصرف شود.
+
+بعد از تست:
+- Secret را از محیط تست پاک/Unset کن.
+- با git status و git diff و ابزار مناسب بررسی کن که هیچ Secret وارد Repository نشده باشد.
+- مقدار Secret را هرگز در گزارش نهایی نمایش نده.
+
+اگر تست بدون Credential ممکن است، ابتدا همان را انجام بده.
+
+## H) معیار اتمام
+مأموریت فقط وقتی تمام است که:
+- Project Map کامل ساخته شده باشد.
+- همه Domainهای سناریو بررسی شده باشند.
+- Minimum Testهای هر Domain اجرا شده باشند.
+- Runtime تا حد امکان واقعی تست شده باشد.
+- Security، Data Integrity، Regression و SEO بررسی شده باشند.
+- Graphify + giso-dev + Memory استفاده شده باشند.
+- ۱۰ مشکل قبلی دوباره Verify شده باشند.
+- Critical/High Findings دوباره Re-test شده باشند.
+- Final Report ساخته و در همان Branch Commit شده باشد.
+- هیچ Secret وارد Repository نشده باشد.
+- هیچ Code Fix انجام نشده باشد.
+
+**تا قبل از این وضعیت، مأموریت را تمام‌شده اعلام نکن.**
+
+---
+
 # SATRT1 — سناریوی جامع تست و Audit دو ساعته کل Giso4
 
 ## 0) هدف اصلی
