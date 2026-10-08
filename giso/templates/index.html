@@ -16,6 +16,16 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/home_original.css') }}?v=6">
+<script>
+/* Prevent the first-paint FOUC: repeat visitors never paint the cinematic intro. */
+(function(){
+  try{
+    if(localStorage.getItem('giso-home-intro-v3')==='1'){
+      document.documentElement.classList.add('giso-intro-repeat');
+    }
+  }catch(e){}
+})();
+</script>
 {% endblock %}
 
 {% block content %}
