@@ -18,6 +18,7 @@ except ImportError:
     pass  # اگر python-dotenv نصب نبود، از env سیستم استفاده می‌شود
 
 from telegram import Update
+from telegram.request import HTTPXRequest
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, filters,
@@ -135,11 +136,23 @@ def _register_handlers(app):
 
 
 def _build_bale_app():
+    # بله باید مستقیم به tapi.bale.ai وصل شود.
+    # HTTPX به‌صورت پیش‌فرض HTTP_PROXY/HTTPS_PROXY/ALL_PROXY سیستم را
+    # از محیط می‌خواند؛ این می‌تواند polling بله را ناخواسته از پروکسی
+    # تلگرام عبور دهد و باعث RemoteProtocolError شود.
+    bale_request = HTTPXRequest(
+        httpx_kwargs={"trust_env": False},
+    )
+    bale_get_updates_request = HTTPXRequest(
+        httpx_kwargs={"trust_env": False},
+    )
     app = (
         ApplicationBuilder()
         .token(TOKEN)
         .base_url("https://tapi.bale.ai/bot")
         .base_file_url("https://tapi.bale.ai/file/bot")
+        .request(bale_request)
+        .get_updates_request(bale_get_updates_request)
         .build()
     )
     _register_handlers(app)
