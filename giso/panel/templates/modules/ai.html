@@ -55,11 +55,11 @@
                 <input type="text" name="selected_model" data-hide-for-cf placeholder="مدل دلخواه (اختیاری) — مثال: model-name" dir="ltr">
                 <div class="pnl-card" data-cf-help style="grid-column:1/-1;background:#f8fbff;border-color:#cfe4ff;display:none;">
                     <b>⚡ افزودن سریع Cloudflare با cf1 / cf2 / cf3</b>
-                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">برای هر اکانت Cloudflare یک نام جدا انتخاب کن و فقط دو مقدار بده: <b>API Token</b> و <b>Account ID</b>. گیسو خودش این آدرس را می‌سازد:</p>
+                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">برای هر اکانت Cloudflare یک نام مانند <b>cf1</b>، <b>cf2</b>، <b>cf4</b> و ... انتخاب کن و فقط دو مقدار بده: <b>API Token</b> و <b>Account ID</b>. گیسو خودش این آدرس را می‌سازد:</p>
                     <code dir="ltr" style="display:block;margin-top:6px;white-space:normal;">https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run</code>
                     <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">مدل پیش‌فرض طراحی عکس نهایی آینه گیسو: <code dir="ltr">@cf/runwayml/stable-diffusion-v1-5-inpainting</code> (Inpainting با mask)</p>
                 </div>
-                <small class="pnl-muted" style="grid-column:1/-1;">برای چند اکانت Cloudflare از <b>cf1</b>، <b>cf2</b>، <b>cf3</b> استفاده کن؛ هرکدام Token و Account ID خودش را می‌گیرد و به اسلات همان شماره در طراحی نهایی آینه گیسو وصل می‌شود.</small>
+                <small class="pnl-muted" style="grid-column:1/-1;">برای هر تعداد اکانت Cloudflare از نام‌های <b>cf1</b>، <b>cf2</b>، <b>cf3</b>، <b>cf4</b> و ... استفاده کن؛ گیسو همه مدل‌های فعال را در یک زنجیره مشترک طراحی نهایی آینه گیسو بررسی می‌کند و در صورت شکست خودکار سراغ مورد بعدی می‌رود.</small>
                 <details style="grid-column:1/-1;" data-hide-for-cf>
                     <summary style="cursor:pointer;">⚙️ تنظیمات پیشرفته (اختیاری — خالی = از رجیستری)</summary>
                     <div class="pnl-grid-form" style="margin-top:8px;">
@@ -257,7 +257,7 @@
         <div class="pnl-card">
             <h3>🪞 مدل‌های آینه گیسو</h3>
             <p class="pnl-muted">
-                این بخش فقط مدل‌های اختصاصی آینه گیسو را نگه می‌دارد؛ زنجیره طراحی تصویر یک‌بار تنظیم می‌شود و برای ابرو، ناخن، لب و رنگ مو مشترک است. مدل بررسی عکس جداست؛ اسلات ۱ مدل اصلی و اسلات‌های بعدی fallback هستند.
+                این بخش فقط تنظیمات اختصاصی آینه گیسو را نگه می‌دارد. طراحی تصویر فقط یک مسیر مشترک دارد؛ هر تعداد مدل فعال در آن مسیر به‌ترتیب تست می‌شوند و اگر یک مدل خطا بدهد یا خروجی معتبر ندهد، مدل بعدی خودکار امتحان می‌شود. ابرو، ناخن، لب و رنگ مو همگی همین مسیر را مصرف می‌کنند.
             </p>
             {% set bm = ai.get('beauty_mirror', {}) %}
             <div class="pnl-card" style="margin:10px 0 14px;background:#f8fbff;border-color:#cfe4ff;">
@@ -278,7 +278,7 @@
             </div>
             <div class="pnl-card" style="margin:10px 0 14px;background:#f8fbff;border-color:#cfe4ff;">
                 <h4 style="margin:0 0 8px;">مدل طراحی عکس آینه گیسو</h4>
-                <p class="pnl-muted" style="margin:0;line-height:1.9;">مدل پیشنهادی کم‌هزینه فعلی: <code dir="ltr">{{ bm.get('recommended_image_model') }}</code>. برای اکانت‌های جدا، cf1/cf2/cf3 را بساز تا هر اسلات با همین مدل امن پر شود.</p>
+                <p class="pnl-muted" style="margin:0;line-height:1.9;">مدل پیشنهادی کم‌هزینه فعلی: <code dir="ltr">{{ bm.get('recommended_image_model') }}</code>. مدل‌های فعال این مسیر به‌صورت خودکار از مدیریت AI خوانده می‌شوند؛ تعداد مدل‌ها محدود نیست و هر چهار خدمت آینه گیسو همین زنجیره مشترک را مصرف می‌کنند.</p>
                 {% if bm.get('image_candidates') %}
                 <details style="margin-top:8px;">
                     <summary style="cursor:pointer;">مدل‌های تصویری احتمالی پیدا‌شده در AI Management</summary>
@@ -294,7 +294,7 @@
                 <form method="POST" action="{{ url_for('panel.ai_config') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="ai_action" value="seed_beauty_mirror_models">
-                    <button class="pnl-btn pnl-btn-outline pnl-btn-sm">✨ پرکردن خودکار اسلات‌های خالی</button>
+                    <button class="pnl-btn pnl-btn-outline pnl-btn-sm">✨ همگام‌سازی خودکار زنجیره مدل‌ها</button>
                 </form>
                 <form method="POST" action="{{ url_for('panel.ai_config') }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -307,48 +307,23 @@
                 <option value="{{ model }}"></option>
                 {% endfor %}
             </datalist>
-            <div class="pnl-grid-2" style="margin-top:12px;">
-                {% for slot in bm.get('slots', []) %}
-                <form method="POST" action="{{ url_for('panel.ai_config') }}" class="pnl-card pnl-stack-form" style="margin:0;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="ai_action" value="save_beauty_mirror_model">
-                    <input type="hidden" name="task_key" value="{{ slot.task_key }}">
-                    <input type="hidden" name="priority" value="{{ slot.priority }}">
-                    <h4 style="margin:0 0 4px;">{{ slot.task_label }} — {{ slot.slot_label }}</h4>
-                    <small class="pnl-muted">{{ slot.task_help }}</small>
-                    <label>پروایدر</label>
-                    <select name="provider_name" required>
-                        <option value="">انتخاب پروایدر</option>
-                        {% for p in bm.get('providers', []) %}
-                        <option value="{{ p.name }}" {% if slot.provider_name==p.name %}selected{% endif %}>
-                            {{ p.name }}{% if not p.enabled %} — غیرفعال{% endif %}{% if not p.has_api_key %} — بدون کلید{% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
-                    <label>نام مدل</label>
-                    <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" placeholder="مثلاً @cf/runwayml/stable-diffusion-v1-5-inpainting" required>
-                    {% if slot.task_kind == 'image' %}
-                    <label>نوع فراخوانی تصویر</label>
-                    <select name="image_kind">
-                        <option value="cloudflare" {% if not slot.image_kind or slot.image_kind=='cloudflare' %}selected{% endif %}>Cloudflare FLUX عکس‌ورودی</option>
-                        <option value="cloudflare_inpainting" {% if slot.image_kind=='cloudflare_inpainting' %}selected{% endif %}>Cloudflare Inpainting با mask</option>
-                        <option value="openai_image_edit" {% if slot.image_kind=='openai_image_edit' %}selected{% endif %}>سرویس سفارشی سازگار با OpenAI image edit</option>
-                        <option value="multipart" {% if slot.image_kind=='multipart' %}selected{% endif %}>پیشرفته: multipart سفارشی</option>
-                        <option value="json_image" {% if slot.image_kind=='json_image' %}selected{% endif %}>پیشرفته: JSON image سفارشی</option>
-                    </select>
-                    <details>
-                        <summary style="cursor:pointer;">تنظیم پیشرفته endpoint تصویر</summary>
-                        <label>Endpoint سفارشی تصویر، اختیاری</label>
-                        <input type="text" name="endpoint_override" value="{{ slot.endpoint_override }}" dir="ltr" placeholder="برای سرویس ایرانی/سفارشی اگر endpoint جدا دارد">
-                    </details>
-                    {% endif %}
-                    <label class="pnl-check"><input type="checkbox" name="enabled" value="1" {% if slot.enabled %}checked{% endif %}> فعال باشد</label>
-                    <button class="pnl-btn pnl-btn-gold pnl-btn-sm">💾 ذخیره این اسلات</button>
-                </form>
-                {% else %}
-                <div class="pnl-empty"><p>هنوز داده مدل‌های آینه گیسو آماده نیست.</p></div>
-                {% endfor %}
-            </div>
+            <div class="pnl-card" style="margin-top:12px;">
+                <h4 style="margin:0 0 8px;">🔁 زنجیره هوشمند طراحی تصویر</h4>
+                <p class="pnl-muted" style="margin:0 0 10px;line-height:1.9;">
+                    هیچ مدل جداگانه‌ای برای ابرو، ناخن، لب یا مو تعریف نمی‌شود. همه از همین مسیر مشترک می‌خوانند.
+                    گیسو مدل‌های فعال را به ترتیب اولویت امتحان می‌کند؛ خطا یا خروجی نامعتبر یعنی رفتن خودکار به مدل بعدی.
+                </p>
+                <div style="display:grid;gap:7px;">
+                    {% for item in bm.get('image_chain', []) %}
+                    <div class="pnl-tx-row" style="justify-content:space-between;">
+                        <span><b>#{{ item.priority }}</b> · {{ item.provider_name }}</span>
+                        <code dir="ltr">{{ item.model_name }}</code>
+                    </div>
+                    {% else %}
+                    <div class="pnl-empty"><p>هنوز مدل فعالی برای طراحی تصویر آینه گیسو ثبت نشده است.</p></div>
+                    {% endfor %}
+                </div>
+            </div>            </div>
         </div>
     </section>
 
