@@ -10,8 +10,10 @@ import os
 import shutil
 import tempfile
 
-from flask import flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import abort, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from flask_login import current_user
+
+from giso.base import get_giso_db_conn
 
 from giso.buti_ai import buti_ai_bp
 from giso.buti_ai import generic_service
@@ -49,6 +51,7 @@ from giso.buti_ai.eyebrow.ai import check_photo_quality
 from giso.buti_ai.eyebrow.upload import EYEBROW_UPLOAD_DIR, save_eyebrow_photo
 from giso.buti_ai.schema import init_buti_ai_db
 from giso.buti_ai.services import (
+    get_final_design_by_id,
     record_service_demand,
     save_final_design,
     save_service_waitlist,
@@ -147,6 +150,76 @@ def _safe_current_user_id():
     return None
 
 
+def _candidate_belongs_to_current_user(candidate):
+    """اعتبارسنجی مالک candidate نشست؛ برای فایل‌های ذخیره‌شده DB مرجع نهایی است."""
+    if not isinstance(candidate, dict):
+        return False
+    user_id = _safe_current_user_id()
+    owner_id = candidate.get("_owner_user_id")
+    if user_id:
+        if "_owner_user_id" in candidate:
+            if owner_id in (None, "", 0, "0"):
+                # A guest may finish the same browser-bound flow after signing in.
+                candidate["_owner_user_id"] = int(user_id)
+                session.modified = True
+                return True
+            try:
+                return int(owner_id) == int(user_id)
+            except (TypeError, ValueError):
+                return False
+        design_id = candidate.get("final_design_id")
+        if design_id and get_final_design_by_id(design_id, user_id):
+            candidate["_owner_user_id"] = int(user_id)
+            session.modified = True
+            return True
+        return False
+    return not owner_id
+
+
+def _private_mirror_filename(filename):
+    """Normalize a private Mirror filename without permitting absolute/traversal paths."""
+    raw = str(filename or "").replace("\\", "/")
+    if not raw or raw.startswith("/") or "\x00" in raw:
+        return ""
+    parts = raw.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        return ""
+    return raw
+
+
+def _session_candidate_has_file(candidate, filename):
+    generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
+    allowed = (candidate.get("photo_filename"), generation.get("filename"))
+    return filename in {_private_mirror_filename(item) for item in allowed if item}
+
+
+def _current_user_owns_mirror_file(service_key, filename):
+    """Only return a DB-backed Mirror file to the owner of its saved design."""
+    user_id = _safe_current_user_id()
+    if not user_id or not filename:
+        return False
+    aliases = {
+        "eyebrow": ("eyebrow", "brow", "microblading"),
+        "nail": ("nail", "manicure", "pedicure"),
+        "hair_color": ("hair_color", "hair", "hair-color"),
+        "lip_shading": ("lip_shading", "lip", "lip-shading"),
+    }
+    service_type = str(get_service_meta(service_key).get("service_type") or service_key).strip().lower()
+    types = aliases.get(service_key, (service_type,))
+    marks = ",".join("?" for _ in types)
+    try:
+        with get_giso_db_conn() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM buti_ai_final_designs WHERE user_id=? "
+                f"AND lower(service_type) IN ({marks}) "
+                "AND (original_filename=? OR final_filename=?) LIMIT 1",
+                (int(user_id), *types, filename, filename),
+            ).fetchone()
+        return bool(row)
+    except Exception:
+        return False
+
+
 def _compact_generation_for_session(generation):
     """Keep Flask cookie-session small; full generation is saved in DB/render context."""
     if not isinstance(generation, dict):
@@ -227,7 +300,10 @@ def eyebrow_wizard():
         )
         state["flow_step"] = "upload"
         if state.get("result"):
-            store_final_candidate(session, state.get("result"), state.get("photo_status"))
+            candidate = store_final_candidate(session, state.get("result"), state.get("photo_status"))
+            candidate["_owner_user_id"] = _safe_current_user_id()
+            session[FINAL_DESIGN_SESSION_KEY] = candidate
+            session.modified = True
             if state.get("flash_message"):
                 flash(state["flash_message"], state.get("flash_category") or "info")
             return redirect(url_for("buti_ai.eyebrow_final_design"))
@@ -270,6 +346,9 @@ def eyebrow_upload():
     # بعد از آپلود موفق مستقیم به /eyebrow/final می‌رویم
     if state.get("result"):
         candidate = store_final_candidate(session, state.get("result"), state.get("photo_status"))
+        candidate["_owner_user_id"] = _safe_current_user_id()
+        session[FINAL_DESIGN_SESSION_KEY] = candidate
+        session.modified = True
         _log_preview_candidate(candidate, source="upload_route")
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
@@ -328,6 +407,8 @@ def eyebrow_finalize_choice():
     """ثبت انتخاب نهایی مدل ابرو و ورود به مرحله طراحی نهایی."""
     init_buti_ai_db()
     candidate = get_final_candidate(session)
+    if candidate and not _candidate_belongs_to_current_user(candidate):
+        candidate = None
     if not candidate:
         flash("اول مدل را انتخاب کن و عکس را آپلود کن، بعد طراحی نهایی را بساز.", "warning")
         return redirect(url_for("buti_ai.eyebrow_wizard"))
@@ -345,6 +426,8 @@ def eyebrow_final_retry():
     """تلاش دوباره برای ساخت طراحی نهایی بدون از دست دادن عکس و انتخاب کاربر."""
     init_buti_ai_db()
     candidate = get_final_candidate(session)
+    if candidate and not _candidate_belongs_to_current_user(candidate):
+        candidate = None
     if not candidate:
         flash("برای تلاش دوباره، اول مدل را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.eyebrow_wizard"))
@@ -358,29 +441,36 @@ def eyebrow_final_retry():
 
 @buti_ai_bp.route("/eyebrow/final", methods=["GET"])
 def eyebrow_final_design():
-    """صفحه طراحی نهایی: بدون چک لاگین برای تست — مستقیم طراحی."""
+    """طراحی نهاییِ طرح جاریِ همین نشست یا Final Design متعلق به کاربر واردشده."""
     init_buti_ai_db()
-    candidate = get_final_candidate(session)
-    if not candidate:
-        fd_id = request.args.get("final_design_id", type=int)
-        if fd_id:
-            try:
-                from giso.buti_ai.services import get_final_design_by_id
-                db_row = get_final_design_by_id(fd_id, _safe_current_user_id())
-                if db_row and db_row.get("candidate"):
-                    candidate = db_row["candidate"]
-                    if db_row.get("generation"):
-                        candidate["generation"] = db_row["generation"]
-                    candidate["final_design_id"] = db_row.get("id")
-                    session[FINAL_DESIGN_SESSION_KEY] = candidate
-                    session.modified = True
-            except Exception:
-                pass
+    raw_design_id = request.args.get("final_design_id")
+    candidate = None
+    if raw_design_id is not None:
+        try:
+            design_id = int(raw_design_id)
+        except (TypeError, ValueError):
+            abort(404)
+        user_id = _safe_current_user_id()
+        db_row = get_final_design_by_id(design_id, user_id)
+        if not db_row or not isinstance(db_row.get("candidate"), dict):
+            abort(404)
+        design_service = str(db_row.get("service_type") or db_row["candidate"].get("service_type") or "").lower()
+        if design_service not in ("eyebrow", "brow", "microblading"):
+            abort(404)
+        candidate = dict(db_row["candidate"])
+        if db_row.get("generation"):
+            candidate["generation"] = db_row["generation"]
+        candidate["final_design_id"] = db_row.get("id")
+        candidate["_owner_user_id"] = int(user_id)
+        session[FINAL_DESIGN_SESSION_KEY] = candidate
+        session.modified = True
+    else:
+        candidate = get_final_candidate(session)
+        if candidate and not _candidate_belongs_to_current_user(candidate):
+            candidate = None
     if not candidate:
         flash("برای طراحی نهایی، اول مدل ابرو را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.eyebrow_wizard"))
-
-    # لاگین غیرفعال برای تست
 
     generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
     if not generation or not generation.get("ok"):
@@ -435,7 +525,11 @@ def eyebrow_final_design():
             session[FINAL_DESIGN_SESSION_KEY] = candidate
             session.modified = True
     center_demand_count = total_service_interest_count(BUTI_EYEBROW_SERVICE, city=center_city)
-    centers_url = url_for("beauty_centers.list_centers", service=BEAUTY_CENTER_BROW_SERVICE, city=center_city)
+    centers_url = url_for(
+        "beauty_centers.list_centers", service=BEAUTY_CENTER_BROW_SERVICE, city=center_city,
+        final_design_id=candidate.get("final_design_id") or "", service_key="eyebrow",
+        selected_style=candidate.get("final_style") or "",
+    )
     register_center_url = (
         url_for("beauty_centers.register_center")
         if getattr(current_user, "is_authenticated", False)
@@ -467,10 +561,19 @@ def eyebrow_final_design():
 
 @buti_ai_bp.route("/eyebrow/uploads/<path:filename>", methods=["GET"])
 def eyebrow_uploaded_file(filename):
-    """نمایش امن عکس‌های runtime آینه ابرو برای پیش‌نمایش همان صفحه."""
-    safe_name = os.path.basename(str(filename or ""))
+    """نمایش عکس ابرو فقط به صاحب candidate/طرح ذخیره‌شده."""
+    safe_name = _private_mirror_filename(filename)
+    if not safe_name:
+        abort(404)
+    candidate = get_final_candidate(session)
+    session_owned = (
+        _candidate_belongs_to_current_user(candidate)
+        and _session_candidate_has_file(candidate, safe_name)
+    )
+    if not session_owned and not _current_user_owns_mirror_file("eyebrow", safe_name):
+        abort(404)
     _beauty_route_log("[EYEBROW_PREVIEW]", "serve_uploaded_file", filename=safe_name, cache_buster=request.args.get("v", ""))
-    response = send_from_directory(EYEBROW_UPLOAD_DIR, filename)
+    response = send_from_directory(EYEBROW_UPLOAD_DIR, safe_name)
     response.cache_control.no_cache = True
     response.cache_control.max_age = 0
     response.headers["Pragma"] = "no-cache"
@@ -493,6 +596,8 @@ def eyebrow_centers():
         return redirect(url_for("beauty_centers.list_centers", service=BEAUTY_CENTER_BROW_SERVICE, city=city))
 
     candidate = get_final_candidate(session)
+    if candidate and not _candidate_belongs_to_current_user(candidate):
+        candidate = None
     saved = False
     waitlist_message = ""
     waitlist_error = ""
@@ -607,6 +712,7 @@ def _render_new_service_wizard(service_key, state):
 
 def _store_new_service_candidate(service_key, result, photo_status):
     candidate = generic_service.build_final_candidate(service_key, result or {}, photo_status or {})
+    candidate["_owner_user_id"] = _safe_current_user_id()
     session[_new_service_candidate_key(service_key)] = candidate
     session.modified = True
     return candidate
@@ -615,43 +721,6 @@ def _store_new_service_candidate(service_key, result, photo_status):
 def _get_new_service_candidate(service_key):
     candidate = session.get(_new_service_candidate_key(service_key))
     return candidate if isinstance(candidate, dict) else None
-
-
-def _rebuild_new_service_candidate_from_finalize_form(service_key):
-    """Recover final candidate from hidden upload result fields if session was lost/truncated."""
-    form = request.values or {}
-    filename = os.path.basename(str(form.get("photo_filename") or ""))
-    if not filename:
-        return None
-    try:
-        module = generic_service.service_module(service_key)
-        upload_root = os.path.abspath(getattr(module, "UPLOAD_DIR"))
-        photo_path = os.path.abspath(os.path.join(upload_root, filename))
-        if not photo_path.startswith(upload_root + os.sep) or not os.path.exists(photo_path):
-            return None
-        style_key = generic_service.normalize_model_key(
-            service_key,
-            form.get("selected_style") or form.get("final_style") or form.get("style"),
-        )
-        change_key = generic_service.normalize_change_level(form.get("change_key") or form.get("change_level"))
-        detection = module.detect_regions(photo_path, allow_fallback=True)
-        photo_status = {"ok": True, "filename": filename, "path": photo_path}
-        result = generic_service.build_result(
-            service_key,
-            style_key,
-            change_key,
-            photo_status,
-            detection=detection,
-            quality_report={
-                "status": "session_recovered",
-                "ok": True,
-                "message": "عکس قبلاً دریافت شده بود و طراحی ادامه پیدا کرد.",
-            },
-        )
-        return _store_new_service_candidate(service_key, result, photo_status)
-    except Exception as exc:
-        _beauty_route_log("[BUTI_SERVICE_FINAL]", "candidate_recovery_failed", service_key=service_key, error=str(exc)[:120])
-        return None
 
 
 def _update_new_service_final_selection(service_key):
@@ -720,7 +789,11 @@ def _enrich_generic_centers(service_key, centers, candidate=None, city=""):
         item = dict(center or {})
         services = item.get("services") if isinstance(item.get("services"), list) else []
         service_labels = item.get("service_labels") if isinstance(item.get("service_labels"), list) else []
-        has_service = service_filter in services or any(service_label in str(label) for label in service_labels)
+        has_service = (
+            bool(item.get("matched_service_id"))
+            if "matched_service_id" in item
+            else service_filter in services or any(service_label in str(label) for label in service_labels)
+        )
         city_match = bool(target_city and str(item.get("city") or "").strip() == target_city)
         score = 0
         score += 45 if has_service else 0
@@ -874,8 +947,8 @@ def generic_service_finalize_choice(service_slug):
         flash("این خدمت هنوز فعال نیست.", "info")
         return redirect(url_for("buti_ai.mirror_home"))
     candidate = _get_new_service_candidate(service_key)
-    if not candidate:
-        candidate = _rebuild_new_service_candidate_from_finalize_form(service_key)
+    if candidate and not _candidate_belongs_to_current_user(candidate):
+        candidate = None
     if not candidate:
         flash("اول مدل را انتخاب کن و عکس را آپلود کن، بعد طراحی نهایی را بساز.", "warning")
         return redirect(url_for("buti_ai.generic_service_wizard", service_slug=slug_for_service(service_key)))
@@ -893,51 +966,46 @@ def generic_service_final_design(service_slug):
     if not service_key:
         flash("این خدمت هنوز فعال نیست.", "info")
         return redirect(url_for("buti_ai.mirror_home"))
-    candidate = _get_new_service_candidate(service_key)
-    if not candidate:
-        candidate = _rebuild_new_service_candidate_from_finalize_form(service_key)
-    # FINBUTI — Load from DB if final_design_id provided (for analyses history deep link)
-    if not candidate:
-        fd_id = request.args.get("final_design_id", type=int)
-        if fd_id:
-            try:
-                from giso.buti_ai.services import get_final_design_by_id
-                db_row = get_final_design_by_id(fd_id, _safe_current_user_id())
-                if db_row and db_row.get("candidate"):
-                    candidate = db_row["candidate"]
-                    # Ensure generation present
-                    if db_row.get("generation"):
-                        candidate["generation"] = db_row["generation"]
-                    candidate["final_design_id"] = db_row.get("id")
-                    # Ensure service_key matches
-                    candidate["service_type"] = candidate.get("service_type") or db_row.get("service_type") or service_key
-                    # Store back to session for continuity
-                    session[_new_service_candidate_key(service_key)] = candidate
-                    session.modified = True
-            except Exception:
-                pass
+    raw_design_id = request.args.get("final_design_id")
+    candidate = None
+    if raw_design_id is not None:
+        try:
+            design_id = int(raw_design_id)
+        except (TypeError, ValueError):
+            abort(404)
+        user_id = _safe_current_user_id()
+        db_row = get_final_design_by_id(design_id, user_id)
+        if not db_row or not isinstance(db_row.get("candidate"), dict):
+            abort(404)
+        design_type = str(db_row.get("service_type") or db_row["candidate"].get("service_type") or "").strip().lower().replace("-", "_")
+        design_type = {"hair": "hair_color", "lip": "lip_shading", "manicure": "nail", "pedicure": "nail"}.get(design_type, design_type)
+        expected_type = str(get_service_meta(service_key).get("service_type") or service_key).strip().lower()
+        if design_type != expected_type:
+            abort(404)
+        candidate = dict(db_row["candidate"])
+        if db_row.get("generation"):
+            candidate["generation"] = db_row["generation"]
+        candidate["final_design_id"] = db_row.get("id")
+        candidate["service_type"] = expected_type
+        candidate["_owner_user_id"] = int(user_id)
+        session[_new_service_candidate_key(service_key)] = candidate
+        session.modified = True
+    else:
+        candidate = _get_new_service_candidate(service_key)
+        if candidate and not _candidate_belongs_to_current_user(candidate):
+            candidate = None
+        if candidate:
+            candidate_type = str(candidate.get("service_type") or service_key).strip().lower().replace("-", "_")
+            candidate_type = {"hair": "hair_color", "lip": "lip_shading", "manicure": "nail", "pedicure": "nail"}.get(candidate_type, candidate_type)
+            expected_type = str(get_service_meta(service_key).get("service_type") or service_key).strip().lower()
+            if candidate_type != expected_type:
+                candidate = None
     if not candidate:
         flash("برای طراحی نهایی، اول مدل را انتخاب کن و عکس را آپلود کن.", "warning")
         return redirect(url_for("buti_ai.generic_service_wizard", service_slug=slug_for_service(service_key)))
 
-    final_url = url_for(
-        "buti_ai.generic_service_final_design",
-        service_slug=slug_for_service(service_key),
-        photo_filename=candidate.get("photo_filename") or "",
-        selected_style=candidate.get("selected_style") or candidate.get("final_style") or "",
-        change_level=candidate.get("change_key") or "",
-    )
-    if not getattr(current_user, "is_authenticated", False):
-        return render_template(
-            "buti_ai/generic_final_auth.html",
-            service_key=service_key,
-            service_meta=get_service_meta(service_key),
-            candidate=candidate,
-            uploaded_url_builder=_new_service_uploaded_url,
-            login_url=url_for("login", next=final_url),
-            register_url=url_for("register", next=final_url),
-        )
-
+    # A final preview is available in the same signed browser session without
+    # requiring an account. Only authenticated users get a persistent DB record.
     generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
     if not generation or not generation.get("ok"):
         generation = generic_service.generate_final_design(service_key, candidate)
@@ -951,12 +1019,16 @@ def generic_service_final_design(service_slug):
             is_ai_generated=generation.get("is_ai_generated") if isinstance(generation, dict) else False,
             ok=generation.get("ok") if isinstance(generation, dict) else False,
         )
-        if generation.get("ok") and not candidate.get("final_design_id"):
-            design_id = save_final_design(_safe_current_user_id(), candidate, generation)
+
+    user_id = _safe_current_user_id()
+    if generation.get("ok") and not candidate.get("final_design_id") and user_id:
+        design_id = save_final_design(user_id, candidate, generation)
+        if design_id:
             candidate["final_design_id"] = design_id
-        candidate["generation"] = _compact_generation_for_session(generation)
-        session[_new_service_candidate_key(service_key)] = candidate
-        session.modified = True
+
+    candidate["generation"] = _compact_generation_for_session(generation)
+    session[_new_service_candidate_key(service_key)] = candidate
+    session.modified = True
 
     center_city = (request.args.get("city") or user_default_city(current_user)).strip() or "مشهد"
     center_suggestions = _enrich_generic_centers(
@@ -995,7 +1067,14 @@ def generic_service_final_design(service_slug):
             session.modified = True
     center_demand_count = total_service_interest_count(service_type, city=center_city)
     beauty_service = str(get_service_meta(service_key).get("beauty_center_service") or "").strip()
-    centers_url = url_for("beauty_centers.list_centers", service=beauty_service, city=center_city) if beauty_service else url_for("beauty_centers.list_centers", city=center_city)
+    centers_url = (
+        url_for(
+            "beauty_centers.list_centers", service=beauty_service, city=center_city,
+            final_design_id=candidate.get("final_design_id") or "", service_key=service_key,
+            selected_style=candidate.get("final_style") or "",
+        )
+        if beauty_service else url_for("beauty_centers.list_centers", city=center_city)
+    )
     register_center_url = (
         url_for("beauty_centers.register_center")
         if getattr(current_user, "is_authenticated", False)
@@ -1035,7 +1114,16 @@ def generic_service_uploaded_file(service_slug, filename):
     if not service_key:
         flash("این خدمت هنوز فعال نیست.", "info")
         return redirect(url_for("buti_ai.mirror_home"))
-    safe_filename = str(filename or "").replace("\\", "/").lstrip("/")
+    safe_filename = _private_mirror_filename(filename)
+    if not safe_filename:
+        abort(404)
+    candidate = _get_new_service_candidate(service_key)
+    session_owned = (
+        _candidate_belongs_to_current_user(candidate)
+        and _session_candidate_has_file(candidate, safe_filename)
+    )
+    if not session_owned and not _current_user_owns_mirror_file(service_key, safe_filename):
+        abort(404)
     response = send_from_directory(generic_service.uploaded_root(service_key), safe_filename)
     response.cache_control.no_cache = True
     response.cache_control.max_age = 0
@@ -1058,6 +1146,8 @@ def generic_service_centers(service_slug):
         return redirect(url_for("beauty_centers.list_centers", service=beauty_service, city=city) if beauty_service else url_for("beauty_centers.list_centers", city=city))
 
     candidate = _get_new_service_candidate(service_key)
+    if candidate and not _candidate_belongs_to_current_user(candidate):
+        candidate = None
     saved = False
     waitlist_message = ""
     waitlist_error = ""
@@ -1111,7 +1201,7 @@ def generic_service_consultant_chat(service_slug):
     if not service_key:
         return {"ok": False, "error": "خدمت فعال نیست."}, 404
     candidate = _get_new_service_candidate(service_key)
-    if not candidate:
+    if not candidate or not _candidate_belongs_to_current_user(candidate):
         return {"ok": False, "error": "ابتدا مدل و عکس را انتخاب کن."}, 400
     try:
         from giso.buti_ai.consultant import build_consultant_context
@@ -1141,7 +1231,7 @@ def eyebrow_consultant_chat():
     """AI Consultant for eyebrow – same context pattern"""
     init_buti_ai_db()
     candidate = get_final_candidate(session)
-    if not candidate:
+    if not candidate or not _candidate_belongs_to_current_user(candidate):
         return {"ok": False, "error": "ابتدا مدل و عکس ابرو را انتخاب کن."}, 400
     try:
         from giso.buti_ai.consultant import build_consultant_context

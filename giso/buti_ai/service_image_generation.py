@@ -102,8 +102,10 @@ def _validation_ok(service_key: str, validation: Dict[str, Any]) -> bool:
         validation.get("ok")
         and validation.get("visible_in_mask_change")
         and validation.get("outside_preserved")
-        and float(validation.get("in_mask_diff_ratio") or 0) >= float(constraints["min_in_ratio"])
-        and float(validation.get("outside_mask_diff_ratio") or 1) <= float(constraints["max_out_ratio"])
+        and float(validation.get("in_mask_diff_ratio") if validation.get("in_mask_diff_ratio") is not None else 0)
+        >= float(constraints["min_in_ratio"])
+        and float(validation.get("outside_mask_diff_ratio") if validation.get("outside_mask_diff_ratio") is not None else 1)
+        <= float(constraints["max_out_ratio"])
     )
 
 
@@ -114,12 +116,20 @@ def _save_constrained_provider_output(
     mask_path: str,
     module: Any,
     service_key: str,
+    provider_endpoint: str = "",
+    provider_extra: Optional[Dict[str, Any]] = None,
 ) -> Tuple[str, Dict[str, Any]]:
     from io import BytesIO
-    from PIL import Image, ImageFilter
-    from giso.buti_ai.image_validation import validate_masked_output
+    from PIL import Image
+    from giso.buti_ai.image_validation import (
+        outside_mask_pixels_equal,
+        save_lossless_webp,
+        validate_masked_output,
+    )
 
-    raw, _mime = shared_image._decode_image_value(image_value, timeout)
+    raw, _mime = shared_image._decode_image_value(
+        image_value, timeout, provider_endpoint, provider_extra
+    )
     if not raw:
         raise ServiceImageGenerationError("تصویر خروجی AI خالی بود.")
     base = Image.open(source_path).convert("RGB")
@@ -130,20 +140,28 @@ def _save_constrained_provider_output(
     resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
     if mask.size != base.size:
         mask = mask.resize(base.size, resample)
-    mask = mask.point(lambda px: 255 if int(px) >= 18 else 0).filter(ImageFilter.GaussianBlur(radius=0.8))
+    # Binary composite is deliberate: feathering can alter samples just outside the real mask.
+    mask = mask.point(lambda px: 255 if int(px) >= 18 else 0)
     final_image = Image.composite(provider_image, base, mask).convert("RGB")
+    if not outside_mask_pixels_equal(base, final_image, mask):
+        raise ServiceImageGenerationError("composite خدمت پیکسل‌های بیرون mask را دقیق حفظ نکرد.")
 
     final_dir = getattr(module, "FINAL_DIR")
     upload_dir = getattr(module, "UPLOAD_DIR")
     os.makedirs(final_dir, exist_ok=True)
     safe_name = str(SERVICE_CONSTRAINTS[service_key]["safe_name"])
-    filename = f"final/ai_{safe_name}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{shared_image.uuid.uuid4().hex[:10]}.png"
+    filename = f"final/ai_{safe_name}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{shared_image.uuid.uuid4().hex[:10]}.webp"
     out_path = os.path.join(upload_dir, filename)
-    tmp_path = f"{out_path}.tmp-{shared_image.uuid.uuid4().hex[:8]}.png"
+    tmp_path = f"{out_path}.tmp-{shared_image.uuid.uuid4().hex[:8]}.webp"
     try:
-        final_image.save(tmp_path, "PNG", optimize=True)
+        save_lossless_webp(final_image, tmp_path)
         with Image.open(tmp_path) as probe:
+            if probe.format != "WEBP":
+                raise ServiceImageGenerationError("فایل نهایی خدمت WebP نیست.")
             probe.verify()
+        with Image.open(tmp_path) as saved:
+            if not outside_mask_pixels_equal(base, saved.convert("RGB"), mask):
+                raise ServiceImageGenerationError("فایل WebP نهایی پیکسل‌های بیرون mask را تغییر داده است.")
         validation = validate_masked_output(source_path, tmp_path, mask_path, service_key=service_key)
         if not _validation_ok(service_key, validation):
             raise ServiceImageGenerationError("خروجی AI در محدوده خدمت یا حفظ بیرون mask تأیید نشد.")
@@ -152,6 +170,8 @@ def _save_constrained_provider_output(
             "saved": True,
             "readable": True,
             "final_filename": filename,
+            "final_format": "WEBP",
+            "final_size_bytes": int(os.path.getsize(out_path)),
             "final_width": int(final_image.width or 0),
             "final_height": int(final_image.height or 0),
             "mask_used": True,
@@ -431,7 +451,10 @@ def generate_final_design(service_key: str, module: Any, candidate: Dict[str, An
         started = time.monotonic()
         try:
             image_value = _call_provider(provider, source_path, mask_path, candidate, prompt, timeout)
-            filename, meta = _save_constrained_provider_output(image_value, timeout, source_path, mask_path, module, service_key)
+            filename, meta = _save_constrained_provider_output(
+                image_value, timeout, source_path, mask_path, module, service_key,
+                provider_endpoint=provider.endpoint, provider_extra=provider.extra,
+            )
             ms = int((time.monotonic() - started) * 1000)
             attempt = shared_image._attempt(provider, True, ms)
             attempt.update({k: v for k, v in meta.items() if k != "validation"})

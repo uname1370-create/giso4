@@ -409,10 +409,12 @@ def build_design_prompt(candidate):
         f"STYLE EDITING TASK — apply «{selected_style_key} ({style_en}) Label:{model_label}» onto IMAGE 0 (the customer photo). IMAGE 1 if present is the selected style reference ONLY. "
         f"{contract} "
         f"SCOPE: edit ONLY the two existing eyebrow regions of IMAGE 0; never move, reposition or enlarge them. IMAGE 1 is technique-only: never copy its face, skin, brow placement, lighting, color cast or background — transfer only stroke and shading technique, density and finish. "
+        f"Edit ONLY the two eyebrow regions. Selected service: {candidate.get('service_label') or 'eyebrow mirror'}. "
+        f"Selected eyebrow model: {model_label}. Current eyebrow notes: {candidate.get('current_brow_summary') or 'no additional notes'}. "
         f"Pigment from CUSTOMER'S own brow and hair appearance plus local undertone (never a fixed HEX, never pure white, never blonde, natural dark brown/black). "
         f"No pigment, shadow, blur, smoothing, relighting or makeup outside the brows; no white-balance or exposure shift. Keep native position, arch, tail, growth direction, gaps and asymmetry. "
-        f"FINAL: the SAME original photograph after professional brow treatment, not a new face. Realistic, salon, wearable. "
-        f"Location: {region_text}"
+        f"FINAL: the SAME original photograph after professional brow treatment, not a new face. Do not change identity. Realistic, salon, wearable. "
+        f"Real eyebrow location: {region_text}"
     )
 
 
@@ -476,22 +478,28 @@ def generate_python_guided_design(candidate):
                 )
             mask_info = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
             mask_path = str(mask_info.get("path") or detection.get("mask_path") or "").strip()
+            editable_mask = None
             if mask_info.get("ok") and mask_path and os.path.exists(mask_path):
                 real_mask = Image.open(mask_path).convert("L").resize((w, h), Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS)
                 real_mask = real_mask.point(lambda px: 255 if int(px) >= 96 else 0)
-                # Dilation keeps it local while preventing a hairline-only result.
+                editable_mask = real_mask.copy()
+                # Dilation keeps the guide local, but it is clipped back to the
+                # original editable mask before compositing.
                 real_mask = real_mask.filter(ImageFilter.MaxFilter(size=7))
                 guide_mask = ImageChops.lighter(guide_mask, real_mask)
             guide_mask = guide_mask.filter(ImageFilter.GaussianBlur(radius=0.9))
-            overlay.putalpha(ImageChops.multiply(overlay.getchannel("A"), guide_mask))
+            hard_edit_mask = editable_mask if editable_mask is not None else guide_mask
+            hard_edit_mask = hard_edit_mask.point(lambda px: 255 if int(px) >= 128 else 0)
+            overlay.putalpha(ImageChops.multiply(overlay.getchannel("A"), hard_edit_mask))
         except Exception:
             pass
 
         composed = Image.alpha_composite(base.convert("RGBA"), overlay).convert("RGB")
         os.makedirs(FINAL_DESIGN_DIR, exist_ok=True)
-        out_name = f"final/final_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.jpg"
+        from giso.buti_ai.image_validation import save_lossless_webp
+        out_name = f"final/final_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.webp"
         out_path = os.path.join(EYEBROW_UPLOAD_DIR, out_name)
-        composed.save(out_path, "JPEG", quality=88, optimize=True)
+        save_lossless_webp(composed, out_path)
         mask_info = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
         mask_filename = ""
         raw_mask_path = ""

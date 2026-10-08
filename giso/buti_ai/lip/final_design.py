@@ -355,13 +355,16 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
     if not src:
         return {"ok": False, "status": "missing_photo", "message": "برای طراحی لب، عکس واقعی لازم است."}
     try:
-        from PIL import Image, ImageDraw, ImageFilter
+        from PIL import Image, ImageChops, ImageDraw, ImageFilter
         base = Image.open(src).convert("RGB")
         base.thumbnail((1400, 1400))
         style_key = str(candidate.get("final_style") or DEFAULT_STYLE)
         style = STYLES.get(style_key, STYLES[DEFAULT_STYLE])
         detection = candidate.get("detection") if isinstance(candidate.get("detection"), dict) else detect_regions(src, allow_fallback=True)
-        mask = _mask_for_size(detection, base.size).filter(ImageFilter.GaussianBlur(radius=0.7))
+        source_mask = _mask_for_size(detection, base.size)
+        hard_mask = source_mask.point(lambda px: 255 if int(px) > 0 else 0)
+        softened_mask = source_mask.filter(ImageFilter.GaussianBlur(radius=0.7))
+        mask = ImageChops.multiply(softened_mask, hard_mask)
         color = tuple(style.get("color") or (190, 90, 110))
         alpha = int(style.get("alpha") or 84)
         tint = Image.new("RGB", base.size, color)
@@ -374,11 +377,11 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
             colored = Image.alpha_composite(colored.convert("RGBA"), overlay).convert("RGB")
         composed = Image.composite(colored, base, mask).convert("RGB")
         os.makedirs(FINAL_DIR, exist_ok=True)
-        filename = f"final/final_lip_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.png"
+        from giso.buti_ai.image_validation import save_lossless_webp, validate_masked_output
+        filename = f"final/final_lip_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.webp"
         out_path = os.path.join(UPLOAD_DIR, filename)
-        composed.save(out_path, "PNG", optimize=True)
+        save_lossless_webp(composed, out_path)
         try:
-            from giso.buti_ai.image_validation import validate_masked_output
             validation = validate_masked_output(src, out_path, (detection.get("mask") or {}).get("path") or "", service_key=SERVICE_KEY)
         except Exception:
             validation = {}

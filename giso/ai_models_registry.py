@@ -138,7 +138,7 @@ PROVIDERS = {
         ],
         "image_models": [
             {"id": "@cf/black-forest-labs/flux-2-klein-4b", "is_free": True, "context": 0, "source": "hardcoded", "image_kind": "cloudflare", "auto_assign": True},
-            {"id": "@cf/runwayml/stable-diffusion-v1-5-inpainting", "is_free": True, "context": 0, "source": "hardcoded", "image_kind": "cloudflare_inpainting", "capabilities": ["inpainting", "mask"], "auto_assign": False},
+            {"id": "@cf/runwayml/stable-diffusion-v1-5-inpainting", "is_free": True, "context": 0, "source": "hardcoded", "image_kind": "cloudflare_inpainting", "capabilities": ["inpainting", "mask"], "auto_assign": True},
             {"id": "@cf/black-forest-labs/flux-1-schnell", "is_free": True, "context": 0, "source": "hardcoded", "image_kind": "cloudflare", "auto_assign": False},
             {"id": "@cf/stabilityai/stable-diffusion-xl-base-1.0", "is_free": True, "context": 0, "source": "hardcoded", "image_kind": "cloudflare", "auto_assign": False},
         ],

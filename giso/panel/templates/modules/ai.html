@@ -57,7 +57,7 @@
                     <b>⚡ افزودن سریع Cloudflare با cf1 / cf2 / cf3</b>
                     <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">برای هر اکانت Cloudflare یک نام جدا انتخاب کن و فقط دو مقدار بده: <b>API Token</b> و <b>Account ID</b>. گیسو خودش این آدرس را می‌سازد:</p>
                     <code dir="ltr" style="display:block;margin-top:6px;white-space:normal;">https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run</code>
-                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">مدل پیش‌فرض طراحی عکس نهایی آینه گیسو: <code dir="ltr">@cf/black-forest-labs/flux-2-klein-4b</code></p>
+                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">مدل پیش‌فرض طراحی عکس نهایی آینه گیسو: <code dir="ltr">@cf/runwayml/stable-diffusion-v1-5-inpainting</code> (Inpainting با mask)</p>
                 </div>
                 <small class="pnl-muted" style="grid-column:1/-1;">برای چند اکانت Cloudflare از <b>cf1</b>، <b>cf2</b>، <b>cf3</b> استفاده کن؛ هرکدام Token و Account ID خودش را می‌گیرد و به اسلات همان شماره در طراحی نهایی آینه گیسو وصل می‌شود.</small>
                 <details style="grid-column:1/-1;" data-hide-for-cf>
@@ -326,7 +326,7 @@
                         {% endfor %}
                     </select>
                     <label>نام مدل</label>
-                    <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" placeholder="مثلاً @cf/black-forest-labs/flux-2-klein-4b" required>
+                    <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" placeholder="مثلاً @cf/runwayml/stable-diffusion-v1-5-inpainting" required>
                     {% if slot.task_kind == 'image' %}
                     <label>نوع فراخوانی تصویر</label>
                     <select name="image_kind">

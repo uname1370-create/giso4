@@ -28,17 +28,22 @@ provider/model/key در پنل «مدیریت AI» یا محیط تنظیم شد
 from __future__ import annotations
 
 import base64
+import http.client
+import ipaddress
 import json
 import logging
 import mimetypes
 import os
 import re
+import socket
+import ssl
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from io import BytesIO
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 
@@ -48,8 +53,10 @@ from giso.buti_ai.eyebrow.options import normalize_style_key
 
 logger = logging.getLogger("giso_buti_ai_image_generation")
 
+# Kept for the Flux request handler and explicit legacy selections.
 DEFAULT_CLOUDFLARE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b"
 CLOUDFLARE_INPAINTING_MODEL = "@cf/runwayml/stable-diffusion-v1-5-inpainting"
+DEFAULT_CLOUDFLARE_IMAGE_MODEL = CLOUDFLARE_INPAINTING_MODEL
 CLOUDFLARE_INPAINTING_KINDS = {"cloudflare_inpainting", "cloudflare_inpaint", "inpainting", "mask_inpainting"}
 DEFAULT_TIMEOUT_SECONDS = 90
 MAX_DOWNLOAD_BYTES = 12 * 1024 * 1024
@@ -195,7 +202,7 @@ def _cloudflare_providers(env: Optional[Dict[str, str]]) -> List[ImageProviderCo
     global_model = (
         _env_value(env, "BUTI_AI_CLOUDFLARE_MODEL")
         or _env_value(env, "CLOUDFLARE_MODEL")
-        or DEFAULT_CLOUDFLARE_MODEL
+        or DEFAULT_CLOUDFLARE_IMAGE_MODEL
     )
     for index in range(1, 4):
         token = _env_value(env, f"BUTI_AI_CLOUDFLARE_API_TOKEN_{index}") or _env_value(env, f"CLOUDFLARE_API_TOKEN_{index}")
@@ -573,7 +580,10 @@ def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_
             "در مدیریت AI نوع را inpainting بگذار یا از flux-2-klein-4b استفاده کن."
         )
     if model_name != DEFAULT_CLOUDFLARE_MODEL:
-        _beauty_log("[AI]", "cloudflare_model_not_default", model=model_name, expected=DEFAULT_CLOUDFLARE_MODEL)
+        raise ImageProviderError(
+            "این مدل Cloudflare برای ویرایش عکس ورودی پشتیبانی نمی‌شود؛ "
+            "برای ویرایش با عکس ورودی از flux-2-klein-4b یا مسیر inpainting سازگار استفاده کن."
+        )
     width, height = _output_size_for_cloudflare(source_path)
     photo_bytes, photo_mime, photo_ext = _image_bytes_for_provider(source_path, MAX_PROVIDER_INPUT_SIDE, square=False)
     files = {
@@ -844,7 +854,218 @@ def _call_provider(provider: ImageProviderConfig, source_path: str, reference_pa
     raise ImageProviderError(f"نوع provider پشتیبانی نمی‌شود: {kind or 'unknown'}")
 
 
-def _decode_image_value(image_value: str, timeout: int) -> Tuple[bytes, str]:
+_ALLOWED_PROVIDER_IMAGE_MIME_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
+
+
+def _normalize_provider_image_hostname(value: Any) -> str:
+    """Normalize one exact DNS name; IP literals and wildcard patterns are never allowlisted."""
+    raw = str(value or "").strip().rstrip(".")
+    if not raw or any(char in raw for char in "/\\:*@[]"):
+        return ""
+    try:
+        hostname = raw.encode("idna").decode("ascii").lower()
+    except UnicodeError:
+        return ""
+    try:
+        ipaddress.ip_address(hostname)
+    except ValueError:
+        pass
+    else:
+        return ""
+    if len(hostname) > 253 or not hostname:
+        return ""
+    labels = hostname.split(".")
+    if any(
+        not label or len(label) > 63
+        or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)
+        for label in labels
+    ):
+        return ""
+    return hostname
+
+
+def _provider_image_host_allowlist(provider_endpoint: str, provider_extra: Optional[Dict[str, Any]] = None) -> set:
+    """Use the exact provider endpoint host plus explicitly configured exact CDN hosts."""
+    allowed = set()
+    try:
+        endpoint = urlsplit(str(provider_endpoint or ""))
+        if endpoint.scheme.lower() == "https" and endpoint.hostname and endpoint.port in (None, 443):
+            host = _normalize_provider_image_hostname(endpoint.hostname)
+            if host:
+                allowed.add(host)
+    except ValueError:
+        pass
+
+    extra = provider_extra if isinstance(provider_extra, dict) else {}
+    nested_extra = extra.get("extra") if isinstance(extra.get("extra"), dict) else {}
+    configured = extra.get("image_output_hosts")
+    if configured is None:
+        configured = nested_extra.get("image_output_hosts")
+    if isinstance(configured, str):
+        configured_hosts = configured.split(",")
+    elif isinstance(configured, (list, tuple, set)):
+        configured_hosts = configured
+    else:
+        configured_hosts = ()
+    for item in configured_hosts:
+        host = _normalize_provider_image_hostname(item)
+        if host:
+            allowed.add(host)
+    return allowed
+
+
+def _is_public_provider_image_ip(value: str) -> bool:
+    try:
+        address = ipaddress.ip_address(value.split("%", 1)[0])
+    except ValueError:
+        return False
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+    return bool(
+        address.is_global
+        and not address.is_private
+        and not address.is_loopback
+        and not address.is_link_local
+        and not address.is_reserved
+        and not address.is_multicast
+        and not address.is_unspecified
+    )
+
+
+def _resolve_public_provider_image_addresses(hostname: str, port: int = 443) -> List[Tuple[int, str]]:
+    """Resolve once, reject any non-public answer, and return IPs to pin the TLS connection to."""
+    try:
+        records = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+    except (OSError, socket.gaierror) as exc:
+        raise ImageProviderError("مقصد خروجی تصویر provider قابل resolve نیست") from exc
+    addresses: List[Tuple[int, str]] = []
+    seen = set()
+    for family, _socktype, _protocol, _canonname, sockaddr in records:
+        if family not in (socket.AF_INET, socket.AF_INET6) or not sockaddr:
+            raise ImageProviderError("پاسخ DNS مقصد خروجی تصویر provider نامعتبر است")
+        ip = str(sockaddr[0]).split("%", 1)[0]
+        if not _is_public_provider_image_ip(ip):
+            raise ImageProviderError("مقصد خروجی تصویر provider به IP غیرعمومی resolve شد")
+        key = (family, ip)
+        if key not in seen:
+            addresses.append(key)
+            seen.add(key)
+    if not addresses:
+        raise ImageProviderError("مقصد خروجی تصویر provider هیچ IP عمومی ندارد")
+    return addresses
+
+
+class _PinnedProviderImageHTTPSConnection(http.client.HTTPSConnection):
+    """HTTPS connection pinned to an already-validated public IP (no proxy or second DNS lookup)."""
+
+    def __init__(self, hostname: str, address: str, family: int, timeout: float):
+        super().__init__(hostname, 443, timeout=timeout, context=ssl.create_default_context())
+        self._pinned_address = address
+        self._pinned_family = family
+
+    def connect(self) -> None:
+        raw_socket = socket.socket(self._pinned_family, socket.SOCK_STREAM)
+        try:
+            raw_socket.settimeout(self.timeout)
+            if self._pinned_family == socket.AF_INET6:
+                raw_socket.connect((self._pinned_address, self.port, 0, 0))
+            else:
+                raw_socket.connect((self._pinned_address, self.port))
+            self.sock = self._context.wrap_socket(raw_socket, server_hostname=self.host)
+        except Exception:
+            raw_socket.close()
+            raise
+
+
+def _download_provider_image_url(
+    value: str,
+    timeout: int,
+    provider_endpoint: str = "",
+    provider_extra: Optional[Dict[str, Any]] = None,
+) -> Tuple[bytes, str]:
+    if len(value) > 4096 or any(ord(char) < 32 or ord(char) == 127 for char in value) or "\\" in value:
+        raise ImageProviderError("URL خروجی تصویر provider نامعتبر است")
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except ValueError as exc:
+        raise ImageProviderError("URL خروجی تصویر provider نامعتبر است") from exc
+    if (
+        parsed.scheme.lower() != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or port not in (None, 443)
+    ):
+        raise ImageProviderError("فقط URL امن HTTPS روی پورت 443 برای خروجی تصویر مجاز است")
+    hostname = _normalize_provider_image_hostname(parsed.hostname)
+    if not hostname or hostname not in _provider_image_host_allowlist(provider_endpoint, provider_extra):
+        raise ImageProviderError("میزبان URL خروجی تصویر در allowlist دقیق provider نیست")
+
+    addresses = _resolve_public_provider_image_addresses(hostname)
+    path = urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
+    request_timeout = max(1, min(int(timeout or DEFAULT_TIMEOUT_SECONDS), 30))
+    last_error: Optional[Exception] = None
+    for family, address in addresses:
+        connection = _PinnedProviderImageHTTPSConnection(hostname, address, family, request_timeout)
+        response = None
+        try:
+            connection.request(
+                "GET",
+                path,
+                headers={"Accept": "image/jpeg,image/png,image/webp", "Accept-Encoding": "identity", "Connection": "close"},
+            )
+            response = connection.getresponse()
+            status = int(getattr(response, "status", 0) or 0)
+            if status in (301, 302, 303, 307, 308):
+                raise ImageProviderError("redirect خروجی تصویر provider مجاز نیست")
+            if status != 200:
+                raise ImageProviderError(f"دانلود خروجی provider ناموفق بود: HTTP {status}")
+            content_encoding = (response.getheader("Content-Encoding") or "identity").strip().lower()
+            if content_encoding not in ("", "identity"):
+                raise ImageProviderError("فشرده‌سازی خروجی تصویر provider مجاز نیست")
+            mime = (response.getheader("Content-Type") or "").split(";", 1)[0].strip().lower()
+            if mime not in _ALLOWED_PROVIDER_IMAGE_MIME_TYPES:
+                raise ImageProviderError("Content-Type خروجی provider تصویر مجاز نیست")
+            raw_length = response.getheader("Content-Length")
+            if raw_length is not None:
+                if not re.fullmatch(r"[0-9]+", str(raw_length).strip()):
+                    raise ImageProviderError("Content-Length خروجی تصویر provider نامعتبر است")
+                if int(raw_length) > MAX_DOWNLOAD_BYTES:
+                    raise ImageProviderError("حجم خروجی provider بیش از حد مجاز است")
+            chunks: List[bytes] = []
+            total = 0
+            while True:
+                chunk = response.read(min(65536, MAX_DOWNLOAD_BYTES + 1 - total))
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_DOWNLOAD_BYTES:
+                    raise ImageProviderError("حجم خروجی provider بیش از حد مجاز است")
+                chunks.append(chunk)
+            if not total:
+                raise ImageProviderError("پاسخ تصویر خالی بود")
+            return b"".join(chunks), mime
+        except ImageProviderError:
+            raise
+        except (OSError, http.client.HTTPException, ssl.SSLError) as exc:
+            last_error = exc
+        finally:
+            if response is not None:
+                try:
+                    response.close()
+                except Exception:
+                    pass
+            connection.close()
+    raise ImageProviderError("دانلود امن خروجی تصویر provider ناموفق بود") from last_error
+
+
+def _decode_image_value(
+    image_value: str,
+    timeout: int,
+    provider_endpoint: str = "",
+    provider_extra: Optional[Dict[str, Any]] = None,
+) -> Tuple[bytes, str]:
     value = (image_value or "").strip()
     if value.startswith("data:image/"):
         match = re.match(r"^data:([^;]+);base64,(.+)$", value, flags=re.S)
@@ -852,20 +1073,7 @@ def _decode_image_value(image_value: str, timeout: int) -> Tuple[bytes, str]:
             raise ImageProviderError("data URI تصویر نامعتبر است")
         return base64.b64decode(match.group(2), validate=False), match.group(1)
     if value.startswith("http://") or value.startswith("https://"):
-        response = requests.get(value, timeout=min(timeout, 30), stream=True)
-        if not response.ok:
-            raise ImageProviderError(f"دانلود خروجی provider ناموفق بود: HTTP {response.status_code}")
-        chunks = []
-        total = 0
-        for chunk in response.iter_content(chunk_size=65536):
-            if not chunk:
-                continue
-            total += len(chunk)
-            if total > MAX_DOWNLOAD_BYTES:
-                raise ImageProviderError("حجم خروجی provider بیش از حد مجاز است")
-            chunks.append(chunk)
-        mime = (response.headers.get("content-type") or "image/jpeg").split(";")[0].strip()
-        return b"".join(chunks), mime
+        return _download_provider_image_url(value, timeout, provider_endpoint, provider_extra)
     if _looks_like_base64(value):
         return base64.b64decode(value, validate=False), "image/png"
     raise ImageProviderError("فرمت خروجی provider قابل خواندن نیست")
@@ -930,8 +1138,6 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
             mask = mask.filter(ImageFilter.MinFilter(size=3))
         except Exception:
             pass
-        # بلور کم تا لبه‌ها سفید نشود
-        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.35))
         _beauty_log(
             "[EYEBROW_MASK]",
             "provider_mask_ready",
@@ -1094,14 +1300,18 @@ def _validate_provider_visible_change(base, final_image, mask) -> Dict[str, Any]
 
 def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
                           candidate: Optional[Dict[str, Any]] = None,
-                          provider_kind: str = "") -> Tuple[str, Dict[str, Any]]:
-    raw, _mime = _decode_image_value(image_value, timeout)
+                          provider_kind: str = "", provider_endpoint: str = "",
+                          provider_extra: Optional[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any]]:
+    if not source_path or candidate is None:
+        raise ImageProviderError("عکس مبنا برای composite ایمن ابرو موجود نیست")
+    raw, _mime = _decode_image_value(image_value, timeout, provider_endpoint, provider_extra)
     if not raw:
         raise ImageProviderError("تصویر خروجی خالی است")
     tmp_path = ""
     out_path = ""
     try:
         from PIL import Image
+        from giso.buti_ai.image_validation import outside_mask_pixels_equal, save_lossless_webp
 
         provider_image = Image.open(BytesIO(raw)).convert("RGB")
         meta: Dict[str, Any] = {
@@ -1112,117 +1322,92 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
         final_image = provider_image
         base_for_validation = None
         mask_for_validation = None
-        # برای flux (cloudflare) مثل buti-test، ماسک را حذف کن تا تغییر دقیق و کامل دیده شود
-        # کاربر گفت: "اگر این مسامک خیلی اذیت میکنه حذفش کن"
-        # برای inpainting واقعی، ماسک را نگه دار
-        is_flux = str(provider_kind or "").strip().lower() == "cloudflare"
-        use_mask = bool(source_path and candidate is not None and not is_flux)
-        if use_mask:
-            base = Image.open(source_path).convert("RGB")
-            base.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
-            fitted_provider = _fit_provider_image_to_source(provider_image, base.size).convert("RGB")
-            mask, detection = _provider_eyebrow_mask_for_save(source_path, candidate, base.size)
+        # Provider output is never trusted outside the detected eyebrow mask, including Flux.
+        base = Image.open(source_path).convert("RGB")
+        base.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
+        fitted_provider = _fit_provider_image_to_source(provider_image, base.size).convert("RGB")
+        mask, detection = _provider_eyebrow_mask_for_save(source_path, candidate, base.size)
 
-            # --- پیش‌اعتبارسنجی: برای flux-2-klein-4b که مدل text-to-image است نه inpainting،
-            # خروجی خام همیشه پس‌زمینه/هویت متفاوت دارد. چون در مرحله بعد با mask کامپوزیت
-            # می‌کنیم و بیرون از ابرو دقیقاً برابر عکس اصلی می‌شود، نباید روی outside سخت‌گیری کنیم.
-            # فقط پس‌زمینه کاملاً سفید را رد می‌کنیم (مدل چهره جدید سفید ساخته).
+        # The provider may change the whole frame; only its pixels under this binary mask survive.
+        # Reject the known all-white failure mode before compositing, then verify the saved file.
+        try:
+            # بررسی پس‌زمینه سفید کلی در خروجی provider
+            _w, _h = fitted_provider.size
+            _total = max(1, _w * _h)
+            _white_count = 0
+            _stride_white = max(1, int((_total / 50000) ** 0.5))
+            _fpx = fitted_provider.load()
+            for _yy in range(0, _h, _stride_white):
+                for _xx in range(0, _w, _stride_white):
+                    _r, _g, _b = _fpx[_xx, _yy]
+                    if _r > 242 and _g > 242 and _b > 242:
+                        _white_count += 1
+            _white_ratio_total = float(_white_count) / float(max(1, (_w // _stride_white) * (_h // _stride_white)))
+            if _white_ratio_total > 0.55:
+                raise ImageProviderError("خروجی AI پس‌زمینه سفید زیاد دارد و رد شد (مدل چهره جدید ساخت)")
+            # تغییر بیرون از mask در raw provider قابل انتظار است؛ composite آن را دور می‌اندازد.
             try:
-                from PIL import Image as _PILImage
-                # بررسی پس‌زمینه سفید کلی در provider - فقط سفید خالص زیاد
-                _w, _h = fitted_provider.size
-                _total = max(1, _w * _h)
-                _white_count = 0
-                _stride_white = max(1, int((_total / 50000) ** 0.5))
-                _fpx = fitted_provider.load()
-                for _yy in range(0, _h, _stride_white):
-                    for _xx in range(0, _w, _stride_white):
-                        _r, _g, _b = _fpx[_xx, _yy]
-                        if _r > 242 and _g > 242 and _b > 242:
-                            _white_count += 1
-                _white_ratio_total = float(_white_count) / float(max(1, (_w // _stride_white) * (_h // _stride_white)))
-                if _white_ratio_total > 0.55:
-                    raise ImageProviderError("خروجی AI پس‌زمینه سفید زیاد دارد و رد شد (مدل چهره جدید ساخت)")
-                # برای مدل‌های غیر inpainting مثل flux-2-klein-4b، تغییر بیرون از mask طبیعی است
-                # چون بعداً با composite بیرون دقیقاً برابر base می‌شود. فقط لاگ می‌کنیم، رد نمی‌کنیم.
-                try:
-                    _outside_metrics_before = _visible_eyebrow_diff_metrics(base, fitted_provider, mask)
-                    _beauty_log(
-                        "[COMPOSITE]",
-                        "pre_composite_outside_metrics",
-                        outside_mean_delta=_outside_metrics_before.get("outside_mean_delta"),
-                        outside_changed_ratio=_outside_metrics_before.get("outside_changed_ratio"),
-                        inside_mean_delta=_outside_metrics_before.get("inside_mean_delta"),
-                        white_ratio_total=round(_white_ratio_total, 4),
-                        note="flux model - outside change expected, will be fixed by composite",
-                    )
-                except Exception:
-                    pass
-            except ImageProviderError:
-                raise
+                _outside_metrics_before = _visible_eyebrow_diff_metrics(base, fitted_provider, mask)
+                _beauty_log(
+                    "[COMPOSITE]",
+                    "pre_composite_outside_metrics",
+                    outside_mean_delta=_outside_metrics_before.get("outside_mean_delta"),
+                    outside_changed_ratio=_outside_metrics_before.get("outside_changed_ratio"),
+                    inside_mean_delta=_outside_metrics_before.get("inside_mean_delta"),
+                    white_ratio_total=round(_white_ratio_total, 4),
+                    note="raw provider pixels outside the mask are discarded by deterministic composite",
+                )
             except Exception:
                 pass
+        except ImageProviderError:
+            raise
+        except Exception:
+            pass
 
-            final_image = Image.composite(fitted_provider, base, mask)
-            diff_meta = _validate_provider_visible_change(base, final_image, mask)
-            base_for_validation = base.copy()
-            mask_for_validation = mask.copy()
-            mask_info = detection.get("mask") if isinstance(detection, dict) and isinstance(detection.get("mask"), dict) else {}
-            meta.update({
-                "provider_output_constrained_to_eyebrow_mask": True,
-                "mask_used": True,
-                "mask_width": int(mask_info.get("width") or 0),
-                "mask_height": int(mask_info.get("height") or 0),
-                "mask_pixels": int(mask_info.get("pixel_count") or 0),
-                "mask_coverage_ratio": mask_info.get("coverage_ratio"),
-                "mask_polarity": mask_info.get("polarity") or MASK_POLARITY,
-                "mask_source_method": detection.get("method") if isinstance(detection, dict) else "",
-                "mask_is_fallback": bool(mask_info.get("is_fallback") or (detection.get("is_fallback") if isinstance(detection, dict) else False)),
-                "mask_filename": _upload_relative_path(str(mask_info.get("path") or detection.get("mask_path") or "")),
-                "eyebrow_roi_changed": True,
-                "outside_mask_preserved": True,
-            })
-            meta.update(diff_meta)
-        else:
-            # برای flux بدون ماسک (مثل buti-test) فقط سفید زیاد را چک کن
-            try:
-                _w, _h = final_image.size
-                _total = max(1, _w * _h)
-                _white_count = 0
-                _stride_white = max(1, int((_total / 50000) ** 0.5))
-                _fpx = final_image.load()
-                for _yy in range(0, _h, _stride_white):
-                    for _xx in range(0, _w, _stride_white):
-                        _r, _g, _b = _fpx[_xx, _yy]
-                        if _r > 242 and _g > 242 and _b > 242:
-                            _white_count += 1
-                _white_ratio_total = float(_white_count) / float(max(1, (_w // _stride_white) * (_h // _stride_white)))
-                if _white_ratio_total > 0.55:
-                    raise ImageProviderError("خروجی AI پس‌زمینه سفید زیاد دارد و رد شد")
-                _beauty_log("[AI_OUTPUT]", "flux_no_mask_white_check", white_ratio_total=round(_white_ratio_total,4))
-            except ImageProviderError:
-                raise
-            except Exception:
-                pass
-            final_image.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
+        final_image = Image.composite(fitted_provider, base, mask)
+        if not outside_mask_pixels_equal(base, final_image, mask):
+            raise ImageProviderError("composite نهایی پیکسل‌های بیرون mask ابرو را دقیق حفظ نکرد")
+        diff_meta = _validate_provider_visible_change(base, final_image, mask)
+        base_for_validation = base.copy()
+        mask_for_validation = mask.copy()
+        mask_info = detection.get("mask") if isinstance(detection, dict) and isinstance(detection.get("mask"), dict) else {}
+        meta.update({
+            "provider_output_constrained_to_eyebrow_mask": True,
+            "mask_used": True,
+            "mask_width": int(mask_info.get("width") or 0),
+            "mask_height": int(mask_info.get("height") or 0),
+            "mask_pixels": int(mask_info.get("pixel_count") or 0),
+            "mask_coverage_ratio": mask_info.get("coverage_ratio"),
+            "mask_polarity": mask_info.get("polarity") or MASK_POLARITY,
+            "mask_source_method": detection.get("method") if isinstance(detection, dict) else "",
+            "mask_is_fallback": bool(mask_info.get("is_fallback") or (detection.get("is_fallback") if isinstance(detection, dict) else False)),
+            "mask_filename": _upload_relative_path(str(mask_info.get("path") or detection.get("mask_path") or "")),
+            "eyebrow_roi_changed": True,
+            "outside_mask_preserved": True,
+        })
+        meta.update(diff_meta)
         if final_image.width <= 0 or final_image.height <= 0:
             raise ImageProviderError("ابعاد خروجی provider نامعتبر بود")
         os.makedirs(final_design.FINAL_DESIGN_DIR, exist_ok=True)
-        # PNG keeps every pixel outside the eyebrow mask identical after save; JPEG
-        # recompression can touch face/skin/background outside the ROI.
-        filename = f"final/ai_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.png"
+        # Lossless WebP keeps exact composite pixels while giving the browser a compact final asset.
+        filename = f"final/ai_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.webp"
         out_path = os.path.join(final_design.EYEBROW_UPLOAD_DIR, filename)
-        tmp_path = f"{out_path}.tmp-{uuid.uuid4().hex[:8]}.png"
-        final_image.save(tmp_path, "PNG", optimize=True)
+        tmp_path = f"{out_path}.tmp-{uuid.uuid4().hex[:8]}.webp"
+        save_lossless_webp(final_image, tmp_path)
         try:
             with Image.open(tmp_path) as saved_probe:
                 saved_probe.verify()
             with Image.open(tmp_path) as saved_image:
+                if saved_image.format != "WEBP":
+                    raise ImageProviderError("فرمت فایل نهایی ابرو WebP نیست")
                 saved_w, saved_h = saved_image.size
                 if base_for_validation is not None and mask_for_validation is not None:
+                    saved_rgb = saved_image.convert("RGB")
+                    if not outside_mask_pixels_equal(base_for_validation, saved_rgb, mask_for_validation):
+                        raise ImageProviderError("فایل WebP ذخیره‌شده پیکسل‌های بیرون mask ابرو را تغییر داده است")
                     saved_diff_meta = _validate_provider_visible_change(
                         base_for_validation,
-                        saved_image.convert("RGB"),
+                        saved_rgb,
                         mask_for_validation,
                     )
                     for diff_key, diff_value in saved_diff_meta.items():
@@ -1242,6 +1427,8 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
             "final_width": int(saved_w),
             "final_height": int(saved_h),
             "final_filename": filename,
+            "final_format": "WEBP",
+            "final_size_bytes": int(os.path.getsize(out_path)),
         })
         _beauty_log(
             "[AI_OUTPUT]",
@@ -1305,7 +1492,8 @@ def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") 
             "inside_p95_delta", "inside_changed_ratio", "inside_mask_sampled_pixels",
             "outside_mean_delta", "outside_p99_delta", "outside_changed_ratio",
             "provider_raw_width", "provider_raw_height", "saved", "readable",
-            "final_width", "final_height", "final_filename", "saved_file_diff_validated",
+            "final_width", "final_height", "final_filename", "final_format", "final_size_bytes",
+            "saved_file_diff_validated",
             "saved_eyebrow_roi_changed", "saved_outside_mask_preserved",
         ):
             if key in meta:
@@ -1370,7 +1558,11 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
         )
         try:
             image_value = _call_provider(provider, source_path, reference_path, candidate, prompt, timeout)
-            filename, save_meta = _save_provider_output(image_value, timeout, source_path, candidate, provider_kind=provider.kind)
+            filename, save_meta = _save_provider_output(
+                image_value, timeout, source_path, candidate,
+                provider_kind=provider.kind, provider_endpoint=provider.endpoint,
+                provider_extra=provider.extra,
+            )
             if save_meta:
                 last_meta = provider.extra.setdefault("_last_request_meta", {})
                 for meta_key, meta_value in save_meta.items():
@@ -1419,7 +1611,8 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 "inside_p95_delta", "inside_changed_ratio", "inside_mask_sampled_pixels",
                 "outside_mean_delta", "outside_p99_delta", "outside_changed_ratio",
                 "provider_raw_width", "provider_raw_height", "saved", "readable",
-                "final_width", "final_height", "final_filename", "saved_file_diff_validated",
+                "final_width", "final_height", "final_filename", "final_format", "final_size_bytes",
+                "saved_file_diff_validated",
                 "saved_eyebrow_roi_changed", "saved_outside_mask_preserved",
             ):
                 if key in attempt:
@@ -1529,6 +1722,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
 
 __all__ = [
     "CLOUDFLARE_INPAINTING_MODEL",
+    "DEFAULT_CLOUDFLARE_IMAGE_MODEL",
     "ImageProviderConfig",
     "configured_image_providers",
     "generate_final_design",

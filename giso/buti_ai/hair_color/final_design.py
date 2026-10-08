@@ -182,40 +182,101 @@ def _fallback_hair_detection(w: int, h: int) -> Dict[str, Any]:
     }
 
 
+def _detect_face_anchor(image):
+    """Return a conservative face box in original-image coordinates, or None.
+
+    Hair-color pixels are not enough to distinguish dark clothes from hair. An
+    optional OpenCV Haar face anchor narrows the edit search to hair near a
+    detected head; failure to find one is handled as an unverified mask, not a
+    reason to label an arbitrary dark region as hair.
+    """
+    try:
+        import cv2
+        import numpy as np
+
+        rgb = np.asarray(image.convert("RGB"))
+        h, w = rgb.shape[:2]
+        scale = min(1.0, 640.0 / float(max(w, h)))
+        small = rgb if scale >= 1.0 else cv2.resize(
+            rgb, (max(1, int(w * scale)), max(1, int(h * scale))), interpolation=cv2.INTER_AREA
+        )
+        sh, sw = small.shape[:2]
+        gray = cv2.cvtColor(small, cv2.COLOR_RGB2GRAY)
+        candidates = []
+        cascade_names = (
+            "haarcascade_frontalface_alt2.xml",
+            "haarcascade_frontalface_default.xml",
+        )
+        for cascade_name in cascade_names:
+            cascade = cv2.CascadeClassifier(os.path.join(cv2.data.haarcascades, cascade_name))
+            if cascade.empty():
+                continue
+            boxes = cascade.detectMultiScale(
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=4,
+                minSize=(max(24, int(sw * 0.07)), max(24, int(sh * 0.07))),
+            )
+            for raw_x, raw_y, raw_w, raw_h in boxes:
+                x, y, fw, fh = map(int, (raw_x, raw_y, raw_w, raw_h))
+                aspect = fw / float(max(1, fh))
+                if not (0 <= x < sw and 0 <= y < sh):
+                    continue
+                if not (0.5 <= aspect <= 1.65):
+                    continue
+                # Lower-frame clothing/hand false positives are not a head anchor.
+                if y > sh * 0.48 or x + fw > sw or y + fh > sh * 0.92:
+                    continue
+                sx = w / float(max(1, sw))
+                sy = h / float(max(1, sh))
+                box = (int(x * sx), int(y * sy), max(1, int(fw * sx)), max(1, int(fh * sy)))
+                cx = (box[0] + box[2] / 2.0) / float(max(1, w))
+                y_norm = box[1] / float(max(1, h))
+                center_score = max(0.55, 1.0 - abs(cx - 0.5) * 0.8)
+                upper_score = max(0.60, 1.0 - max(0.0, y_norm - 0.30) * 0.8)
+                candidates.append((box[2] * box[3] * center_score * upper_score, box))
+        return max(candidates, key=lambda item: item[0])[1] if candidates else None
+    except Exception:
+        return None
+
+
 def _try_detect_hair_by_color(image_path: str) -> Dict[str, Any]:
     """Conservative hair-color ROI for portraits.
 
-    The mask looks for cohesive dark/brown hair pixels around the upper head and
-    explicitly removes the face ellipse. Blonde/ambiguous photos fall back to the
-    non-AI guide rather than claiming real AI readiness.
+    Dark/brown color candidates are constrained around a detected face when one
+    is available. Blonde, cropped, or ambiguous photos use the explicitly
+    non-AI guided fallback rather than claiming an unverified hair mask.
     """
-    from PIL import Image, ImageDraw, ImageFilter
+    from PIL import Image, ImageFilter
     image = Image.open(image_path).convert("RGB")
     w, h = image.size
     px = image.load()
     mask = Image.new("L", (w, h), 0)
-    roi = (int(w * 0.12), int(h * 0.02), int(w * 0.88), int(h * 0.76))
-    face = (int(w * 0.31), int(h * 0.18), int(w * 0.69), int(h * 0.77))
+    face_anchor = _detect_face_anchor(image)
+    if not face_anchor:
+        # Without a frontal face anchor, dark hair cannot be safely separated
+        # from salon clothing, hands, or another person's hair.
+        raise ValueError("hair_face_anchor_not_detected")
+    fx, fy, fw, fh = face_anchor
+    roi = (
+        max(0, int(fx - fw * 1.35)),
+        max(0, int(fy - fh * 1.15)),
+        min(w, int(fx + fw * 2.35)),
+        min(h, int(fy + fh * 2.25)),
+    )
+    face = (
+        max(0, int(fx - fw * 0.12)),
+        max(0, int(fy - fh * 0.08)),
+        min(w, int(fx + fw * 1.12)),
+        min(h, int(fy + fh * 1.12)),
+    )
+    protect_face_ellipse = True
     face_cx = (face[0] + face[2]) / 2.0
     face_cy = (face[1] + face[3]) / 2.0
     face_rx = max(1.0, (face[2] - face[0]) / 2.0)
     face_ry = max(1.0, (face[3] - face[1]) / 2.0)
-    skin_like = 0
-    sampled = 0
-    step = max(3, min(w, h) // 90)
-    for yy in range(face[1], face[3], step):
-        for xx in range(face[0], face[2], step):
-            if xx < 0 or yy < 0 or xx >= w or yy >= h:
-                continue
-            rr, gg, bb = px[xx, yy]
-            sampled += 1
-            if rr > 95 and gg > 55 and bb > 35 and rr > bb and (max(rr, gg, bb) - min(rr, gg, bb)) > 14:
-                skin_like += 1
-    protect_face_ellipse = sampled > 0 and (skin_like / float(sampled)) >= 0.18
     for y in range(roi[1], roi[3]):
         for x in range(roi[0], roi[2]):
-            # protect central face/neck area only when a skin-like face is visible;
-            # back-view hair photos should keep the central hair mass editable.
             if protect_face_ellipse and ((x - face_cx) / face_rx) ** 2 + ((y - face_cy) / face_ry) ** 2 <= 1.0:
                 continue
             r, g, b = px[x, y]
@@ -285,6 +346,7 @@ def _try_detect_hair_by_color(image_path: str) -> Dict[str, Any]:
         "image_width": w,
         "image_height": h,
         "regions": [{"side": "hair", "x": x0, "y": y0, "width": x1 - x0 + 1, "height": y1 - y0 + 1, "source": "color_hair_segmentation_v1", "confidence": 0.68}],
+        "face_anchor_detected": bool(face_anchor),
         "face_protection_applied": bool(protect_face_ellipse),
         "_mask_image": mask,
     }
@@ -424,14 +486,17 @@ def _source_path(candidate: Dict[str, Any]) -> str:
 
 
 def _mask_for_size(detection: Dict[str, Any], size):
-    from PIL import Image, ImageFilter
+    from PIL import Image, ImageChops, ImageFilter
     mask_path = str((detection.get("mask") or {}).get("path") or detection.get("mask_path") or "")
     if mask_path and os.path.exists(mask_path):
         mask = Image.open(mask_path).convert("L")
     else:
         mask = Image.new("L", size, 0)
     resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
-    return mask.resize(size, resample).filter(ImageFilter.GaussianBlur(radius=1.2))
+    resized = mask.resize(size, resample)
+    editable = resized.point(lambda px: 255 if int(px) > 0 else 0)
+    softened = resized.filter(ImageFilter.GaussianBlur(radius=1.2))
+    return ImageChops.multiply(softened, editable)
 
 
 def build_design_prompt(candidate: Dict[str, Any]) -> str:
@@ -508,11 +573,11 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
             colored = Image.alpha_composite(colored.convert("RGBA"), overlay).convert("RGB")
         composed = Image.composite(colored, base, effect_mask).convert("RGB")
         os.makedirs(FINAL_DIR, exist_ok=True)
-        filename = f"final/final_hair_color_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.png"
+        from giso.buti_ai.image_validation import save_lossless_webp, validate_masked_output
+        filename = f"final/final_hair_color_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.webp"
         out_path = os.path.join(UPLOAD_DIR, filename)
-        composed.save(out_path, "PNG", optimize=True)
+        save_lossless_webp(composed, out_path)
         try:
-            from giso.buti_ai.image_validation import validate_masked_output
             validation = validate_masked_output(src, out_path, (detection.get("mask") or {}).get("path") or "", service_key=SERVICE_KEY)
         except Exception:
             validation = {}

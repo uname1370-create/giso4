@@ -462,18 +462,27 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
     if not src:
         return {"ok": False, "status": "missing_photo", "message": "برای طراحی ناخن، عکس واقعی لازم است."}
     try:
-        from PIL import Image
+        from PIL import Image, ImageChops
         base = Image.open(src).convert("RGB")
         base.thumbnail((1400, 1400))
         detection = candidate.get("detection") if isinstance(candidate.get("detection"), dict) else detect_regions(src, allow_fallback=True)
         overlay = _draw_style_overlay(base, str(candidate.get("final_style") or DEFAULT_STYLE), detection)
+        mask_info = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
+        mask_path = str(mask_info.get("path") or detection.get("mask_path") or "")
+        if not mask_path or not os.path.isfile(mask_path):
+            raise ValueError("نقاب ناحیه ناخن برای composite در دسترس نیست")
+        resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+        with Image.open(mask_path) as source_mask:
+            edit_mask = source_mask.convert("L").resize(base.size, resample)
+        edit_mask = edit_mask.point(lambda px: 255 if int(px) > 0 else 0)
+        overlay.putalpha(ImageChops.multiply(overlay.getchannel("A"), edit_mask))
         composed = Image.alpha_composite(base.convert("RGBA"), overlay).convert("RGB")
         os.makedirs(FINAL_DIR, exist_ok=True)
-        filename = f"final/final_nail_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.png"
+        from giso.buti_ai.image_validation import save_lossless_webp, validate_masked_output
+        filename = f"final/final_nail_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.webp"
         out_path = os.path.join(UPLOAD_DIR, filename)
-        composed.save(out_path, "PNG", optimize=True)
+        save_lossless_webp(composed, out_path)
         try:
-            from giso.buti_ai.image_validation import validate_masked_output
             validation = validate_masked_output(src, out_path, (detection.get("mask") or {}).get("path") or "", service_key=SERVICE_KEY)
         except Exception:
             validation = {}

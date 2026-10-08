@@ -199,20 +199,16 @@ def add_to_waitlist(phone_number, city, service_type):
 
 
 def get_final_design_by_id(design_id, user_id=None):
-    """FINBUTI — Load final design by id, optionally scoped to user."""
+    """Load a final design only when its owning user is explicitly supplied."""
     try:
         import json
+        if not user_id:
+            return None
         conn = get_giso_db_conn()
-        if user_id:
-            row = conn.execute(
-                "SELECT * FROM buti_ai_final_designs WHERE id=? AND user_id=?",
-                (int(design_id), int(user_id)),
-            ).fetchone()
-        else:
-            row = conn.execute(
-                "SELECT * FROM buti_ai_final_designs WHERE id=?",
-                (int(design_id),),
-            ).fetchone()
+        row = conn.execute(
+            "SELECT * FROM buti_ai_final_designs WHERE id=? AND user_id=?",
+            (int(design_id), int(user_id)),
+        ).fetchone()
         if not row:
             return None
         d = dict(row)

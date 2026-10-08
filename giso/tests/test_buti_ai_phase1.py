@@ -839,7 +839,11 @@ def test_cloudflare_inpainting_request_uses_real_eyebrow_mask(tmp_path, monkeypa
     draw.rounded_rectangle((355, 265, 435, 282), radius=8, fill=(48, 32, 24))
     image.save(original, "JPEG")
     output = _BytesIO()
-    Image.new("RGB", (360, 460), (205, 160, 132)).save(output, "PNG")
+    provider_image = Image.open(original).convert("RGB")
+    provider_draw = ImageDraw.Draw(provider_image)
+    provider_draw.rounded_rectangle((205, 265, 285, 282), radius=8, fill=(60, 44, 34))
+    provider_draw.rounded_rectangle((355, 265, 435, 282), radius=8, fill=(60, 44, 34))
+    provider_image.save(output, "PNG")
 
     monkeypatch.setattr(final_design, "EYEBROW_UPLOAD_DIR", str(tmp_path))
     monkeypatch.setattr(final_design, "FINAL_DESIGN_DIR", str(tmp_path / "final"))
@@ -898,8 +902,8 @@ def test_cloudflare_inpainting_request_uses_real_eyebrow_mask(tmp_path, monkeypa
         nonzero = sum(1 for px in mask.getdata() if px > 0)
         assert nonzero > 0
         assert nonzero < payload["width"] * payload["height"] * 0.18
-    assert "Prompt text and ROI coordinates are only descriptive metadata" in payload["prompt"]
-    assert "white pixels are editable eyebrow pixels" in payload["prompt"]
+    assert "Apply the selected eyebrow design only inside the uploaded inpainting mask." in payload["prompt"]
+    assert "white pixels are editable eyebrow pixels, black pixels must remain unchanged." in payload["prompt"]
     assert result["ok"] is True
     assert result["status"] == "ai_inpainting_ready"
     assert result["ai_inpainting"] is True
@@ -910,7 +914,6 @@ def test_cloudflare_inpainting_request_uses_real_eyebrow_mask(tmp_path, monkeypa
     assert result["provider"] == "ai_mirror_cloudflare_1"
     assert result["model"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting"
     assert (tmp_path / result["filename"]).exists()
-
 
 def test_final_selection_keeps_selected_style_as_source_of_truth():
     from flask import session
@@ -1133,7 +1136,7 @@ def test_cloudflare_cf_alias_and_account_root_builder():
     assert any(
         m["id"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting"
         and m.get("image_kind") == "cloudflare_inpainting"
-        and m.get("auto_assign") is False
+        and m.get("auto_assign") is True
         for m in cf_images
     )
     root = normalize_cloudflare_api_root("", "ba0fec1e8a6deda27719c582e4d8eb9d", require_account=True)
@@ -1142,6 +1145,27 @@ def test_cloudflare_cf_alias_and_account_root_builder():
     assert normalize_cloudflare_api_root("", root, require_account=True) == root
     assert normalize_cloudflare_api_root("https://api.cloudflare.com/client/v4/accounts/acct/ai", "") == "https://api.cloudflare.com/client/v4/accounts/acct/ai/run"
 
+def test_cloudflare_image_provider_defaults_to_stable_diffusion_inpainting():
+    from giso.buti_ai import ai_models
+    from giso.buti_ai.eyebrow import image_generation
+
+    assert ai_models.DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL == "@cf/runwayml/stable-diffusion-v1-5-inpainting"
+    assert ai_models._cloudflare_image_kind_for_model(
+        "@cf/runwayml/stable-diffusion-v1-5-inpainting", "cloudflare"
+    ) == "cloudflare_inpainting"
+    assert ai_models._is_supported_cloudflare_final_model(
+        "@cf/black-forest-labs/flux-2-klein-4b", "cloudflare"
+    ) is True
+
+    providers = image_generation._cloudflare_providers({
+        "CLOUDFLARE_API_TOKEN_1": "test-token",
+        "CLOUDFLARE_ACCOUNT_ID_1": "test-account",
+    })
+
+    assert len(providers) == 1
+    assert providers[0].model == "@cf/runwayml/stable-diffusion-v1-5-inpainting"
+    assert providers[0].kind == "cloudflare_inpainting"
+    assert providers[0].endpoint.endswith("/ai/run/@cf/runwayml/stable-diffusion-v1-5-inpainting")
 
 def test_final_design_reads_ai_management_image_provider(tmp_path, monkeypatch):
     import base64
@@ -1331,13 +1355,26 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
 
     monkeypatch.setattr(ai_models, "get_giso_db_conn", connect)
     ai_models.init_buti_ai_model_assignments()
+    from giso import ai_brain
+    monkeypatch.setattr(
+        ai_brain,
+        "get_ai_provider",
+        lambda name: {
+            "name": name,
+            "kind": "cloudflare",
+            "enabled": 1,
+            "api_key": "test-token",
+            "api_root": "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run",
+            "base_url": "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run",
+        },
+    )
 
     result = ai_models.auto_configure_for_provider("cf")
 
     assert result["ok"] is True
-    assert result["added"] == 3
+    assert result["added"] == 4
     rows = ai_models.list_model_assignments()
-    assert len(rows) == 3
+    assert len(rows) == 4
     analysis = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_ANALYSIS]
     validation = [r for r in rows if r["task_key"] == ai_models.TASK_MIRROR_OUTPUT_VALIDATION]
     images = [r for r in rows if r["task_key"] in ai_models.IMAGE_DESIGN_TASK_KEYS]
@@ -1345,17 +1382,24 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
     assert validation[0]["provider_name"] == "cloudflare"
     assert "vision" in analysis[0]["model_name"]
     assert "vision" in validation[0]["model_name"]
-    assert len(images) == len(ai_models.IMAGE_DESIGN_TASK_KEYS) == 1
-    assert [r["task_key"] for r in images] == [ai_models.TASK_MIRROR_IMAGE_DESIGN]
-    assert [int(r["priority"]) for r in images] == [1]
-    assert images[0]["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b"
-    assert images[0]["image_kind"] == "cloudflare"
+    assert len(images) == len(ai_models.IMAGE_DESIGN_TASK_KEYS) * 2
+    for task_key in ai_models.IMAGE_DESIGN_TASK_KEYS:
+        task_images = [r for r in images if r["task_key"] == task_key]
+        assert [int(r["priority"]) for r in task_images] == [1, 2]
+        assert [r["model_name"] for r in task_images] == [
+            "@cf/runwayml/stable-diffusion-v1-5-inpainting",
+            "@cf/black-forest-labs/flux-2-klein-4b",
+        ]
+        assert [r["image_kind"] for r in task_images] == ["cloudflare_inpainting", "cloudflare"]
+        configured = ai_models.configured_image_provider_dicts(task_key=task_key)
+        assert [provider["model"] for provider in configured] == [
+            "@cf/runwayml/stable-diffusion-v1-5-inpainting",
+            "@cf/black-forest-labs/flux-2-klein-4b",
+        ]
+        assert [provider["kind"] for provider in configured] == ["cloudflare_inpainting", "cloudflare"]
 
     second = ai_models.auto_configure_for_provider("cloudflare")
     assert second["added"] == 0
-
-
-
 
 def test_legacy_service_image_slots_migrate_to_one_shared_chain(tmp_path, monkeypatch):
     import sqlite3
@@ -1372,9 +1416,9 @@ def test_legacy_service_image_slots_migrate_to_one_shared_chain(tmp_path, monkey
     monkeypatch.setattr(ai_models, "get_giso_db_conn", connect)
     ai_models.init_buti_ai_model_assignments()
     legacy_rows = (
-        (ai_models.TASK_EYEBROW_IMAGE_DESIGN, 1, "cf1"),
-        (ai_models.TASK_NAIL_IMAGE_DESIGN, 1, "cf2"),
-        (ai_models.TASK_LIP_IMAGE_DESIGN, 2, "cf3"),
+        (ai_models.TASK_EYEBROW_IMAGE_DESIGN, 1, "cf1", "@cf/runwayml/stable-diffusion-v1-5-inpainting"),
+        (ai_models.TASK_NAIL_IMAGE_DESIGN, 1, "cf2", "@cf/black-forest-labs/flux-2-klein-4b"),
+        (ai_models.TASK_LIP_IMAGE_DESIGN, 2, "cf3", "@cf/runwayml/stable-diffusion-v1-5-inpainting"),
     )
     with connect() as conn:
         conn.executemany(
@@ -1382,7 +1426,7 @@ def test_legacy_service_image_slots_migrate_to_one_shared_chain(tmp_path, monkey
             INSERT INTO buti_ai_model_assignments (
                 task_key, priority, provider_name, model_name, enabled,
                 image_kind, endpoint_override, created_at, updated_at
-            ) VALUES (?, ?, ?, '@cf/black-forest-labs/flux-2-klein-4b', 1, 'cloudflare', '', '2026-01-01', '2026-01-01')
+            ) VALUES (?, ?, ?, ?, 1, 'cloudflare', '', '2026-01-01', '2026-01-01')
             """,
             legacy_rows,
         )
@@ -1405,15 +1449,7 @@ def test_legacy_service_image_slots_migrate_to_one_shared_chain(tmp_path, monkey
         }
 
     monkeypatch.setattr(ai_brain, "get_ai_provider", fake_provider)
-    monkeypatch.setattr(
-        ai_models,
-        "provider_model_options",
-        lambda: {"providers": [], "models": [], "image_candidates": []},
-    )
     configured = ai_models.configured_image_provider_dicts(service_key="eyebrow")
-    assert [provider["model"] for provider in configured] == [
-        "@cf/black-forest-labs/flux-2-klein-4b",
-    ] * 3
     for service_key in ai_models.SERVICE_IMAGE_TASK_MAP:
         assert ai_models.image_task_for_service(service_key) == ai_models.TASK_MIRROR_IMAGE_DESIGN
         assert ai_models.configured_image_provider_dicts(service_key=service_key) == configured
@@ -1424,7 +1460,6 @@ def test_legacy_service_image_slots_migrate_to_one_shared_chain(tmp_path, monkey
     image_slots = [slot for slot in ai_models.panel_slots_context()["slots"] if slot["task_kind"] == "image"]
     assert len(image_slots) == 3
     assert {slot["task_key"] for slot in image_slots} == {ai_models.TASK_MIRROR_IMAGE_DESIGN}
-
 
 def test_repair_legacy_cloudflare_slots_replaces_json_only_models(tmp_path, monkeypatch):
     import sqlite3
@@ -1456,12 +1491,11 @@ def test_repair_legacy_cloudflare_slots_replaces_json_only_models(tmp_path, monk
     assert repaired["ok"] is True
     assert repaired["changed"] == 2
     rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_IMAGE_DESIGN, only_enabled=True)
-    assert [(int(r["priority"]), r["provider_name"], r["model_name"]) for r in rows] == [
-        (1, "cloudflare", "@cf/black-forest-labs/flux-2-klein-4b"),
-        (2, "cf2", "@cf/black-forest-labs/flux-2-klein-4b"),
-        (3, "cf3", "@cf/black-forest-labs/flux-2-klein-4b"),
+    assert [(int(r["priority"]), r["provider_name"], r["model_name"], r["image_kind"]) for r in rows] == [
+        (1, "cloudflare", "@cf/black-forest-labs/flux-2-klein-4b", "cloudflare"),
+        (2, "cf2", "@cf/runwayml/stable-diffusion-v1-5-inpainting", "cloudflare_inpainting"),
+        (3, "cf3", "@cf/runwayml/stable-diffusion-v1-5-inpainting", "cloudflare_inpainting"),
     ]
-
 
 def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, monkeypatch):
     import sqlite3
@@ -1496,8 +1530,8 @@ def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, m
         images = [r for r in rows if r["task_key"] == task_key]
         assert [int(r["priority"]) for r in images] == [1, 2, 3]
         assert [r["provider_name"] for r in images] == ["cf1", "cf2", "cf3"]
-        assert all(r["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b" for r in images)
-        assert all(r["image_kind"] == "cloudflare" for r in images)
+        assert all(r["model_name"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting" for r in images)
+        assert all(r["image_kind"] == "cloudflare_inpainting" for r in images)
 
     ok, _ = ai_models.save_model_assignment(
         ai_models.TASK_EYEBROW_IMAGE_DESIGN,
@@ -1518,9 +1552,8 @@ def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, m
     rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_IMAGE_DESIGN)
     slot2 = [r for r in rows if int(r["priority"]) == 2][0]
     assert slot2["provider_name"] == "cf2"
-    assert slot2["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b"
-
-
+    assert slot2["model_name"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting"
+    assert slot2["image_kind"] == "cloudflare_inpainting"
 
 def test_ai_management_preserves_cloudflare_inpainting_image_kind(tmp_path, monkeypatch):
     import sqlite3
@@ -1541,9 +1574,11 @@ def test_ai_management_preserves_cloudflare_inpainting_image_kind(tmp_path, monk
         1,
         "cloudflare",
         "@cf/runwayml/stable-diffusion-v1-5-inpainting",
-        image_kind="cloudflare_inpainting",
+        image_kind="cloudflare",
     )
     assert ok is True
+    saved = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_IMAGE_DESIGN, only_enabled=True)
+    assert saved[0]["image_kind"] == "cloudflare_inpainting"
 
     def fake_provider(name):
         return {
@@ -1562,7 +1597,6 @@ def test_ai_management_preserves_cloudflare_inpainting_image_kind(tmp_path, monk
     assert providers[0]["kind"] == "cloudflare_inpainting"
     assert providers[0]["model"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting"
     assert providers[0]["endpoint"].endswith("/ai/run/@cf/runwayml/stable-diffusion-v1-5-inpainting")
-
 
 def test_beauty_mirror_readiness_reports_missing_and_ready(tmp_path, monkeypatch):
     import sqlite3

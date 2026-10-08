@@ -12,6 +12,33 @@ import os
 from typing import Any, Dict
 
 
+def save_lossless_webp(image, output_path: str) -> None:
+    """Save a display-ready RGB WebP without changing any composed pixel values."""
+    image.convert("RGB").save(
+        output_path, format="WEBP", lossless=True, quality=100, method=6
+    )
+
+
+def outside_mask_pixels_equal(before, after, mask) -> bool:
+    """Return True only when every decoded pixel outside the binary mask is identical."""
+    try:
+        from PIL import ImageChops, ImageOps
+
+        before = before.convert("RGB")
+        after = after.convert("RGB")
+        mask = mask.convert("L")
+        if before.size != after.size or before.size != mask.size:
+            return False
+        # Any non-zero mask sample is inside the editable region. This keeps
+        # anti-aliased edge samples from being misclassified as untouched pixels.
+        binary_mask = mask.point(lambda value: 255 if int(value) > 0 else 0)
+        difference = ImageChops.difference(before, after).convert("L")
+        outside_difference = ImageChops.multiply(difference, ImageOps.invert(binary_mask))
+        return outside_difference.getbbox() is None
+    except Exception:
+        return False
+
+
 def validate_masked_output(before_path: str, after_path: str, mask_path: str = "", *, service_key: str = "") -> Dict[str, Any]:
     """Measure in-mask change and outside-mask preservation.
 

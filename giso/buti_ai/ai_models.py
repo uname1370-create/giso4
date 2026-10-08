@@ -33,8 +33,9 @@ LEGACY_IMAGE_DESIGN_TASK_KEYS = (
 TASK_MIRROR_OUTPUT_VALIDATION = "mirror_output_validation"
 IMAGE_DESIGN_TASK_KEYS = (TASK_MIRROR_IMAGE_DESIGN,)
 VISION_TASK_KEYS = (TASK_EYEBROW_ANALYSIS, TASK_MIRROR_OUTPUT_VALIDATION)
-DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b"
 CLOUDFLARE_INPAINTING_MODEL = "@cf/runwayml/stable-diffusion-v1-5-inpainting"
+CLOUDFLARE_FLUX_MODEL = "@cf/black-forest-labs/flux-2-klein-4b"
+DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL = CLOUDFLARE_INPAINTING_MODEL
 CLOUDFLARE_INPAINTING_KINDS = {"cloudflare_inpainting", "cloudflare_inpaint", "inpainting", "mask_inpainting"}
 LEGACY_UNSUPPORTED_CLOUDFLARE_FINAL_MODELS = {
     "@cf/black-forest-labs/flux-1-schnell",
@@ -139,22 +140,25 @@ def _registry_family_for_provider(provider_name: str) -> str:
 
 
 def _cloudflare_image_kind_for_model(model_name: str, image_kind: str = "") -> str:
-    """Preserve explicit AI Management capability; infer only documented inpainting model."""
+    """Preserve explicit capabilities and always route the documented inpainting model through masks."""
+    model = str(model_name or "").strip()
     kind = str(image_kind or "").strip().lower()
+    # This model requires an input image and mask; a generic saved "cloudflare" kind
+    # must not accidentally route it through the Flux text-to-image handler.
+    if model == CLOUDFLARE_INPAINTING_MODEL:
+        return "cloudflare_inpainting"
     if kind:
         return "cloudflare_inpainting" if kind in CLOUDFLARE_INPAINTING_KINDS else kind
-    if str(model_name or "").strip() == CLOUDFLARE_INPAINTING_MODEL:
-        return "cloudflare_inpainting"
     return "cloudflare"
 
 
 def _is_supported_cloudflare_final_model(model_name: str, image_kind: str = "") -> bool:
-    """Only documented/safe Cloudflare models enter final eyebrow generation."""
+    """Only documented/safe Cloudflare models enter final service image generation."""
     model = str(model_name or "").strip()
     kind = _cloudflare_image_kind_for_model(model, image_kind)
     if kind in CLOUDFLARE_INPAINTING_KINDS:
         return model == CLOUDFLARE_INPAINTING_MODEL
-    return model == DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL
+    return model == CLOUDFLARE_FLUX_MODEL
 
 
 def _migrate_legacy_image_design_assignments(conn) -> int:
@@ -303,6 +307,8 @@ def save_model_assignment(task_key: str, priority: Any, provider_name: str, mode
     provider_name = str(provider_name or "").strip().lower()
     model_name = str(model_name or "").strip()
     image_kind = str(image_kind or "").strip().lower()
+    if task_key in IMAGE_DESIGN_TASK_KEYS and model_name == CLOUDFLARE_INPAINTING_MODEL:
+        image_kind = "cloudflare_inpainting"
     endpoint_override = str(endpoint_override or "").strip()
 
     if not provider_name or not model_name:
@@ -545,13 +551,13 @@ def _openai_image_endpoint(row: Any, override: str = "") -> str:
 
 
 def repair_legacy_cloudflare_eyebrow_image_slots() -> Dict[str, Any]:
-    """Fix old auto-slots that used Cloudflare text-to-image JSON models for photo editing.
+    """Fix old auto-slots that used unsupported Cloudflare models for photo editing.
 
     Older configs could leave slot 2/3 as flux-1-schnell or SDXL. Those endpoints
     expect JSON and fail for the current photo-edit flow. If cf2/cf3 providers
-    exist, map each slot to that account with the safe FLUX 2 model; otherwise
-    disable the unsupported extra slot so the user does not see repeated JSON
-    errors in final design.
+    exist, map each slot to that account with the recommended SD 1.5 inpainting
+    model; otherwise disable the unsupported extra slot so the user does not see
+    repeated errors in final design.
     """
     try:
         from giso.ai_brain import get_ai_provider
@@ -595,7 +601,7 @@ def repair_legacy_cloudflare_eyebrow_image_slots() -> Dict[str, Any]:
             target_provider,
             DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL,
             enabled=enabled,
-            image_kind="cloudflare",
+            image_kind=_cloudflare_image_kind_for_model(DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL),
         )
         if ok:
             changed.append({
@@ -719,7 +725,7 @@ def readiness_status() -> Dict[str, Any]:
             if kind == "cloudflare" or _is_cloudflare_provider_name(provider_name):
                 safe_kind = _cloudflare_image_kind_for_model(model_name, "")
                 if not _is_supported_cloudflare_final_model(model_name, safe_kind):
-                    return "این مدل Cloudflare برای طراحی عکس نهایی آینه گیسو پشتیبانی نمی‌شود؛ از flux-2-klein-4b یا مدل inpainting واقعی استفاده کن."
+                    return "این مدل Cloudflare برای طراحی عکس نهایی آینه گیسو پشتیبانی نمی‌شود؛ از Stable Diffusion 1.5 Inpainting (پیشنهادی) یا flux-2-klein-4b استفاده کن."
                 if not _cloudflare_run_root(provider):
                     return "Cloudflare Account ID یا API Root درست تنظیم نشده است."
             elif not _openai_image_endpoint(provider, endpoint_override):
@@ -900,6 +906,13 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
                 added.append({"task": vision_task, "priority": priority, "model": vision_model})
 
     image_items = _model_items(get_image_models(registry_family), limit=3, auto_assign_only=True)
+    if registry_family == "cloudflare" and image_items:
+        preferred = next(
+            (item for item in image_items if item["id"] == DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL),
+            None,
+        )
+        if preferred:
+            image_items = [preferred] + [item for item in image_items if item["id"] != preferred["id"]]
     if account_slot and image_items:
         image_items = [image_items[0]]
         priorities = [account_slot]
@@ -957,6 +970,7 @@ def auto_configure_defaults(overwrite: bool = False) -> Dict[str, Any]:
 
 __all__ = [
     "CLOUDFLARE_INPAINTING_MODEL",
+    "CLOUDFLARE_FLUX_MODEL",
     "DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL",
     "TASK_EYEBROW_ANALYSIS",
     "TASK_MIRROR_IMAGE_DESIGN",
