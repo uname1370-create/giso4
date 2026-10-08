@@ -419,9 +419,15 @@ def generate_final_design(service_key: str, module: Any, candidate: Dict[str, An
     if not source_path:
         return {"ok": False, "status": "missing_photo", "message": "برای طراحی عکس نهایی، عکس واقعی لازم است."}
 
-    detection = candidate.get("detection") if isinstance(candidate.get("detection"), dict) else {}
-    if not detection or not detection.get("regions"):
+    # Final is the security boundary: do not reuse an upload-time detection.
+    # A stale/fallback mask must never reach a real-AI provider.
+    try:
         detection = module.detect_regions(source_path, allow_fallback=False)
+    except Exception as exc:
+        detection = {}
+        attempts_for_mask = [{"ok": False, "stage": "mask", "error": str(exc)[:220]}]
+    else:
+        attempts_for_mask = []
     if hasattr(module, "refine_detection_for_style"):
         try:
             detection = module.refine_detection_for_style(source_path, detection, candidate.get("final_style") or candidate.get("selected_style") or "")
@@ -434,7 +440,7 @@ def generate_final_design(service_key: str, module: Any, candidate: Dict[str, An
     except TypeError:
         providers = shared_image.configured_image_providers(env)
     prompt = module.build_design_prompt(candidate) if hasattr(module, "build_design_prompt") else "Photorealistic beauty service image edit. Preserve all pixels outside the provided mask."
-    attempts: List[Dict[str, Any]] = []
+    attempts: List[Dict[str, Any]] = list(attempts_for_mask)
     timeout = shared_image._timeout_seconds(env)
 
     mask_ready_for_real_ai = bool(providers)
