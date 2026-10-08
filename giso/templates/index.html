@@ -136,6 +136,11 @@
 {% block scripts %}
 <script>
 (function(){
+ const motion=document.querySelector('[data-home-motion]');
+ if(motion && !(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+   motion.classList.add('is-playing');
+   window.setTimeout(()=>motion.classList.add('is-resting'),5200);
+ }
  const els=document.querySelectorAll('.home-count'); if(!els.length)return;
  const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
  const run=(el)=>{const target=parseInt(el.dataset.target||'0',10);if(reduced||!target){el.textContent=target.toLocaleString('fa-IR');return}const start=performance.now();const tick=(now)=>{const p=Math.min(1,(now-start)/1300);el.textContent=Math.round(target*(1-Math.pow(1-p,3))).toLocaleString('fa-IR');if(p<1)requestAnimationFrame(tick)};requestAnimationFrame(tick)};
