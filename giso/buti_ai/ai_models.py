@@ -906,13 +906,17 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
                 added.append({"task": vision_task, "priority": priority, "model": vision_model})
 
     image_items = _model_items(get_image_models(registry_family), limit=3, auto_assign_only=True)
-    if registry_family == "cloudflare" and image_items:
-        preferred = next(
-            (item for item in image_items if item["id"] == DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL),
-            None,
-        )
-        if preferred:
-            image_items = [preferred] + [item for item in image_items if item["id"] != preferred["id"]]
+    if registry_family == "cloudflare":
+        # یک مسیر مشترک برای طراحی تصویر آینه گیسو؛ مدل اصلی همیشه از
+        # قرارداد مدیریت AI خوانده می‌شود و این مدل فقط پیش‌فرض خودکار است.
+        preferred = {
+            "id": DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL,
+            "image_kind": _cloudflare_image_kind_for_model(DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL),
+        }
+        image_items = [preferred] + [
+            item for item in image_items
+            if item["id"] != DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL
+        ]
     if account_slot and image_items:
         image_items = [image_items[0]]
         priorities = [account_slot]
