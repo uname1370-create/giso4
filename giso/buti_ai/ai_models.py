@@ -473,6 +473,14 @@ def panel_slots_context() -> Dict[str, Any]:
         logger.debug("legacy Cloudflare eyebrow slot repair for panel skipped: %s", exc)
     assignments = assignment_map()
     options = provider_model_options()
+    image_chain: List[Dict[str, Any]] = []
+    for row in list_model_assignments(TASK_MIRROR_IMAGE_DESIGN, only_enabled=True):
+        image_chain.append({
+            "priority": int(row.get("priority") or 1),
+            "provider_name": str(row.get("provider_name") or ""),
+            "model_name": str(row.get("model_name") or ""),
+            "image_kind": str(row.get("image_kind") or ""),
+        })
     slots: List[Dict[str, Any]] = []
     for task_key, meta in TASK_DEFS.items():
         for priority in range(1, int(meta.get("slots") or 1) + 1):
@@ -496,6 +504,7 @@ def panel_slots_context() -> Dict[str, Any]:
         "scope_label": "فقط آینه گیسو / Buti AI",
         "scope_note": "این اسلات‌ها روی مشاور عمومی، ربات، آنالیز مو/پوست و سایر بخش‌های گیسو اثر نمی‌گذارند؛ فقط مسیر آینه گیسو از آن‌ها می‌خواند. مدل‌های طراحی تصویر در اینجا یک‌بار تنظیم می‌شوند و برای ابرو، ناخن، لب و رنگ مو مشترک‌اند؛ تحلیل و اعتبارسنجی جدا هستند.",
         "slots": slots,
+        "image_chain": image_chain,
         "providers": options.get("providers", []),
         "model_options": options.get("models", []),
         "readiness": readiness_status(),
