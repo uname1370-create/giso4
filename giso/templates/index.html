@@ -157,7 +157,7 @@
  const intro=document.querySelector('[data-giso-intro]');
  const target=document.querySelector('[data-home-motion]');
  const reducedIntro=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
- const introKey='giso-home-intro-v2';
+ const introKey='giso-home-intro-v3';
  if(!intro || !target) return;
  let alreadySeen=false;
  try{alreadySeen=sessionStorage.getItem(introKey)==='1'}catch(e){}
@@ -182,6 +182,16 @@
    target.classList.add('is-intro-covered');
    intro.classList.add('is-finishing');
    window.setTimeout(()=>{
+     /* True video handoff: keep the exact same 1.mp4 element alive inside the real Hero frame. */
+     const handoffVideo=video;
+     handoffVideo.classList.add('giso-intro-handoff-video');
+     handoffVideo.removeAttribute('autoplay');
+     handoffVideo.loop=true;
+     handoffVideo.controls=false;
+     handoffVideo.style.cssText='';
+     handoffVideo.classList.add('is-visible');
+     handoffVideo.remove();
+     target.appendChild(handoffVideo);
      target.classList.remove('is-intro-covered');
      document.documentElement.classList.add('giso-intro-done');
      intro.classList.add('is-hidden');
