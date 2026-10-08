@@ -161,7 +161,7 @@
  if(!intro || !target) return;
  let alreadySeen=false;
  try{alreadySeen=sessionStorage.getItem(introKey)==='1'}catch(e){}
- if(alreadySeen || reducedIntro){intro.classList.add('is-hidden');return;}
+ if(alreadySeen || reducedIntro){intro.classList.add('is-hidden');document.documentElement.classList.add('giso-intro-done');return;}
  const scene=intro.querySelector('.giso-intro-scene');
  const card=intro.querySelector('.giso-intro-card');
  const video=intro.querySelector('[data-giso-intro-video]');
