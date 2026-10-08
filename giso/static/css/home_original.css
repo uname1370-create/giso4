@@ -254,8 +254,10 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
 .giso-intro-done .home-hero-motion-glow{animation:homeHeroPostIntroGlow 6.5s ease-in-out infinite}
 .giso-intro-done .home-hero-signature{animation:gisoBrandReveal .9s cubic-bezier(.18,.8,.2,1) both}
 .giso-intro-done .giso-brand-logo{animation:gisoBrandReveal 1s .08s cubic-bezier(.18,.8,.2,1) both}
-.giso-intro-done .giso-brand-img,.giso-intro-done .giso-brand-mark{animation:gisoBrandMark 1.15s .12s cubic-bezier(.18,.8,.2,1) both}
+.giso-intro-done .giso-brand-img,.giso-intro-done .giso-brand-mark{animation:none!important;transform:none!important}
 .giso-intro-done .giso-brand-title,.giso-intro-done .giso-brand-tagline{animation:gisoBrandText .85s .22s ease both}
+.giso-intro-done .giso-brand-logo{transform:none!important}
+
 @keyframes homeHeroPostIntro{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(0,-4px,0) scale(1.012)}}
 @keyframes homeHeroPostIntroImage{0%,100%{transform:scale(1)}50%{transform:scale(1.018) translate3d(.25%,-.18%,0)}}
 @keyframes homeHeroPostIntroGlow{0%,100%{opacity:0;transform:translateX(-5%)}45%{opacity:.16;transform:translateX(5%)}65%{opacity:.05;transform:translateX(1%)}}
