@@ -60,7 +60,9 @@ CLOUDFLARE_INPAINTING_MODEL = "@cf/runwayml/stable-diffusion-v1-5-inpainting"
 DEFAULT_CLOUDFLARE_MODEL = CLOUDFLARE_INPAINTING_MODEL
 DEFAULT_CLOUDFLARE_IMAGE_MODEL = CLOUDFLARE_INPAINTING_MODEL
 CLOUDFLARE_INPAINTING_KINDS = {"cloudflare_inpainting", "cloudflare_inpaint", "inpainting", "mask_inpainting"}
-DEFAULT_TIMEOUT_SECONDS = 90
+# حداکثر زمان انتظار هر مدل به‌صورت مستقل؛ اگر یک مدل خراب/گیرکرده باشد
+# کل زنجیره منتظر آن نمی‌ماند. از پنل/ENV قابل تنظیم است.
+DEFAULT_TIMEOUT_SECONDS = 45
 MAX_DOWNLOAD_BYTES = 12 * 1024 * 1024
 MAX_SAVE_SIDE = 1600
 MAX_PROVIDER_INPUT_SIDE = 512
@@ -167,7 +169,8 @@ def _cloudflare_kind_for_model(model: str, configured_kind: str = "cloudflare") 
 
 
 def _timeout_seconds(env: Optional[Dict[str, str]]) -> int:
-    for key in ("BUTI_AI_IMAGE_TIMEOUT_SECONDS", "CLOUDFLARE_TIMEOUT_MS", "PROVIDER_TIMEOUT_MS"):
+    # زمان هر attempt مستقل است؛ مدل خراب نباید کل fallback chain را معطل کند.
+    for key in ("BUTI_AI_IMAGE_MODEL_TIMEOUT_SECONDS", "BUTI_AI_IMAGE_TIMEOUT_SECONDS", "CLOUDFLARE_TIMEOUT_MS", "PROVIDER_TIMEOUT_MS"):
         raw = _env_value(env, key)
         if not raw:
             continue
@@ -1473,7 +1476,7 @@ def _friendly_provider_error(exc: Exception) -> str:
     return raw[:280]
 
 
-def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") -> Dict[str, Any]:
+def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "", timeout_seconds: Optional[int] = None) -> Dict[str, Any]:
     item = {
         "provider": provider.id,
         "label": provider.label,
@@ -1481,6 +1484,7 @@ def _attempt(provider: ImageProviderConfig, ok: bool, ms: int, error: str = "") 
         "model": provider.model,
         "ok": bool(ok),
         "ms": int(ms),
+        "timeout_seconds": int(timeout_seconds) if timeout_seconds else None,
         "ai_inpainting": provider.kind in CLOUDFLARE_INPAINTING_KINDS,
     }
     meta = provider.extra.get("_last_request_meta") if isinstance(provider.extra, dict) else None
@@ -1572,7 +1576,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                         continue
                     last_meta[meta_key] = meta_value
             ms = int((time.monotonic() - started) * 1000)
-            attempt = _attempt(provider, True, ms)
+            attempt = _attempt(provider, True, ms, timeout_seconds=timeout)
             attempts.append(attempt)
             _beauty_log(
                 "[AI]",
@@ -1635,7 +1639,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
         except Exception as exc:
             ms = int((time.monotonic() - started) * 1000)
             safe_error = _friendly_provider_error(exc)
-            attempts.append(_attempt(provider, False, ms, safe_error))
+            attempts.append(_attempt(provider, False, ms, safe_error, timeout_seconds=timeout))
             _beauty_log(
                 "[AI]",
                 "provider_attempt_failed",
