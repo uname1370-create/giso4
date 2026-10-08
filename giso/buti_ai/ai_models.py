@@ -187,9 +187,23 @@ def init_buti_ai_model_assignments(conn=None) -> None:
             ("image_kind", "image_kind TEXT NOT NULL DEFAULT ''"),
             ("endpoint_override", "endpoint_override TEXT NOT NULL DEFAULT ''"),
             ("updated_at", "updated_at TEXT NOT NULL DEFAULT ''"),
+            # سازگاری با دیتابیس/کدهای قدیمی که هنوز service_key را می‌خوانند.
+            # منطق فعلی بر task_key است؛ service_key فقط compatibility است.
+            ("service_key", "service_key TEXT NOT NULL DEFAULT ''"),
         ):
             if column not in columns:
                 c.execute(f"ALTER TABLE buti_ai_model_assignments ADD COLUMN {ddl}")
+        # backfill امن برای DBهای قدیمی: service_key از task_key مشتق می‌شود.
+        try:
+            reverse_service_map = {task: service for service, task in SERVICE_IMAGE_TASK_MAP.items()}
+            for task_key, service_key in reverse_service_map.items():
+                c.execute(
+                    "UPDATE buti_ai_model_assignments SET service_key=? "
+                    "WHERE task_key=? AND (service_key IS NULL OR service_key='')",
+                    (service_key, task_key),
+                )
+        except Exception as migration_exc:
+            logger.warning("service_key compatibility migration skipped: %s", migration_exc)
         c.commit()
     except Exception as exc:
         logger.error("init_buti_ai_model_assignments failed: %s", exc)
