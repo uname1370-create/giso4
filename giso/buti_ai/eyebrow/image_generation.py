@@ -53,9 +53,11 @@ from giso.buti_ai.eyebrow.options import normalize_style_key
 
 logger = logging.getLogger("giso_buti_ai_image_generation")
 
-# Kept for the Flux request handler and explicit legacy selections.
-DEFAULT_CLOUDFLARE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b"
+# Shared default for Buti AI final image generation. The active model is still
+# read from «مدیریت هوش مصنوعی»; this value is only the safe fallback when
+# no management assignment is available.
 CLOUDFLARE_INPAINTING_MODEL = "@cf/runwayml/stable-diffusion-v1-5-inpainting"
+DEFAULT_CLOUDFLARE_MODEL = CLOUDFLARE_INPAINTING_MODEL
 DEFAULT_CLOUDFLARE_IMAGE_MODEL = CLOUDFLARE_INPAINTING_MODEL
 CLOUDFLARE_INPAINTING_KINDS = {"cloudflare_inpainting", "cloudflare_inpaint", "inpainting", "mask_inpainting"}
 DEFAULT_TIMEOUT_SECONDS = 90
