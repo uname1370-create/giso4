@@ -54,8 +54,8 @@ TASK_DEFS: Dict[str, Dict[str, Any]] = {
         "label": "آینه گیسو — طراحی تصویر مشترک همه خدمات",
         "short_label": "طراحی تصویر",
         "kind": "image",
-        "slots": 3,
-        "help": "این زنجیره تصویرسازی/inpainting یک‌بار تنظیم می‌شود و برای ابرو، ناخن، لب و رنگ مو به‌ترتیب اولویت به کار می‌رود؛ prompt و mask هر خدمت جداگانه حفظ می‌شود.",
+        "slots": 1,
+        "help": "یک مسیر مشترک طراحی تصویر برای هر چهار خدمت آینه گیسو؛ هر تعداد مدل فعال ثبت‌شده در این مسیر به‌ترتیب امتحان می‌شود و در شکست به مدل بعدی می‌رود. prompt و mask هر خدمت جداگانه حفظ می‌شود.",
     },
     TASK_MIRROR_OUTPUT_VALIDATION: {
         "label": "آینه گیسو — اعتبارسنجی خروجی نهایی",
@@ -122,7 +122,7 @@ def _normalize_provider_digits(provider_name: str) -> str:
 
 def _is_cloudflare_provider_name(provider_name: str) -> bool:
     name = _normalize_provider_digits(provider_name)
-    return name == "cloudflare" or re.fullmatch(r"cf[1-3]", name) is not None
+    return name == "cloudflare" or re.fullmatch(r"cf[0-9]+", name) is not None
 
 
 def _cloudflare_slot_priority(provider_name: str) -> int:
@@ -130,7 +130,7 @@ def _cloudflare_slot_priority(provider_name: str) -> int:
     if not match:
         return 0
     try:
-        return max(1, min(int(TASK_DEFS[TASK_MIRROR_IMAGE_DESIGN]["slots"]), int(match.group(1))))
+        return max(1, int(match.group(1)))
     except Exception:
         return 0
 
@@ -289,6 +289,8 @@ def _normal_priority(priority: Any, task_key: str) -> int:
     except (TypeError, ValueError):
         value = 1
     slots = int(TASK_DEFS.get(task_key, {}).get("slots") or 1)
+    if task_key in IMAGE_DESIGN_TASK_KEYS:
+        return max(1, value)
     return max(1, min(max(1, slots), value))
 
 
@@ -620,7 +622,7 @@ def image_task_for_service(service_key: str = "eyebrow") -> str:
     return SERVICE_IMAGE_TASK_MAP.get(str(service_key or "").strip().lower(), TASK_MIRROR_IMAGE_DESIGN)
 
 
-def configured_image_provider_dicts(limit: int = 3, task_key: str = "", service_key: str = "eyebrow") -> List[Dict[str, Any]]:
+def configured_image_provider_dicts(limit: Optional[int] = None, task_key: str = "", service_key: str = "eyebrow") -> List[Dict[str, Any]]:
     """providerهای تصویرسازی آینه گیسو از مدیریت AI، بدون لاگ‌کردن کلیدها."""
     try:
         from giso.ai_brain import get_ai_provider
@@ -635,7 +637,7 @@ def configured_image_provider_dicts(limit: int = 3, task_key: str = "", service_
     providers: List[Dict[str, Any]] = []
     image_task_key = normalize_task_key(task_key) or image_task_for_service(service_key)
     for row in list_model_assignments(image_task_key, only_enabled=True):
-        if len(providers) >= max(1, int(limit or 3)):
+        if limit is not None and int(limit) > 0 and len(providers) >= int(limit):
             break
         provider_name = str(row.get("provider_name") or "").strip().lower()
         model_name = str(row.get("model_name") or "").strip()
@@ -847,7 +849,7 @@ def _model_ids(items: Iterable[Any], limit: int = 3) -> List[str]:
     return ids
 
 
-def _model_items(items: Iterable[Any], limit: int = 3, auto_assign_only: bool = False) -> List[Dict[str, str]]:
+def _model_items(items: Iterable[Any], limit: int = 0, auto_assign_only: bool = False) -> List[Dict[str, str]]:
     result: List[Dict[str, str]] = []
     seen = set()
     for item in items or []:
@@ -863,7 +865,7 @@ def _model_items(items: Iterable[Any], limit: int = 3, auto_assign_only: bool = 
             continue
         seen.add(mid)
         result.append({"id": mid, "image_kind": image_kind})
-        if len(result) >= limit:
+        if limit > 0 and len(result) >= limit:
             break
     return result
 
@@ -905,7 +907,7 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
             if ok:
                 added.append({"task": vision_task, "priority": priority, "model": vision_model})
 
-    image_items = _model_items(get_image_models(registry_family), limit=3, auto_assign_only=True)
+    image_items = _model_items(get_image_models(registry_family), limit=0, auto_assign_only=True)
     if registry_family == "cloudflare":
         # یک مسیر مشترک برای طراحی تصویر آینه گیسو؛ مدل اصلی همیشه از
         # قرارداد مدیریت AI خوانده می‌شود و این مدل فقط پیش‌فرض خودکار است.
