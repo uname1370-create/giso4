@@ -149,31 +149,57 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
 
 
 /* ===== Giso first-visit 3D cinematic intro =====
-   Hybrid CSS-3D + DOM transition: the intro object settles into the real Hero frame. */
-.giso-intro{position:fixed;inset:0;z-index:99999;overflow:hidden;display:grid;place-items:center;background:radial-gradient(circle at 50% 46%,rgba(205,165,82,.10),transparent 25%),radial-gradient(circle at 50% 50%,rgba(255,255,255,.035),transparent 48%),#15100c;opacity:1;visibility:visible;pointer-events:auto;transition:opacity .45s ease,visibility .45s ease;perspective:1400px}
-.giso-intro-scene{position:relative;width:min(74vw,540px);aspect-ratio:1;transform-style:preserve-3d;animation:gisoIntroSceneIn 1.2s cubic-bezier(.18,.72,.2,1) both}
-.giso-intro-depth{position:absolute;inset:7%;display:grid;place-items:center;transform-style:preserve-3d}
-.giso-intro-card{position:relative;width:100%;height:100%;border-radius:50%;padding:9px;overflow:hidden;background:linear-gradient(145deg,#f5db91,#9b6820 48%,#f8e5ab);box-shadow:0 45px 100px rgba(0,0,0,.48),0 0 0 1px rgba(255,236,175,.42),0 0 70px rgba(214,170,78,.13);transform-style:preserve-3d;animation:gisoIntroCardIn 1.2s cubic-bezier(.16,.78,.18,1) both;will-change:transform,opacity}
-.giso-intro-card img{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%;backface-visibility:hidden;transform:translateZ(18px) scale(1.015);filter:saturate(.94) contrast(1.02)}
-.giso-intro-edge{position:absolute;z-index:3;pointer-events:none;border-radius:50%;inset:0;border:1px solid rgba(255,239,186,.52);transform:translateZ(32px)}
-.giso-intro-edge-a{box-shadow:inset 0 0 28px rgba(255,229,158,.18)}
-.giso-intro-edge-b{inset:8px;border-color:rgba(104,67,22,.35);transform:translateZ(20px)}
-.giso-intro-sheen{position:absolute;z-index:4;inset:-20%;pointer-events:none;border-radius:50%;background:linear-gradient(115deg,transparent 34%,rgba(255,255,255,.34) 49%,transparent 61%);transform:translate3d(-80%,0,45px) rotateZ(-8deg);animation:gisoIntroSheen 1.45s .18s ease-out both;mix-blend-mode:screen}
-.giso-intro-orbit{position:absolute;left:50%;top:50%;border:1px solid rgba(226,193,117,.24);border-radius:50%;transform-style:preserve-3d;pointer-events:none}
-.giso-intro-orbit-a{width:112%;height:112%;transform:translate(-50%,-50%) rotateX(64deg) rotateZ(-18deg);animation:gisoIntroOrbit 2.4s linear both}
-.giso-intro-orbit-b{width:128%;height:128%;border-style:dashed;opacity:.55;transform:translate(-50%,-50%) rotateY(68deg) rotateZ(16deg);animation:gisoIntroOrbitReverse 2.4s linear both}
-.giso-intro.is-finishing{background:transparent;transition:background .9s ease}
-.giso-intro.is-finishing .giso-intro-scene{animation:gisoIntroSceneOut 1.05s cubic-bezier(.18,.72,.2,1) forwards}
-.giso-intro.is-finishing .giso-intro-card{animation:gisoIntroSettle 1.05s cubic-bezier(.18,.72,.2,1) forwards}
-.giso-intro.is-finishing .giso-intro-orbit{opacity:0;transition:opacity .28s ease}
+   True morph: the same hero object is introduced in 3D, then resized/repositioned to the live Hero frame. */
+.giso-intro{position:fixed;inset:0;z-index:99999;overflow:hidden;display:grid;place-items:center;background:radial-gradient(circle at 50% 44%,rgba(213,171,83,.13),transparent 25%),radial-gradient(circle at 50% 50%,rgba(255,255,255,.04),transparent 48%),#120e0b;opacity:1;visibility:visible;pointer-events:auto;perspective:1600px;transition:opacity .32s ease,visibility .32s ease}
+.giso-intro-scene{position:absolute;left:50%;top:50%;width:min(72vw,520px);height:min(72vw,520px);transform:translate(-50%,-50%) rotateX(0) rotateY(0);transform-style:preserve-3d;animation:gisoIntroSceneIn 1.35s cubic-bezier(.16,.78,.18,1) both;will-change:left,top,width,height,transform}
+.giso-intro-depth{position:absolute;inset:0;display:grid;place-items:center;transform-style:preserve-3d}
+.giso-intro-card{position:relative;width:100%;height:100%;border-radius:50%;padding:8px;overflow:hidden;background:linear-gradient(140deg,#f3d88b,#9c6821 48%,#f8e3a3);box-shadow:0 48px 110px rgba(0,0,0,.54),0 0 0 1px rgba(255,236,175,.48),0 0 85px rgba(214,170,78,.15);transform-style:preserve-3d;animation:gisoIntroCardIn 1.35s cubic-bezier(.16,.78,.18,1) both;will-change:transform}
+.giso-intro-card img{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%;backface-visibility:hidden;transform:translateZ(22px) scale(1.008);filter:saturate(.96) contrast(1.02)}
+.giso-intro-edge{position:absolute;z-index:3;pointer-events:none;border-radius:50%;inset:0;border:1px solid rgba(255,239,186,.58);transform:translateZ(35px)}
+.giso-intro-edge-a{box-shadow:inset 0 0 30px rgba(255,229,158,.18)}
+.giso-intro-edge-b{inset:8px;border-color:rgba(104,67,22,.32);transform:translateZ(22px)}
+.giso-intro-sheen{position:absolute;z-index:4;inset:-20%;pointer-events:none;border-radius:50%;background:linear-gradient(115deg,transparent 34%,rgba(255,255,255,.30) 49%,transparent 61%);transform:translate3d(-85%,0,48px) rotateZ(-8deg);animation:gisoIntroSheen 1.55s .22s ease-out both;mix-blend-mode:screen}
+.giso-intro-orbit{position:absolute;left:50%;top:50%;border:1px solid rgba(226,193,117,.23);border-radius:50%;transform-style:preserve-3d;pointer-events:none}
+.giso-intro-orbit-a{width:112%;height:112%;transform:translate(-50%,-50%) rotateX(64deg) rotateZ(-18deg);animation:gisoIntroOrbit 2.5s linear both}
+.giso-intro-orbit-b{width:128%;height:128%;border-style:dashed;opacity:.5;transform:translate(-50%,-50%) rotateY(68deg) rotateZ(16deg);animation:gisoIntroOrbitReverse 2.5s linear both}
+.home-hero-motion.is-intro-covered{visibility:hidden}
+.giso-intro.is-finishing{background:transparent;transition:background .75s ease}
+.giso-intro.is-finishing .giso-intro-scene{animation:gisoIntroMorphToHero 1.15s cubic-bezier(.18,.84,.18,1) forwards}
+.giso-intro.is-finishing .giso-intro-card{animation:gisoIntroCardSettle 1.15s cubic-bezier(.18,.84,.18,1) forwards}
+.giso-intro.is-finishing .giso-intro-orbit{opacity:0;transition:opacity .30s ease}
 .giso-intro.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
 .giso-intro.is-hidden .giso-intro-scene{animation:none}
-@keyframes gisoIntroSceneIn{0%{opacity:0;transform:rotateX(18deg) rotateY(-22deg) translateZ(-180px) scale(.72)}55%{opacity:1;transform:rotateX(-5deg) rotateY(8deg) translateZ(10px) scale(1.02)}100%{opacity:1;transform:rotateX(0) rotateY(0) translateZ(0) scale(1)}}
-@keyframes gisoIntroCardIn{0%{opacity:0;transform:rotateX(16deg) rotateY(-18deg) rotateZ(-3deg) translateZ(-160px) scale(.76)}55%{opacity:1;transform:rotateX(-2deg) rotateY(4deg) rotateZ(1deg) translateZ(28px) scale(1.015)}100%{opacity:1;transform:rotateX(0) rotateY(0) rotateZ(0) translateZ(0) scale(1)}}
-@keyframes gisoIntroSheen{0%{opacity:0;transform:translate3d(-85%,0,45px) rotateZ(-8deg)}18%{opacity:.7}100%{opacity:0;transform:translate3d(85%,0,45px) rotateZ(-8deg)}}
+@keyframes gisoIntroSceneIn{
+ 0%{opacity:0;transform:translate(-50%,-50%) rotateX(18deg) rotateY(-24deg) rotateZ(-3deg) scale(.68)}
+ 48%{opacity:1;transform:translate(-50%,-50%) rotateX(-7deg) rotateY(9deg) rotateZ(1deg) scale(1.035)}
+ 78%{transform:translate(-50%,-50%) rotateX(3deg) rotateY(-3deg) rotateZ(0) scale(.985)}
+ 100%{opacity:1;transform:translate(-50%,-50%) rotateX(0) rotateY(0) rotateZ(0) scale(1)}
+}
+@keyframes gisoIntroCardIn{
+ 0%{opacity:0;transform:rotateX(17deg) rotateY(-20deg) rotateZ(-4deg) translateZ(-170px) scale(.80)}
+ 48%{opacity:1;transform:rotateX(-3deg) rotateY(5deg) rotateZ(1deg) translateZ(32px) scale(1.015)}
+ 78%{transform:rotateX(1deg) rotateY(-1deg) rotateZ(0) translateZ(10px) scale(1.004)}
+ 100%{opacity:1;transform:rotateX(0) rotateY(0) rotateZ(0) translateZ(0) scale(1)}
+}
+@keyframes gisoIntroSheen{
+ 0%{opacity:0;transform:translate3d(-85%,0,48px) rotateZ(-8deg)}
+ 18%{opacity:.72}
+ 100%{opacity:0;transform:translate3d(85%,0,48px) rotateZ(-8deg)}
+}
 @keyframes gisoIntroOrbit{to{transform:translate(-50%,-50%) rotateX(64deg) rotateZ(342deg)}}
 @keyframes gisoIntroOrbitReverse{to{transform:translate(-50%,-50%) rotateY(68deg) rotateZ(-344deg)}}
-@keyframes gisoIntroSceneOut{to{transform:translate3d(var(--giso-intro-tx),var(--giso-intro-ty),0) scale(var(--giso-intro-scale))}}
-@keyframes gisoIntroSettle{to{transform:rotateX(0) rotateY(0) rotateZ(0) scale(1)}}
-@media(max-width:700px){.giso-intro-scene{width:min(82vw,390px)}.giso-intro-card{padding:7px}.giso-intro-orbit-b{display:none}}
+@keyframes gisoIntroMorphToHero{
+ 0%{left:50%;top:50%;width:min(72vw,520px);height:min(72vw,520px);transform:translate(-50%,-50%) rotateX(0) rotateY(0) rotateZ(0) scale(1)}
+ 100%{left:calc(50% + var(--giso-intro-final-left));top:calc(50% + var(--giso-intro-final-top));width:var(--giso-intro-final-width);height:var(--giso-intro-final-height);transform:translate(-50%,-50%) rotateX(0) rotateY(0) rotateZ(0) scale(1)}
+}
+@keyframes gisoIntroCardSettle{
+ 0%{transform:rotateX(0) rotateY(0) translateZ(0) scale(1)}
+ 45%{transform:rotateX(1deg) rotateY(-1deg) translateZ(10px) scale(1.006)}
+ 100%{transform:rotateX(0) rotateY(0) translateZ(0) scale(1)}
+}
+@media(max-width:700px){
+ .giso-intro-scene{width:min(82vw,390px);height:min(82vw,390px)}
+ .giso-intro-card{padding:7px}
+ .giso-intro-orbit-b{display:none}
+}
 @media(prefers-reduced-motion:reduce){.giso-intro{display:none!important}}
