@@ -258,6 +258,27 @@ async def _try_build_telegram_app():
 
     for proxy in candidates:
         label = _mask_proxy(proxy)
+
+        # پروکسی ذخیره‌شده ممکن است بعداً از کار افتاده باشد.
+        # قبل از ساخت Application آن را یک‌بار روی Telegram API تست می‌کنیم
+        # تا RemoteProtocolError / SSLEOF از یک پروکسی مرده وارد retry نشود.
+        if proxy:
+            try:
+                import proxy_manager as pm
+                ok, _ms, proxy_err = await pm.test_proxy_timed(proxy)
+                if not ok:
+                    logger.warning(
+                        "   ⏭ پروکسی ناسالم رد شد: %s (%s)",
+                        label, proxy_err or "network error",
+                    )
+                    continue
+            except Exception as proxy_check_exc:
+                logger.warning(
+                    "   ⏭ تست پروکسی ناموفق بود، پروکسی رد شد: %s (%s)",
+                    label, type(proxy_check_exc).__name__,
+                )
+                continue
+
         for attempt in range(1, TELEGRAM_CONNECT_RETRIES + 1):
             app = None
             try:
