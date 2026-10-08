@@ -1,4 +1,4 @@
-"""
+""" 
 bot.py — نقطه ورود ربات
 
 راه‌اندازی Application بله (همیشه فعال) و در صورت فعال بودن، اپ تلگرام.
@@ -366,7 +366,7 @@ async def _run_all():
             "   موارد زیر را بررسی کنید:\n"
             "     • مقدار BOT_TOKEN در فایل .env درست و معتبر است؟\n"
             "     • اتصال اینترنت برقرار است؟ (tapi.bale.ai در دسترس باشد)\n"
-            "     • توکن از @BotFather بله گرفته شده (نه تلگرام)؟"
+            "     • توکن از @BotFather بله گرفته شده (نه تلگرام)?"
         )
         return
     logger.info("✅ ربات بله روشن شد!")
@@ -386,22 +386,29 @@ async def _run_all():
 
     running = [(bale_app, "بله")]
 
-    # ── تلگرام: اختیاری، با پروکسی و retry، کاملاً ایزوله ──
-    try:
-        tg_app, tg_proxy = await _try_build_telegram_app()
-    except Exception as e:  # حتی خطای غیرمنتظره هم نباید بله را متوقف کند
-        logger.error("⚠️ خطای غیرمنتظره هنگام آماده‌سازی تلگرام: %s", e)
-        tg_app, tg_proxy = None, None
+    # ── تلگرام: فقط در صورت فعال بودن صریح اجرا می‌شود ──
+    telegram_enabled = str(
+        SETTINGS.get("telegram_enabled", 0)
+    ).strip().lower() in ("1", "true", "yes", "on")
 
-    if tg_app is not None:
-        # اپ در _try_build_telegram_app قبلاً initialize شده است
-        if await _start_polling(tg_app, "تلگرام", already_initialized=True):
-            register_platform_bot("telegram", tg_app.bot)
-            running.append((tg_app, "تلگرام"))
-            platform_runtime.set_telegram_app(tg_app, tg_proxy)
-            logger.info("📲 تلگرام فعال شد.")
-        else:
-            logger.warning("⚠️ تلگرام راه‌اندازی نشد — ربات فقط با بله ادامه می‌دهد.")
+    if telegram_enabled:
+        try:
+            tg_app, tg_proxy = await _try_build_telegram_app()
+        except Exception as e:  # حتی خطای غیرمنتظره هم نباید بله را متوقف کند
+            logger.error("⚠️ خطای غیرمنتظره هنگام آماده‌سازی تلگرام: %s", e)
+            tg_app, tg_proxy = None, None
+
+        if tg_app is not None:
+            # اپ در _try_build_telegram_app قبلاً initialize شده است
+            if await _start_polling(tg_app, "تلگرام", already_initialized=True):
+                register_platform_bot("telegram", tg_app.bot)
+                running.append((tg_app, "تلگرام"))
+                platform_runtime.set_telegram_app(tg_app, tg_proxy)
+                logger.info("📲 تلگرام فعال شد.")
+            else:
+                logger.warning("⚠️ تلگرام راه‌اندازی نشد — ربات فقط با بله ادامه می‌دهد.")
+    else:
+        logger.info("📴 تلگرام غیرفعال است — هیچ اتصال یا polling تلگرامی اجرا نمی‌شود.")
 
     logger.info("🚀 ربات آماده است — پلتفرم‌های فعال: %s",
                 "، ".join(n for _, n in running))
