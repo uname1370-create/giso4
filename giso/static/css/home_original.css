@@ -322,6 +322,11 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
 .giso-intro-done .home-hero-motion .giso-intro-handoff-video{
   animation:homeHeroHandoffLiving 8s ease-in-out infinite;
 }
+/* After the second Hero playback, keep the exact last frame completely still. */
+.giso-intro-done .home-hero-motion .giso-intro-handoff-video.is-frozen{
+  animation:none!important;
+  transform:none!important;
+}
 @keyframes homeHeroHandoffLiving{
   0%,100%{transform:scale(1)}
   48%{transform:scale(1.012) translate3d(.15%,-.12%,0)}
