@@ -233,3 +233,35 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
   filter:saturate(1) contrast(1);
 }
 @media(prefers-reduced-motion:reduce){.giso-intro-card .giso-intro-video{display:none}}
+
+
+/* ===== Final cinematic polish: living Hero + quiet brand reveal ===== */
+.giso-intro{background:radial-gradient(circle at 50% 45%,rgba(214,171,82,.12),transparent 22%),radial-gradient(circle at 50% 50%,rgba(255,255,255,.025),transparent 44%),#0b0807}
+.giso-intro-orbit-a{width:108%;height:108%;border-color:rgba(226,193,117,.16);animation-duration:3.2s}
+.giso-intro-orbit-b{width:120%;height:120%;opacity:.22;border-color:rgba(226,193,117,.13);animation-duration:3.2s}
+.giso-intro-card{box-shadow:0 48px 110px rgba(0,0,0,.62),0 0 0 1px rgba(255,236,175,.46),0 0 70px rgba(214,170,78,.12)}
+.giso-intro-card .giso-intro-video{transition:filter .55s ease,transform .55s ease}
+.giso-intro.is-finishing .giso-intro-card .giso-intro-video{transform:translateZ(18px) scale(1.006)}
+.giso-intro.is-finishing .giso-intro-sheen{animation:gisoIntroFinalSweep .9s .12s ease-out both}
+@keyframes gisoIntroFinalSweep{
+ 0%{opacity:0;transform:translate3d(-95%,0,50px) rotateZ(-8deg)}
+ 28%{opacity:.42}
+ 100%{opacity:0;transform:translate3d(95%,0,50px) rotateZ(-8deg)}
+}
+/* After the morph, the real Hero keeps its own restrained living motion. */
+.giso-intro-done .home-hero-motion{animation:homeHeroPostIntro 6.5s ease-in-out infinite}
+.giso-intro-done .home-hero-motion img{animation:homeHeroPostIntroImage 6.5s ease-in-out infinite}
+.giso-intro-done .home-hero-motion-glow{animation:homeHeroPostIntroGlow 6.5s ease-in-out infinite}
+.giso-intro-done .home-hero-signature{animation:gisoBrandReveal .9s cubic-bezier(.18,.8,.2,1) both}
+.giso-intro-done .giso-brand-logo{animation:gisoBrandReveal 1s .08s cubic-bezier(.18,.8,.2,1) both}
+.giso-intro-done .giso-brand-img,.giso-intro-done .giso-brand-mark{animation:gisoBrandMark 1.15s .12s cubic-bezier(.18,.8,.2,1) both}
+.giso-intro-done .giso-brand-title,.giso-intro-done .giso-brand-tagline{animation:gisoBrandText .85s .22s ease both}
+@keyframes homeHeroPostIntro{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(0,-4px,0) scale(1.012)}}
+@keyframes homeHeroPostIntroImage{0%,100%{transform:scale(1)}50%{transform:scale(1.018) translate3d(.25%,-.18%,0)}}
+@keyframes homeHeroPostIntroGlow{0%,100%{opacity:0;transform:translateX(-5%)}45%{opacity:.16;transform:translateX(5%)}65%{opacity:.05;transform:translateX(1%)}}
+@keyframes gisoBrandReveal{0%{opacity:0;transform:translateY(7px) scale(.985)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes gisoBrandMark{0%{opacity:0;transform:scale(.84) rotate(-5deg)}60%{opacity:1;transform:scale(1.035) rotate(1deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes gisoBrandText{0%{opacity:0;transform:translateY(5px)}100%{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){
+ .giso-intro-done .home-hero-motion,.giso-intro-done .home-hero-motion img,.giso-intro-done .home-hero-motion-glow,.giso-intro-done .home-hero-signature,.giso-intro-done .giso-brand-logo,.giso-intro-done .giso-brand-img,.giso-intro-done .giso-brand-mark,.giso-intro-done .giso-brand-title,.giso-intro-done .giso-brand-tagline{animation:none!important}
+}
