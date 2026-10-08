@@ -462,7 +462,7 @@ def generate_final_design(service_key: str, module: Any, candidate: Dict[str, An
                 provider_endpoint=provider.endpoint, provider_extra=provider.extra,
             )
             ms = int((time.monotonic() - started) * 1000)
-            attempt = shared_image._attempt(provider, True, ms)
+            attempt = shared_image._attempt(provider, True, ms, timeout_seconds=timeout)
             attempt.update({k: v for k, v in meta.items() if k != "validation"})
             attempts.append(attempt)
             result = {
@@ -487,7 +487,7 @@ def generate_final_design(service_key: str, module: Any, candidate: Dict[str, An
             return result
         except Exception as exc:
             ms = int((time.monotonic() - started) * 1000)
-            attempts.append(shared_image._attempt(provider, False, ms, shared_image._friendly_provider_error(exc)))
+            attempts.append(shared_image._attempt(provider, False, ms, shared_image._friendly_provider_error(exc), timeout_seconds=timeout))
 
     fallback = module.generate_guided_design(candidate)
     fallback["attempts"] = attempts
