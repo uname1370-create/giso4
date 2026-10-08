@@ -27,7 +27,9 @@
         <span class="giso-intro-edge giso-intro-edge-a"></span>
         <span class="giso-intro-edge giso-intro-edge-b"></span>
         <span class="giso-intro-sheen"></span>
-        <img src="{{ url_for('static', filename='images/giso-main-hero.png') }}" alt="" width="1000" height="1000">
+        <video class="giso-intro-video" data-giso-intro-video muted playsinline autoplay preload="auto" poster="{{ url_for('static', filename='images/giso-main-hero.png') }}" aria-hidden="true">
+          <source src="{{ url_for('static', filename='videos/1.mp4') }}" type="video/mp4">
+        </video>
       </div>
     </div>
     <div class="giso-intro-orbit giso-intro-orbit-a"></div>
@@ -162,9 +164,12 @@
  if(alreadySeen || reducedIntro){intro.classList.add('is-hidden');return;}
  const scene=intro.querySelector('.giso-intro-scene');
  const card=intro.querySelector('.giso-intro-card');
- if(!scene || !card) return;
+ const video=intro.querySelector('[data-giso-intro-video]');
+ if(!scene || !card || !video) return;
+ let finished=false;
  const finish=()=>{
-   if(intro.classList.contains('is-finishing')) return;
+   if(finished || intro.classList.contains('is-finishing')) return;
+   finished=true;
    const tr=target.getBoundingClientRect();
    const finalWidth=Math.round(tr.width);
    const finalHeight=Math.round(tr.height);
@@ -183,8 +188,12 @@
      try{sessionStorage.setItem(introKey,'1')}catch(e){}
    },1150);
  };
- scene.addEventListener('animationend',()=>window.setTimeout(finish,1200),{once:true});
- window.setTimeout(finish,2600);
+ const playVideo=()=>video.play().catch(()=>{});
+ video.addEventListener('ended',()=>window.setTimeout(finish,220),{once:true});
+ video.addEventListener('error',()=>window.setTimeout(finish,1700),{once:true});
+ video.addEventListener('loadeddata',playVideo,{once:true});
+ window.setTimeout(playVideo,250);
+ window.setTimeout(finish,7600);
 })();
 (function(){
  const motion=document.querySelector('[data-home-motion]');
