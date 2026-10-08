@@ -1,5 +1,5 @@
 /* Buti AI — آینه زیبایی گیسو
-   طراحی مرحله‌ای/کارت خدمات بر اساس مسیر انتخاب خدمت → مدل → عکس → نتیجه. */
+   مسیر یکپارچه: انتخاب خدمت → مدل → عکس → طراحی نهایی و رزرو. */
 
 .bti-page {
     --bti-bg: #070707;
@@ -32,7 +32,7 @@
 /* Top flow */
 .bti-flow-steps {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0;
     margin-bottom: 28px;
     position: relative;
@@ -42,8 +42,8 @@
     content: "";
     position: absolute;
     top: 25px;
-    right: 9%;
-    left: 9%;
+    right: 12.5%;
+    left: 12.5%;
     height: 2px;
     background: rgba(255, 255, 255, .11);
 }
@@ -463,8 +463,8 @@
     .bti-before-after { grid-template-columns: 1fr; }
     .bti-pmu-card { grid-template-columns: 1fr; }
     .bti-pmu-image { min-height: 190px; }
-    .bti-flow-steps { grid-template-columns: repeat(5, 120px); overflow-x: auto; padding-bottom: 8px; }
-    .bti-flow-steps::before { right: 60px; left: auto; width: 480px; }
+    .bti-flow-steps { grid-template-columns: repeat(4, 120px); overflow-x: auto; padding-bottom: 8px; }
+    .bti-flow-steps::before { right: 60px; left: auto; width: 360px; }
 }
 
 @media (max-width: 620px) {

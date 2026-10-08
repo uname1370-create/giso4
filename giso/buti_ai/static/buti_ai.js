@@ -148,12 +148,6 @@
       });
     });
 
-    if (window.location.hash !== '#result') {
-      var result = document.getElementById('result');
-      if (result) {
-        setTimeout(function () { result.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 150);
-      }
-    }
   });
 })();
 

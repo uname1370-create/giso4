@@ -600,9 +600,8 @@ def _render_new_service_wizard(service_key, state):
         styles=state["styles"],
         change_levels=state["change_levels"],
         form_values=state["form_values"],
-        result=state["result"],
         error_message=state["error_message"],
-        flow_step=state.get("flow_step") or ("result" if state.get("result") else "model"),
+        flow_step=state.get("flow_step") or "model",
     )
 
 
@@ -818,12 +817,12 @@ def generic_service_upload(service_slug):
         request.files,
         user_id=_safe_current_user_id(),
     )
-    state["flow_step"] = "result" if state.get("result") else "upload"
     if state.get("result"):
         _store_new_service_candidate(service_key, state.get("result"), state.get("photo_status"))
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
-        return _render_new_service_wizard(service_key, state)
+        return redirect(url_for("buti_ai.generic_service_final_design", service_slug=slug_for_service(service_key)))
+    state["flow_step"] = "upload"
     if state.get("flash_message"):
         flash(state["flash_message"], state.get("flash_category") or "info")
     return _render_new_service_wizard(service_key, state)

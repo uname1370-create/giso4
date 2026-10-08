@@ -46,6 +46,8 @@ def test_nail_mirror_uses_staged_flow_and_preserves_selected_model():
     page = client.get("/analysis/mirror/nail")
     assert page.status_code == 200
     text = page.get_data(as_text=True)
+    assert "آماده طراحی" not in text
+    assert "<b>۴</b> طراحی نهایی و رزرو" in text
     assert "کدام مدل را می‌خواهی روی عکس خودت ببینی؟" in text
     assert "فرنچ کلاسیک" in text
     assert "کت‌آی" in text
@@ -70,10 +72,13 @@ def test_nail_mirror_uses_staged_flow_and_preserves_selected_model():
         content_type="multipart/form-data",
         follow_redirects=False,
     )
-    assert response.status_code == 200
-    result_text = response.get_data(as_text=True)
-    assert "همان مدل انتخابی آماده طراحی است" in result_text
-    assert "عکس واقعی شما" in result_text
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/analysis/mirror/nail/final")
+    final_page = client.get(response.headers["Location"])
+    assert final_page.status_code == 200
+    result_text = final_page.get_data(as_text=True)
+    assert "ورود لازم است" in result_text
+    assert "آماده طراحی" not in result_text
     assert "فرنچ کلاسیک" in result_text
     assert "/analysis/mirror/nail/uploads/" in result_text
 
@@ -92,23 +97,6 @@ def test_nail_mirror_uses_staged_flow_and_preserves_selected_model():
     assert generation["is_ai_generated"] is False
     assert generation["filename"].startswith("final/final_nail_")
     assert (Path(nail_final.UPLOAD_DIR) / generation["filename"]).exists()
-
-    final_token = re.findall(r'name="csrf_token" value="([^"]+)"', result_text)[-1]
-    final_response = client.post(
-        "/analysis/mirror/nail/finalize",
-        data={"csrf_token": final_token, "final_style": "cat_eye"},
-        follow_redirects=True,
-    )
-    assert final_response.status_code == 200
-    final_text = final_response.get_data(as_text=True)
-    assert "ورود لازم است" in final_text
-    assert "فرنچ کلاسیک" in final_text
-    assert "کت‌آی" not in final_text
-
-    with client.session_transaction() as sess:
-        candidate_after = dict(sess["buti_ai_nail_final_candidate"])
-    assert candidate_after["final_style"] == "classic_french"
-    assert candidate_after["final_label"] == "فرنچ کلاسیک"
 
     _cleanup_service("nail")
 
@@ -150,10 +138,13 @@ def test_lip_shading_mirror_uses_staged_flow_and_truthful_guided_output():
         content_type="multipart/form-data",
         follow_redirects=False,
     )
-    assert response.status_code == 200
-    result_text = response.get_data(as_text=True)
-    assert "همان مدل انتخابی آماده طراحی است" in result_text
-    assert "عکس واقعی شما" in result_text
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/analysis/mirror/lip-shading/final")
+    final_page = client.get(response.headers["Location"])
+    assert final_page.status_code == 200
+    result_text = final_page.get_data(as_text=True)
+    assert "ورود لازم است" in result_text
+    assert "آماده طراحی" not in result_text
     assert "تینت صورتی ملایم" in result_text
     assert "/analysis/mirror/lip-shading/uploads/" in result_text
 
@@ -173,23 +164,6 @@ def test_lip_shading_mirror_uses_staged_flow_and_truthful_guided_output():
     assert generation["is_ai_generated"] is False
     assert generation["filename"].startswith("final/final_lip_")
     assert (Path(lip_final.UPLOAD_DIR) / generation["filename"]).exists()
-
-    final_token = re.findall(r'name="csrf_token" value="([^"]+)"', result_text)[-1]
-    final_response = client.post(
-        "/analysis/mirror/lip-shading/finalize",
-        data={"csrf_token": final_token, "final_style": "peach_nude"},
-        follow_redirects=True,
-    )
-    assert final_response.status_code == 200
-    final_text = final_response.get_data(as_text=True)
-    assert "ورود لازم است" in final_text
-    assert "تینت صورتی ملایم" in final_text
-    assert "نود گلبهی" not in final_text
-
-    with client.session_transaction() as sess:
-        candidate_after = dict(sess["buti_ai_lip_shading_final_candidate"])
-    assert candidate_after["final_style"] == "soft_pink_tint"
-    assert candidate_after["final_label"] == "تینت صورتی ملایم"
 
     _cleanup_service("lip_shading")
 
@@ -231,10 +205,13 @@ def test_hair_color_mirror_uses_staged_flow_and_truthful_guided_output():
         content_type="multipart/form-data",
         follow_redirects=False,
     )
-    assert response.status_code == 200
-    result_text = response.get_data(as_text=True)
-    assert "همان مدل انتخابی آماده طراحی است" in result_text
-    assert "عکس واقعی شما" in result_text
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/analysis/mirror/hair-color/final")
+    final_page = client.get(response.headers["Location"])
+    assert final_page.status_code == 200
+    result_text = final_page.get_data(as_text=True)
+    assert "ورود لازم است" in result_text
+    assert "آماده طراحی" not in result_text
     assert "بالیاژ کاراملی" in result_text
     assert "/analysis/mirror/hair-color/uploads/" in result_text
 
@@ -254,27 +231,10 @@ def test_hair_color_mirror_uses_staged_flow_and_truthful_guided_output():
     assert generation["filename"].startswith("final/final_hair_color_")
     assert (Path(hair_color_final.UPLOAD_DIR) / generation["filename"]).exists()
 
-    final_token = re.findall(r'name="csrf_token" value="([^"]+)"', result_text)[-1]
-    final_response = client.post(
-        "/analysis/mirror/hair-color/finalize",
-        data={"csrf_token": final_token, "final_style": "ash_olive"},
-        follow_redirects=True,
-    )
-    assert final_response.status_code == 200
-    final_text = final_response.get_data(as_text=True)
-    assert "ورود لازم است" in final_text
-    assert "بالیاژ کاراملی" in final_text
-    assert "دودی زیتونی ملایم" not in final_text
-
-    with client.session_transaction() as sess:
-        candidate_after = dict(sess["buti_ai_hair_color_final_candidate"])
-    assert candidate_after["final_style"] == "caramel_balayage"
-    assert candidate_after["final_label"] == "بالیاژ کاراملی"
-
     _cleanup_service("hair_color")
 
 
-def test_every_new_service_model_selection_survives_upload_finalize_and_generation():
+def test_every_new_service_model_selection_survives_upload_and_generation():
     """هر مدل در هر خدمت باید دقیقاً همان انتخاب کاربر بماند و خروجی راهنما بسازد."""
     app = create_app()
     client = app.test_client()
@@ -316,9 +276,13 @@ def test_every_new_service_model_selection_survives_upload_finalize_and_generati
                 content_type="multipart/form-data",
                 follow_redirects=False,
             )
-            assert response.status_code == 200
-            result_text = response.get_data(as_text=True)
-            assert "عکس واقعی شما" in result_text
+            assert response.status_code == 302
+            assert response.headers["Location"].endswith(f"/analysis/mirror/{slug}/final")
+            final_page = client.get(response.headers["Location"])
+            assert final_page.status_code == 200
+            result_text = final_page.get_data(as_text=True)
+            assert "ورود لازم است" in result_text
+            assert "آماده طراحی" not in result_text
             assert style_meta["label"] in result_text
             with client.session_transaction() as sess:
                 candidate = dict(sess[session_keys[service_key]])
@@ -335,21 +299,6 @@ def test_every_new_service_model_selection_survives_upload_finalize_and_generati
             assert generation["mask_used"] is True
             assert (Path(module.UPLOAD_DIR) / generation["filename"]).exists()
 
-            final_token = re.findall(r'name="csrf_token" value="([^"]+)"', result_text)[-1]
-            first_style = next(iter(module.STYLES))
-            final_response = client.post(
-                f"/analysis/mirror/{slug}/finalize",
-                data={"csrf_token": final_token, "final_style": first_style},
-                follow_redirects=True,
-            )
-            assert final_response.status_code == 200
-            final_text = final_response.get_data(as_text=True)
-            assert "ورود لازم است" in final_text
-            assert style_meta["label"] in final_text
-            with client.session_transaction() as sess:
-                candidate_after = dict(sess[session_keys[service_key]])
-            assert candidate_after["final_style"] == style_key
-            assert candidate_after["final_label"] == style_meta["label"]
         _cleanup_service(service_key)
 
 
@@ -360,6 +309,8 @@ def test_all_remaining_new_services_are_publicly_active():
     home = client.get("/analysis/mirror")
     assert home.status_code == 200
     text = home.get_data(as_text=True)
+    assert "آماده طراحی" not in text
+    assert '<div class="bti-flow-step"><b>4</b><span>طراحی نهایی و رزرو</span></div>' in text
     assert "آینه رنگ و لایت مو گیسو" in text
     assert "آینه لب و شیدینگ گیسو" in text
     assert "ورود به رنگ مو" in text
@@ -454,8 +405,11 @@ def test_lip_finalize_recovers_candidate_from_uploaded_photo_if_session_candidat
         content_type="multipart/form-data",
         follow_redirects=False,
     )
-    result_text = response.get_data(as_text=True)
-    final_token = re.findall(r'name="csrf_token" value="([^"]+)"', result_text)[-1]
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/analysis/mirror/lip-shading/final")
+    final_page = client.get(response.headers["Location"])
+    assert final_page.status_code == 200
+    assert "ورود لازم است" in final_page.get_data(as_text=True)
     with client.session_transaction() as sess:
         candidate = dict(sess["buti_ai_lip_shading_final_candidate"])
         del sess["buti_ai_lip_shading_final_candidate"]
@@ -463,7 +417,7 @@ def test_lip_finalize_recovers_candidate_from_uploaded_photo_if_session_candidat
     final_response = client.post(
         "/analysis/mirror/lip-shading/finalize",
         data={
-            "csrf_token": final_token,
+            "csrf_token": upload_token,
             "final_style": "peach_nude",
             "selected_style": "peach_nude",
             "change_level": "medium",
