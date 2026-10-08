@@ -597,7 +597,7 @@ def repair_legacy_cloudflare_eyebrow_image_slots() -> Dict[str, Any]:
         if model_name not in LEGACY_UNSUPPORTED_CLOUDFLARE_FINAL_MODELS and not model_name.startswith("@cf/"):
             continue
 
-        slot_provider_name = f"cf{priority}" if 1 <= priority <= int(TASK_DEFS[TASK_MIRROR_IMAGE_DESIGN]["slots"]) else ""
+        slot_provider_name = f"cf{priority}" if priority >= 1 else ""
         slot_provider = get_ai_provider(slot_provider_name) if slot_provider_name else None
         target_provider = provider_name
         enabled = False
