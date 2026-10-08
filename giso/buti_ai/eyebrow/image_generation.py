@@ -565,6 +565,177 @@ def _parse_response_image(response: requests.Response) -> str:
     raise ImageProviderError("پاسخ موفق بود اما تصویر خروجی پیدا نشد")
 
 
+
+def _hybrid_eyebrow_enabled(env: Optional[Dict[str, str]]) -> bool:
+    """فعال‌سازی آزمایشی زنجیره FLUX -> SD Inpainting فقط برای ابرو."""
+    return _truthy(
+        _env_value(env, "BUTI_AI_EYEBROW_HYBRID")
+        or _env_value(env, "BUTI_AI_IMAGE_HYBRID")
+    )
+
+
+def _hybrid_single_fallback_enabled(env: Optional[Dict[str, str]]) -> bool:
+    return _truthy(_env_value(env, "BUTI_AI_EYEBROW_HYBRID_FALLBACK_SINGLE"))
+
+
+def _find_hybrid_providers(providers: List[ImageProviderConfig]) -> Tuple[Optional[ImageProviderConfig], Optional[ImageProviderConfig]]:
+    """پیدا کردن دقیق دو provider مورد نیاز: FLUX برای طراحی و SD برای inpainting."""
+    flux = None
+    inpainting = None
+    for provider in providers:
+        model = str(provider.model or "").strip()
+        kind = str(provider.kind or "").strip().lower()
+        if model == DEFAULT_CLOUDFLARE_MODEL and flux is None:
+            flux = provider
+        if model == CLOUDFLARE_INPAINTING_MODEL or kind in CLOUDFLARE_INPAINTING_KINDS:
+            if inpainting is None:
+                inpainting = provider
+    return flux, inpainting
+
+
+def _build_hybrid_inpainting_source(
+    source_path: str,
+    flux_image_value: str,
+    candidate: Dict[str, Any],
+) -> Tuple[str, Dict[str, Any]]:
+    """خروجی FLUX را فقط داخل ماسک واقعی ابرو روی عکس اصلی می‌نشاند."""
+    from PIL import Image
+
+    detection, mask_path = _real_eyebrow_mask_for_candidate(source_path, candidate)
+    if not mask_path or not os.path.exists(mask_path):
+        raise ImageProviderError("برای حالت ترکیبی، mask واقعی ابرو در دسترس نیست")
+
+    raw, _ = _decode_image_value(flux_image_value, DEFAULT_TIMEOUT_SECONDS)
+    if not raw:
+        raise ImageProviderError("خروجی FLUX برای مرحله دوم خالی است")
+
+    base = Image.open(source_path).convert("RGB")
+    flux_image = Image.open(BytesIO(raw)).convert("RGB")
+    fitted_flux = _fit_provider_image_to_source(flux_image, base.size).convert("RGB")
+
+    mask = Image.open(mask_path).convert("L")
+    if mask.size != base.size:
+        mask = mask.resize(
+            base.size,
+            Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST,
+        )
+    mask = mask.point(lambda px: 255 if int(px) >= 128 else 0)
+
+    hybrid = Image.composite(fitted_flux, base, mask)
+    os.makedirs(final_design.FINAL_DESIGN_DIR, exist_ok=True)
+    import tempfile
+    fd, hybrid_path = tempfile.mkstemp(
+        prefix="eyebrow_hybrid_",
+        suffix=".png",
+        dir=final_design.FINAL_DESIGN_DIR,
+    )
+    os.close(fd)
+    hybrid.save(hybrid_path, "PNG", optimize=True)
+
+    mask_info = detection.get("mask") if isinstance(detection, dict) else {}
+    return hybrid_path, {
+        "hybrid_source": "original_outside_mask_plus_flux_inside_mask",
+        "flux_model": DEFAULT_CLOUDFLARE_MODEL,
+        "mask_used": True,
+        "mask_source_method": detection.get("method") if isinstance(detection, dict) else "",
+        "mask_filename": _upload_relative_path(mask_path),
+        "mask_coverage_ratio": mask_info.get("coverage_ratio") if isinstance(mask_info, dict) else None,
+    }
+
+
+def _generate_hybrid_final_design(
+    providers: List[ImageProviderConfig],
+    source_path: str,
+    reference_path: str,
+    candidate: Dict[str, Any],
+    prompt: str,
+    timeout: int,
+) -> Dict[str, Any]:
+    """آزمایش ترکیبی فقط برای eyebrow: FLUX طراحی می‌کند، SD Inpainting نهایی می‌کند."""
+    flux_provider, inpainting_provider = _find_hybrid_providers(providers)
+    if not flux_provider or not inpainting_provider:
+        raise ImageProviderError(
+            "حالت ترکیبی فعال است اما هر دو provider لازم پیدا نشدند: "
+            "FLUX.2 Klein 4B و Stable Diffusion 1.5 Inpainting."
+        )
+
+    hybrid_path = ""
+    try:
+        _beauty_log("[HYBRID]", "flux_stage_start", provider=flux_provider.id, model=flux_provider.model)
+        flux_value = _call_cloudflare(
+            flux_provider,
+            source_path,
+            reference_path,
+            prompt + (
+                " HYBRID STAGE: generate the highest-quality realistic eyebrow treatment "
+                "on this exact customer photo. Preserve the customer's identity and use "
+                "the existing eyebrows as the geometry authority. This output is an intermediate "
+                "design source for a second masked inpainting stage."
+            ),
+            timeout,
+        )
+
+        hybrid_path, hybrid_meta = _build_hybrid_inpainting_source(
+            source_path,
+            flux_value,
+            candidate,
+        )
+
+        _beauty_log("[HYBRID]", "sd_stage_start", provider=inpainting_provider.id, model=inpainting_provider.model)
+        sd_value = _call_cloudflare_inpainting(
+            inpainting_provider,
+            hybrid_path,
+            candidate,
+            prompt + (
+                " HYBRID FINAL STAGE: refine and finalize the eyebrow design already present "
+                "inside the masked eyebrow region. Keep the existing design direction and "
+                "make the result realistic, salon-quality, natural and coherent with the "
+                "customer's own brow hair. Do not introduce any change outside the mask."
+            ),
+            timeout,
+        )
+
+        filename, save_meta = _save_provider_output(
+            sd_value,
+            timeout,
+            source_path,
+            candidate,
+            provider_kind=inpainting_provider.kind,
+        )
+
+        return {
+            "ok": True,
+            "filename": filename,
+            "provider": "hybrid_flux_sd",
+            "provider_label": "FLUX.2 Klein 4B → Stable Diffusion 1.5 Inpainting",
+            "kind": "hybrid_cloudflare",
+            "model": f"{flux_provider.model} -> {inpainting_provider.model}",
+            "status": "ai_hybrid_ready",
+            "prompt": prompt,
+            "eyebrow_detection": candidate.get("eyebrow_detection") or {},
+            "eyebrow_detection_method": (
+                (candidate.get("eyebrow_detection") or {}).get("method")
+                if isinstance(candidate.get("eyebrow_detection"), dict) else ""
+            ),
+            "attempts": [
+                _attempt(flux_provider, True, 0),
+                _attempt(inpainting_provider, True, 0),
+            ],
+            "fallback_used": False,
+            "ai_inpainting": True,
+            "is_ai_generated": True,
+            "hybrid_pipeline": True,
+            "hybrid_meta": hybrid_meta,
+            **save_meta,
+            "message": "خروجی ترکیبی FLUX + AI Inpainting برای ابرو آماده شد و بیرون ماسک از عکس اصلی حفظ شد.",
+        }
+    finally:
+        if hybrid_path:
+            try:
+                os.remove(hybrid_path)
+            except Exception:
+                pass
+
 def _call_cloudflare(provider: ImageProviderConfig, source_path: str, reference_path: str, prompt: str, timeout: int) -> str:
     model_name = str(provider.model or "").strip()
     if model_name == CLOUDFLARE_INPAINTING_MODEL:
@@ -1357,6 +1528,36 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
     reference_path = _reference_image_path(candidate)
     timeout = _timeout_seconds(env)
     attempts: List[Dict[str, Any]] = []
+
+
+    if _hybrid_eyebrow_enabled(env):
+        try:
+            hybrid_result = _generate_hybrid_final_design(
+                providers,
+                source_path,
+                reference_path,
+                candidate,
+                prompt,
+                timeout,
+            )
+            _beauty_log(
+                "[HYBRID]",
+                "hybrid_final_ready",
+                provider=hybrid_result.get("provider"),
+                model=hybrid_result.get("model"),
+                final_path=hybrid_result.get("filename"),
+            )
+            return hybrid_result
+        except Exception as exc:
+            _beauty_log("[HYBRID]", "hybrid_failed", error=_friendly_provider_error(exc))
+            if not _hybrid_single_fallback_enabled(env):
+                return {
+                    "ok": False,
+                    "message": "زنجیره ترکیبی FLUX + Inpainting شکست خورد؛ fallback تک‌مدلی خاموش است.",
+                    "status": "hybrid_failed",
+                    "hybrid_pipeline": True,
+                    "is_ai_generated": False,
+                }
 
     for provider in providers:
         started = time.monotonic()
