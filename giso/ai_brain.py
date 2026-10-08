@@ -241,6 +241,8 @@ def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
         api_root = normalize_cloudflare_api_root(api_root or base_url, "", require_account=False) or api_root or base_url
         kind = "cloudflare"
     conn = get_conn()
+    # Ensure legacy giso.db files receive provider-panel migrations before write.
+    init_ai_tables(conn)
     # پیش‌فرض رایگان: اگر ادمین مدلی نداد، رجیستری پر می‌کند (مورد ۸ دستور start/1.md)
     reg_models, reg_selected = default_models_for_provider(name)
     if not str(selected_model or "").strip():
