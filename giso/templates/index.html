@@ -166,13 +166,12 @@
  const finish=()=>{
    if(intro.classList.contains('is-finishing')) return;
    const tr=target.getBoundingClientRect();
-   const ir=intro.getBoundingClientRect();
    const finalWidth=Math.round(tr.width);
    const finalHeight=Math.round(tr.height);
-   const finalLeft=Math.round(tr.left-ir.left);
-   const finalTop=Math.round(tr.top-ir.top);
-   intro.style.setProperty('--giso-intro-final-left',finalLeft+'px');
-   intro.style.setProperty('--giso-intro-final-top',finalTop+'px');
+   const finalCenterX=Math.round((tr.left+tr.width/2)-(window.innerWidth/2));
+   const finalCenterY=Math.round((tr.top+tr.height/2)-(window.innerHeight/2));
+   intro.style.setProperty('--giso-intro-final-center-x',finalCenterX+'px');
+   intro.style.setProperty('--giso-intro-final-center-y',finalCenterY+'px');
    intro.style.setProperty('--giso-intro-final-width',finalWidth+'px');
    intro.style.setProperty('--giso-intro-final-height',finalHeight+'px');
    target.classList.add('is-intro-covered');
