@@ -162,7 +162,9 @@
  let alreadySeen=false;
  try{alreadySeen=localStorage.getItem(introKey)==='1'}catch(e){}
  if(alreadySeen || reducedIntro){intro.classList.add('is-hidden');return;}
-document.documentElement.classList.add('giso-intro-active');
+ /* Mark the intro as seen immediately: a refresh during the cinematic must not restart it. */
+ try{localStorage.setItem(introKey,'1')}catch(e){}
+ document.documentElement.classList.add('giso-intro-active');
  const scene=intro.querySelector('.giso-intro-scene');
  const card=intro.querySelector('.giso-intro-card');
  const video=intro.querySelector('[data-giso-intro-video]');
@@ -197,16 +199,20 @@ document.documentElement.classList.add('giso-intro-active');
      /* The intro video can already be at its end when the morph starts.
         Restart it in the real Hero, play it exactly twice, then freeze on its last frame. */
      let heroPlayCount=0;
+     let heroFrozen=false;
      const playHeroVideo=()=>{
+       if(heroFrozen) return;
        handoffVideo.play().catch(()=>{});
      };
      handoffVideo.addEventListener('ended',()=>{
        heroPlayCount+=1;
        if(heroPlayCount<2){
          try{handoffVideo.currentTime=0}catch(e){}
-         playHeroVideo();
+         window.requestAnimationFrame(playHeroVideo);
        }else{
+         heroFrozen=true;
          handoffVideo.pause();
+         handoffVideo.classList.add('is-frozen');
        }
      });
      try{handoffVideo.currentTime=0}catch(e){}
