@@ -265,3 +265,67 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
 @media(prefers-reduced-motion:reduce){
  .giso-intro-done .home-hero-motion,.giso-intro-done .home-hero-motion img,.giso-intro-done .home-hero-motion-glow,.giso-intro-done .home-hero-signature,.giso-intro-done .giso-brand-logo,.giso-intro-done .giso-brand-img,.giso-intro-done .giso-brand-mark,.giso-intro-done .giso-brand-title,.giso-intro-done .giso-brand-tagline{animation:none!important}
 }
+
+/* ===== Intro v3: light luxury backdrop + real video handoff =====
+   The intro reveals the actual page underneath during the morph, then moves
+   the same playing video node into the real Hero frame instead of replacing it. */
+.giso-intro{
+  background:
+    radial-gradient(circle at 50% 44%,rgba(232,199,125,.22),transparent 25%),
+    linear-gradient(180deg,#f8f4ec 0%,#f2ede3 52%,#eee8dc 100%);
+}
+.giso-intro.is-finishing{
+  background:transparent;
+  pointer-events:none;
+}
+.giso-intro-card{
+  box-shadow:0 30px 70px rgba(83,61,28,.20),
+             0 0 0 1px rgba(178,135,58,.48),
+             0 0 55px rgba(214,170,78,.14);
+}
+.giso-intro-card .giso-intro-video{
+  will-change:transform;
+}
+.home-hero-motion.is-intro-covered{
+  visibility:visible;
+}
+.giso-intro-handoff-video{
+  position:absolute!important;
+  inset:8px!important;
+  width:calc(100% - 16px)!important;
+  height:calc(100% - 16px)!important;
+  z-index:4!important;
+  display:block!important;
+  opacity:1!important;
+  object-fit:cover!important;
+  border-radius:50%!important;
+  pointer-events:none!important;
+  background:transparent!important;
+  transform:none!important;
+  filter:none!important;
+  transition:opacity .35s ease!important;
+}
+.giso-intro-done .home-hero-motion .home-hero-still{
+  opacity:0!important;
+}
+.giso-intro-done .home-hero-motion .home-hero-video{
+  opacity:0!important;
+}
+.giso-intro-done .home-hero-motion .giso-intro-handoff-video{
+  opacity:1!important;
+}
+.giso-intro-done .home-hero-motion{
+  animation:homeHeroPostIntro 8s ease-in-out infinite;
+}
+.giso-intro-done .home-hero-motion .giso-intro-handoff-video{
+  animation:homeHeroHandoffLiving 8s ease-in-out infinite;
+}
+@keyframes homeHeroHandoffLiving{
+  0%,100%{transform:scale(1)}
+  48%{transform:scale(1.012) translate3d(.15%,-.12%,0)}
+  72%{transform:scale(1.006) translate3d(-.10%,.08%,0)}
+}
+@media(prefers-reduced-motion:reduce){
+  .giso-intro-done .home-hero-motion,
+  .giso-intro-done .home-hero-motion .giso-intro-handoff-video{animation:none!important}
+}
