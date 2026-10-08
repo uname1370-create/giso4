@@ -307,13 +307,13 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
   filter:none!important;
   transition:opacity .35s ease!important;
 }
-.giso-intro-done .home-hero-motion .home-hero-still{
+.giso-intro-done .home-hero-motion.has-intro-handoff .home-hero-still{
   opacity:0!important;
 }
-.giso-intro-done .home-hero-motion .home-hero-video{
+.giso-intro-done .home-hero-motion.has-intro-handoff .home-hero-video{
   opacity:0!important;
 }
-.giso-intro-done .home-hero-motion .giso-intro-handoff-video{
+.giso-intro-done .home-hero-motion.has-intro-handoff .giso-intro-handoff-video{
   opacity:1!important;
 }
 .giso-intro-done .home-hero-motion{
