@@ -98,3 +98,38 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
 .home-proof .home-stats b{color:#fff}
 .home-proof .home-stats span{color:#fdf2d6}
 .home-proof .home-stats i{color:#ffe6a8}
+
+
+/* Hero cinematic prototype: static hero -> subtle living motion -> exact resting frame. */
+.home-hero-motion{transform-origin:50% 52%;will-change:transform;overflow:hidden}
+.home-hero-motion picture,.home-hero-motion img{position:relative;z-index:1}
+.home-hero-motion img{will-change:transform,filter}
+.home-hero-motion-glow{position:absolute;inset:-12%;z-index:2;pointer-events:none;border-radius:50%;opacity:0;background:radial-gradient(circle at 58% 42%,rgba(255,231,164,.24),transparent 35%,transparent 68%);mix-blend-mode:screen}
+.home-hero-motion.is-playing{animation:homeHeroLiving 5.2s cubic-bezier(.22,.7,.2,1) both}
+.home-hero-motion.is-playing img{animation:homeHeroImageLiving 5.2s cubic-bezier(.22,.7,.2,1) both}
+.home-hero-motion.is-playing .home-hero-motion-glow{animation:homeHeroGlow 5.2s ease-out both}
+.home-hero-motion.is-resting{animation:none;transform:none}
+.home-hero-motion.is-resting img{animation:none;transform:none;filter:none}
+.home-hero-motion.is-resting .home-hero-motion-glow{opacity:0}
+@keyframes homeHeroLiving{
+  0%,100%{transform:translate3d(0,0,0) scale(1)}
+  22%{transform:translate3d(0,-3px,0) scale(1.012)}
+  48%{transform:translate3d(-2px,-5px,0) scale(1.024)}
+  70%{transform:translate3d(2px,-3px,0) scale(1.018)}
+  86%{transform:translate3d(0,-1px,0) scale(1.006)}
+}
+@keyframes homeHeroImageLiving{
+  0%,100%{transform:scale(1)}
+  28%{transform:scale(1.018) translate3d(-.4%,-.2%,0)}
+  56%{transform:scale(1.035) translate3d(.5%,-.5%,0)}
+  76%{transform:scale(1.022) translate3d(-.25%,-.15%,0)}
+}
+@keyframes homeHeroGlow{
+  0%,100%{opacity:0;transform:translateX(-8%)}
+  30%{opacity:.25}
+  62%{opacity:.42;transform:translateX(7%)}
+  82%{opacity:.08;transform:translateX(1%)}
+}
+@media(prefers-reduced-motion:reduce){
+ .home-hero-motion,.home-hero-motion img,.home-hero-motion-glow{animation:none!important;transform:none!important}
+}
