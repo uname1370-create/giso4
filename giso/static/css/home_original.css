@@ -146,3 +146,47 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
  .home-hero-video{display:none!important}
  .home-hero-motion.is-video-playing .home-hero-still{opacity:1!important}
 }
+
+
+/* ===== Giso first-visit cinematic intro =====
+   The intro is the site's ignition moment, not a separate ad/player. */
+.giso-intro{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:grid;
+  place-items:center;
+  background:#0f0c09;
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transition:opacity .52s ease,visibility .52s ease;
+}
+.giso-intro-video{
+  width:100%;
+  height:100%;
+  display:block;
+  object-fit:cover;
+  object-position:center;
+  background:#0f0c09;
+}
+.giso-intro.is-finishing{
+  opacity:0;
+  pointer-events:none;
+}
+.giso-intro.is-hidden{
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+}
+body:has(.giso-intro:not(.is-hidden)){
+  overflow:hidden;
+}
+@media(max-width:700px){
+  .giso-intro-video{
+    object-fit:cover;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .giso-intro{display:none!important}
+}
