@@ -15,15 +15,24 @@
 {% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home_original.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/home_original.css') }}?v=5">
 {% endblock %}
 
 {% block content %}
 <div class="home-main">
 <div class="giso-intro" data-giso-intro aria-hidden="true">
-  <video class="giso-intro-video" data-giso-intro-video muted autoplay playsinline preload="auto" poster="{{ url_for('static', filename='images/giso-main-hero.png') }}" aria-hidden="true">
-    <source src="{{ url_for('static', filename='videos/1.mp4') }}" type="video/mp4">
-  </video>
+  <div class="giso-intro-scene" aria-hidden="true">
+    <div class="giso-intro-depth">
+      <div class="giso-intro-card">
+        <span class="giso-intro-edge giso-intro-edge-a"></span>
+        <span class="giso-intro-edge giso-intro-edge-b"></span>
+        <span class="giso-intro-sheen"></span>
+        <img src="{{ url_for('static', filename='images/giso-main-hero.png') }}" alt="" width="1000" height="1000">
+      </div>
+    </div>
+    <div class="giso-intro-orbit giso-intro-orbit-a"></div>
+    <div class="giso-intro-orbit giso-intro-orbit-b"></div>
+  </div>
 </div>
 <section class="home-hero" aria-labelledby="homeHeroTitle">
   <div class="giso-container home-hero-grid">
@@ -144,32 +153,32 @@
 <script>
 (function(){
  const intro=document.querySelector('[data-giso-intro]');
- const introVideo=intro?.querySelector('[data-giso-intro-video]');
+ const target=document.querySelector('[data-home-motion]');
  const reducedIntro=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
- const introKey='giso-home-intro-v1';
- if(!intro || !introVideo) return;
+ const introKey='giso-home-intro-v2';
+ if(!intro || !target) return;
+ let alreadySeen=false;
+ try{alreadySeen=sessionStorage.getItem(introKey)==='1'}catch(e){}
+ if(alreadySeen || reducedIntro){intro.classList.add('is-hidden');return;}
+ const scene=intro.querySelector('.giso-intro-scene');
+ const card=intro.querySelector('.giso-intro-card');
+ if(!scene || !card) return;
  const finish=()=>{
+   if(intro.classList.contains('is-finishing')) return;
+   const tr=target.getBoundingClientRect();
+   const cr=card.getBoundingClientRect();
+   intro.style.setProperty('--giso-intro-tx',(tr.left+tr.width/2-(cr.left+cr.width/2))+'px');
+   intro.style.setProperty('--giso-intro-ty',(tr.top+tr.height/2-(cr.top+cr.height/2))+'px');
+   intro.style.setProperty('--giso-intro-scale',String(tr.width/cr.width));
    intro.classList.add('is-finishing');
    window.setTimeout(()=>{
      intro.classList.add('is-hidden');
      intro.setAttribute('aria-hidden','true');
      try{sessionStorage.setItem(introKey,'1')}catch(e){}
-   },520);
+   },1100);
  };
- let alreadySeen=false;
- try{alreadySeen=sessionStorage.getItem(introKey)==='1'}catch(e){}
- if(alreadySeen || reducedIntro){
-   intro.classList.add('is-hidden');
- }else{
-   const fallback=()=>finish();
-   introVideo.addEventListener('ended',finish,{once:true});
-   introVideo.addEventListener('error',fallback,{once:true});
-   window.setTimeout(()=>{
-     if(!intro.classList.contains('is-finishing') && !intro.classList.contains('is-hidden')) finish();
-   },9000);
-   introVideo.play().catch(fallback);
- }
-
+ scene.addEventListener('animationend',()=>window.setTimeout(finish,1200),{once:true});
+ window.setTimeout(finish,2600);
 })();
 (function(){
  const motion=document.querySelector('[data-home-motion]');
