@@ -50,7 +50,7 @@
                 </select>
                 <input type="text" name="custom_name" data-hide-for-cf placeholder="نام دلخواه؛ مثلاً openai2 یا my-provider" dir="ltr">
                 <input type="text" name="api_key" data-cf-required placeholder="کلید API / Token* (الزامی)" dir="ltr" required>
-                <input type="text" name="account_id" data-cf-account placeholder="Cloudflare Account ID فقط برای cf/cf1/cf2/cf3" dir="ltr">
+                <input type="text" name="account_id" data-cf-account placeholder="Cloudflare Account ID برای cfN/... " dir="ltr">
                 <input type="text" name="proxy_url" data-hide-for-cf placeholder="پروکسی SOCKS5 (اختیاری): socks5://... — خالی = مستقیم" dir="ltr">
                 <input type="text" name="selected_model" data-hide-for-cf placeholder="مدل دلخواه (اختیاری) — مثال: model-name" dir="ltr">
                 <div class="pnl-card" data-cf-help style="grid-column:1/-1;background:#f8fbff;border-color:#cfe4ff;display:none;">
@@ -471,7 +471,7 @@
     function apply(){
       var value=norm(select && select.value);
       var custom=norm(form.querySelector('[name="custom_name"]') && form.querySelector('[name="custom_name"]').value);
-      function isCfName(v){ return v==='cf'||v==='cloudflare'||/^cf[1-3]$/.test(v); }
+      function isCfName(v){ return v==='cf'||v==='cloudflare'||/^cf[0-9]+$/.test(v); }
       var isCf=(isCfName(value)||isCfName(custom));
       hideItems.forEach(function(el){ el.style.display=isCf?'none':''; });
       if(help) help.style.display=isCf?'block':'none';
