@@ -928,11 +928,10 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
             item for item in image_items
             if item["id"] != DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL
         ]
-    if account_slot and image_items:
-        image_items = [image_items[0]]
-        priorities = [account_slot]
-    else:
-        priorities = list(range(1, len(image_items) + 1))
+    # طراحی تصویر آینه یک زنجیره مشترک است؛ تمام مدل‌های قابل‌استفاده باید
+    # بتوانند به‌ترتیب اولویت وارد fallback شوند. account_slot فقط برای
+    # تحلیل/vision معنا دارد و نباید زنجیره تصویر را به یک مدل محدود کند.
+    priorities = list(range(1, len(image_items) + 1))
     for image_task in IMAGE_DESIGN_TASK_KEYS:
         for priority, item in zip(priorities, image_items):
             model = item["id"]
