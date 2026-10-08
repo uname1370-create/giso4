@@ -15,7 +15,7 @@
 {% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/home_original.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/undefined') }}?v=5">
 {% endblock %}
 
 {% block content %}
@@ -161,7 +161,8 @@
  if(!intro || !target) return;
  let alreadySeen=false;
  try{alreadySeen=sessionStorage.getItem(introKey)==='1'}catch(e){}
- if(alreadySeen || reducedIntro){intro.classList.add('is-hidden');document.documentElement.classList.add('giso-intro-done');return;}
+ if(alreadySeen || reducedIntro){intro.classList.add('is-hidden');if(alreadySeen)document.documentElement.classList.add('giso-intro-done');return;}
+document.documentElement.classList.add('giso-intro-active');
  const scene=intro.querySelector('.giso-intro-scene');
  const card=intro.querySelector('.giso-intro-card');
  const video=intro.querySelector('[data-giso-intro-video]');
@@ -194,6 +195,7 @@
      target.appendChild(handoffVideo);
      target.classList.add('has-intro-handoff');
      target.classList.remove('is-intro-covered');
+     document.documentElement.classList.remove('giso-intro-active');
      document.documentElement.classList.add('giso-intro-done');
      intro.classList.add('is-hidden');
      intro.setAttribute('aria-hidden','true');
@@ -211,6 +213,7 @@
  const motion=document.querySelector('[data-home-motion]');
  const heroVideo=motion?.querySelector('[data-home-hero-video]');
  const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+ if(document.documentElement.classList.contains('giso-intro-active')) return;
  if(heroVideo && motion && !reduced){
    fetch('/api/home/hero-video',{headers:{'Accept':'application/json'}})
      .then(r=>r.ok?r.json():null)
