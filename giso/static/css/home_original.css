@@ -203,3 +203,33 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
  .giso-intro-orbit-b{display:none}
 }
 @media(prefers-reduced-motion:reduce){.giso-intro{display:none!important}}
+
+
+/* ===== Giso intro: real video inside the 3D object ===== */
+.giso-intro-card .giso-intro-video{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border:0;
+  border-radius:50%;
+  backface-visibility:hidden;
+  transform:translateZ(22px) scale(1.008);
+  filter:saturate(.98) contrast(1.02);
+  background:#080604;
+}
+.giso-intro-card:after{
+  content:"";
+  position:absolute;
+  z-index:5;
+  inset:8%;
+  border-radius:50%;
+  pointer-events:none;
+  background:radial-gradient(circle at 50% 42%,rgba(255,224,145,.10),transparent 46%,rgba(0,0,0,.18) 100%);
+  transform:translateZ(38px);
+  mix-blend-mode:screen;
+}
+.giso-intro.is-finishing .giso-intro-card .giso-intro-video{
+  filter:saturate(1) contrast(1);
+}
+@media(prefers-reduced-motion:reduce){.giso-intro-card .giso-intro-video{display:none}}
