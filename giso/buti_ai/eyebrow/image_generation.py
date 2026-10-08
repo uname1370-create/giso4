@@ -339,10 +339,10 @@ def _ai_management_providers(service_key: str = "eyebrow") -> List[ImageProvider
         return []
     providers: List[ImageProviderConfig] = []
     try:
-        configured_items = configured_image_provider_dicts(limit=3, service_key=service_key or "eyebrow")
+        configured_items = configured_image_provider_dicts(service_key=service_key or "eyebrow")
     except TypeError:
         # Backward-compatible for tests/older monkeypatches that only accepted limit.
-        configured_items = configured_image_provider_dicts(limit=3)
+        configured_items = configured_image_provider_dicts()
     for item in configured_items:
         try:
             providers.append(
