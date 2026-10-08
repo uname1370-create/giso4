@@ -171,7 +171,25 @@
  if(!intro || !target) return;
  let alreadySeen=false;
  try{alreadySeen=localStorage.getItem(introKey)==='1'}catch(e){}
- if(alreadySeen || reducedIntro){intro.classList.add('is-hidden');return;}
+ if(alreadySeen || reducedIntro){
+   intro.classList.add('is-hidden');
+   if(alreadySeen && !reducedIntro){
+     const repeatVideo=target.querySelector('[data-home-hero-video]');
+     if(repeatVideo){
+       repeatVideo.src="{{ url_for('static', filename='videos/1.mp4') }}";
+       repeatVideo.loop=true;
+       repeatVideo.muted=true;
+       repeatVideo.playsInline=true;
+       repeatVideo.setAttribute('aria-hidden','true');
+       repeatVideo.load();
+       const startRepeatVideo=()=>repeatVideo.play().catch(()=>{});
+       repeatVideo.addEventListener('canplay',startRepeatVideo,{once:true});
+       window.setTimeout(startRepeatVideo,120);
+       target.classList.add('has-repeat-video');
+     }
+   }
+   return;
+ }
  /* Mark the intro as seen immediately: a refresh during the cinematic must not restart it. */
  try{localStorage.setItem(introKey,'1')}catch(e){}
  document.documentElement.classList.add('giso-intro-active');
@@ -206,27 +224,12 @@
      handoffVideo.remove();
      target.appendChild(handoffVideo);
      target.classList.add('has-intro-handoff');
-     /* The intro video can already be at its end when the morph starts.
-        Restart it in the real Hero, play it exactly twice, then freeze on its last frame. */
-     let heroPlayCount=0;
-     let heroFrozen=false;
-     const playHeroVideo=()=>{
-       if(heroFrozen) return;
-       handoffVideo.play().catch(()=>{});
-     };
-     handoffVideo.addEventListener('ended',()=>{
-       heroPlayCount+=1;
-       if(heroPlayCount<2){
-         try{handoffVideo.currentTime=0}catch(e){}
-         window.requestAnimationFrame(playHeroVideo);
-       }else{
-         heroFrozen=true;
-         handoffVideo.pause();
-         handoffVideo.classList.add('is-frozen');
-       }
-     });
+     /* Keep the same 1.mp4 node alive in the real Hero and let it loop.
+        Never fall back to a frozen frame after the cinematic. */
+     handoffVideo.loop=true;
+     handoffVideo.classList.remove('is-frozen');
      try{handoffVideo.currentTime=0}catch(e){}
-     playHeroVideo();
+     handoffVideo.play().catch(()=>{});
      target.classList.remove('is-intro-covered');
      document.documentElement.classList.remove('giso-intro-active');
      document.documentElement.classList.add('giso-intro-done');
@@ -246,7 +249,9 @@
  const motion=document.querySelector('[data-home-motion]');
  const heroVideo=motion?.querySelector('[data-home-hero-video]');
  const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
- if(document.documentElement.classList.contains('giso-intro-active')) return;
+ if(document.documentElement.classList.contains('giso-intro-active') ||
+    document.documentElement.classList.contains('giso-intro-repeat') ||
+    motion?.classList.contains('has-repeat-video')) return;
  if(heroVideo && motion && !reduced){
    fetch('/api/home/hero-video',{headers:{'Accept':'application/json'}})
      .then(r=>r.ok?r.json():null)
