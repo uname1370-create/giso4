@@ -190,6 +190,7 @@ def get_ai_provider(name):
     name = _normalize_provider_input_name(name)
     conn = get_conn()
     try:
+        init_ai_tables(conn)
         return conn.execute("SELECT * FROM giso_ai_providers WHERE name=?", (name,)).fetchone()
     except Exception:
         return None
@@ -199,6 +200,7 @@ def get_ai_provider(name):
 
 def list_ai_providers(only_enabled=False):
     conn = get_conn()
+    init_ai_tables(conn)
     sql = "SELECT * FROM giso_ai_providers"
     if only_enabled:
         sql += " WHERE enabled=1"
