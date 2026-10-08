@@ -160,8 +160,8 @@
  const introKey='giso-home-intro-v3';
  if(!intro || !target) return;
  let alreadySeen=false;
- try{alreadySeen=sessionStorage.getItem(introKey)==='1'}catch(e){}
- if(alreadySeen || reducedIntro){intro.classList.add('is-hidden');if(alreadySeen)document.documentElement.classList.add('giso-intro-done');return;}
+ try{alreadySeen=localStorage.getItem(introKey)==='1'}catch(e){}
+ if(alreadySeen || reducedIntro){intro.classList.add('is-hidden');return;}
 document.documentElement.classList.add('giso-intro-active');
  const scene=intro.querySelector('.giso-intro-scene');
  const card=intro.querySelector('.giso-intro-card');
@@ -187,19 +187,36 @@ document.documentElement.classList.add('giso-intro-active');
      const handoffVideo=video;
      handoffVideo.classList.add('giso-intro-handoff-video');
      handoffVideo.removeAttribute('autoplay');
-     handoffVideo.loop=true;
+     handoffVideo.loop=false;
      handoffVideo.controls=false;
      handoffVideo.style.cssText='';
      handoffVideo.classList.add('is-visible');
      handoffVideo.remove();
      target.appendChild(handoffVideo);
      target.classList.add('has-intro-handoff');
+     /* The intro video can already be at its end when the morph starts.
+        Restart it in the real Hero, play it exactly twice, then freeze on its last frame. */
+     let heroPlayCount=0;
+     const playHeroVideo=()=>{
+       handoffVideo.play().catch(()=>{});
+     };
+     handoffVideo.addEventListener('ended',()=>{
+       heroPlayCount+=1;
+       if(heroPlayCount<2){
+         try{handoffVideo.currentTime=0}catch(e){}
+         playHeroVideo();
+       }else{
+         handoffVideo.pause();
+       }
+     });
+     try{handoffVideo.currentTime=0}catch(e){}
+     playHeroVideo();
      target.classList.remove('is-intro-covered');
      document.documentElement.classList.remove('giso-intro-active');
      document.documentElement.classList.add('giso-intro-done');
      intro.classList.add('is-hidden');
      intro.setAttribute('aria-hidden','true');
-     try{sessionStorage.setItem(introKey,'1')}catch(e){}
+     try{localStorage.setItem(introKey,'1')}catch(e){}
    },1150);
  };
  const playVideo=()=>video.play().catch(()=>{});
