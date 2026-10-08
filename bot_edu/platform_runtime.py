@@ -196,7 +196,12 @@ async def start_telegram() -> tuple:
 
     try:
         await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
+        try:
+            from giso.telegram_http import make_polling_error_callback
+            _err_cb = make_polling_error_callback("تلگرام")
+        except Exception:
+            _err_cb = None
+        await app.updater.start_polling(drop_pending_updates=True, error_callback=_err_cb)
     except Exception as e:
         logger.error(f"خطا هنگام شروع polling تلگرام: {e}")
         try:

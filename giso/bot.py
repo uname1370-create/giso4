@@ -23,31 +23,17 @@ _READ_REPORT_CACHE = {}
 # جلوگیری از لو رفتن توکن ربات در لاگ‌های httpx (سطح INFO → WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
-class _TelegramPollingNoiseFilter(logging.Filter):
-    """کاهش لاگ تکراری polling وقتی بله/شبکه/proxy اتصال را قطع می‌کند."""
-
-    def filter(self, record):
-        try:
-            message = record.getMessage()
-        except Exception:
-            message = ""
-        if "Error while getting Updates" not in message and "Exception happened while polling for updates" not in message:
-            return True
-        error_text = message
-        if record.exc_info:
-            try:
-                error = record.exc_info[1]
-                error_text += f" {type(error).__name__}: {error}"
-            except Exception:
-                pass
-        noisy_network_error = any(
-            part in error_text
-            for part in ("RemoteProtocolError", "NetworkError", "Server disconnected without sending a response")
-        )
-        return not noisy_network_error
-
-
-logging.getLogger("telegram.ext.Updater").addFilter(_TelegramPollingNoiseFilter())
+# قطع موقت اتصال polling بله (RemoteProtocolError / NetworkError) را PTB خودش
+# retry می‌کند. فیلتر مشترک traceback تکراری را حذف می‌کند ولی خطاهای واقعی را نگه می‌دارد.
+try:
+    from giso.telegram_http import (  # noqa: E402
+        install_polling_noise_filter as _install_polling_noise_filter,
+        make_polling_error_callback as _make_polling_error_callback,
+    )
+    _install_polling_noise_filter()
+except ImportError:  # python-telegram-bot نصب نیست؛ run_bot خودش پیام مناسب می‌دهد
+    def _make_polling_error_callback(platform):
+        return None
 
 def _to_thread(fn, *args, **kwargs):
     """اجرای فراخوانی blocking خارج از event loop (در صورت اجرا داخل loop)."""
@@ -7412,7 +7398,10 @@ async def _run_async(token=None, test_mode=False):
 
             await app.initialize()
             await app.start()
-            await app.updater.start_polling(drop_pending_updates=True)
+            await app.updater.start_polling(
+                drop_pending_updates=True,
+                error_callback=_make_polling_error_callback("ربات گیسو (بله)"),
+            )
             await asyncio.Event().wait()
         except asyncio.CancelledError:
             raise

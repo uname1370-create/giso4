@@ -45,6 +45,16 @@ for _noisy_logger in ("httpx", "httpcore", "telegram.request"):
 
 logger = logging.getLogger(__name__)
 
+# قطع موقت اتصال getUpdates (RemoteProtocolError: Server disconnected without
+# sending a response) را PTB خودش retry می‌کند؛ بدون این فیلتر/کال‌بک هر بار یک
+# traceback کامل در ترمینال (VS Code) چاپ می‌شد. خطاهای واقعی همچنان کامل لاگ می‌شوند.
+try:
+    from giso.telegram_http import install_polling_noise_filter, make_polling_error_callback
+    install_polling_noise_filter()
+except Exception as _pf_err:  # اجرای مستقل بدون PYTHONPATH ریشه
+    make_polling_error_callback = None
+    logger.debug("polling noise filter not installed: %s", _pf_err)
+
 
 def _on_edubot_shutdown():
     """هنگام بسته شدن ربات اصلی، checkpoint بزن (WAL → DB)."""
@@ -317,7 +327,8 @@ async def _start_polling(app, name: str, already_initialized: bool = False) -> b
             await app.initialize()
         await app.start()
         await app.updater.start_polling(
-            allowed_updates=Update.ALL_TYPES, drop_pending_updates=True
+            allowed_updates=Update.ALL_TYPES, drop_pending_updates=True,
+            error_callback=make_polling_error_callback(name) if make_polling_error_callback else None,
         )
         return True
     except Exception as e:
