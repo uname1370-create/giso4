@@ -663,6 +663,25 @@ def create_app():
             home_stats["commissions_display"] = home_stats["commissions"]
         return render_template("index.html", home_stats=home_stats, home_reviews=home_reviews)
 
+    @app.route("/api/home/hero-video", methods=["GET"])
+    def home_hero_video():
+        from giso.home_hero_video import hero_video_status
+        return jsonify(hero_video_status())
+
+    @app.route("/admin/home-hero-video/generate", methods=["GET"])
+    def generate_home_hero_video():
+        # تولید فقط برای ادمین مجاز؛ این endpoint عمداً عمومی نیست چون هر اجرا هزینه AI دارد.
+        access = _check_giso_admin_access()
+        if access:
+            return access
+        try:
+            from giso.home_hero_video import generate_hero_video
+            result = generate_hero_video()
+            return jsonify(result), (200 if result.get("ok") else 502)
+        except Exception as exc:
+            logger.exception("home hero video generation failed")
+            return jsonify({"ok": False, "error": "تولید ویدئوی Hero با خطای داخلی روبه‌رو شد."}), 500
+
     @app.route("/api/ai-widget/init", methods=["GET"])
     def ai_widget_init():
         cfg = get_widget_config()
