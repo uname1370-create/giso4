@@ -42,8 +42,10 @@
     </div>
     <div class="home-hero-visual">
       <div class="home-orbit home-orbit-one"></div><div class="home-orbit home-orbit-two"></div>
-      <div class="home-hero-frame">
-        <picture>
+      <div class="home-hero-frame home-hero-motion" data-home-motion>
+        <span class="home-hero-motion-glow" aria-hidden="true"></span>
+        <video class="home-hero-video" data-home-hero-video muted playsinline preload="none" poster="{{ url_for('static', filename='images/giso-main-hero.png') }}" aria-hidden="true"></video>
+        <picture class="home-hero-still">
           <source srcset="{{ url_for('static', filename='images/giso-main-hero.webp') }}" type="image/webp">
           <img src="{{ url_for('static', filename='images/giso-main-hero.png') }}" width="1000" height="1000" alt="گیسو؛ مسیر هوشمند ارزیابی و فروش موی طبیعی" fetchpriority="high">
         </picture>
@@ -137,7 +139,27 @@
 <script>
 (function(){
  const motion=document.querySelector('[data-home-motion]');
- if(motion && !(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+ const heroVideo=motion?.querySelector('[data-home-hero-video]');
+ const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+ if(heroVideo && motion && !reduced){
+   fetch('/api/home/hero-video',{headers:{'Accept':'application/json'}})
+     .then(r=>r.ok?r.json():null)
+     .then(state=>{
+       if(!state?.ready || !state.url) throw new Error('hero-video-not-ready');
+       heroVideo.src=state.url+'?v='+encodeURIComponent(state.duration||5);
+       heroVideo.addEventListener('ended',()=>{
+         heroVideo.classList.remove('is-visible');
+         motion.classList.add('is-resting');
+       },{once:true});
+       const play=()=>heroVideo.play().then(()=>motion.classList.add('is-video-playing')).catch(()=>{});
+       heroVideo.addEventListener('canplay',play,{once:true});
+       heroVideo.load();
+     })
+     .catch(()=>{
+       motion.classList.add('is-playing');
+       window.setTimeout(()=>motion.classList.add('is-resting'),5200);
+     });
+ } else if(motion && !reduced){
    motion.classList.add('is-playing');
    window.setTimeout(()=>motion.classList.add('is-resting'),5200);
  }
