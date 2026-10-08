@@ -138,13 +138,13 @@ def handle_config():
             res = auto_configure_defaults(overwrite=False)
             ok = bool(res.get("ok"))
             added = int(res.get("added") or 0)
-            message = f"{added} اسلات خالی آینه گیسو به‌صورت خودکار تنظیم شد." if ok else "تنظیم خودکار مدل‌های آینه گیسو انجام نشد."
+            message = f"{added} مدل آینه گیسو به‌صورت خودکار وارد زنجیره شد." if ok else "تنظیم خودکار مدل‌های آینه گیسو انجام نشد."
         elif action == "repair_beauty_mirror_image_models":
             from giso.buti_ai.ai_models import repair_legacy_cloudflare_eyebrow_image_slots
             res = repair_legacy_cloudflare_eyebrow_image_slots()
             ok = bool(res.get("ok"))
             changed = int(res.get("changed") or 0)
-            message = f"{changed} اسلات زنجیرهٔ مشترک طراحی تصویر آینه بررسی/اصلاح شد." if ok else "اصلاح زنجیرهٔ طراحی تصویر آینه انجام نشد."
+            message = f"{changed} مورد از زنجیرهٔ مشترک طراحی تصویر آینه بررسی/اصلاح شد." if ok else "اصلاح زنجیرهٔ طراحی تصویر آینه انجام نشد."
     except Exception as e:
         ok = False
         message = f"خطا در اجرای تغییر: {e}"
@@ -230,7 +230,7 @@ def handle_provider_add():
     import json as _json
     import re as _re
     raw_name = _normalize_pname(name)
-    cf_slot_name = _re.fullmatch(r"cf[1-3]", raw_name or "") is not None
+    cf_slot_name = _re.fullmatch(r"cf[0-9]+", raw_name or "") is not None
     is_cf_instance = raw_name == "cf" or raw_name == "cloudflare" or cf_slot_name
     provider_family = "cloudflare" if is_cf_instance else _normalize_pname(raw_name)
     name = raw_name if cf_slot_name else provider_family
