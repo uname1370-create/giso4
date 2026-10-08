@@ -1714,7 +1714,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
     return {
         "ok": False,
         "status": "ai_failed",
-        "message": "هر سه مدل CF1, CF2, CF3 برای این عکس ناموفق بودند و پیش‌نمایش راهنما هم ساخته نشد. لطفاً عکس واضح‌تری بفرست.",
+        "message": "همه مدل‌های فعال برای این عکس ناموفق بودند و پیش‌نمایش راهنما هم ساخته نشد. لطفاً مدل بعدی را بررسی کنید یا عکس واضح‌تری بفرستید.",
         "attempts": attempts,
         "configured_provider_count": len(providers),
         "fallback_used": False,
