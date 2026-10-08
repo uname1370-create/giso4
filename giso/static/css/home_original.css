@@ -342,3 +342,42 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
 html.giso-intro-repeat .giso-intro{
   display:none!important;
 }
+
+
+/* ===== Stable Hero + navbar brand on repeat visits =====
+   The homepage must keep the same moving 1.mp4; the brand must not resize,
+   bounce, or move its tagline after navigation back to Home. */
+html.giso-intro-repeat .home-hero-motion.has-repeat-video{
+  animation:none!important;
+  transform:none!important;
+}
+html.giso-intro-repeat .home-hero-motion.has-repeat-video .home-hero-video{
+  opacity:1!important;
+  display:block!important;
+}
+html.giso-intro-repeat .home-hero-motion.has-repeat-video .home-hero-still{
+  opacity:0!important;
+}
+html.giso-intro-repeat .giso-brand-logo,
+html.giso-intro-repeat .giso-brand-logo *,
+.giso-intro-done .giso-brand-logo,
+.giso-intro-done .giso-brand-logo *{
+  animation:none!important;
+  transform:none!important;
+}
+html.giso-intro-repeat .giso-brand-logo,
+.giso-intro-done .giso-brand-logo{
+  min-height:44px;
+}
+html.giso-intro-repeat .giso-brand-text-block,
+.giso-intro-done .giso-brand-text-block{
+  transform:none!important;
+  animation:none!important;
+}
+html.giso-intro-repeat .giso-brand-title,
+html.giso-intro-repeat .giso-brand-tagline,
+.giso-intro-done .giso-brand-title,
+.giso-intro-done .giso-brand-tagline{
+  transform:none!important;
+  animation:none!important;
+}
