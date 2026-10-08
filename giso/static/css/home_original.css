@@ -133,3 +133,16 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
 @media(prefers-reduced-motion:reduce){
  .home-hero-motion,.home-hero-motion img,.home-hero-motion-glow{animation:none!important;transform:none!important}
 }
+
+/* Real AI hero video: generated once by the protected admin endpoint, then cached. */
+.home-hero-video{position:absolute;inset:8px;width:calc(100% - 16px);height:calc(100% - 16px);z-index:3;display:block;opacity:0;object-fit:cover;border-radius:50%;pointer-events:none;background:#000;transition:opacity .45s ease}
+.home-hero-video.is-visible{opacity:1}
+.home-hero-motion.is-video-playing .home-hero-video{opacity:1}
+.home-hero-motion.is-video-playing .home-hero-still{opacity:0;transition:opacity .35s ease}
+.home-hero-motion.is-video-playing .home-hero-motion-glow{opacity:.12}
+.home-hero-motion.is-resting .home-hero-video{opacity:0}
+.home-hero-motion.is-resting .home-hero-still{opacity:1}
+@media(prefers-reduced-motion:reduce){
+ .home-hero-video{display:none!important}
+ .home-hero-motion.is-video-playing .home-hero-still{opacity:1!important}
+}
