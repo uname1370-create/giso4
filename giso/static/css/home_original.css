@@ -190,7 +190,7 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
 @keyframes gisoIntroOrbitReverse{to{transform:translate(-50%,-50%) rotateY(68deg) rotateZ(-344deg)}}
 @keyframes gisoIntroMorphToHero{
  0%{left:50%;top:50%;width:min(72vw,520px);height:min(72vw,520px);transform:translate(-50%,-50%) rotateX(0) rotateY(0) rotateZ(0) scale(1)}
- 100%{left:calc(50% + var(--giso-intro-final-left));top:calc(50% + var(--giso-intro-final-top));width:var(--giso-intro-final-width);height:var(--giso-intro-final-height);transform:translate(-50%,-50%) rotateX(0) rotateY(0) rotateZ(0) scale(1)}
+ 100%{left:calc(50% + var(--giso-intro-final-center-x));top:calc(50% + var(--giso-intro-final-center-y));width:var(--giso-intro-final-width);height:var(--giso-intro-final-height);transform:translate(-50%,-50%) rotateX(0) rotateY(0) rotateZ(0) scale(1)}
 }
 @keyframes gisoIntroCardSettle{
  0%{transform:rotateX(0) rotateY(0) translateZ(0) scale(1)}
