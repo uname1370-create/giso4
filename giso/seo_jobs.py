@@ -4,12 +4,11 @@
 Scheduling lives in a daemon thread started from create_app (giso-web).
 No systemd timer, no bot.py job_queue, no site_jobs before_request.
 
-CLI ``python -u giso/seo_jobs.py`` remains a one-shot (flock-protected).
+CLI ``python -u giso/seo_jobs.py`` remains a one-shot (platform-locked).
 """
 from __future__ import annotations
 
 import asyncio
-import fcntl
 import json
 import logging
 import os
@@ -286,17 +285,52 @@ def run_jobs(now: datetime | None = None) -> dict:
     return result
 
 
+def _try_acquire_process_lock(handle) -> bool:
+    """Acquire a non-blocking process lock on POSIX and Windows."""
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            # msvcrt.locking locks bytes from the current file position.
+            # Ensure the lock file contains one byte, then lock that byte.
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+            return True
+
+        import fcntl
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError as exc:
+        logger.debug("seo process lock unavailable: %s", type(exc).__name__)
+        return False
+
+
+def _release_process_lock(handle) -> None:
+    try:
+        if os.name == "nt":
+            import msvcrt
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    except Exception:
+        pass
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     path = lock_path()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        handle = open(path, "a+", encoding="utf-8")
+        handle = open(path, "a+b")
     except Exception:
         return 0
-    try:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
+    if not _try_acquire_process_lock(handle):
         handle.close()
         return 0
     try:
@@ -304,10 +338,7 @@ def main() -> int:
     except Exception as exc:
         logger.debug("seo_jobs main: %s", exc)
     finally:
-        try:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-        except Exception:
-            pass
+        _release_process_lock(handle)
         handle.close()
     return 0
 

@@ -251,16 +251,27 @@ from giso.beauty_centers.reservations.bot_handlers import handle_reservation_bot
 
 def _build_app(token):
     from telegram.ext import ApplicationBuilder
+    from giso.telegram_http import build_bot_request
+
+    # بله از پروکسی محیطی عمومی استفاده نمی‌کند؛ در صورت نیاز BALE_PROXY تنظیم شود.
+    proxy = (os.environ.get("BALE_PROXY") or "").strip() or None
     return (
         ApplicationBuilder()
         .token(token)
         .base_url(BALE_BASE_URL)
         .base_file_url(BALE_FILE_URL)
-        .connect_timeout(TIMEOUT)
-        .read_timeout(TIMEOUT)
-        .write_timeout(TIMEOUT)
-        .get_updates_connect_timeout(TIMEOUT)
-        .get_updates_read_timeout(TIMEOUT)
+        .request(build_bot_request(
+            proxy=proxy,
+            connection_pool_size=256,
+            connect_timeout=TIMEOUT,
+            read_timeout=TIMEOUT,
+            write_timeout=TIMEOUT,
+        ))
+        .get_updates_request(build_bot_request(
+            proxy=proxy,
+            connect_timeout=TIMEOUT,
+            read_timeout=TIMEOUT,
+        ))
         .build()
     )
 

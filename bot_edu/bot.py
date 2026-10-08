@@ -135,11 +135,17 @@ def _register_handlers(app):
 
 
 def _build_bale_app():
+    from giso.telegram_http import build_bot_request
+
+    # از HTTP_PROXY عمومی ارث نبریم؛ اگر بله به پروکسی نیاز دارد، BALE_PROXY را تنظیم کنید.
+    proxy = (os.getenv("BALE_PROXY") or "").strip() or None
     app = (
         ApplicationBuilder()
         .token(TOKEN)
         .base_url("https://tapi.bale.ai/bot")
         .base_file_url("https://tapi.bale.ai/file/bot")
+        .request(build_bot_request(proxy=proxy, connection_pool_size=256))
+        .get_updates_request(build_bot_request(proxy=proxy))
         .build()
     )
     _register_handlers(app)
@@ -162,17 +168,24 @@ def _mask_proxy(proxy) -> str:
 
 def _build_telegram_app_with_proxy(token: str, proxy):
     """ساخت Application تلگرام با پروکسی مشخص (یا بدون پروکسی اگر None باشد)."""
-    builder = ApplicationBuilder().token(token)
-    if proxy:
-        # هم درخواست‌های عادی و هم get_updates باید از پروکسی عبور کنند
-        builder = builder.proxy(proxy).get_updates_proxy(proxy)
+    from giso.telegram_http import build_bot_request
+
+    # پروکسی هر دو دسته درخواست صریح است؛ HTTP_PROXY محیطی دوباره اعمال نمی‌شود.
     builder = (
-        builder
-        .connect_timeout(20.0)
-        .read_timeout(20.0)
-        .write_timeout(20.0)
-        .get_updates_connect_timeout(20.0)
-        .get_updates_read_timeout(20.0)
+        ApplicationBuilder()
+        .token(token)
+        .request(build_bot_request(
+            proxy=proxy,
+            connection_pool_size=256,
+            connect_timeout=20.0,
+            read_timeout=20.0,
+            write_timeout=20.0,
+        ))
+        .get_updates_request(build_bot_request(
+            proxy=proxy,
+            connect_timeout=20.0,
+            read_timeout=20.0,
+        ))
     )
     app = builder.build()
     _register_handlers(app)

@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS giso_ai_credit_ledger(
  actor TEXT DEFAULT '',created_at TEXT DEFAULT '',service_key TEXT DEFAULT '',selected_style TEXT DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_ai_credit_ledger_user ON giso_ai_credit_ledger(user_id,id);
-CREATE INDEX IF NOT EXISTS idx_ai_credit_ledger_service ON giso_ai_credit_ledger(service_key,created_at);
 """
 
 

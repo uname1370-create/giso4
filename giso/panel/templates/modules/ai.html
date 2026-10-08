@@ -109,7 +109,7 @@
                         {% if p.enabled %}<span class="pnl-badge pnl-badge-ok">فعال</span>
                         {% else %}<span class="pnl-badge pnl-badge-off">غیرفعال</span>{% endif %}
                         {% if p.failover_index %}<span class="pnl-badge pnl-badge-info">failover #{{ p.failover_index }}</span>{% endif %}
-                        {% if p.proxy_url %}<span class="pnl-badge pnl-badge-info" title="{{ p.proxy_url }}">🔒 پروکسی اختصاصی</span>
+                        {% if p.proxy_url %}<span class="pnl-badge pnl-badge-info" title="پروکسی اختصاصی تنظیم شده">🔒 پروکسی اختصاصی</span>
                         {% elif p.use_proxy %}<span class="pnl-badge pnl-badge-info">🌐 پروکسی عمومی</span>{% endif %}
                     </div>
                 </div>
@@ -122,6 +122,12 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="pnl-btn pnl-btn-outline pnl-btn-sm">{{ '⏸ غیرفعال' if p.enabled else '▶️ فعال' }}</button>
                     </form>
+                    {% if p.name != 'gemini' %}
+                    <form method="POST" action="{{ url_for('panel.ai_provider_proxy', name=p.name) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="pnl-btn pnl-btn-outline pnl-btn-sm">{{ '🌐 قطع پروکسی عمومی' if p.use_proxy else '🌐 فعال‌سازی پروکسی عمومی' }}</button>
+                    </form>
+                    {% endif %}
                     <form method="POST" action="{{ url_for('panel.ai_provider_test', name=p.name) }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🔁 تست سلامت</button>
@@ -150,6 +156,13 @@
                 </details>
             </div>
             {% endfor %}
+        </div>
+        {% else %}
+        <div class="pnl-card" style="margin-top:16px;">
+            <div class="pnl-empty">
+                <p>هنوز Providerای در دیتابیس ثبت نشده است.</p>
+                <p class="pnl-muted">Providerهای رجیستری در فرم افزودن بالا آماده‌اند؛ افزودن یک Provider آن را در دیتابیس ثبت می‌کند.</p>
+            </div>
         </div>
         {% endif %}
     </section>
@@ -216,7 +229,8 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="ai_action" value="set_active_provider">
                 <select name="provider_name">
-                    {% for p in ai.providers %}<option value="{{ p.name }}">{{ p.name }}</option>{% endfor %}
+                    <option value="">انتخاب Provider فعال و دارای کلید</option>
+                    {% for p in ai.get('providers', []) if p.enabled and p.has_api_key %}<option value="{{ p.name }}">{{ p.name }}</option>{% else %}<option value="" disabled>Provider آماده‌ای وجود ندارد؛ ابتدا کلید را ثبت و Provider را فعال کنید.</option>{% endfor %}
                 </select>
                 <button class="pnl-btn pnl-btn-gold pnl-btn-sm">✅ فعال‌کردن هوش مصنوعی اصلی</button>
             </form>
@@ -224,7 +238,8 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="ai_action" value="promote_failover">
                 <select name="provider_name">
-                    {% for p in ai.providers %}<option value="{{ p.name }}">{{ p.name }}</option>{% endfor %}
+                    <option value="">انتخاب Provider فعال و دارای کلید</option>
+                    {% for p in ai.get('providers', []) if p.enabled and p.has_api_key %}<option value="{{ p.name }}">{{ p.name }}</option>{% else %}<option value="" disabled>Provider آماده‌ای وجود ندارد؛ ابتدا کلید را ثبت و Provider را فعال کنید.</option>{% endfor %}
                 </select>
                 <button class="pnl-btn pnl-btn-outline pnl-btn-sm">⬆️ ارتقا به اول failover</button>
             </form>

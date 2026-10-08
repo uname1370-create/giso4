@@ -60,6 +60,13 @@ CREATE TABLE IF NOT EXISTS giso_ai_checks_log (
     checked_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_giso_ai_checks_log_provider ON giso_ai_checks_log(provider_name);
+
+-- حذف‌های مدیریتی باید از seed خودکار بعدی مستثنا بمانند؛ این جدول افزایشی است
+-- و حذف/تغییری در جدول‌های فعلی Provider ایجاد نمی‌کند.
+CREATE TABLE IF NOT EXISTS giso_ai_provider_tombstones (
+    name TEXT PRIMARY KEY,
+    deleted_at TEXT NOT NULL DEFAULT ''
+);
 """
 
 
@@ -211,6 +218,24 @@ def list_ai_providers(only_enabled=False):
         conn.close()
 
 
+def _provider_tombstone_names():
+    """نام Providerهایی که مدیر صریحاً حذف کرده و نباید خودکار seed شوند."""
+    conn = get_conn()
+    try:
+        rows = conn.execute("SELECT name FROM giso_ai_provider_tombstones").fetchall()
+        return {
+            _normalize_provider_input_name(str(row[0] or ""))
+            for row in rows
+            if str(row[0] or "").strip()
+        }
+    except Exception:
+        # دیتابیس‌های قدیمی هنگام init_ai_tables جدول را به‌صورت افزایشی می‌گیرند؛
+        # خطای موقت نباید مسیر خواندن Providerها را از کار بیندازد.
+        return set()
+    finally:
+        conn.close()
+
+
 def default_models_for_provider(name):
     """مدل‌های رایگان پیش‌فرض (متن+بینایی) بر اساس رجیستری؛ برای پرکردن خودکار پروایدر جدید."""
     reg = PROVIDERS_REGISTRY.get(_registry_family_for_provider_name(name), {}) or {}
@@ -276,6 +301,10 @@ def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
     sql = _cols_vals + (_upsert if replace else " ON CONFLICT DO NOTHING")
     try:
         with _lock, conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS giso_ai_provider_tombstones ("
+                "name TEXT PRIMARY KEY, deleted_at TEXT NOT NULL DEFAULT '')"
+            )
             cur = conn.execute(sql,
                 (name, kind, 1 if enabled else 0, api_key, base_url, api_root,
                  int(timeout), headers_json, fallback_json, models_json, selected_model,
@@ -283,6 +312,9 @@ def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
                  proxy_url or "", proxy_type or "",
                  vision_models_json or "", text_models_json or "", models_source or "")
             )
+            if cur.rowcount > 0:
+                # افزودن مجدد از پنل/ربات، حذف قبلی را صریحاً لغو می‌کند.
+                conn.execute("DELETE FROM giso_ai_provider_tombstones WHERE name=?", (name,))
         return cur.rowcount > 0
     except Exception as e:
         logger.error(f"add_ai_provider: {e}")
@@ -290,13 +322,37 @@ def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
 
 
 def delete_ai_provider(name):
+    name = _normalize_provider_input_name(name)
+    if not name:
+        return False
     conn = get_conn()
     try:
         with _lock, conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS giso_ai_provider_tombstones ("
+                "name TEXT PRIMARY KEY, deleted_at TEXT NOT NULL DEFAULT '')"
+            )
             cur = conn.execute("DELETE FROM giso_ai_providers WHERE name=?", (name,))
-        return cur.rowcount > 0
-    except Exception:
+            deleted = cur.rowcount > 0
+            if deleted:
+                conn.execute(
+                    "INSERT INTO giso_ai_provider_tombstones (name, deleted_at) VALUES (?, ?) "
+                    "ON CONFLICT(name) DO UPDATE SET deleted_at=excluded.deleted_at",
+                    (name, _ai_now()),
+                )
+        if deleted:
+            try:
+                if not remove_provider_from_env(name):
+                    logger.warning("delete_ai_provider: .env cleanup failed for '%s'", name)
+            except Exception as env_exc:
+                logger.warning("delete_ai_provider: .env cleanup failed for '%s': %s",
+                               name, type(env_exc).__name__)
+        return deleted
+    except Exception as e:
+        logger.error(f"delete_ai_provider: {type(e).__name__}")
         return False
+    finally:
+        conn.close()
 
 
 def toggle_ai_provider(name):
@@ -1123,9 +1179,10 @@ def _backfill_registry_models(name):
         logger.error(f"_backfill_registry_models({name}): {e}")
 
 
-# پروایدرهایی که اگر ردیف نداشته باشند، ردیف خالی (بدون کلید، غیرفعال) می‌گیرند؛
-# به‌محض واردشدن «نام + API Key» در ربات/پنل، آدرس بیس و مدل‌ها خودکار پر می‌شود.
-REGISTRY_SEED_PROVIDERS = ("groq", "openrouter", "mistral", "sambanova", "cloudflare")
+# تمام Providerهای رجیستری در پنل به‌صورت ردیف خالی/غیرفعال دیده می‌شوند؛
+# داده‌های موجود هرگز با seed جایگزین نمی‌شود. افزودن تعریف جدید به رجیستری
+# خودکار آن را به فهرست seed هم اضافه می‌کند.
+REGISTRY_SEED_PROVIDERS = tuple(PROVIDERS_REGISTRY.keys())
 
 # پروایدرهای بازنشستهٔ پروژه (دستور کارفرما ۱۴۰۵-۰۶-۱۸: در پروژه جواب نمی‌دادند).
 # ردیف‌شان حذف نمی‌شود تا داده‌ای از بین نرود؛ فقط غیرفعال می‌مانند (الگوی LLM7).
@@ -1193,8 +1250,11 @@ def seed_registry_providers():
     from giso.ai_models_registry import get_provider as _reg_provider
     _normalize_existing_provider_names()
     _refresh_registry_sourced_models()
+    tombstones = _provider_tombstone_names()
     seeded = []
     for name in REGISTRY_SEED_PROVIDERS:
+        if name in tombstones:
+            continue  # حذف صریح مدیر را با seed خودکار برنگردان
         if get_ai_provider(name) is not None:
             # ردیف از قبل هست (مثلاً با نام نمایشی قدیمی که تغییرنام یافته):
             # اگر مدل‌هایش خالی است، از رجیستری کامل شود.
@@ -1605,6 +1665,74 @@ def _read_env_file():
     return env_vars
 
 
+def remove_provider_from_env(name):
+    """حذف امن تمام ورودی‌های یک Provider از backup محلی .env.
+
+    نام، کلید و URL را در لاگ/خروجی چاپ نمی‌کند. شماره‌های باقیمانده می‌توانند
+    فاصله داشته باشند؛ loader فعلی با این حالت سازگار است.
+    """
+    name = _normalize_provider_input_name(name)
+    if not name or not _ENV_PATH.exists():
+        return True
+    try:
+        env_vars = _read_env_file()
+        indices = set()
+        for key, value in env_vars.items():
+            match = re.fullmatch(r"GISO_AI_(\d+)_NAME", key.strip())
+            if match and _normalize_provider_input_name(value) == name:
+                indices.add(int(match.group(1)))
+        if not indices:
+            return True
+
+        remaining = []
+        for key, value in env_vars.items():
+            match = re.fullmatch(r"GISO_AI_(\d+)_NAME", key.strip())
+            if match and int(match.group(1)) not in indices and str(value or "").strip():
+                remaining.append(int(match.group(1)))
+        new_count = max(remaining, default=0)
+
+        lines = _ENV_PATH.read_text(encoding="utf-8").splitlines(keepends=True)
+        rewritten = []
+        count_written = False
+        for line in lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                rewritten.append(line)
+                continue
+            key = stripped.split("=", 1)[0].strip()
+            if key == "GISO_AI_COUNT":
+                if not count_written:
+                    rewritten.append(f"GISO_AI_COUNT={new_count}\n")
+                    count_written = True
+                continue
+            match = re.match(r"^GISO_AI_(\d+)_", key)
+            if match and int(match.group(1)) in indices:
+                continue
+            rewritten.append(line)
+        if not count_written:
+            rewritten.append(f"GISO_AI_COUNT={new_count}\n")
+
+        # جایگزینی اتمی و حفظ permission فایل برای جلوگیری از ناقص‌شدن .env.
+        import os as _os
+        import stat as _stat
+        temp_path = _ENV_PATH.with_name(_ENV_PATH.name + ".tmp")
+        file_mode = _stat.S_IMODE(_ENV_PATH.stat().st_mode)
+        try:
+            with open(temp_path, "w", encoding="utf-8") as env_file:
+                env_file.writelines(rewritten)
+            _os.chmod(temp_path, file_mode)
+            _os.replace(temp_path, _ENV_PATH)
+        finally:
+            try:
+                temp_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+        return True
+    except Exception as exc:
+        logger.warning("remove_provider_from_env failed: %s", type(exc).__name__)
+        return False
+
+
 def load_providers_from_env():
     """
     خواندن اطلاعات AI providers از فایل .env
@@ -1650,6 +1778,8 @@ def load_providers_from_env():
             "selected_model": env_vars.get(f"{prefix}MODEL", ""),
             "enabled": enabled,
             "use_proxy": proxy,
+            "proxy_url": env_vars.get(f"{prefix}PROXY_URL", ""),
+            "proxy_type": env_vars.get(f"{prefix}PROXY_TYPE", ""),
             "is_iranian": iranian,
             "timeout": timeout,
         })
@@ -1666,7 +1796,11 @@ def sync_env_providers_to_db():
         existing = list_ai_providers()
         if existing and len(existing) > 0:
             return  # دیتابیس پر است، نیازی نیست
-        providers = load_providers_from_env()
+        tombstones = _provider_tombstone_names()
+        providers = [
+            p for p in load_providers_from_env()
+            if _normalize_provider_input_name(p.get("name", "")) not in tombstones
+        ]
         if not providers:
             return
         for p in providers:
@@ -1675,6 +1809,7 @@ def sync_env_providers_to_db():
                 base_url=p["base_url"], api_root=p["base_url"],
                 timeout=p["timeout"], is_iranian=bool(p["is_iranian"]),
                 enabled=bool(p["enabled"]), use_proxy=bool(p["use_proxy"]),
+                proxy_url=p.get("proxy_url", ""), proxy_type=p.get("proxy_type", ""),
                 replace=True,
             )
             if p.get("selected_model"):
@@ -1713,7 +1848,8 @@ def _validate_base_url(base_url: str) -> None:
 
 
 def save_provider_to_env(name, api_key="", base_url="", model="", enabled=True,
-                         proxy=False, iranian=False, timeout=20):
+                         proxy=False, iranian=False, timeout=20, proxy_url=None,
+                         proxy_type=None):
     """
     ذخیره یا آپدیت یک provider در فایل .env.
     API Key در هیچ لاگی چاپ نمی‌شود.
@@ -1745,6 +1881,11 @@ def save_provider_to_env(name, api_key="", base_url="", model="", enabled=True,
         found_idx = count
 
     prefix = f"GISO_AI_{found_idx}_"
+    # Calls that do not edit proxy settings preserve any existing backup value.
+    if proxy_url is None:
+        proxy_url = env_vars.get(f"{prefix}PROXY_URL", "")
+    if proxy_type is None:
+        proxy_type = env_vars.get(f"{prefix}PROXY_TYPE", "")
     new_vars = {
         f"{prefix}NAME": name,
         f"{prefix}KEY": api_key or "",
@@ -1752,6 +1893,8 @@ def save_provider_to_env(name, api_key="", base_url="", model="", enabled=True,
         f"{prefix}MODEL": model or "",
         f"{prefix}ENABLED": str(int(bool(enabled))),
         f"{prefix}PROXY": str(int(bool(proxy))),
+        f"{prefix}PROXY_URL": str(proxy_url or ""),
+        f"{prefix}PROXY_TYPE": str(proxy_type or ""),
         f"{prefix}IRANIAN": str(int(bool(iranian))),
         f"{prefix}TIMEOUT": str(int(timeout or 20)),
         "GISO_AI_COUNT": str(count),

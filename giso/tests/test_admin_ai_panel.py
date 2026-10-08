@@ -77,6 +77,8 @@ def test_admin_ai_panel_read_only_view():
     html = r2.get_data(as_text=True)
     assert 'مدیریت هوش مصنوعی' in html
     assert 'اسم نمایشی مشاور هوشمند' in html
+    for provider_name in ('groq', 'openrouter', 'mistral', 'sambanova', 'cloudflare', 'gemini', 'gapgpt', 'avalai'):
+        assert f'<strong>{provider_name}</strong>' in html, f'{provider_name} باید در کارت‌های Provider دیده شود'
     assert 'cf1 — Cloudflare اکانت ۱' in html
     assert 'cf2 — Cloudflare اکانت ۲' in html
     assert '@cf/black-forest-labs/flux-2-klein-4b' in html

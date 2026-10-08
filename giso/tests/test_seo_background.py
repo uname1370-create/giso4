@@ -84,7 +84,8 @@ def test_jobs_not_wired_into_bot_or_site_jobs():
     assert "from giso.site_jobs" not in jobs
     assert "import site_jobs" not in jobs
     assert "@app.before_request" not in jobs
-    assert "fcntl" in jobs
+    assert "fcntl" in jobs and "msvcrt" in jobs
+    assert "_try_acquire_process_lock" in jobs
     assert "PREFERRED_PROVIDER = \"gemini\"" in jobs
     assert "start_seo_scheduler" in jobs
     assert "NIGHTLY_HOUR = 3" in jobs
@@ -265,3 +266,28 @@ def test_product_messages_use_description_field():
     meta = (ROOT / "giso/seo_meta.py").read_text(encoding="utf-8")
     assert "UPDATE products SET description=?" in meta
     assert "short_description" in meta  # only read for skip blob
+
+
+def test_windows_seo_job_lock_uses_msvcrt(tmp_path, monkeypatch):
+    import sys
+    from types import ModuleType
+    from giso import seo_jobs
+
+    calls = []
+    fake_msvcrt = ModuleType("msvcrt")
+    fake_msvcrt.LK_NBLCK = 1
+    fake_msvcrt.LK_UNLCK = 2
+    fake_msvcrt.locking = lambda fd, mode, size: calls.append((fd, mode, size))
+    lock_file = tmp_path / "seo_jobs.lock"
+    monkeypatch.setitem(sys.modules, "msvcrt", fake_msvcrt)
+    monkeypatch.setattr(seo_jobs.os, "name", "nt")
+
+    with lock_file.open("a+b") as handle:
+        assert seo_jobs._try_acquire_process_lock(handle) is True
+        seo_jobs._release_process_lock(handle)
+        assert calls == [
+            (handle.fileno(), fake_msvcrt.LK_NBLCK, 1),
+            (handle.fileno(), fake_msvcrt.LK_UNLCK, 1),
+        ]
+        handle.seek(0, seo_jobs.os.SEEK_END)
+        assert handle.tell() == 1

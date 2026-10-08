@@ -197,6 +197,22 @@ def _proxy_type_of(proxy_url):
     return ""
 
 
+def _provider_activation_error(provider):
+    """اعتبارسنجی حداقلی برای جلوگیری از فعال‌کردن ردیف‌های seed خالی/ناقص."""
+    if not provider:
+        return "پروایدر پیدا نشد."
+    if not str(provider["api_key"] or "").strip():
+        return "برای فعال‌سازی، ابتدا API Key یا Token را ثبت کنید."
+    kind = str(provider["kind"] or "").strip().lower()
+    if kind == "cloudflare":
+        root = str(provider["api_root"] or provider["base_url"] or "").strip()
+        if not root or "{account_id}" in root:
+            return "برای Cloudflare، ابتدا از فرم افزودن cf/cf1/cf2/cf3 یک Account ID معتبر ثبت کنید."
+    elif not str(provider["base_url"] or "").strip():
+        return "برای فعال‌سازی، ابتدا Base URL را ثبت کنید."
+    return ""
+
+
 def handle_provider_add():
     """فاز ۲: فقط «نام سرویس + کلید API» الزامی است؛ بقیه خودکار از رجیستری."""
     g = _require_super()
@@ -302,7 +318,8 @@ def handle_provider_add():
             try:
                 save_provider_to_env(name=name, api_key=api_key, base_url=base_url,
                                      model=model, enabled=True, proxy=use_proxy,
-                                     iranian=is_iranian, timeout=timeout)
+                                     iranian=is_iranian, timeout=timeout,
+                                     proxy_url=proxy_url or None, proxy_type=proxy_type or None)
             except Exception:
                 pass
             try:
@@ -343,11 +360,36 @@ def handle_provider_toggle(name):
     if g:
         return g
     try:
-        from giso.ai_brain import toggle_ai_provider
+        from giso.ai_brain import get_ai_provider, toggle_ai_provider, save_provider_to_env
+        provider = get_ai_provider(name)
+        if not provider:
+            flash("پروایدر پیدا نشد.", "danger")
+            return redirect(url_for("panel.ai"))
+        if not bool(provider["enabled"]):
+            activation_error = _provider_activation_error(provider)
+            if activation_error:
+                flash(activation_error, "warning")
+                return redirect(url_for("panel.ai"))
         new_val = toggle_ai_provider(name)
         if new_val is None:
-            flash("پروایدر پیدا نشد.", "danger")
+            flash("خطا در تغییر وضعیت پروایدر.", "danger")
         else:
+            try:
+                provider = get_ai_provider(name)
+                if provider:
+                    save_provider_to_env(
+                        name=name, api_key=provider["api_key"] or "",
+                        base_url=provider["base_url"] or "",
+                        model=provider["selected_model"] or "",
+                        enabled=bool(provider["enabled"]),
+                        proxy=bool(provider["use_proxy"]),
+                        iranian=bool(provider["is_iranian"]),
+                        timeout=provider["timeout"] or 20,
+                        proxy_url=provider["proxy_url"] or "",
+                        proxy_type=provider["proxy_type"] or "",
+                    )
+            except Exception as env_exc:
+                logger.warning("panel ai provider toggle backup failed: %s", type(env_exc).__name__)
             flash(f"پروایدر «{name}» {'فعال' if new_val else 'غیرفعال'} شد.", "success")
     except Exception as e:
         logger.error(f"panel ai provider toggle: {e}")
@@ -360,12 +402,27 @@ def handle_provider_proxy(name):
     if g:
         return g
     try:
-        from giso.ai_brain import toggle_use_proxy
+        from giso.ai_brain import toggle_use_proxy, get_ai_provider, save_provider_to_env
         new_val = toggle_use_proxy(name)
         if new_val is None:
             flash("پروایدر پیدا نشد.", "danger")
         else:
-            flash(f"پروکسی Gemini برای «{name}» {'فعال' if new_val else 'غیرفعال'} شد.", "success")
+            try:
+                provider = get_ai_provider(name)
+                if provider:
+                    save_provider_to_env(
+                        name=name, api_key=provider["api_key"] or "",
+                        base_url=provider["base_url"] or "",
+                        model=provider["selected_model"] or "",
+                        enabled=bool(provider["enabled"]), proxy=bool(new_val),
+                        iranian=bool(provider["is_iranian"]),
+                        timeout=provider["timeout"] or 20,
+                        proxy_url=provider["proxy_url"] or "",
+                        proxy_type=provider["proxy_type"] or "",
+                    )
+            except Exception as env_exc:
+                logger.warning("panel ai provider proxy backup failed: %s", type(env_exc).__name__)
+            flash(f"پروکسی عمومی برای «{name}» {'فعال' if new_val else 'غیرفعال'} شد.", "success")
     except Exception as e:
         logger.error(f"panel ai provider proxy: {e}")
         flash("خطا در تغییر پروکسی.", "danger")
@@ -399,26 +456,60 @@ def handle_provider_update(name):
         flash("Base URL نامعتبر است (باید با http:// یا https:// شروع شود).", "warning")
         return redirect(url_for("panel.ai"))
     try:
-        from giso.ai_brain import update_ai_provider_field, get_ai_provider, save_provider_to_env
-        # فاز ۲ (۲.۸): اگر api_key از خالی به پر تغییر کرد → فعال‌سازی خودکار
+        from giso.ai_brain import (
+            update_ai_provider_field, get_ai_provider, save_provider_to_env,
+            get_conn, _lock, toggle_ai_provider, normalize_cloudflare_api_root,
+        )
+        # فاز ۲ (۲.۸): اگر api_key از خالی به پر تغییر کرد → فقط در صورت کامل‌بودن تنظیمات فعال شود.
         old_row = get_ai_provider(name)
         old_api_key = str(old_row["api_key"] or "").strip() if old_row else ""
+        is_cloudflare = bool(old_row and str(old_row["kind"] or "").strip().lower() == "cloudflare")
+
+        if is_cloudflare and field in ("base_url", "api_root"):
+            try:
+                value = normalize_cloudflare_api_root(value, require_account=True)
+            except ValueError as cf_error:
+                flash(str(cf_error), "warning")
+                return redirect(url_for("panel.ai"))
+
         if field == "proxy_url":
-            update_ai_provider_field(name, "proxy_url", value)
-            from giso.ai_brain import get_conn, _lock
             conn = get_conn()
-            with _lock, conn:
-                conn.execute("UPDATE giso_ai_providers SET proxy_type=? WHERE name=?",
-                             (_proxy_type_of(value), name))
-            ok = True
+            try:
+                with _lock, conn:
+                    cur = conn.execute(
+                        "UPDATE giso_ai_providers SET proxy_url=?, proxy_type=? WHERE name=?",
+                        (value, _proxy_type_of(value), name),
+                    )
+                ok = cur.rowcount > 0
+            finally:
+                conn.close()
+        elif is_cloudflare and field in ("base_url", "api_root"):
+            # موتور Cloudflare از api_root استفاده می‌کند؛ هر دو ستون را هماهنگ نگه دار.
+            conn = get_conn()
+            try:
+                with _lock, conn:
+                    cur = conn.execute(
+                        "UPDATE giso_ai_providers SET base_url=?, api_root=? WHERE name=?",
+                        (value, value, name),
+                    )
+                ok = cur.rowcount > 0
+            finally:
+                conn.close()
         else:
             ok = update_ai_provider_field(name, field, value)
+
         if ok:
             auto_enabled = False
-            if field == "api_key" and not old_api_key and value and old_row and not old_row["enabled"]:
-                from giso.ai_brain import toggle_ai_provider
-                toggle_ai_provider(name)
-                auto_enabled = True
+            auto_disabled = False
+            activation_block_reason = ""
+            if field == "api_key" and value and not old_api_key and old_row and not old_row["enabled"]:
+                updated_row = get_ai_provider(name)
+                activation_block_reason = _provider_activation_error(updated_row)
+                if not activation_block_reason:
+                    auto_enabled = bool(toggle_ai_provider(name))
+            elif field == "api_key" and not value and old_row and old_row["enabled"]:
+                auto_disabled = toggle_ai_provider(name) is False
+            backup_saved = False
             try:
                 prov = get_ai_provider(name)
                 if prov:
@@ -431,12 +522,18 @@ def handle_provider_update(name):
                         proxy=bool(prov["use_proxy"]),
                         iranian=bool(prov["is_iranian"]),
                         timeout=prov["timeout"] or 20,
+                        proxy_url=prov["proxy_url"] or "",
+                        proxy_type=prov["proxy_type"] or "",
                     )
-            except Exception:
-                pass
-            extra = " و پروایدر فعال شد" if auto_enabled else ""
-            flash(f"فیلد «{field}» پروایدر «{name}» ذخیره شد{extra} (دیتابیس + .env).", "success")
-            # فاز ۲ (۲.۸): با تغییر کلید یا آدرس، مدل‌ها خودکار تازه شوند
+                    backup_saved = True
+            except Exception as env_exc:
+                logger.warning("panel ai provider update backup failed: %s", type(env_exc).__name__)
+            extra = " و پروایدر فعال شد" if auto_enabled else (" و به‌دلیل حذف کلید غیرفعال شد" if auto_disabled else "")
+            storage_label = "دیتابیس + .env" if backup_saved else "دیتابیس (نسخهٔ پشتیبان .env به‌روز نشد)"
+            flash(f"فیلد «{field}» پروایدر «{name}» ذخیره شد{extra} ({storage_label}).", "success")
+            if activation_block_reason:
+                flash(f"کلید ذخیره شد؛ برای فعال‌سازی، تنظیمات ناقص را کامل کنید: {activation_block_reason}", "warning")
+            # فاز ۲ (۲.۸): با تغییر کلید یا آدرس، مدل‌ها خودکار تازه شوند.
             if field in ("api_key", "base_url"):
                 try:
                     from giso.ai_brain import refresh_models
@@ -446,7 +543,7 @@ def handle_provider_update(name):
                 except Exception as re_:
                     logger.error(f"panel ai refresh after update: {re_}")
         else:
-            flash("خطا در ذخیره فیلد.", "danger")
+            flash("پروایدر پیدا نشد یا ذخیره فیلد انجام نشد.", "danger")
     except Exception as e:
         logger.error(f"panel ai provider update: {e}")
         flash(f"خطا: {str(e)[:100]}", "danger")
@@ -751,9 +848,15 @@ def context():
         }
         data["widget"] = get_widget_config() or {}
         data["widget_usage"] = get_widget_usage_stats() or {}
-        from giso.ai_credits import credit_settings, admin_credit_users
-        data["credit_settings"] = credit_settings()
-        data["credit_users"] = admin_credit_users(limit=200)
+        try:
+            from giso.ai_credits import credit_settings, admin_credit_users
+            data["credit_settings"] = credit_settings()
+            data["credit_users"] = admin_credit_users(limit=200)
+        except Exception as credit_exc:
+            # اعتبار یک بخش جانبی پنل است؛ خرابی/مهاجرت ناقص آن نباید کارت‌های Provider را مخفی کند.
+            logger.error("panel ai credit context: %s", credit_exc)
+            data["credit_settings"] = {"enabled": False, "cost": 1, "scope": "spend"}
+            data["credit_users"] = []
         data["pending"] = get_recent_pending_actions(limit=10)
         data["logs"] = get_recent_action_logs(limit=10)
         data["rollbacks"] = get_recent_rollback_logs(limit=10)
