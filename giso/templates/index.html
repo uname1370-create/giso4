@@ -20,6 +20,11 @@
 
 {% block content %}
 <div class="home-main">
+<div class="giso-intro" data-giso-intro aria-hidden="true">
+  <video class="giso-intro-video" data-giso-intro-video muted autoplay playsinline preload="auto" poster="{{ url_for('static', filename='images/giso-main-hero.png') }}" aria-hidden="true">
+    <source src="{{ url_for('static', filename='videos/1.mp4') }}" type="video/mp4">
+  </video>
+</div>
 <section class="home-hero" aria-labelledby="homeHeroTitle">
   <div class="giso-container home-hero-grid">
     <div class="home-hero-copy">
@@ -138,6 +143,35 @@
 {% block scripts %}
 <script>
 (function(){
+ const intro=document.querySelector('[data-giso-intro]');
+ const introVideo=intro?.querySelector('[data-giso-intro-video]');
+ const reducedIntro=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const introKey='giso-home-intro-v1';
+ if(!intro || !introVideo) return;
+ const finish=()=>{
+   intro.classList.add('is-finishing');
+   window.setTimeout(()=>{
+     intro.classList.add('is-hidden');
+     intro.setAttribute('aria-hidden','true');
+     try{sessionStorage.setItem(introKey,'1')}catch(e){}
+   },520);
+ };
+ let alreadySeen=false;
+ try{alreadySeen=sessionStorage.getItem(introKey)==='1'}catch(e){}
+ if(alreadySeen || reducedIntro){
+   intro.classList.add('is-hidden');
+ }else{
+   const fallback=()=>finish();
+   introVideo.addEventListener('ended',finish,{once:true});
+   introVideo.addEventListener('error',fallback,{once:true});
+   window.setTimeout(()=>{
+     if(!intro.classList.contains('is-finishing') && !intro.classList.contains('is-hidden')) finish();
+   },9000);
+   introVideo.play().catch(fallback);
+ }
+
+})();
+(function(){
  const motion=document.querySelector('[data-home-motion]');
  const heroVideo=motion?.querySelector('[data-home-hero-video]');
  const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -164,8 +198,8 @@
    window.setTimeout(()=>motion.classList.add('is-resting'),5200);
  }
  const els=document.querySelectorAll('.home-count'); if(!els.length)return;
- const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
- const run=(el)=>{const target=parseInt(el.dataset.target||'0',10);if(reduced||!target){el.textContent=target.toLocaleString('fa-IR');return}const start=performance.now();const tick=(now)=>{const p=Math.min(1,(now-start)/1300);el.textContent=Math.round(target*(1-Math.pow(1-p,3))).toLocaleString('fa-IR');if(p<1)requestAnimationFrame(tick)};requestAnimationFrame(tick)};
+ const reducedMotion=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+ const run=(el)=>{const target=parseInt(el.dataset.target||'0',10);if(reducedMotion||!target){el.textContent=target.toLocaleString('fa-IR');return}const start=performance.now();const tick=(now)=>{const p=Math.min(1,(now-start)/1300);el.textContent=Math.round(target*(1-Math.pow(1-p,3))).toLocaleString('fa-IR');if(p<1)requestAnimationFrame(tick)};requestAnimationFrame(tick)};
  if('IntersectionObserver' in window){const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){run(e.target);io.unobserve(e.target)}}),{threshold:.4});els.forEach(e=>{e.textContent='۰';io.observe(e)})}else els.forEach(run);
 })();
 /* نوار خودکار نظرات؛ با لمس/هاور متوقف می‌شود و motion preference را رعایت می‌کند. */
