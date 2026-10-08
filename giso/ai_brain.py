@@ -1584,22 +1584,34 @@ async def ask_ai_fast(messages, model=None, temperature=0.7, max_tokens=1200, ca
 # ذخیره‌سازی دو لایه: دیتابیس + فایل .env (fallback/backup)
 # ═══════════════════════════════════════════════════════════
 _ENV_PATH = Path(__file__).resolve().parent / "data" / ".env"
+_PROJECT_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 
 
 def _read_env_file():
-    """خواندن فایل .env به صورت dict (بدون رندر متغیر)."""
+    """خواندن تنظیمات GISO_AI از environment و فایل‌های .env.
+
+    اولویت: environment فعلی > .env ریشه پروژه > giso/data/.env.
+    """
     import os
-    env_vars = {}
+    env_vars = {
+        key: value
+        for key, value in os.environ.items()
+        if key.startswith("GISO_AI_")
+    }
     try:
-        if not _ENV_PATH.exists():
-            return env_vars
-        with open(_ENV_PATH, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, value = line.split("=", 1)
-                env_vars[key.strip()] = value.strip()
+        # پشتیبانی از هر دو محل .env؛ متغیر واقعی process همیشه اولویت دارد.
+        for env_path in (_PROJECT_ENV_PATH, _ENV_PATH):
+            if not env_path.exists():
+                continue
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    key = key.strip()
+                    if key.startswith("GISO_AI_") and key not in os.environ:
+                        env_vars[key] = value.strip()
     except Exception as e:
         logger.error(f"_read_env_file: {e}")
     return env_vars
