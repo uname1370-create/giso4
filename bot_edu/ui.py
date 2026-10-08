@@ -725,7 +725,7 @@ async def show_platform_detail(target, platform: str, is_q=False):
         f"پشتیبانی مختص این پلتفرم: {sup_disp}\n"
     )
     # [افزوده] بلوک اطلاعات اتصال/پروکسی — فقط برای تلگرام
-    if p == "telegram":
+    if p == "telegram" and en:
         text += "\n" + _telegram_conn_block()
     rows = [
         [btn("🔑 ثبت/ویرایش توکن", f"a_plat_token|{p}")],
@@ -738,7 +738,7 @@ async def show_platform_detail(target, platform: str, is_q=False):
         back_btn("a_platforms"),
     ]
     # [افزوده] زیرمنوی تنظیمات پروکسی — فقط برای تلگرام، بدون تغییر دکمه‌های بالا
-    if p == "telegram":
+    if p == "telegram" and en:
         rows.insert(-1, [btn("🌐 تنظیمات پروکسی", f"a_plat_proxy|{p}")])
     r = mkb(rows)
     if is_q:
@@ -771,6 +771,14 @@ def _telegram_conn_block() -> str:
 
 async def show_proxy_menu(target, platform: str = "telegram", is_q=True):
     """[افزوده] زیرمنوی «🌐 تنظیمات پروکسی»."""
+    if not platform_enabled("telegram"):
+        text = "📴 تلگرام غیرفعال است."
+        reply_markup = mkb([back_btn(f"a_plat|{platform}")])
+        if is_q:
+            await target.edit_message_text(text, reply_markup=reply_markup)
+        else:
+            await target.reply_text(text, reply_markup=reply_markup)
+        return
     import proxy_manager as pm
     st = pm.status_summary()
     src = st["source"]

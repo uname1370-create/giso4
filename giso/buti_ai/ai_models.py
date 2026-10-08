@@ -18,17 +18,20 @@ from giso.base import get_giso_db_conn
 logger = logging.getLogger("giso_buti_ai_models")
 
 TASK_EYEBROW_ANALYSIS = "eyebrow_analysis"  # legacy key; now used as the shared آینه گیسو photo-analysis task
+TASK_MIRROR_IMAGE_DESIGN = "mirror_image_design"
+# Deprecated per-service keys remain readable and migrate into the shared task.
 TASK_EYEBROW_IMAGE_DESIGN = "eyebrow_image_design"
 TASK_NAIL_IMAGE_DESIGN = "nail_image_design"
 TASK_LIP_IMAGE_DESIGN = "lip_shading_image_design"
 TASK_HAIR_COLOR_IMAGE_DESIGN = "hair_color_image_design"
-TASK_MIRROR_OUTPUT_VALIDATION = "mirror_output_validation"
-IMAGE_DESIGN_TASK_KEYS = (
+LEGACY_IMAGE_DESIGN_TASK_KEYS = (
     TASK_EYEBROW_IMAGE_DESIGN,
     TASK_NAIL_IMAGE_DESIGN,
     TASK_LIP_IMAGE_DESIGN,
     TASK_HAIR_COLOR_IMAGE_DESIGN,
 )
+TASK_MIRROR_OUTPUT_VALIDATION = "mirror_output_validation"
+IMAGE_DESIGN_TASK_KEYS = (TASK_MIRROR_IMAGE_DESIGN,)
 VISION_TASK_KEYS = (TASK_EYEBROW_ANALYSIS, TASK_MIRROR_OUTPUT_VALIDATION)
 DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL = "@cf/black-forest-labs/flux-2-klein-4b"
 CLOUDFLARE_INPAINTING_MODEL = "@cf/runwayml/stable-diffusion-v1-5-inpainting"
@@ -46,33 +49,12 @@ TASK_DEFS: Dict[str, Dict[str, Any]] = {
         "slots": 3,
         "help": "مدل‌های بینایی مخصوص بخش آینه گیسو، به‌ترتیب اولویت؛ اگر cf1 خطا داد، cf2/cf3 یا مدل بعدی امتحان می‌شود.",
     },
-    TASK_EYEBROW_IMAGE_DESIGN: {
-        "label": "آینه گیسو — طراحی تصویر ابرو",
-        "short_label": "طراحی ابرو",
+    TASK_MIRROR_IMAGE_DESIGN: {
+        "label": "آینه گیسو — طراحی تصویر مشترک همه خدمات",
+        "short_label": "طراحی تصویر",
         "kind": "image",
         "slots": 3,
-        "help": "مدل تصویرسازی/inpainting فقط برای خروجی ابرو؛ باید با ماسک ابرو و حفظ بیرون mask استفاده شود.",
-    },
-    TASK_NAIL_IMAGE_DESIGN: {
-        "label": "آینه گیسو — طراحی تصویر ناخن",
-        "short_label": "طراحی ناخن",
-        "kind": "image",
-        "slots": 3,
-        "help": "مدل تصویرسازی/inpainting فقط برای ناخن؛ باید صفحه ناخن‌ها را تغییر دهد و پوست دست/پس‌زمینه را حفظ کند.",
-    },
-    TASK_LIP_IMAGE_DESIGN: {
-        "label": "آینه گیسو — طراحی تصویر لب و شیدینگ",
-        "short_label": "طراحی لب",
-        "kind": "image",
-        "slots": 3,
-        "help": "مدل تصویرسازی/inpainting فقط برای لب؛ باید دندان و پوست اطراف لب را تغییر ندهد.",
-    },
-    TASK_HAIR_COLOR_IMAGE_DESIGN: {
-        "label": "آینه گیسو — طراحی تصویر رنگ و لایت مو",
-        "short_label": "طراحی رنگ مو",
-        "kind": "image",
-        "slots": 3,
-        "help": "مدل تصویرسازی/inpainting فقط برای مو؛ باید صورت، پوست، لباس و پس‌زمینه را حفظ کند.",
+        "help": "این زنجیره تصویرسازی/inpainting یک‌بار تنظیم می‌شود و برای ابرو، ناخن، لب و رنگ مو به‌ترتیب اولویت به کار می‌رود؛ prompt و mask هر خدمت جداگانه حفظ می‌شود.",
     },
     TASK_MIRROR_OUTPUT_VALIDATION: {
         "label": "آینه گیسو — اعتبارسنجی خروجی نهایی",
@@ -84,10 +66,10 @@ TASK_DEFS: Dict[str, Dict[str, Any]] = {
 }
 
 SERVICE_IMAGE_TASK_MAP = {
-    "eyebrow": TASK_EYEBROW_IMAGE_DESIGN,
-    "nail": TASK_NAIL_IMAGE_DESIGN,
-    "lip_shading": TASK_LIP_IMAGE_DESIGN,
-    "hair_color": TASK_HAIR_COLOR_IMAGE_DESIGN,
+    "eyebrow": TASK_MIRROR_IMAGE_DESIGN,
+    "nail": TASK_MIRROR_IMAGE_DESIGN,
+    "lip_shading": TASK_MIRROR_IMAGE_DESIGN,
+    "hair_color": TASK_MIRROR_IMAGE_DESIGN,
 }
 
 AI_MODEL_ASSIGNMENTS_SQL = """
@@ -147,7 +129,7 @@ def _cloudflare_slot_priority(provider_name: str) -> int:
     if not match:
         return 0
     try:
-        return max(1, min(int(TASK_DEFS[TASK_EYEBROW_IMAGE_DESIGN]["slots"]), int(match.group(1))))
+        return max(1, min(int(TASK_DEFS[TASK_MIRROR_IMAGE_DESIGN]["slots"]), int(match.group(1))))
     except Exception:
         return 0
 
@@ -175,6 +157,94 @@ def _is_supported_cloudflare_final_model(model_name: str, image_kind: str = "") 
     return model == DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL
 
 
+def _migrate_legacy_image_design_assignments(conn) -> int:
+    """Merge old per-service image chains into the shared mirror image chain once."""
+    placeholders = ",".join("?" for _ in LEGACY_IMAGE_DESIGN_TASK_KEYS)
+    rows = conn.execute(
+        f"""
+        SELECT id, task_key, priority, provider_name, model_name, enabled,
+               image_kind, endpoint_override, created_at, updated_at
+        FROM buti_ai_model_assignments
+        WHERE task_key IN ({placeholders})
+        """,
+        LEGACY_IMAGE_DESIGN_TASK_KEYS,
+    ).fetchall()
+    if not rows:
+        return 0
+
+    slots = int(TASK_DEFS[TASK_MIRROR_IMAGE_DESIGN]["slots"])
+    current_rows = conn.execute(
+        """
+        SELECT priority, provider_name, model_name, image_kind, endpoint_override
+        FROM buti_ai_model_assignments
+        WHERE task_key=?
+        """,
+        (TASK_MIRROR_IMAGE_DESIGN,),
+    ).fetchall()
+    occupied = {int(row[0] or 1) for row in current_rows}
+    identities = {
+        (
+            str(row[1] or "").strip().lower(),
+            str(row[2] or "").strip(),
+            _cloudflare_image_kind_for_model(str(row[2] or ""), str(row[3] or "")),
+            str(row[4] or "").strip(),
+        )
+        for row in current_rows
+    }
+    legacy_order = {key: index for index, key in enumerate(LEGACY_IMAGE_DESIGN_TASK_KEYS)}
+    rows = sorted(
+        rows,
+        key=lambda row: (
+            int(row[2] or 1),
+            legacy_order.get(str(row[1] or ""), len(legacy_order)),
+            int(row[0] or 0),
+        ),
+    )
+    now = _now()
+    migrated = 0
+    for row in rows:
+        provider_name = str(row[3] or "").strip().lower()
+        model_name = str(row[4] or "").strip()
+        if not provider_name or not model_name:
+            continue
+        image_kind = _cloudflare_image_kind_for_model(model_name, str(row[6] or ""))
+        endpoint_override = str(row[7] or "").strip()
+        identity = (provider_name, model_name, image_kind, endpoint_override)
+        if identity in identities:
+            continue
+
+        try:
+            preferred_priority = max(1, min(slots, int(row[2] or 1)))
+        except (TypeError, ValueError):
+            preferred_priority = 1
+        if preferred_priority in occupied:
+            preferred_priority = next((p for p in range(1, slots + 1) if p not in occupied), 0)
+        if not preferred_priority:
+            continue
+
+        enabled_value = str(row[5] if row[5] is not None else "0").strip().lower()
+        enabled = int(enabled_value not in {"", "0", "false", "off", "no"})
+        created_at = str(row[8] or now)
+        updated_at = str(row[9] or created_at)
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO buti_ai_model_assignments (
+                task_key, priority, provider_name, model_name, enabled,
+                image_kind, endpoint_override, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                TASK_MIRROR_IMAGE_DESIGN, preferred_priority, provider_name,
+                model_name, enabled, image_kind, endpoint_override,
+                created_at, updated_at,
+            ),
+        )
+        occupied.add(preferred_priority)
+        identities.add(identity)
+        migrated += 1
+    return migrated
+
+
 def init_buti_ai_model_assignments(conn=None) -> None:
     """ایجاد جدول تنظیم مدل‌های آینه گیسو، افزودنی و امن."""
     own_conn = conn is None
@@ -190,6 +260,7 @@ def init_buti_ai_model_assignments(conn=None) -> None:
         ):
             if column not in columns:
                 c.execute(f"ALTER TABLE buti_ai_model_assignments ADD COLUMN {ddl}")
+        _migrate_legacy_image_design_assignments(c)
         c.commit()
     except Exception as exc:
         logger.error("init_buti_ai_model_assignments failed: %s", exc)
@@ -203,6 +274,8 @@ def init_buti_ai_model_assignments(conn=None) -> None:
 
 def normalize_task_key(task_key: str) -> str:
     key = str(task_key or "").strip().lower()
+    if key in LEGACY_IMAGE_DESIGN_TASK_KEYS:
+        return TASK_MIRROR_IMAGE_DESIGN
     return key if key in TASK_DEFS else ""
 
 
@@ -291,7 +364,12 @@ def list_model_assignments(task_key: str = "", only_enabled: bool = False) -> Li
 def assignment_map() -> Dict[str, Dict[int, Dict[str, Any]]]:
     result: Dict[str, Dict[int, Dict[str, Any]]] = {key: {} for key in TASK_DEFS}
     for row in list_model_assignments():
-        key = normalize_task_key(row.get("task_key"))
+        stored_key = str(row.get("task_key") or "").strip().lower()
+        # Legacy rows remain in storage for recovery, but the panel only edits the
+        # migrated shared chain and must not let a legacy row override it.
+        if stored_key in LEGACY_IMAGE_DESIGN_TASK_KEYS:
+            continue
+        key = normalize_task_key(stored_key)
         if key:
             result.setdefault(key, {})[int(row.get("priority") or 1)] = row
     return result
@@ -408,7 +486,7 @@ def panel_slots_context() -> Dict[str, Any]:
     return {
         "tasks": TASK_DEFS,
         "scope_label": "فقط آینه گیسو / Buti AI",
-        "scope_note": "این اسلات‌ها روی مشاور عمومی، ربات، آنالیز مو/پوست و سایر بخش‌های گیسو اثر نمی‌گذارند؛ فقط مسیر آینه گیسو از آن‌ها می‌خواند.",
+        "scope_note": "این اسلات‌ها روی مشاور عمومی، ربات، آنالیز مو/پوست و سایر بخش‌های گیسو اثر نمی‌گذارند؛ فقط مسیر آینه گیسو از آن‌ها می‌خواند. مدل‌های طراحی تصویر در اینجا یک‌بار تنظیم می‌شوند و برای ابرو، ناخن، لب و رنگ مو مشترک‌اند؛ تحلیل و اعتبارسنجی جدا هستند.",
         "slots": slots,
         "providers": options.get("providers", []),
         "model_options": options.get("models", []),
@@ -502,7 +580,7 @@ def repair_legacy_cloudflare_eyebrow_image_slots() -> Dict[str, Any]:
         if model_name not in LEGACY_UNSUPPORTED_CLOUDFLARE_FINAL_MODELS and not model_name.startswith("@cf/"):
             continue
 
-        slot_provider_name = f"cf{priority}" if 1 <= priority <= int(TASK_DEFS[TASK_EYEBROW_IMAGE_DESIGN]["slots"]) else ""
+        slot_provider_name = f"cf{priority}" if 1 <= priority <= int(TASK_DEFS[TASK_MIRROR_IMAGE_DESIGN]["slots"]) else ""
         slot_provider = get_ai_provider(slot_provider_name) if slot_provider_name else None
         target_provider = provider_name
         enabled = False
@@ -532,8 +610,8 @@ def repair_legacy_cloudflare_eyebrow_image_slots() -> Dict[str, Any]:
 
 
 def image_task_for_service(service_key: str = "eyebrow") -> str:
-    """Task key اختصاصی تصویرسازی برای هر خدمت آینه گیسو."""
-    return SERVICE_IMAGE_TASK_MAP.get(str(service_key or "").strip().lower(), TASK_EYEBROW_IMAGE_DESIGN)
+    """برگرداندن task تصویرسازی مشترک آینه گیسو برای هر خدمت."""
+    return SERVICE_IMAGE_TASK_MAP.get(str(service_key or "").strip().lower(), TASK_MIRROR_IMAGE_DESIGN)
 
 
 def configured_image_provider_dicts(limit: int = 3, task_key: str = "", service_key: str = "eyebrow") -> List[Dict[str, Any]]:
@@ -672,45 +750,46 @@ def readiness_status() -> Dict[str, Any]:
     if not validation_ready:
         warnings.append("مدل اعتبارسنجی خروجی نهایی تنظیم نشده؛ خروجی واقعی AI باید با کنترل mask و diff تأیید شود.")
 
-    service_image_status: Dict[str, Dict[str, Any]] = {}
+    image_task = TASK_MIRROR_IMAGE_DESIGN
+    image_rows = list_model_assignments(image_task, only_enabled=True)
     total_image_ready_count = 0
     image_providers: List[str] = []
-    for service_key, image_task in SERVICE_IMAGE_TASK_MAP.items():
-        image_rows = list_model_assignments(image_task, only_enabled=True)
-        ready_count = 0
-        first_problem = ""
-        providers_for_service: List[str] = []
-        for row in image_rows:
-            provider_name = str(row.get("provider_name") or "")
-            model_name = str(row.get("model_name") or "")
-            problem = provider_problem(provider_name, model_name, image_task=True, endpoint_override=str(row.get("endpoint_override") or ""))
-            if not problem:
-                ready_count += 1
-                total_image_ready_count += 1
-                if provider_name not in providers_for_service:
-                    providers_for_service.append(provider_name)
-                if provider_name not in image_providers:
-                    image_providers.append(provider_name)
-            elif not first_problem:
-                first_problem = problem
-        ready = ready_count > 0
-        service_image_status[service_key] = {
-            "ready": bool(ready),
-            "ready_count": ready_count,
-            "providers": providers_for_service,
-            "task_key": image_task,
-            "problem": first_problem,
-        }
-        if not ready:
-            label = TASK_DEFS.get(image_task, {}).get("short_label") or service_key
-            issues.append(f"مدل {label} آینه گیسو آماده نیست.")
-            if first_problem:
-                issues.append(first_problem)
-        elif ready_count < 2:
-            label = TASK_DEFS.get(image_task, {}).get("short_label") or service_key
-            warnings.append(f"برای fallback بهتر، حداقل دو مدل فعال برای {label} پیشنهاد می‌شود.")
+    first_image_problem = ""
+    for row in image_rows:
+        provider_name = str(row.get("provider_name") or "")
+        model_name = str(row.get("model_name") or "")
+        problem = provider_problem(
+            provider_name,
+            model_name,
+            image_task=True,
+            endpoint_override=str(row.get("endpoint_override") or ""),
+        )
+        if not problem:
+            total_image_ready_count += 1
+            if provider_name not in image_providers:
+                image_providers.append(provider_name)
+        elif not first_image_problem:
+            first_image_problem = problem
 
-    image_ready = all(item.get("ready") for item in service_image_status.values())
+    image_ready = total_image_ready_count > 0
+    if not image_ready:
+        issues.append("مدل طراحی تصویر مشترک آینه گیسو آماده نیست.")
+        if first_image_problem:
+            issues.append(first_image_problem)
+    elif total_image_ready_count < 2:
+        warnings.append("برای fallback بهتر، حداقل دو مدل فعال در زنجیره مشترک طراحی تصویر پیشنهاد می‌شود.")
+
+    # وضعیت هر خدمت نمایش داده می‌شود، اما همه از همین زنجیرهٔ مشترک می‌خوانند.
+    service_image_status: Dict[str, Dict[str, Any]] = {
+        service_key: {
+            "ready": bool(image_ready),
+            "ready_count": total_image_ready_count,
+            "providers": list(image_providers),
+            "task_key": image_task,
+            "problem": first_image_problem,
+        }
+        for service_key in SERVICE_IMAGE_TASK_MAP
+    }
 
     def _unique_messages(items: List[str]) -> List[str]:
         result: List[str] = []
@@ -787,7 +866,7 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
     """پرکردن خودکار اسلات‌های خالی آینه گیسو بعد از افزودن پروایدر.
 
     این کار فقط اسلات‌های خالی را پر می‌کند تا انتخاب دستی سوپرادمین خراب نشود.
-    برای Cloudflare علاوه بر تحلیل عکس، سه مدل تصویرسازی پیش‌فرض هم فقط برای آینه گیسو تنظیم می‌شود.
+    زنجیرهٔ تصویرسازی مشترک است؛ همهٔ خدمات آینه از همان fallbackها استفاده می‌کنند.
     """
     try:
         from giso.ai_models_registry import (
@@ -880,10 +959,12 @@ __all__ = [
     "CLOUDFLARE_INPAINTING_MODEL",
     "DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL",
     "TASK_EYEBROW_ANALYSIS",
+    "TASK_MIRROR_IMAGE_DESIGN",
     "TASK_EYEBROW_IMAGE_DESIGN",
     "TASK_NAIL_IMAGE_DESIGN",
     "TASK_LIP_IMAGE_DESIGN",
     "TASK_HAIR_COLOR_IMAGE_DESIGN",
+    "LEGACY_IMAGE_DESIGN_TASK_KEYS",
     "TASK_MIRROR_OUTPUT_VALIDATION",
     "IMAGE_DESIGN_TASK_KEYS",
     "VISION_TASK_KEYS",

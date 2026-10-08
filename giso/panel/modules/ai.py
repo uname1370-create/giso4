@@ -144,7 +144,7 @@ def handle_config():
             res = repair_legacy_cloudflare_eyebrow_image_slots()
             ok = bool(res.get("ok"))
             changed = int(res.get("changed") or 0)
-            message = f"{changed} اسلات طراحی عکس ابرو بررسی/اصلاح شد." if ok else "اصلاح اسلات‌های طراحی عکس انجام نشد."
+            message = f"{changed} اسلات زنجیرهٔ مشترک طراحی تصویر آینه بررسی/اصلاح شد." if ok else "اصلاح زنجیرهٔ طراحی تصویر آینه انجام نشد."
     except Exception as e:
         ok = False
         message = f"خطا در اجرای تغییر: {e}"

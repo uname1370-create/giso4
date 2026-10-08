@@ -52,6 +52,8 @@ MAX_FETCH = 10
 # حداقل پروکسی سالم برای اینکه نتیجه «قابل قبول» تلقی شود
 MIN_HEALTHY = 3
 
+TELEGRAM_DISABLED_ERROR = "تلگرام غیرفعال است؛ عملیات پروکسی اجرا نشد."
+
 # [کار ۱] حداکثر پروکسی دستی (از ۱۰ به ۲۰ افزایش یافت)
 MAX_MANUAL = 20
 
@@ -68,6 +70,11 @@ MODE_LABELS = {
 
 
 # ========================= مسیر فایل‌ها =========================
+
+def _telegram_is_enabled() -> bool:
+    value = str(SETTINGS.get("telegram_enabled", 0) or "0").strip().lower()
+    return value in {"1", "true"}
+
 
 def _data_dir() -> str:
     """پوشهٔ data کنار دیتابیس."""
@@ -272,6 +279,8 @@ async def fetch_from_source(url: str = None, limit: int = None) -> tuple:
     [کار ۱] فقط `limit` مورد اول برداشته می‌شود (پیش‌فرض MAX_FETCH = ۱۰).
     خروجی: (list, error_message)
     """
+    if not _telegram_is_enabled():
+        return [], TELEGRAM_DISABLED_ERROR
     cap = MAX_FETCH if limit is None else max(1, int(limit))
     src = (url or get_source_url()).strip()
     if not src:
@@ -322,6 +331,8 @@ async def test_proxy_timed(proxy: str, timeout: float = _TEST_TIMEOUT) -> tuple:
       • ms = زمان پاسخ به میلی‌ثانیه (اگر ناموفق: 0)
       • error = علت شکست ("" اگر موفق)
     """
+    if not _telegram_is_enabled():
+        return False, 0, TELEGRAM_DISABLED_ERROR
     t0 = time.monotonic()
     try:
         async with _client_with_proxy(proxy, timeout) as cl:
@@ -366,6 +377,9 @@ async def test_many_report(proxies: list, on_progress=None) -> dict:
     """
     empty = {"total": 0, "alive": [], "dead": 0, "timings": {},
              "fastest": None, "config_error": ""}
+    if not _telegram_is_enabled():
+        empty["config_error"] = TELEGRAM_DISABLED_ERROR
+        return empty
     if not proxies:
         return empty
 
@@ -415,6 +429,8 @@ async def refresh_from_source(url: str = None, on_progress=None, limit: int = No
     [📥 دریافت + تست + ذخیره] چرخهٔ کامل — حداکثر MAX_FETCH مورد.
     خروجی: (report_dict, error_message)
     """
+    if not _telegram_is_enabled():
+        return None, TELEGRAM_DISABLED_ERROR
     raw, err = await fetch_from_source(url, limit=limit)
     if err:
         return None, err
@@ -430,6 +446,8 @@ async def revalidate(on_progress=None) -> tuple:
     [🔄 آپدیت همزمان] تست دوبارهٔ پروکسی‌های ذخیره‌شده و حذف مرده‌ها.
     خروجی: (report_dict, error_message)
     """
+    if not _telegram_is_enabled():
+        return None, TELEGRAM_DISABLED_ERROR
     current = load_working()
     if not current:
         return None, "هیچ پروکسی ذخیره‌شده‌ای وجود ندارد."
@@ -445,6 +463,8 @@ async def test_manual_proxies(on_progress=None) -> tuple:
     سالم‌ها به لیست ذخیره‌شده اضافه و مرده‌ها از فهرست دستی حذف می‌شوند.
     خروجی: (report_dict, error_message)
     """
+    if not _telegram_is_enabled():
+        return None, TELEGRAM_DISABLED_ERROR
     manual = get_manual_proxies()
     if not manual:
         return None, "هیچ پروکسی دستی‌ای ثبت نشده است."

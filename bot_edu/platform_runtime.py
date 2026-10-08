@@ -19,6 +19,12 @@ logger = logging.getLogger(__name__)
 _STATE = {"app": None, "proxy": None, "builder": None}
 
 
+def is_telegram_enabled() -> bool:
+    """وضعیت فعال‌بودن تلگرام را از تنظیمات runtime بخواند."""
+    value = str(SETTINGS.get("telegram_enabled", 0) or "0").strip().lower()
+    return value in {"1", "true"}
+
+
 def set_app_builder(fn):
     """
     ثبت تابع سازندهٔ اپ تلگرام (از bot.py).
@@ -82,7 +88,7 @@ def telegram_status() -> dict:
       proxy      : پروکسی فعال (masked)
       synced     : آیا تنظیم و واقعیت هم‌خوان‌اند؟
     """
-    enabled = str(SETTINGS.get("telegram_enabled", 0)) in ("1", "True", "true")
+    enabled = is_telegram_enabled()
     token = (SETTINGS.get("telegram_token") or "").strip()
     running = is_telegram_running()
     return {
@@ -152,6 +158,9 @@ async def start_telegram() -> tuple:
     [کار ۲ — بند ۵] برقراری واقعی اتصال تلگرام (با پروکسی و retry).
     خروجی: (ok: bool, message: str)
     """
+    if not is_telegram_enabled():
+        return True, "📴 تلگرام غیرفعال است؛ راه‌اندازی انجام نشد."
+
     if is_telegram_running():
         return True, "✅ تلگرام از قبل فعال و متصل است."
 
@@ -219,7 +228,7 @@ async def apply_telegram_enabled(enabled: bool) -> tuple:
 
 async def reload_telegram() -> tuple:
     """اعمال توکن جدید: قطع اتصال فعلی و اتصال دوباره با توکن تازه."""
-    was_enabled = str(SETTINGS.get("telegram_enabled", 0)) in ("1", "True", "true")
+    was_enabled = is_telegram_enabled()
     await stop_telegram()
     if not was_enabled:
         return True, "توکن ذخیره شد. (تلگرام غیرفعال است)"

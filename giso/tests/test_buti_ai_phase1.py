@@ -1335,9 +1335,9 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
     result = ai_models.auto_configure_for_provider("cf")
 
     assert result["ok"] is True
-    assert result["added"] == 6
+    assert result["added"] == 3
     rows = ai_models.list_model_assignments()
-    assert len(rows) == 6
+    assert len(rows) == 3
     analysis = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_ANALYSIS]
     validation = [r for r in rows if r["task_key"] == ai_models.TASK_MIRROR_OUTPUT_VALIDATION]
     images = [r for r in rows if r["task_key"] in ai_models.IMAGE_DESIGN_TASK_KEYS]
@@ -1345,16 +1345,85 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
     assert validation[0]["provider_name"] == "cloudflare"
     assert "vision" in analysis[0]["model_name"]
     assert "vision" in validation[0]["model_name"]
-    assert len(images) == len(ai_models.IMAGE_DESIGN_TASK_KEYS)
-    assert [int(r["priority"]) for r in images] == [1, 1, 1, 1]
-    assert all(r["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b" for r in images)
-    assert all(r["image_kind"] == "cloudflare" for r in images)
-    assert "@cf/runwayml/stable-diffusion-v1-5-inpainting" not in [r["model_name"] for r in images]
+    assert len(images) == len(ai_models.IMAGE_DESIGN_TASK_KEYS) == 1
+    assert [r["task_key"] for r in images] == [ai_models.TASK_MIRROR_IMAGE_DESIGN]
+    assert [int(r["priority"]) for r in images] == [1]
+    assert images[0]["model_name"] == "@cf/black-forest-labs/flux-2-klein-4b"
+    assert images[0]["image_kind"] == "cloudflare"
 
     second = ai_models.auto_configure_for_provider("cloudflare")
     assert second["added"] == 0
 
 
+
+
+def test_legacy_service_image_slots_migrate_to_one_shared_chain(tmp_path, monkeypatch):
+    import sqlite3
+    from giso import ai_brain
+    from giso.buti_ai import ai_models
+
+    db_path = tmp_path / "mirror_shared_image_models.db"
+
+    def connect():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    monkeypatch.setattr(ai_models, "get_giso_db_conn", connect)
+    ai_models.init_buti_ai_model_assignments()
+    legacy_rows = (
+        (ai_models.TASK_EYEBROW_IMAGE_DESIGN, 1, "cf1"),
+        (ai_models.TASK_NAIL_IMAGE_DESIGN, 1, "cf2"),
+        (ai_models.TASK_LIP_IMAGE_DESIGN, 2, "cf3"),
+    )
+    with connect() as conn:
+        conn.executemany(
+            """
+            INSERT INTO buti_ai_model_assignments (
+                task_key, priority, provider_name, model_name, enabled,
+                image_kind, endpoint_override, created_at, updated_at
+            ) VALUES (?, ?, ?, '@cf/black-forest-labs/flux-2-klein-4b', 1, 'cloudflare', '', '2026-01-01', '2026-01-01')
+            """,
+            legacy_rows,
+        )
+
+    ai_models.init_buti_ai_model_assignments()
+    shared = ai_models.list_model_assignments(ai_models.TASK_MIRROR_IMAGE_DESIGN, only_enabled=True)
+    assert [(int(row["priority"]), row["provider_name"]) for row in shared] == [
+        (1, "cf1"), (2, "cf2"), (3, "cf3"),
+    ]
+    assert all(row["task_key"] == ai_models.TASK_MIRROR_IMAGE_DESIGN for row in shared)
+
+    def fake_provider(name):
+        return {
+            "name": name,
+            "enabled": 1,
+            "kind": "cloudflare",
+            "api_key": "test-token",
+            "api_root": "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run",
+            "base_url": "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run",
+        }
+
+    monkeypatch.setattr(ai_brain, "get_ai_provider", fake_provider)
+    monkeypatch.setattr(
+        ai_models,
+        "provider_model_options",
+        lambda: {"providers": [], "models": [], "image_candidates": []},
+    )
+    configured = ai_models.configured_image_provider_dicts(service_key="eyebrow")
+    assert [provider["model"] for provider in configured] == [
+        "@cf/black-forest-labs/flux-2-klein-4b",
+    ] * 3
+    for service_key in ai_models.SERVICE_IMAGE_TASK_MAP:
+        assert ai_models.image_task_for_service(service_key) == ai_models.TASK_MIRROR_IMAGE_DESIGN
+        assert ai_models.configured_image_provider_dicts(service_key=service_key) == configured
+    assert ai_models.configured_image_provider_dicts(
+        task_key=ai_models.TASK_NAIL_IMAGE_DESIGN, service_key="nail"
+    ) == configured
+
+    image_slots = [slot for slot in ai_models.panel_slots_context()["slots"] if slot["task_kind"] == "image"]
+    assert len(image_slots) == 3
+    assert {slot["task_key"] for slot in image_slots} == {ai_models.TASK_MIRROR_IMAGE_DESIGN}
 
 
 def test_repair_legacy_cloudflare_slots_replaces_json_only_models(tmp_path, monkeypatch):
@@ -1412,9 +1481,9 @@ def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, m
     r2 = ai_models.auto_configure_for_provider("cf2")
     r3 = ai_models.auto_configure_for_provider("cf3")
 
-    assert r1["added"] == 6  # analysis + validation + 4 service image slots at priority 1
-    assert r2["added"] == 6  # analysis + validation + 4 service image slots at priority 2
-    assert r3["added"] == 6  # analysis + validation + 4 service image slots at priority 3
+    assert r1["added"] == 3  # analysis + validation + one shared image slot at priority 1
+    assert r2["added"] == 3  # analysis + validation + one shared image slot at priority 2
+    assert r3["added"] == 3  # analysis + validation + one shared image slot at priority 3
     rows = ai_models.list_model_assignments()
     analysis = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_ANALYSIS]
     validation = [r for r in rows if r["task_key"] == ai_models.TASK_MIRROR_OUTPUT_VALIDATION]
@@ -1439,7 +1508,7 @@ def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, m
     )
     assert ok is True
     over = ai_models.auto_configure_for_provider("cf2", overwrite=True)
-    assert over["added"] == 6
+    assert over["added"] == 3
     analysis_rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_ANALYSIS)
     analysis_slot2 = [r for r in analysis_rows if int(r["priority"]) == 2][0]
     assert analysis_slot2["provider_name"] == "cf2"

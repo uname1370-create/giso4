@@ -197,6 +197,8 @@ async def _verify_telegram(app) -> str:
     تست واقعی اتصال با فراخوانی get_me.
     خروجی: نام کاربری ربات. در صورت خطا استثنا پرتاب می‌کند.
     """
+    if not platform_runtime.is_telegram_enabled():
+        raise RuntimeError("Telegram is disabled")
     await app.initialize()
     me = await app.bot.get_me()
     return me.username or str(me.id)
@@ -217,6 +219,9 @@ def _collect_proxy_candidates() -> list:
     اگر حالت «مستقیم» باشد، فقط اتصال مستقیم برگردانده می‌شود.
     در غیر این صورت پروکسی‌های .env هم به‌عنوان پشتیبان اضافه می‌شوند.
     """
+    if not platform_runtime.is_telegram_enabled():
+        return []
+
     try:
         import proxy_manager as pm
         base = pm.candidates_for_mode()
@@ -250,14 +255,13 @@ async def _try_build_telegram_app():
     خروجی: (app, proxy) در صورت موفقیت — یا (None, None) در صورت شکست کامل.
     هرگز استثنا پرتاب نمی‌کند؛ شکست تلگرام نباید کل ربات را متوقف کند.
     """
-    token = (SETTINGS.get("telegram_token") or "").strip()
-    enabled = str(SETTINGS.get("telegram_enabled", 0)) in ("1", "True", "true")
+    if not platform_runtime.is_telegram_enabled():
+        logger.info("📴 تلگرام: در پنل مدیریت غیرفعال است — راه‌اندازی نمی‌شود.")
+        return None, None
 
+    token = (SETTINGS.get("telegram_token") or "").strip()
     if not token:
         logger.info("📴 تلگرام: توکن ثبت نشده — غیرفعال می‌ماند.")
-        return None, None
-    if not enabled:
-        logger.info("📴 تلگرام: در پنل مدیریت غیرفعال است — راه‌اندازی نمی‌شود.")
         return None, None
 
     candidates = _collect_proxy_candidates()

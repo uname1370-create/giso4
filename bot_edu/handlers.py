@@ -1491,6 +1491,11 @@ async def button_handler(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await safe_answer(q, "📱 ابتدا باید شماره تلفن خود را ثبت کنید. لطفاً /start را بزنید.", True)
         return
 
+    if d.startswith("a_plat_proxy") and is_admin(user) and not platform_enabled("telegram"):
+        await safe_answer(q, "📴 تلگرام غیرفعال است؛ این مسیر اجرا نشد.", True)
+        await show_platform_detail(q, "telegram", is_q=True)
+        return
+
     # [باگ ۲ — رفع تلهٔ state] کلیک روی دکمه یعنی انصراف از فلوی متنی نیمه‌تمام.
     # استثنا: دکمه‌هایی که خودشان ادامهٔ همان فلو هستند (انتخاب نوع منبع/دستور/آیتم/ماموریت).
     if not d.startswith(_STATE_KEEPING_PREFIXES):
