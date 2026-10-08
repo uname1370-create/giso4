@@ -336,3 +336,9 @@ body[data-theme="original"] .home-path-health .home-text-link:hover{
   .giso-intro-done .home-hero-motion,
   .giso-intro-done .home-hero-motion .giso-intro-handoff-video{animation:none!important}
 }
+
+
+/* Repeat visits: keep the cinematic intro out of the first paint entirely. */
+html.giso-intro-repeat .giso-intro{
+  display:none!important;
+}
