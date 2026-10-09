@@ -329,11 +329,11 @@ def test_all_remaining_new_services_are_publicly_active():
     assert home.status_code == 200
     text = home.get_data(as_text=True)
     assert "آماده طراحی" not in text
-    assert '<div class="bti-flow-step"><b>4</b><span>طراحی نهایی و رزرو</span></div>' in text
+    assert "انتخاب روز و نوبت" in text
     assert "آینه رنگ و لایت مو گیسو" in text
     assert "آینه لب و شیدینگ گیسو" in text
-    assert "ورود به رنگ مو" in text
-    assert "ورود به لب" in text
+    assert "پیش‌نمایش رنگ مو" in text
+    assert "پیش‌نمایش لب" in text
     assert "به‌زودی" not in text
 
 

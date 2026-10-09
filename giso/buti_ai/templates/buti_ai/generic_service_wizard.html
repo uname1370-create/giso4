@@ -11,11 +11,11 @@
 
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=24">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=32">
 {% endblock %}
 
 {% block content %}
-<main class="bti-page bti-service-experience bti-eyebrow-flow bti-generic-flow" dir="rtl">
+<main class="bti-page bti-service-experience bti-eyebrow-flow bti-generic-flow bti-service-{{ service_meta.slug }}" dir="rtl">
     {% set flow_step = flow_step|default('model') %}
     <section class="bti-shell bti-eyebrow-board">
         <div class="bti-board-topbar">
@@ -64,7 +64,7 @@
                         <span class="bti-brow-sample is-wide-png">
                             <picture>
                                 <source srcset="{{ url_for('buti_ai.static', filename=service_meta.sample_dir ~ '/' ~ key ~ '.webp') }}" type="image/webp">
-                                <img src="{{ url_for('buti_ai.static', filename=service_meta.sample_dir ~ '/' ~ key ~ '.png') }}" alt="نمونه {{ item.label }} - {{ item.summary }}" loading="lazy" width="420" height="168">
+                                <img src="{{ url_for('buti_ai.static', filename=service_meta.sample_dir ~ '/' ~ key ~ '.webp') }}" alt="نمونه {{ item.label }} - {{ item.summary }}" loading="lazy" width="800" height="1000">
                             </picture>
                         </span>
                     </label>
