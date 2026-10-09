@@ -265,15 +265,93 @@ def _call_cloudflare_flux(provider: shared_image.ImageProviderConfig, service_ke
     return shared_image._parse_response_image(response)
 
 
+ROI_CROP_MIN_SIDE = 128  # smallest square crop sent around a small mask
+ROI_CROP_PAD = 0.5  # context added on each side of the mask bounding box (fraction of its size)
+MASK_THRESHOLD = 18
+
+
+def _mask_bbox(mask):
+    binary = mask.point(lambda px: 255 if int(px) >= MASK_THRESHOLD else 0)
+    return binary.getbbox()
+
+
+def _roi_square(bbox: Tuple[int, int, int, int], width: int, height: int) -> Optional[Tuple[int, int, int, int]]:
+    """Square crop around the mask bbox, or None when a crop would not help."""
+    left, top, right, bottom = bbox
+    side = max(ROI_CROP_MIN_SIDE, int(round(max(right - left, bottom - top) * (1.0 + 2.0 * ROI_CROP_PAD))))
+    if side >= min(width, height):
+        return None
+    cx = (left + right) / 2.0
+    cy = (top + bottom) / 2.0
+    x0 = min(max(0, int(round(cx - side / 2.0))), width - side)
+    y0 = min(max(0, int(round(cy - side / 2.0))), height - side)
+    return (x0, y0, x0 + side, y0 + side)
+
+
+def _encode_inpainting_inputs(image, mask, size: int) -> Tuple[bytes, bytes, int]:
+    from io import BytesIO
+    from PIL import Image
+
+    resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+    nearest = Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST
+    image = image.resize((size, size), resample)
+    mask = mask.resize((size, size), nearest).point(lambda px: 255 if int(px) >= MASK_THRESHOLD else 0)
+    mask_pixels = int(mask.histogram()[255])
+    if mask_pixels <= 0:
+        raise ServiceImageGenerationError("mask خدمت برای ارسال به AI خالی است.")
+    image_out = BytesIO()
+    mask_out = BytesIO()
+    image.save(image_out, "PNG", optimize=True)
+    mask.save(mask_out, "PNG", optimize=True)
+    return image_out.getvalue(), mask_out.getvalue(), mask_pixels
+
+
 def _call_cloudflare_inpainting(provider: shared_image.ImageProviderConfig, service_key: str, source_path: str,
                                 mask_path: str, candidate: Dict[str, Any], prompt: str, timeout: int) -> str:
-    image_bytes, mask_bytes, width, height, mask_pixels, coverage = _prepare_png_image_and_mask(
-        source_path,
-        mask_path,
-        shared_image.MAX_INPAINTING_INPUT_SIDE,
-    )
-    if coverage > float(SERVICE_CONSTRAINTS[service_key].get("max_mask_coverage") or 1):
+    """Send the mask region to the inpainting model, cropping around small masks.
+
+    SD 1.5 works on a 512 px grid (8 px latent cells). A small service region such as
+    lips covers only a few latent cells when the whole photo is squeezed into 512 px,
+    so the mask is sent as a square crop around its bounding box. The model output is
+    pasted back onto the photo at full (thumbnail) resolution; the caller's mask
+    composite still decides which pixels change, so outside-mask pixels stay exact.
+    """
+    from io import BytesIO
+    from PIL import Image
+
+    source = Image.open(source_path).convert("RGB")
+    source.thumbnail((shared_image.MAX_SAVE_SIDE, shared_image.MAX_SAVE_SIDE))
+    full_mask = Image.open(mask_path).convert("L")
+    if full_mask.size != source.size:
+        resample = Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST
+        full_mask = full_mask.resize(source.size, resample)
+    full_mask = full_mask.point(lambda px: 255 if int(px) >= MASK_THRESHOLD else 0)
+    frame_pixels = int(full_mask.histogram()[255])
+    if frame_pixels <= 0:
+        raise ServiceImageGenerationError("mask خدمت برای ارسال به AI خالی است.")
+    frame_coverage = round(float(frame_pixels) / float(max(1, source.width * source.height)), 6)
+    if frame_coverage > float(SERVICE_CONSTRAINTS[service_key].get("max_mask_coverage") or 1):
         raise ServiceImageGenerationError("mask خدمت برای inpainting بیش از حد وسیع است.")
+
+    bbox = _mask_bbox(full_mask)
+    roi = _roi_square(bbox, source.width, source.height) if bbox else None
+    if roi is None:
+        image_bytes, mask_bytes, width, height, mask_pixels, coverage = _prepare_png_image_and_mask(
+            source_path,
+            mask_path,
+            shared_image.MAX_INPAINTING_INPUT_SIDE,
+        )
+        roi_info: Dict[str, Any] = {"roi_crop": False}
+    else:
+        x0, y0, x1, y1 = roi
+        side = x1 - x0
+        size = shared_image.MAX_INPAINTING_INPUT_SIDE
+        image_bytes, mask_bytes, mask_pixels = _encode_inpainting_inputs(
+            source.crop(roi), full_mask.crop(roi), size
+        )
+        width = height = size
+        coverage = round(float(mask_pixels) / float(size * size), 6)
+        roi_info = {"roi_crop": True, "roi_box": [x0, y0, x1, y1], "roi_side": side, "frame_mask_coverage_ratio": frame_coverage}
     guidance = float(provider.extra.get("guidance") or shared_image._env_value(None, "CLOUDFLARE_INPAINTING_GUIDANCE") or 7.5)
     strength = float(provider.extra.get("strength") or shared_image._env_value(None, "CLOUDFLARE_INPAINTING_STRENGTH") or 0.72)
     try:
@@ -308,6 +386,7 @@ def _call_cloudflare_inpainting(provider: shared_image.ImageProviderConfig, serv
         "mask_source_method": detection.get("method") if isinstance(detection, dict) else "",
         "mask_filename": shared_image._upload_relative_path(mask_path),
         "cloudflare_request_format": "json_image_and_service_mask_byte_arrays",
+        **roi_info,
     }
     response = shared_image._post_request(
         provider.endpoint,
@@ -316,7 +395,23 @@ def _call_cloudflare_inpainting(provider: shared_image.ImageProviderConfig, serv
         json=payload,
         timeout=timeout,
     )
-    return shared_image._parse_response_image(response)
+    value = shared_image._parse_response_image(response)
+    if not roi_info.get("roi_crop"):
+        return value
+    # Paste the crop result back onto the photo so the caller sees one full-size image.
+    raw, _mime = shared_image._decode_image_value(value, timeout, provider.endpoint, provider.extra)
+    if not raw:
+        raise ServiceImageGenerationError("تصویر خروجی AI خالی بود.")
+    resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+    model_out = Image.open(BytesIO(raw)).convert("RGB")
+    if model_out.size != (width, height):
+        model_out = model_out.resize((width, height), resample)
+    x0, y0, x1, y1 = roi_info["roi_box"]
+    full = source.copy()
+    full.paste(model_out.resize((x1 - x0, y1 - y0), resample), (x0, y0))
+    out = BytesIO()
+    full.save(out, "PNG")
+    return _data_uri(out.getvalue())
 
 
 def _call_openai_image_edit(provider: shared_image.ImageProviderConfig, source_path: str, mask_path: str, prompt: str, timeout: int) -> str:

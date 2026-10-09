@@ -1,0 +1,17 @@
+# Optional: MediaPipe FaceMesh for the lip service (trusted lip region).
+# Without it, the lip detector stays untrusted and no lip AI call is made (fail-closed).
+#
+# Install AFTER requirements.txt:
+#   pip install -r requirements.txt -r requirements-landmarks.txt
+#   pip install --no-deps mediapipe==0.10.21
+#
+# --no-deps is required. mediapipe 0.10.21 declares opencv-contrib-python, which needs
+# libGL.so.1 and replaces the headless cv2 build; on a headless server that breaks
+# `import cv2` for the whole app. The packages below are the ones FaceMesh actually imports.
+absl-py
+attrs>=19.1.0
+flatbuffers>=2.0
+matplotlib==3.8.4
+numpy<2
+opencv-python-headless==4.11.0.86
+protobuf>=4.25.3,<5
