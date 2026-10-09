@@ -124,22 +124,29 @@ def _real_photos():
 
 
 @pytest.mark.skipif(not _real_photos(), reason="real hair photos not present (BUTI_AI_REAL_PHOTO_DIR)")
-def test_real_photos_trusted_masks_avoid_lower_body(tmp_path):
-    """Real-photo check: every trusted mask stays off the chin-to-collar band."""
-    pytest.importorskip("onnxruntime")
-    trusted = 0
+def test_real_photos_are_not_trusted_by_default(tmp_path):
+    """Production path: segmentation trust is off, so no real photo gets a trusted hair mask."""
+    assert hair.SEGMENTATION_TRUSTED is False
     for src in _real_photos():
         dst = tmp_path / os.path.basename(src)
         Image.open(src).convert("RGB").save(dst)
-        detection = hair.detect_regions(str(dst), allow_fallback=False)
-        if detection.get("detection_reliable") is not True:
-            continue
-        trusted += 1
-        stats = detection["segmentation_stats"]
-        assert stats["below_chin_centre_share"] <= seg.MAX_BELOW_CHIN_CENTRE_SHARE, src
-        assert stats["coverage"] <= seg.MAX_COVERAGE, src
-        # The service's own mask gate must accept a trusted hair mask (no provider call here).
-        from giso.buti_ai.service_image_generation import _safe_mask_for_real_ai, _mask_path_and_info
-        mask_path, _ = _mask_path_and_info(detection)
-        _safe_mask_for_real_ai("hair_color", detection, mask_path)
-    assert trusted >= 3, f"only {trusted} real photos passed the hair gate"
+        detection = hair.detect_regions(str(dst), allow_fallback=True)
+        assert detection.get("detection_reliable") is not True, src
+        assert detection.get("segmentation_rejected") == "segmentation_not_validated", src
+
+
+@pytest.mark.skipif(not _real_photos(), reason="real hair photos not present (BUTI_AI_REAL_PHOTO_DIR)")
+def test_real_photos_segmentation_runs_without_error(monkeypatch, tmp_path):
+    """Diagnostic: the segmentation gate runs on real photos; trust is not asserted here."""
+    pytest.importorskip("onnxruntime")
+    monkeypatch.setattr(hair, "SEGMENTATION_TRUSTED", True)
+    outcomes = []
+    for src in _real_photos():
+        dst = tmp_path / os.path.basename(src)
+        Image.open(src).convert("RGB").save(dst)
+        try:
+            detection = hair._try_detect_hair_by_segmentation(str(dst))
+            outcomes.append(("ok", detection["segmentation_stats"]["coverage"]))
+        except seg.HairSegmentationError as exc:
+            outcomes.append(("rejected", exc.reason))
+    assert len(outcomes) == len(_real_photos())

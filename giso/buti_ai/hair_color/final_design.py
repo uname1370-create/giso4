@@ -361,6 +361,14 @@ def _try_detect_hair_by_color(image_path: str) -> Dict[str, Any]:
     }
 
 
+# Segmentation mask is NOT trusted in the production path yet. On real photos the
+# gate still passes masks that spill onto the background (lip-gloss portrait with a
+# bright door) and masks that cover only the top of long hair (black-top portrait).
+# Keep False until a labelled hair-mask check passes; the colour detector then
+# remains the fail-closed path.
+SEGMENTATION_TRUSTED = False
+
+
 def _try_detect_hair_by_segmentation(image_path: str) -> Dict[str, Any]:
     """Model-based hair mask, trusted only when the segmentation gate passes.
 
@@ -370,6 +378,8 @@ def _try_detect_hair_by_segmentation(image_path: str) -> Dict[str, Any]:
     from PIL import Image
     from giso.buti_ai.hair_color import segmentation
 
+    if not SEGMENTATION_TRUSTED:
+        raise segmentation.HairSegmentationError("segmentation_not_validated", "hair segmentation trust disabled")
     image = Image.open(image_path).convert("RGB")
     w, h = image.size
     face_box = _detect_face_anchor(image)

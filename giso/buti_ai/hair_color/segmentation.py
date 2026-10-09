@@ -23,6 +23,8 @@ MODEL_PATH = os.path.join(
 )
 INPUT_SIZE = 512
 HAIR_THRESHOLD = 0.5
+SKIN_CLOTHES_EXCLUDE = 0.1
+SKIN_NEAR_THRESHOLD = 0.3
 MIN_COVERAGE = 0.02
 MAX_COVERAGE = 0.42
 # Share of hair pixels allowed in the band directly below the chin, centred on
@@ -86,9 +88,14 @@ def segment_hair(rgb_image, face_box: Optional[Tuple[int, int, int, int]]) -> Di
     w, h = rgb_image.size
     skin, clothes, hair = class_probabilities(rgb_image)
 
-    # A pixel is hair only when the hair channel wins and is confident.
-    hair_bin = ((hair >= HAIR_THRESHOLD) & (hair >= skin) & (hair >= clothes)).astype(np.uint8)
+    # A pixel is hair only when the hair channel is confident and skin/clothes
+    # are both near zero. Pixels near confident skin are excluded so the mask
+    # does not cover the arm, cheek or neck. Tuned on real photos (see module doc).
+    hair_bin = ((hair >= HAIR_THRESHOLD) & (skin < SKIN_CLOTHES_EXCLUDE) & (clothes < SKIN_CLOTHES_EXCLUDE)).astype(np.uint8)
     hair_bin = cv2.morphologyEx(hair_bin, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    hair_bin = cv2.morphologyEx(hair_bin, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+    near_skin = cv2.dilate((skin >= SKIN_NEAR_THRESHOLD).astype(np.uint8), np.ones((5, 5), np.uint8))
+    hair_bin = (hair_bin & (1 - near_skin)).astype(np.uint8)
 
     # Keep only hair components that touch the head zone around the face box.
     head_zone = np.zeros((h, w), np.uint8)
