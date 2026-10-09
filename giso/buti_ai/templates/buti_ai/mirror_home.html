@@ -2,9 +2,9 @@
 
 {% block title %}آینه زیبایی گیسو | انتخاب خدمت{% endblock %}
 {% block meta %}
-<meta name="description" content="آینه زیبایی گیسو؛ انتخاب خدمت زیبایی، انتخاب مدل و آماده‌سازی عکس برای طراحی نهایی.">
+<meta name="description" content="آینه زیبایی گیسو؛ در چند دقیقه پیش‌نمایش خدمت را ببین، سالن‌ها و قیمت‌ها را مقایسه کن و نوبت بگیر.">
 <meta property="og:title" content="آینه زیبایی گیسو">
-<meta property="og:description" content="خدمت زیبایی را انتخاب کن، مدل دلخواهت را بزن و قبل از هزینه طراحی نهایی را ببین.">
+<meta property="og:description" content="خدمت زیبایی را انتخاب کن، پیش‌نمایش ببین و قبل از رفتن به سالن نتیجه را بررسی کن.">
 <link rel="canonical" href="{{ url_for('buti_ai.mirror_home', _external=True) }}">
 <meta property="og:url" content="{{ url_for('buti_ai.mirror_home', _external=True) }}">
 {% endblock %}
@@ -12,22 +12,23 @@
 {% block head %}
 {{ super() }}
 <link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=15">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai_mirror_home.css') }}?v=4">
 {% endblock %}
 
 {% block content %}
-<main class="bti-page bti-service-experience" dir="rtl">
-    <section class="bti-shell bti-flow-steps" aria-label="مراحل آینه زیبایی گیسو">
-        <div class="bti-flow-step is-active"><b>1</b><span>انتخاب خدمت</span></div>
-        <div class="bti-flow-step"><b>2</b><span>انتخاب مدل</span></div>
-        <div class="bti-flow-step"><b>3</b><span>آپلود عکس</span></div>
-        <div class="bti-flow-step"><b>4</b><span>طراحی نهایی و رزرو</span></div>
-    </section>
+{% set sample_images = {
+    'eyebrow': 'services/mirror_home/eyebrow.webp',
+    'nail': 'services/mirror_home/nail.webp',
+    'hair_color': 'services/mirror_home/hair_color.webp',
+    'lip_shading': 'services/mirror_home/lip_shading.webp',
+} %}
+<main class="mh-page" dir="rtl">
 
-    <section class="bti-shell bti-service-board">
-        <div class="bti-board-topbar">
-            <a class="bti-board-back" href="{{ url_for('analysis') }}">بازگشت به آنالیز هوشمند</a>
-            <div class="bti-brand-mark">
-                <span>G</span>
+    <section class="mh-hero" aria-labelledby="mh-title">
+        <div class="mh-topbar">
+            <a class="mh-back" href="{{ url_for('analysis') }}">بازگشت به آنالیز هوشمند</a>
+            <div class="mh-brand" aria-label="آینه زیبایی گیسو">
+                <span class="mh-logo">G</span>
                 <div>
                     <b>آینه زیبایی گیسو</b>
                     <small>Giso Intelligent Beauty Mirror</small>
@@ -35,51 +36,55 @@
             </div>
         </div>
 
-        <header class="bti-board-head">
-            <span class="bti-board-kicker">مرحله اول</span>
-            <h1>اول خدمتت را انتخاب کن</h1>
-            <p>خدمت فعال را انتخاب کن؛ هر مسیر با انتخاب مدل، آپلود عکس واقعی، طراحی عکس نهایی و اتصال به مرکز ادامه پیدا می‌کند.</p>
-        </header>
+        <h1 id="mh-title">در چند دقیقه <em>پیش‌نمایش ببین</em>، سالن‌ها و قیمت‌ها را مقایسه کن و با خیال راحت نوبت بگیر.</h1>
+        <p class="mh-lead">عکس خودت را بگذار، خدمت مورد نظرت را انتخاب کن و نتیجه را قبل از رفتن به سالن ببین.</p>
 
-        <div class="bti-service-card-grid">
+        <ol class="mh-steps" aria-label="مراحل">
+            <li><i>۱</i> پیش‌نمایش با عکس خودت</li>
+            <li><i>۲</i> مقایسه سالن و قیمت</li>
+            <li><i>۳</i> انتخاب روز و نوبت</li>
+        </ol>
+    </section>
+
+    <section class="mh-list" aria-labelledby="mh-list-title">
+        <div class="mh-list-head">
+            <h2 id="mh-list-title">خدمت مورد نظرت را انتخاب کن</h2>
+            <span>چهار خدمت اصلی گیسو</span>
+        </div>
+
+        <div class="mh-services">
             {% for item in services %}
-            <article class="bti-pmu-card {{ 'is-selected' if item.status == 'active' else 'is-disabled' }}">
-                <div class="bti-pmu-content">
-                    <div class="bti-pmu-badges">
-                        <small>{{ item.badge }}</small>
-                        {% if item.status == 'active' %}<small class="is-green">آماده استفاده</small>{% else %}<small>در حال آماده‌سازی</small>{% endif %}
-                    </div>
-                    <h2>{{ item.title }}</h2>
+            {% set sample = sample_images.get(item.key, item.image) %}
+            <article class="mh-card {% if item.status != 'active' %}is-disabled{% endif %}">
+                <div class="mh-text">
+                    <span class="mh-tag">{{ item.short_title }}</span>
+                    <h3>{{ item.title }}</h3>
                     <p>{{ item.description }}</p>
-                    <ul>
+                    <ul class="mh-supports" aria-label="موارد پشتیبانی‌شده">
                         {% for meta in item.meta %}<li>{{ meta }}</li>{% endfor %}
                     </ul>
-                    {% if item.status == 'active' %}
-                    <a class="bti-pmu-card-action" href="{{ item.href }}">ورود به {{ item.short_title }}</a>
-                    {% else %}
-                    <span class="bti-pmu-card-action is-disabled">به‌زودی</span>
-                    {% endif %}
+                    <div class="mh-actions">
+                        {% if item.status == 'active' %}
+                        <a class="mh-btn" href="{{ item.href }}">پیش‌نمایش {{ item.short_title }}</a>
+                        {% else %}
+                        <span class="mh-btn is-disabled">به‌زودی</span>
+                        {% endif %}
+                        <span class="mh-hint">بعد از پیش‌نمایش، سالن و قیمت را ببین</span>
+                    </div>
                 </div>
-                <div class="bti-pmu-image">
-                    {% if item.image_blueprint == 'buti_ai' %}
-                    <img src="{{ url_for('buti_ai.static', filename=item.image) }}" alt="{{ item.title }}">
-                    {% else %}
-                    <img src="{{ url_for('static', filename=item.image) }}" alt="{{ item.title }}">
-                    {% endif %}
-                    <span>{{ item.tag }}</span>
+                <div class="mh-media">
+                    <img src="{{ url_for('buti_ai.static', filename=sample) }}" alt="نمونه {{ item.title }}" loading="lazy" width="800" height="1000">
+                    <span class="mh-badge">نمونه</span>
+                    <span class="mh-ba-label is-before">قبل</span>
+                    <span class="mh-ba-label is-after">بعد</span>
                 </div>
             </article>
             {% endfor %}
         </div>
-
-        <footer class="bti-board-footer">
-            <div class="bti-hero-actions">
-                {% for item in services if item.status == 'active' %}
-                <a class="bti-primary-action" href="{{ item.href }}">شروع {{ item.short_title }} ←</a>
-                {% endfor %}
-            </div>
-            <p>این ابزار تصمیم‌یار است؛ اجرای نهایی با متخصص انجام می‌شود.</p>
-        </footer>
     </section>
+
+    <footer class="mh-foot">
+        نمونه‌ها راهنمای انتخاب‌اند و نتیجه‌ی واقعی نیستند. اجرای نهایی با متخصص انجام می‌شود.
+    </footer>
 </main>
 {% endblock %}
