@@ -8,6 +8,13 @@ from datetime import datetime
 from typing import Any, Dict, Tuple
 
 from giso.config import Config
+from giso.buti_ai.hair_color.prompts import HAIR_COLOR_PROMPTS
+
+CHANGE_LEVEL_PROMPT = {
+    "very_natural": "very subtle",
+    "medium": "medium",
+    "clear": "clear and more visible",
+}
 
 SERVICE_KEY = "hair_color"
 UPLOAD_DIR = os.path.join(Config.GISO_DIR, "data", "uploads", "buti_ai", SERVICE_KEY)
@@ -415,6 +422,10 @@ def refine_detection_for_style(image_path: str, detection: Dict[str, Any], style
     style = STYLES.get(str(style_key or DEFAULT_STYLE), STYLES[DEFAULT_STYLE])
     if style.get("mode") != "face_frame":
         return detection
+    # Idempotent: the same detection can reach this twice (generator + guided fallback).
+    # A second pass would shrink the already-narrow side strips to almost nothing.
+    if detection.get("style_mask") == "face_frame":
+        return detection
     try:
         from PIL import Image, ImageDraw, ImageChops, ImageFilter
         detection = dict(detection or {})
@@ -500,20 +511,16 @@ def _mask_for_size(detection: Dict[str, Any], size):
 
 
 def build_design_prompt(candidate: Dict[str, Any]) -> str:
+    """CLIP-budgeted prompt (SD 1.5 reads only ~77 tokens).
+
+    The selected model's English instruction comes first, then the mask polarity
+    and change level, so the user's choices survive truncation. The Persian
+    labels and long do/avoid lists are intentionally not sent to the model.
+    """
     style_key = str((candidate or {}).get("final_style") or DEFAULT_STYLE)
-    style = STYLES.get(style_key, STYLES[DEFAULT_STYLE])
-    detection = (candidate or {}).get("detection") if isinstance((candidate or {}).get("detection"), dict) else {}
-    mask = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
-    return (
-        "Photorealistic edit of the original customer portrait for hair color and highlights. "
-        "Apply the selected hair color/light ONLY inside the provided hair mask; white mask pixels are editable hair and black pixels must remain unchanged. "
-        "Do not change face, skin, eyes, lips, eyebrows, clothes, neck, background, lighting, hairstyle shape, camera angle, or identity. "
-        "Preserve hair texture, shadows, strands, roots, and natural depth; no plastic wig, no beauty filter, no face retouching. "
-        f"Selected service: آینه رنگ و لایت مو گیسو. Selected model: {style.get('label')}. Change level: {(candidate or {}).get('change_label') or ''}. "
-        f"Style goal: {style.get('summary')}. Do: {'; '.join(style.get('do') or [])}. Avoid: {'; '.join(style.get('avoid') or [])}. "
-        f"ROI method: {detection.get('method') or 'unknown'}, real_mask={mask.get('real_mask')}, coverage={mask.get('coverage_ratio')}. "
-        "The result should look like the same person after a professional salon color consultation preview."
-    )
+    base = HAIR_COLOR_PROMPTS.get(style_key) or HAIR_COLOR_PROMPTS[DEFAULT_STYLE]
+    change = CHANGE_LEVEL_PROMPT.get(str((candidate or {}).get("change_key") or ""), CHANGE_LEVEL_PROMPT["medium"])
+    return f"{base} Edit only inside the white mask; black pixels stay unchanged. Change level: {change}."
 
 
 def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:

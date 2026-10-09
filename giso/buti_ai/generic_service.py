@@ -7,6 +7,7 @@ masking and guided renderers live in each service folder.
 from __future__ import annotations
 
 import importlib
+import logging
 import os
 from datetime import datetime
 from typing import Any, Dict
@@ -14,6 +15,8 @@ from typing import Any, Dict
 from giso.buti_ai.eyebrow.upload import missing_photo_status, save_eyebrow_photo
 from giso.buti_ai.service_catalog import SERVICE_HAIR_COLOR, SERVICE_LIP, SERVICE_NAIL, get_service_meta
 from giso.buti_ai.services import save_mirror_session
+
+logger = logging.getLogger("giso_buti_ai_generic_service")
 
 SERVICE_MODULES = {
     SERVICE_NAIL: "giso.buti_ai.nail.final_design",
@@ -218,8 +221,13 @@ def generate_final_design(service_key: str, candidate: Dict[str, Any]) -> Dict[s
     try:
         from giso.buti_ai.service_image_generation import generate_final_design as generate_service_image
         return generate_service_image(service_key, module, candidate or {})
-    except Exception:
-        return module.generate_guided_design(candidate or {})
+    except Exception as exc:
+        # Keep the truthful non-AI fallback, but do not hide why the AI path broke.
+        logger.warning("buti_ai service image generation failed service=%s error=%s", service_key, type(exc).__name__)
+        fallback = module.generate_guided_design(candidate or {})
+        if isinstance(fallback, dict):
+            fallback.setdefault("real_ai_blocked_reason", f"generation_error:{type(exc).__name__}")
+        return fallback
 
 
 def uploaded_root(service_key: str) -> str:

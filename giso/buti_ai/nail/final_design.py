@@ -12,6 +12,13 @@ from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
 from giso.config import Config
+from giso.buti_ai.nail.prompts import NAIL_PROMPTS
+
+CHANGE_LEVEL_PROMPT = {
+    "very_natural": "very subtle",
+    "medium": "medium",
+    "clear": "clear and more visible",
+}
 
 SERVICE_KEY = "nail"
 UPLOAD_DIR = os.path.join(Config.GISO_DIR, "data", "uploads", "buti_ai", SERVICE_KEY)
@@ -441,20 +448,16 @@ def _draw_style_overlay(base, style_key: str, detection: Dict[str, Any]):
 
 
 def build_design_prompt(candidate: Dict[str, Any]) -> str:
+    """CLIP-budgeted prompt (SD 1.5 reads only ~77 tokens).
+
+    The selected model's English instruction comes first, then the mask polarity
+    and change level, so the user's choices survive truncation. The Persian
+    labels and long do/avoid lists are intentionally not sent to the model.
+    """
     style_key = str((candidate or {}).get("final_style") or DEFAULT_STYLE)
-    style = STYLES.get(style_key, STYLES[DEFAULT_STYLE])
-    detection = (candidate or {}).get("detection") if isinstance((candidate or {}).get("detection"), dict) else {}
-    mask = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
-    return (
-        "Photorealistic edit of the original customer hand photo for nail try-on. "
-        "Apply the selected nail design ONLY inside the provided nail-plate mask; white mask pixels are editable nail plates and black pixels must remain unchanged. "
-        "Do not change fingers, skin tone, cuticles, hand shape, jewelry, background, lighting, camera angle, or nail length outside the existing nail plate. "
-        "Keep natural reflections and anatomy; no extra fingers, no artificial hand, no cartoon polish. "
-        f"Selected service: آینه ناخن گیسو. Selected model: {style.get('label')}. Change level: {(candidate or {}).get('change_label') or ''}. "
-        f"Style goal: {style.get('summary')}. Do: {'; '.join(style.get('do') or [])}. Avoid: {'; '.join(style.get('avoid') or [])}. "
-        f"ROI method: {detection.get('method') or 'unknown'}, real_mask={mask.get('real_mask')}, coverage={mask.get('coverage_ratio')}. "
-        "The result should look like the same hand after a professional nail-color consultation preview."
-    )
+    base = NAIL_PROMPTS.get(style_key) or NAIL_PROMPTS[DEFAULT_STYLE]
+    change = CHANGE_LEVEL_PROMPT.get(str((candidate or {}).get("change_key") or ""), CHANGE_LEVEL_PROMPT["medium"])
+    return f"{base} Edit only inside the white mask; black pixels stay unchanged. Change level: {change}."
 
 
 def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:

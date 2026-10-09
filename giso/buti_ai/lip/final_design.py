@@ -8,6 +8,13 @@ from datetime import datetime
 from typing import Any, Dict, Tuple
 
 from giso.config import Config
+from giso.buti_ai.lip.prompts import LIP_SHADING_PROMPTS
+
+CHANGE_LEVEL_PROMPT = {
+    "very_natural": "very subtle",
+    "medium": "medium",
+    "clear": "clear and more visible",
+}
 
 SERVICE_KEY = "lip_shading"
 UPLOAD_DIR = os.path.join(Config.GISO_DIR, "data", "uploads", "buti_ai", SERVICE_KEY)
@@ -334,20 +341,16 @@ def _mask_for_size(detection: Dict[str, Any], size):
 
 
 def build_design_prompt(candidate: Dict[str, Any]) -> str:
+    """CLIP-budgeted prompt (SD 1.5 reads only ~77 tokens).
+
+    The selected model's English instruction comes first, then the mask polarity
+    and change level, so the user's choices survive truncation. The Persian
+    labels and long do/avoid lists are intentionally not sent to the model.
+    """
     style_key = str((candidate or {}).get("final_style") or DEFAULT_STYLE)
-    style = STYLES.get(style_key, STYLES[DEFAULT_STYLE])
-    detection = (candidate or {}).get("detection") if isinstance((candidate or {}).get("detection"), dict) else {}
-    mask = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
-    return (
-        "Photorealistic edit of the original customer photo for lip PMU and lip shading preview. "
-        "Apply the selected lip model ONLY inside the provided lip mask/ROI; white mask pixels are editable lip tissue and black pixels must remain unchanged. "
-        "Do not change teeth, gums, skin around the mouth, nose, face identity, makeup outside lips, lighting, background, expression, or camera angle. "
-        "Keep natural lip texture, highlights, wrinkles and asymmetry; no overlining, no enlarged lips, no lipstick outside the vermilion border. "
-        f"Selected service: آینه لب و شیدینگ گیسو. Selected model: {style.get('label')}. Change level: {(candidate or {}).get('change_label') or ''}. "
-        f"Style goal: {style.get('summary')}. Do: {'; '.join(style.get('do') or [])}. Avoid: {'; '.join(style.get('avoid') or [])}. "
-        f"ROI method: {detection.get('method') or 'unknown'}, real_mask={mask.get('real_mask')}, coverage={mask.get('coverage_ratio')}. "
-        "The result must look like the same photo after a subtle professional PMU consultation, not a beauty filter."
-    )
+    base = LIP_SHADING_PROMPTS.get(style_key) or LIP_SHADING_PROMPTS[DEFAULT_STYLE]
+    change = CHANGE_LEVEL_PROMPT.get(str((candidate or {}).get("change_key") or ""), CHANGE_LEVEL_PROMPT["medium"])
+    return f"{base} Edit only inside the white mask; black pixels stay unchanged. Change level: {change}."
 
 
 def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:

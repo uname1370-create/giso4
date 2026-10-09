@@ -275,10 +275,9 @@ def _call_cloudflare_inpainting(provider: shared_image.ImageProviderConfig, serv
     except Exception:
         num_steps = 20
     payload = {
-        "prompt": (
-            f"{prompt} Apply the selected service result only inside the uploaded inpainting mask. "
-            "Mask polarity: white pixels are editable, black pixels must remain unchanged."
-        ),
+        # The service prompt already carries the mask-polarity rule first. Appending
+        # more text here would be cut off by the CLIP 77-token window anyway.
+        "prompt": prompt,
         "negative_prompt": (
             "changed identity, changed face shape, changed skin outside mask, changed teeth, changed eyes, "
             "changed clothes, changed background, distorted anatomy, cartoon, illustration, beauty filter outside mask"
