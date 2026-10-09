@@ -86,3 +86,14 @@ body:not(.pnl-body):not(.pu-body) .giso-main :is(.giso-narrow,.ahs-flow-page,.gi
 body:not(.pnl-body):not(.pu-body) .giso-main :is(.giso-section-intro,.mkt-disclaimer p,.bc-disclaimer span,article>p){max-inline-size:800px}
 @media(max-width:1100px){body:not(.pnl-body):not(.pu-body){--giso-page-wide:calc(100vw - 32px);--giso-page-form:calc(100vw - 32px);--giso-page-reading:calc(100vw - 32px)}}
 @media(max-width:760px){body:not(.pnl-body):not(.pu-body){--giso-page-wide:calc(100vw - 20px);--giso-page-form:calc(100vw - 20px);--giso-page-reading:calc(100vw - 20px)}}
+/* منوی موبایل: فاصله‌ی آیکن و متن؛ حالت هاور/فوکوس با متن تیره و زمینه‌ی طلایی روشن در همه‌ی تم‌ها */
+@media(max-width:900px){
+ body:not(.pnl-body):not(.pu-body) .giso-nav-links>a{gap:10px!important}
+ body:not(.pnl-body):not(.pu-body) .giso-nav-links>a>i{width:18px!important;text-align:center!important;flex:0 0 18px!important}
+ html body:not(.pnl-body):not(.pu-body)[data-theme] .giso-nav-links>a:not(.giso-btn):hover,
+ html body:not(.pnl-body):not(.pu-body)[data-theme] .giso-nav-links>a:not(.giso-btn):focus-visible,
+ html body:not(.pnl-body):not(.pu-body)[data-theme] .giso-nav-links>a:not(.giso-btn):active,
+ html body:not(.pnl-body):not(.pu-body):not([data-theme]) .giso-nav-links>a:not(.giso-btn):hover,
+ html body:not(.pnl-body):not(.pu-body):not([data-theme]) .giso-nav-links>a:not(.giso-btn):focus-visible,
+ html body:not(.pnl-body):not(.pu-body):not([data-theme]) .giso-nav-links>a:not(.giso-btn):active{background:#fff3dc!important;color:#3d2817!important;border-color:rgba(212,175,55,.6)!important;box-shadow:none!important}
+}
