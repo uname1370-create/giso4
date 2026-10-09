@@ -38,7 +38,29 @@ def test_guided_final_output_for_each_service_is_webp(tmp_path, monkeypatch, ser
     monkeypatch.setattr(module, upload_attr, str(upload_dir))
     monkeypatch.setattr(module, "FINAL_DIR" if hasattr(module, "FINAL_DIR") else "FINAL_DESIGN_DIR", str(final_dir))
 
-    result = getattr(module, generator_name)({"photo_filename": source_path.name})
+    payload = {"photo_filename": source_path.name}
+    if service_key in ("hair_color", "nail"):
+        # Guided previews fail closed on untrusted masks (round 6). Give them a validated
+        # synthetic mask so this test still checks the WebP and outside-mask contract.
+        import numpy as np
+
+        width, height = Image.open(source_path).size
+        mask_path = upload_dir / "trusted_mask.png"
+        mask_arr = np.zeros((height, width), np.uint8)
+        mask_arr[height // 4:height // 2, width // 4:3 * width // 4] = 255
+        Image.fromarray(mask_arr).save(mask_path)
+        payload["detection"] = {
+            "ok": True,
+            "method": "test_trusted_mask",
+            "detection_reliable": True,
+            "is_fallback": False,
+            "image_width": width,
+            "image_height": height,
+            "regions": [{"x": width // 4, "y": height // 4, "width": width // 2, "height": height // 4}],
+            "mask": {"ok": True, "path": str(mask_path), "coverage_ratio": 0.125, "is_fallback": False, "real_mask": True},
+        }
+
+    result = getattr(module, generator_name)(payload)
 
     assert result["ok"] is True
     assert result["filename"].endswith(".webp")

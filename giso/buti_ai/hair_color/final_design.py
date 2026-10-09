@@ -576,6 +576,28 @@ def build_design_prompt(candidate: Dict[str, Any]) -> str:
     return f"{base} Edit only inside the white mask; black pixels stay unchanged. Change level: {change}."
 
 
+# Offset strength per style mode for the guided colour preview (0..1).
+RECOLOR_STRENGTH: Dict[str, float] = {"full_tone": 0.85, "strands": 0.6, "balayage": 0.6, "face_frame": 0.6}
+
+
+def _detection_is_trusted(detection: Any) -> bool:
+    return isinstance(detection, dict) and detection.get("detection_reliable") is True and not detection.get("is_fallback")
+
+
+def _untrusted_guided_result(detection: Any) -> Dict[str, Any]:
+    info = detection if isinstance(detection, dict) else {}
+    return {
+        "ok": False,
+        "status": "region_detection_unreliable",
+        "service_key": SERVICE_KEY,
+        "is_ai_generated": False,
+        "ai_inpainting": False,
+        "fallback_type": "none",
+        "message": "ناحیه مو با اطمینان کافی شناسایی نشد؛ طراحی رنگ ساخته نشد. لطفاً یک عکس روبه‌رو و واضح از مو آپلود کن.",
+        "real_ai_blocked_reason": str(info.get("untrusted_reason") or info.get("method") or "region_not_trusted")[:200],
+    }
+
+
 def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
     src = _source_path(candidate)
     if not src:
@@ -587,14 +609,18 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
         style_key = str(candidate.get("final_style") or DEFAULT_STYLE)
         style = STYLES.get(style_key, STYLES[DEFAULT_STYLE])
         detection = candidate.get("detection") if isinstance(candidate.get("detection"), dict) else detect_regions(src, allow_fallback=True)
+        # Fail closed: an untrusted (fallback/colour/proportional) mask must never be painted.
+        if not _detection_is_trusted(detection):
+            return _untrusted_guided_result(detection)
         detection = refine_detection_for_style(src, detection, style_key)
         mask = _mask_for_size(detection, base.size)
         color = tuple(style.get("color") or (120, 80, 48))
         mode = style.get("mode")
-        blend_alpha = 0.32 if mode == "full_tone" else (0.24 if mode in {"strands", "balayage"} else 0.42)
-        tint = Image.new("RGB", base.size, color)
-        # Preserve texture by blending color layer with original contrast.
-        colored = Image.blend(base, tint, blend_alpha)
+        # Mask-confined LAB shift: keeps strand/shading detail, changes only the masked hair.
+        import numpy as np
+        from giso.buti_ai.mask_recolor import recolor_masked_region
+        recolored = recolor_masked_region(np.asarray(base), np.asarray(mask), color, strength=RECOLOR_STRENGTH.get(mode, 0.6))
+        colored = Image.fromarray(recolored)
         colored = ImageEnhance.Contrast(colored).enhance(1.05)
         overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)

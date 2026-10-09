@@ -464,6 +464,28 @@ def build_design_prompt(candidate: Dict[str, Any]) -> str:
     return f"{base} Edit only inside the white mask; black pixels stay unchanged. Change level: {change}."
 
 
+# Styles the non-AI preview can draw honestly (solid colour on a validated plate mask).
+SOLID_PREVIEW_STYLES = frozenset({"nude_minimal", "glazed_chrome", "cat_eye"})
+
+
+def _detection_is_trusted(detection: Any) -> bool:
+    return isinstance(detection, dict) and detection.get("detection_reliable") is True and not detection.get("is_fallback")
+
+
+def _untrusted_guided_result(detection: Any) -> Dict[str, Any]:
+    info = detection if isinstance(detection, dict) else {}
+    return {
+        "ok": False,
+        "status": "region_detection_unreliable",
+        "service_key": SERVICE_KEY,
+        "is_ai_generated": False,
+        "ai_inpainting": False,
+        "fallback_type": "none",
+        "message": "ناحیه ناخن با اطمینان کافی شناسایی نشد؛ طراحی ناخن ساخته نشد. لطفاً عکس واضح‌تر دست با ناخن‌ها رو به دوربین آپلود کن.",
+        "real_ai_blocked_reason": str(info.get("untrusted_reason") or info.get("method") or "region_not_trusted")[:200],
+    }
+
+
 def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
     src = _source_path(candidate)
     if not src:
@@ -473,7 +495,18 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
         base = Image.open(src).convert("RGB")
         base.thumbnail((1400, 1400))
         detection = candidate.get("detection") if isinstance(candidate.get("detection"), dict) else detect_regions(src, allow_fallback=True)
-        overlay = _draw_style_overlay(base, str(candidate.get("final_style") or DEFAULT_STYLE), detection)
+        # Fail closed: never paint the proportional/colour-guess boxes.
+        if not _detection_is_trusted(detection):
+            return _untrusted_guided_result(detection)
+        style_key = str(candidate.get("final_style") or DEFAULT_STYLE)
+        if style_key not in SOLID_PREVIEW_STYLES:
+            return {
+                "ok": False,
+                "status": "non_ai_style_unavailable",
+                "service_key": SERVICE_KEY,
+                "is_ai_generated": False,
+                "message": "این طرح الگودار فقط با مسیر AI ساخته می‌شود؛ نسخه راهنمای غیر AI فقط برای رنگ یکدست است.",
+            }
         mask_info = detection.get("mask") if isinstance(detection.get("mask"), dict) else {}
         mask_path = str(mask_info.get("path") or detection.get("mask_path") or "")
         if not mask_path or not os.path.isfile(mask_path):
@@ -482,8 +515,13 @@ def generate_guided_design(candidate: Dict[str, Any]) -> Dict[str, Any]:
         with Image.open(mask_path) as source_mask:
             edit_mask = source_mask.convert("L").resize(base.size, resample)
         edit_mask = edit_mask.point(lambda px: 255 if int(px) > 0 else 0)
-        overlay.putalpha(ImageChops.multiply(overlay.getchannel("A"), edit_mask))
-        composed = Image.alpha_composite(base.convert("RGBA"), overlay).convert("RGB")
+        # Mask-confined LAB shift on the nail plate; highlights are protected so glints stay.
+        import numpy as np
+        from giso.buti_ai.mask_recolor import recolor_masked_region
+        color = tuple(STYLES[style_key].get("color") or (224, 174, 160))
+        composed = Image.fromarray(recolor_masked_region(
+            np.asarray(base), np.asarray(edit_mask), color, strength=0.8, protect_highlights=True,
+        ))
         os.makedirs(FINAL_DIR, exist_ok=True)
         from giso.buti_ai.image_validation import save_lossless_webp, validate_masked_output
         filename = f"final/final_nail_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.webp"
