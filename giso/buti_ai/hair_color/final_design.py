@@ -361,16 +361,57 @@ def _try_detect_hair_by_color(image_path: str) -> Dict[str, Any]:
     }
 
 
+def _try_detect_hair_by_segmentation(image_path: str) -> Dict[str, Any]:
+    """Model-based hair mask, trusted only when the segmentation gate passes.
+
+    Raises HairSegmentationError (with a reason code) when the image or mask
+    does not pass validation; the caller then falls back to the untrusted path.
+    """
+    from PIL import Image
+    from giso.buti_ai.hair_color import segmentation
+
+    image = Image.open(image_path).convert("RGB")
+    w, h = image.size
+    face_box = _detect_face_anchor(image)
+    result = segmentation.segment_hair(image, face_box)
+    bx, by, bw, bh = result["stats"]["bbox"]
+    return {
+        "ok": True,
+        "method": "segmentation_hair_v1",
+        "confidence": 0.8,
+        "detection_reliable": True,
+        "untrusted_reason": "",
+        "is_fallback": False,
+        "image_width": w,
+        "image_height": h,
+        "face_anchor_detected": True,
+        "face_protection_applied": True,
+        "segmentation_stats": result["stats"],
+        "regions": [{"side": "hair", "x": bx, "y": by, "width": bw, "height": bh,
+                     "source": "segmentation_hair_v1", "confidence": 0.8}],
+        "_mask_image": result["mask"],
+    }
+
+
 def detect_regions(image_path: str, allow_fallback: bool = True) -> Dict[str, Any]:
     w, h = _image_size(image_path)
     if not w or not h:
         return {"ok": False, "method": "invalid_image", "regions": [], "mask": {"ok": False, "reason": "invalid_image"}}
+    seg_reason = ""
     try:
-        return ensure_mask(image_path, _try_detect_hair_by_color(image_path))
+        return ensure_mask(image_path, _try_detect_hair_by_segmentation(image_path))
+    except Exception as seg_exc:
+        seg_reason = getattr(seg_exc, "reason", "") or type(seg_exc).__name__
+    try:
+        detection = ensure_mask(image_path, _try_detect_hair_by_color(image_path))
+        detection["segmentation_rejected"] = seg_reason
+        return detection
     except Exception:
         if not allow_fallback:
             return {"ok": False, "method": "hair_not_detected", "regions": [], "mask": {"ok": False, "reason": "hair_not_detected"}}
-    return ensure_mask(image_path, _fallback_hair_detection(w, h))
+    detection = ensure_mask(image_path, _fallback_hair_detection(w, h))
+    detection["segmentation_rejected"] = seg_reason
+    return detection
 
 
 def ensure_mask(image_path: str, detection: Dict[str, Any]) -> Dict[str, Any]:
