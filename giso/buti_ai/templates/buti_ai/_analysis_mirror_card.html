@@ -2,7 +2,7 @@
   کارت ورودی آینه زیبایی در صفحه /analysis.
   منبع این کارت عمداً داخل giso/buti_ai است تا گزینه آینه از ماژول خودش خوانده شود.
   سمت چپ: نمونه‌ی زنده‌ی قبل/بعد ابرو (خط اسکنر بخش «بعد» را باز می‌کند).
-  سمت راست: متن روشن. خدمات اصلی در کارت‌های جدا زیر این کارت آمده‌اند.
+  سمت راست: متن روشن و وسط‌چین با چهار خدمت و دکمه‌ی شروع فرایند.
 #}
 <div class="ahs-card mirror">
     <div class="ahs-card-inner">
@@ -20,9 +20,15 @@
         <div class="ahs-card-overlay"></div>
 
         <div class="ahs-mirror-content">
-            <span class="ahs-mirror-badge">✨ جدید</span>
             <h2>آینه زیبایی گیسو</h2>
             <p>قبل از انتخاب سالن و مقایسه قیمت، نتیجه را روی عکس خودت ببین.</p>
+
+            <div class="ahs-labels">
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-label"><span>آینه ابرو</span><span class="lbl-ico">🪞</span></a>
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-label"><span>آینه ناخن</span><span class="lbl-ico">💅</span></a>
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-label"><span>آینه لب</span><span class="lbl-ico">💋</span></a>
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-label"><span>آینه رنگ مو</span><span class="lbl-ico">🎨</span></a>
+            </div>
 
             <ol class="ahs-mirror-steps">
                 <li>انتخاب خدمت</li>
