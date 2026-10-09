@@ -264,10 +264,82 @@ def _try_detect_lip_by_color(image_path: str) -> Dict[str, Any]:
     return detection
 
 
+# MediaPipe FaceMesh landmark indices for the outer and inner (mouth opening) lip contours.
+_LIP_OUTER = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185]
+_LIP_INNER = [78, 191, 80, 81, 82, 13, 312, 311, 310, 415, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95]
+_NOSE_TIP, _CHIN, _FACE_LEFT, _FACE_RIGHT = 1, 152, 234, 454
+
+
+def _polygon_area(points: list) -> float:
+    area = 0.0
+    n = len(points)
+    for i in range(n):
+        x1, y1 = points[i]
+        x2, y2 = points[(i + 1) % n]
+        area += x1 * y2 - x2 * y1
+    return abs(area) / 2.0
+
+
+def _try_detect_lip_by_face_mesh(image_path: str) -> Dict[str, Any]:
+    """Real lip region from FaceMesh landmarks (outer lip contour minus the mouth opening).
+
+    Trusted only when the lip polygon is geometrically plausible for the detected face:
+    the mouth sits between nose tip and chin, has a reasonable width and area.
+    Teeth/mouth opening are excluded from the edit mask. Raises ValueError otherwise.
+    """
+    from PIL import Image, ImageDraw
+    from giso.buti_ai import mediapipe_landmarks
+
+    found = mediapipe_landmarks.face_mesh_points(image_path)
+    if not found:
+        raise ValueError("face_mesh_not_found")
+    points, w, h = found
+    outer = [points[i] for i in _LIP_OUTER]
+    inner = [points[i] for i in _LIP_INNER]
+    xs = [p[0] for p in outer]
+    ys = [p[1] for p in outer]
+    outer_area = _polygon_area(outer)
+    inner_area = _polygon_area(inner)
+    face_w = abs(points[_FACE_RIGHT][0] - points[_FACE_LEFT][0])
+    mouth_cy = sum(ys) / len(ys)
+    if not (0.0008 * w * h <= outer_area <= 0.08 * w * h):
+        raise ValueError("lip_area_implausible")
+    if not (inner_area < outer_area):
+        raise ValueError("lip_opening_implausible")
+    if face_w <= 0 or (max(xs) - min(xs)) < 0.2 * face_w:
+        raise ValueError("lip_width_implausible")
+    if not (points[_NOSE_TIP][1] < mouth_cy < points[_CHIN][1]):
+        raise ValueError("lip_not_between_nose_and_chin")
+
+    mask = Image.new("L", (w, h), 0)
+    draw = ImageDraw.Draw(mask)
+    draw.polygon(outer, fill=255)
+    # Keep the mouth opening (teeth/inner mouth) out of the lip edit.
+    draw.polygon(inner, fill=0)
+    x0, y0 = max(0, int(min(xs))), max(0, int(min(ys)))
+    x1, y1 = min(w - 1, int(max(xs)) + 1), min(h - 1, int(max(ys)) + 1)
+    return {
+        "ok": True,
+        "method": "facemesh_lip_polygon_v1",
+        "confidence": 0.9,
+        "detection_reliable": True,
+        "is_fallback": False,
+        "image_width": w,
+        "image_height": h,
+        "regions": [{"side": "mouth", "x": x0, "y": y0, "width": x1 - x0 + 1, "height": y1 - y0 + 1,
+                     "source": "facemesh_lip_polygon_v1", "confidence": 0.9}],
+        "_mask_image": mask,
+    }
+
+
 def detect_regions(image_path: str, allow_fallback: bool = True) -> Dict[str, Any]:
     w, h = _image_size(image_path)
     if not w or not h:
         return {"ok": False, "method": "invalid_image", "regions": [], "mask": {"ok": False, "reason": "invalid_image"}}
+    try:
+        return ensure_mask(image_path, _try_detect_lip_by_face_mesh(image_path))
+    except Exception:
+        pass
     try:
         detection = _try_detect_lip_by_color(image_path)
         return ensure_mask(image_path, detection)
