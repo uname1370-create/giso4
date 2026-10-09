@@ -264,7 +264,7 @@ def _detect_nail_boxes_by_color(image_path: str) -> List[Dict[str, Any]]:
             # Expand from bright tip to full nail bed; keep it small enough not to paint fingers.
             pad_x = max(3, int(bw * 0.24))
             pad_top = max(2, int(bh * 0.15))
-            pad_bottom = max(12, int(bh * 1.75))
+            pad_bottom = max(4, int(bh * 0.35))
             bx = max(0, fx0 - pad_x)
             by = max(0, fy0 - pad_top)
             bx2 = min(w - 1, fx1 + pad_x)
@@ -292,7 +292,8 @@ def _detect_nail_boxes_by_color(image_path: str) -> List[Dict[str, Any]]:
                 "confidence": 0.70,
                 "source": "color_nail_plate_mask_v1",
             })
-        boxes.sort(key=lambda r: (r["x"], r["y"]))
+        # Keep the largest candidates (area order). Sorting by x before truncation
+        # used to keep the five left-most blobs, i.e. the wrong hand.
         return boxes[:5]
     except Exception:
         return []
@@ -361,7 +362,10 @@ def detect_regions(image_path: str, allow_fallback: bool = True) -> Dict[str, An
         "ok": True,
         "method": "color_nail_plate_mask_v1" if len(color_regions) >= 3 else ("color_validated_nail_plate_mask_v1" if reliable else "proportional_nail_guide"),
         "confidence": 0.72 if len(color_regions) >= 3 else (0.66 if reliable else 0.28),
-        "detection_reliable": bool(reliable),
+        # Colour nail detection picked the wrong hand and a silver ring on the real
+        # sample, and misses pale nails. Never trusted until a validated detector exists.
+        "detection_reliable": False,
+        "untrusted_reason": "nail color detector: wrong hand/ring on real photo; pale nails missed",
         "is_fallback": not bool(reliable),
         "image_width": w,
         "image_height": h,

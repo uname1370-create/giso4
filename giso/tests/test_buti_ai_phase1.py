@@ -721,7 +721,9 @@ def test_ai_provider_output_changes_only_eyebrow_mask_area(tmp_path, monkeypatch
 
     original = tmp_path / "face.jpg"
     base_color = (218, 178, 148)
-    ai_color = (28, 88, 226)
+    # Moderate whole-image shift: the guard rejects solid replacements (mean delta > 32),
+    # which is correct; this test checks that only the eyebrow mask survives compositing.
+    ai_color = (242, 202, 172)
     Image.new("RGB", (640, 820), base_color).save(original, "JPEG")
     output = _BytesIO()
     Image.new("RGB", (640, 820), ai_color).save(output, "PNG")
@@ -774,7 +776,8 @@ def test_ai_provider_output_changes_only_eyebrow_mask_area(tmp_path, monkeypatch
     outside_sorted = sorted(outside_deltas)
     assert sum(outside_deltas) / len(outside_deltas) < 4.5
     assert outside_sorted[int(len(outside_sorted) * 0.99)] < 8
-    assert sum(inside_deltas) / len(inside_deltas) > 40
+    # Guard band: mean inside change must be visible but <= MAX_VISIBLE_EYEBROW_MEAN_DELTA (32).
+    assert 8 < sum(inside_deltas) / len(inside_deltas) <= 32
 
     # نقاط حساس غیرابرو مثل گوشه‌ها و مرکز پایین صورت نباید رنگ خروجی provider را بگیرند.
     for point in ((20, 20), (saved.width - 25, 25), (saved.width // 2, saved.height - 60), (saved.width // 2, saved.height // 2)):
@@ -1253,7 +1256,8 @@ def test_ai_provider_output_is_constrained_to_eyebrow_mask(tmp_path, monkeypatch
     source_color = (218, 178, 148)
     Image.new("RGB", (640, 820), source_color).save(original, "JPEG")
     output = _BytesIO()
-    Image.new("RGB", (640, 820), (0, 0, 0)).save(output, "PNG")
+    # Moderate uniform shift (not a solid black replacement, which the guard rejects).
+    Image.new("RGB", (640, 820), (242, 202, 172)).save(output, "PNG")
     output_b64 = base64.b64encode(output.getvalue()).decode("ascii")
 
     monkeypatch.setattr(final_design, "EYEBROW_UPLOAD_DIR", str(tmp_path))
@@ -1300,7 +1304,8 @@ def test_ai_provider_output_is_constrained_to_eyebrow_mask(tmp_path, monkeypatch
     outside = saved.getpixel((20, 20))
     inside = saved.getpixel((238, 266))
     assert all(abs(outside[i] - source_color[i]) < 18 for i in range(3))
-    assert sum(inside) < 80
+    # Provider output is brightened inside the mask (within guard band), so inside is not the source colour.
+    assert sum(inside) > sum(source_color)
 
 
 def test_cloudflare_non_photo_edit_models_are_not_called_with_multipart():

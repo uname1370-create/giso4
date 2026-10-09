@@ -10,7 +10,6 @@ ROOT = Path(__file__).resolve().parents[2]
 
 from giso.app import create_app
 from giso.base import get_giso_db_conn
-from giso.buti_ai.nail import final_design as nail_final
 from giso.buti_ai.lip import final_design as lip_final
 from giso.buti_ai.hair_color import final_design as hair_color_final
 from giso.buti_ai import generic_service
@@ -32,25 +31,20 @@ def _csrf(html):
     return re.search(r'name="csrf_token" value="([^"]+)"', html).group(1)
 
 
-def _assert_guest_final_preview(client, final_page, service_slug, service_key, session_key):
+def _assert_region_error(client, final_page, service_slug, service_key, session_key):
+    """Real sample photos: colour region detection is untrusted, so the final page must show
+    an explicit region error, no guided image, and no saved design."""
     text = final_page.get_data(as_text=True)
     assert "ورود لازم است" not in text
-    assert "طراحی راهنمای غیر AI آماده شد" in text
-    assert f"/analysis/mirror/{service_slug}/uploads/final/" in text
-    cookie = final_page.headers.get("Set-Cookie", "")
-    assert not cookie or len(cookie) < 4093
-
+    assert "با اطمینان کافی شناسایی نشد" in text
+    assert f"/analysis/mirror/{service_slug}/uploads/final/" not in text
     with client.session_transaction() as sess:
         candidate = dict(sess[session_key])
     generation = candidate.get("generation") or {}
-    assert generation.get("ok") is True
+    assert generation.get("ok") is False
+    assert generation.get("status") == "region_detection_unreliable"
     assert generation.get("is_ai_generated") is False
-    assert generation.get("filename", "").startswith("final/")
-    assert candidate.get("final_design_id") is None
-
-    final_file = client.get(f"/analysis/mirror/{service_slug}/uploads/{generation['filename']}")
-    assert final_file.status_code == 200
-    assert final_file.mimetype == "image/webp"
+    assert not generation.get("filename")
     with get_giso_db_conn() as conn:
         count = conn.execute(
             "SELECT COUNT(*) FROM buti_ai_final_designs WHERE service_type=? AND user_id IS NULL",
@@ -58,6 +52,7 @@ def _assert_guest_final_preview(client, final_page, service_slug, service_key, s
         ).fetchone()[0]
     assert count == 0
     return candidate, generation
+
 
 
 def test_nail_mirror_uses_staged_flow_and_preserves_selected_model():
@@ -106,9 +101,7 @@ def test_nail_mirror_uses_staged_flow_and_preserves_selected_model():
     assert final_page.status_code == 200
     result_text = final_page.get_data(as_text=True)
     assert "فرنچ کلاسیک" in result_text
-    candidate, route_generation = _assert_guest_final_preview(
-        client, final_page, "nail", "nail", "buti_ai_nail_final_candidate"
-    )
+    candidate, generation = _assert_region_error(client, final_page, "nail", "nail", "buti_ai_nail_final_candidate")
     assert candidate["service_key"] == "nail"
     assert candidate["service_type"] == "nail"
     assert candidate["selected_style"] == "classic_french"
@@ -117,11 +110,6 @@ def test_nail_mirror_uses_staged_flow_and_preserves_selected_model():
     assert candidate["change_key"] == "clear"
     assert candidate["photo_filename"].startswith("nail_")
 
-    generation = route_generation
-    assert generation["ok"] is True
-    assert generation["is_ai_generated"] is False
-    assert generation["filename"].startswith("final/final_nail_")
-    assert (Path(nail_final.UPLOAD_DIR) / generation["filename"]).exists()
 
     _cleanup_service("nail")
 
@@ -169,7 +157,7 @@ def test_lip_shading_mirror_uses_staged_flow_and_truthful_guided_output():
     assert final_page.status_code == 200
     result_text = final_page.get_data(as_text=True)
     assert "تینت صورتی ملایم" in result_text
-    candidate, route_generation = _assert_guest_final_preview(
+    candidate, generation = _assert_region_error(
         client, final_page, "lip-shading", "lip_shading", "buti_ai_lip_shading_final_candidate"
     )
     assert candidate["service_key"] == "lip_shading"
@@ -181,11 +169,6 @@ def test_lip_shading_mirror_uses_staged_flow_and_truthful_guided_output():
     assert candidate["change_key"] == "very_natural"
     assert candidate["photo_filename"].startswith("lip_shading_")
 
-    generation = route_generation
-    assert generation["ok"] is True
-    assert generation["is_ai_generated"] is False
-    assert generation["filename"].startswith("final/final_lip_")
-    assert (Path(lip_final.UPLOAD_DIR) / generation["filename"]).exists()
 
     _cleanup_service("lip_shading")
 
@@ -233,7 +216,7 @@ def test_hair_color_mirror_uses_staged_flow_and_truthful_guided_output():
     assert final_page.status_code == 200
     result_text = final_page.get_data(as_text=True)
     assert "بالیاژ کاراملی" in result_text
-    candidate, route_generation = _assert_guest_final_preview(
+    candidate, generation = _assert_region_error(
         client, final_page, "hair-color", "hair_color", "buti_ai_hair_color_final_candidate"
     )
     assert candidate["service_key"] == "hair_color"
@@ -244,11 +227,6 @@ def test_hair_color_mirror_uses_staged_flow_and_truthful_guided_output():
     assert candidate["final_label"] == "بالیاژ کاراملی"
     assert candidate["photo_filename"].startswith("hair_color_")
 
-    generation = route_generation
-    assert generation["ok"] is True
-    assert generation["is_ai_generated"] is False
-    assert generation["filename"].startswith("final/final_hair_color_")
-    assert (Path(hair_color_final.UPLOAD_DIR) / generation["filename"]).exists()
 
     _cleanup_service("hair_color")
 
@@ -330,7 +308,7 @@ def test_every_new_service_model_selection_survives_upload_and_generation():
             assert final_page.status_code == 200
             result_text = final_page.get_data(as_text=True)
             assert style_meta["label"] in result_text
-            candidate, generation = _assert_guest_final_preview(
+            candidate, generation = _assert_region_error(
                 client, final_page, slug, service_key, session_keys[service_key]
             )
             assert candidate["service_key"] == service_key
@@ -339,8 +317,6 @@ def test_every_new_service_model_selection_survives_upload_and_generation():
             assert candidate["final_style"] == style_key
             assert candidate["selected_label"] == style_meta["label"]
             assert candidate["final_label"] == style_meta["label"]
-            assert generation["mask_used"] is True
-            assert (Path(module.UPLOAD_DIR) / generation["filename"]).exists()
 
         _cleanup_service(service_key)
 
@@ -387,6 +363,9 @@ def test_lip_real_ai_requires_real_mask_and_preserves_outside_mask(tmp_path, mon
     detection = lip_final.detect_regions(str(photo_path), allow_fallback=False)
     assert detection["ok"] is True
     assert detection["mask"]["real_mask"] is True
+    # Mechanism test only: the colour detector is untrusted on real photos (fail-closed), so the
+    # synthetic detection is marked trusted to exercise provider-output validation, not detection quality.
+    detection["detection_reliable"] = True
 
     candidate = {
         "service_key": SERVICE_LIP,
@@ -452,7 +431,7 @@ def test_lip_finalize_does_not_recover_an_unowned_upload_from_client_filename():
     assert response.headers["Location"].endswith("/analysis/mirror/lip-shading/final")
     final_page = client.get(response.headers["Location"])
     assert final_page.status_code == 200
-    candidate, _generation = _assert_guest_final_preview(
+    candidate, _generation = _assert_region_error(
         client, final_page, "lip-shading", "lip_shading", "buti_ai_lip_shading_final_candidate"
     )
     with client.session_transaction() as sess:

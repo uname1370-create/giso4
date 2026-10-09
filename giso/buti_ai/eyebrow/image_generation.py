@@ -727,10 +727,9 @@ def _call_cloudflare_inpainting(provider: ImageProviderConfig, source_path: str,
         num_steps = 20
     num_steps = max(1, min(20, num_steps))
     payload = {
-        "prompt": (
-            f"{prompt} Apply the selected eyebrow design only inside the uploaded inpainting mask. "
-            f"Mask polarity: {MASK_POLARITY}; white pixels are editable eyebrow pixels, black pixels must remain unchanged."
-        ),
+        # Built to fit SD 1.5's 77-token window (style, change level, mask rule first).
+        # The long `prompt` argument is only kept for the stored/logged prompt.
+        "prompt": final_design.build_inpainting_prompt(candidate),
         "negative_prompt": (
             "new face, changed identity, changed eyes, changed eyelids, changed eyelashes, skin retouching, "
             "hair change, background change, makeup change outside eyebrows, distorted face, cartoon, illustration"

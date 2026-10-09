@@ -22,6 +22,8 @@ class ServiceImageGenerationError(RuntimeError):
 
 SERVICE_CONSTRAINTS: Dict[str, Dict[str, Any]] = {
     "lip_shading": {
+        "require_trusted_region": True,
+        "region_error_message": "ناحیه لب روی این عکس با اطمینان کافی شناسایی نشد؛ تصویر ساخته نشد. لطفاً یک عکس نزدیک و روبه‌رو از لب‌ها آپلود کن.",
         "safe_name": "lip",
         "status": "ai_lip_shading_ready",
         "message": "طراحی عکس نهایی لب با AI و ماسک اختصاصی لب آماده شد.",
@@ -33,6 +35,8 @@ SERVICE_CONSTRAINTS: Dict[str, Dict[str, Any]] = {
         "mask_error": "mask واقعی لب برای ادعای AI آماده نیست.",
     },
     "nail": {
+        "require_trusted_region": True,
+        "region_error_message": "ناحیه ناخن روی این عکس با اطمینان کافی شناسایی نشد؛ تصویر ساخته نشد. لطفاً عکس واضح‌تری از ناخن‌های یک دست آپلود کن.",
         "safe_name": "nail",
         "status": "ai_nail_design_ready",
         "message": "طراحی عکس نهایی ناخن با AI و ماسک صفحه ناخن آماده شد.",
@@ -46,6 +50,8 @@ SERVICE_CONSTRAINTS: Dict[str, Dict[str, Any]] = {
         "mask_error": "mask واقعی صفحه ناخن برای ادعای AI آماده نیست.",
     },
     "hair_color": {
+        "require_trusted_region": True,
+        "region_error_message": "ناحیه مو روی این عکس با اطمینان کافی شناسایی نشد؛ تصویر ساخته نشد. لطفاً عکس روبه‌رو از چهره و موی واضح آپلود کن.",
         "safe_name": "hair_color",
         "status": "ai_hair_color_ready",
         "message": "طراحی عکس نهایی رنگ و لایت مو با AI و ماسک اختصاصی مو آماده شد.",
@@ -408,6 +414,28 @@ def _call_provider(provider: shared_image.ImageProviderConfig, source_path: str,
     raise ServiceImageGenerationError(f"نوع provider پشتیبانی نمی‌شود: {kind or 'unknown'}")
 
 
+def _detection_is_trusted(detection: Any) -> bool:
+    return isinstance(detection, dict) and detection.get("detection_reliable") is True and not detection.get("is_fallback")
+
+
+def _region_unreliable_result(service_key: str, detection: Any) -> Dict[str, Any]:
+    """Explicit failure: no provider call and no guided preview on an untrusted region."""
+    info = detection if isinstance(detection, dict) else {}
+    return {
+        "ok": False,
+        "status": "region_detection_unreliable",
+        "service_key": service_key,
+        "is_ai_generated": False,
+        "ai_inpainting": False,
+        "fallback_used": False,
+        "fallback_type": "none",
+        "attempts": [],
+        "configured_provider_count": 0,
+        "real_ai_blocked_reason": str(info.get("untrusted_reason") or info.get("method") or "region_not_trusted")[:200],
+        "message": SERVICE_CONSTRAINTS[service_key]["region_error_message"],
+    }
+
+
 def generate_final_design(service_key: str, module: Any, candidate: Dict[str, Any],
                           env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     service_key = str(service_key or "").strip().lower()
@@ -427,6 +455,8 @@ def generate_final_design(service_key: str, module: Any, candidate: Dict[str, An
         except Exception:
             pass
     candidate["detection"] = detection
+    if SERVICE_CONSTRAINTS[service_key].get("require_trusted_region") and not _detection_is_trusted(detection):
+        return _region_unreliable_result(service_key, detection)
     mask_path, mask_info = _mask_path_and_info(detection)
     try:
         providers = shared_image.configured_image_providers(env, service_key=service_key)

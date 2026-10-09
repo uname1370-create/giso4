@@ -348,7 +348,9 @@ def _try_detect_hair_by_color(image_path: str) -> Dict[str, Any]:
         "ok": True,
         "method": "color_hair_segmentation_v1",
         "confidence": 0.68,
-        "detection_reliable": True,
+        # Colour-only hair mask spills onto neck/clothes on real photos; not trusted.
+        "detection_reliable": False,
+        "untrusted_reason": "color_hair_segmentation_v1: spills onto neck/clothes on real photos",
         "is_fallback": False,
         "image_width": w,
         "image_height": h,

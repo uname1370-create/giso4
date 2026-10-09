@@ -418,6 +418,36 @@ def build_design_prompt(candidate):
     )
 
 
+# English, CLIP-sized instruction for the SD 1.5 inpainting call. The long
+# Persian/contract prompt above is kept for logs/other providers only: SD 1.5
+# reads 77 tokens, so the style, change level and mask rule must come first.
+INPAINT_STYLE_EN = {
+    "natural": "natural soft eyebrows",
+    "microblading": "microblading fine hair strokes",
+    "powder": "powder ombre shading",
+    "combination": "combination strokes front and powder tail",
+    "giso_suggested": "balanced natural eyebrow improvement",
+}
+INPAINT_CHANGE_EN = {
+    "very_natural": "very subtle",
+    "medium": "medium",
+    "clear": "clear and more visible",
+}
+
+
+def build_inpainting_prompt(candidate):
+    """Short prompt for Cloudflare inpainting (style + change level + mask rule)."""
+    style_key = normalize_style_key((candidate or {}).get("final_style"))
+    selected_key = normalize_style_key((candidate or {}).get("selected_style") or style_key)
+    style_en = INPAINT_STYLE_EN.get(selected_key, INPAINT_STYLE_EN.get(style_key, INPAINT_STYLE_EN["giso_suggested"]))
+    change_en = INPAINT_CHANGE_EN.get(normalize_change_level((candidate or {}).get("change_key")), INPAINT_CHANGE_EN["medium"])
+    return (
+        f"Edit the two eyebrows of the original photo with {style_en}. Change level: {change_en}. "
+        "Apply the selected eyebrow design only inside the uploaded inpainting mask. "
+        "Mask polarity: white pixels are editable eyebrow pixels, black pixels must remain unchanged. "
+        "Keep identity, skin, eyes and background."
+    )
+
 def generate_python_guided_design(candidate):
     """ساخت تصویر راهنمای نهایی با Pillow روی ROI تشخیص‌داده‌شده ابرو."""
     src = _source_path(candidate)

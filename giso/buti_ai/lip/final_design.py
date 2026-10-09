@@ -251,7 +251,10 @@ def _try_detect_lip_by_color(image_path: str) -> Dict[str, Any]:
         "ok": True,
         "method": "color_lip_segmentation_v1",
         "confidence": 0.72,
-        "detection_reliable": True,
+        # Colour-only lip mask: on real photos it includes chin skin and fingers
+        # (see audit report). Not trusted for AI or guided output.
+        "detection_reliable": False,
+        "untrusted_reason": "color_lip_segmentation_v1: chin/finger contamination on real photos",
         "is_fallback": False,
         "image_width": w,
         "image_height": h,
