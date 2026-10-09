@@ -117,19 +117,15 @@
     order: 0;
 }
 .ahs-card.mirror .ahs-card-inner {
-    height: 480px;
-    background: linear-gradient(135deg, #1f140e 0%, #3d2817 50%, #916c28 100%);
-    border: 2px solid rgba(212,175,55,0.4);
-    box-shadow: 0 20px 50px rgba(92,61,46,0.22);
+    height: 420px;
+    background: #fbf4ea;
+    border: 2px solid rgba(212,175,55,0.55);
+    box-shadow: 0 20px 50px rgba(92,61,46,0.16);
 }
 /* تیرگی سمت راست (زیر متن) تا خوانایی حفظ شود */
 .ahs-card.mirror .ahs-card-overlay {
     z-index: 1;
-    background: linear-gradient(270deg,
-        rgba(31,20,14,0.96) 0%,
-        rgba(31,20,14,0.82) 42%,
-        rgba(31,20,14,0.25) 75%,
-        rgba(31,20,14,0.1) 100%);
+    background: #fbf4ea;
 }
 
 /* ---- نمونه‌ی زنده‌ی قبل/بعد ابرو: سمت چپ کارت؛ خط اسکنر بخشِ «بعد» را باز می‌کند ---- */
@@ -146,7 +142,7 @@
     position: absolute; inset: 0;
     z-index: 4;
     pointer-events: none;
-    background: linear-gradient(90deg, rgba(31,20,14,0) 55%, rgba(31,20,14,0.85) 100%);
+    background: linear-gradient(90deg, rgba(251,244,234,0) 55%, rgba(251,244,234,0.95) 100%);
 }
 .ahs-ba-img {
     position: absolute; inset: 0;
@@ -189,35 +185,6 @@
 .ahs-ba-label-before { left: 18px; }
 .ahs-ba-label-after  { right: 18px; }
 
-/* خدمات اصلی داخل کارت آینه: چهار کارت کوچک با توضیح */
-.ahs-mirror-services {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    max-width: 500px;
-    margin-bottom: 12px;
-}
-.ahs-mirror-service {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 10px 14px;
-    border-radius: 16px;
-    background: rgba(255,255,255,0.12);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.26);
-    color: #FFFFFF;
-    text-decoration: none;
-    transition: transform .25s ease, background .25s ease;
-}
-.ahs-mirror-service:hover {
-    background: rgba(212,175,55,0.25);
-    transform: translateY(-2px);
-}
-.ahs-mirror-service strong { font-size: 14px; font-weight: 800; color: #FFFDF8; }
-.ahs-mirror-service span { font-size: 12px; color: #F5E5D3; line-height: 1.5; }
-
 /* مراحل فرایند */
 .ahs-mirror-steps {
     display: flex;
@@ -228,9 +195,9 @@
     margin: 0 0 18px;
 }
 .ahs-mirror-steps li {
-    background: rgba(212,175,55,0.16);
-    border: 1px solid rgba(212,175,55,0.5);
-    color: #FFE699;
+    background: rgba(212,175,55,0.18);
+    border: 1px solid rgba(212,175,55,0.6);
+    color: #6b4a12;
     border-radius: 50px;
     padding: 5px 12px;
     font-size: 12px;
@@ -258,9 +225,9 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: rgba(212,175,55,0.25);
-    border: 1px solid rgba(212,175,55,0.6);
-    color: #FFE699;
+    background: rgba(212,175,55,0.18);
+    border: 1px solid rgba(212,175,55,0.7);
+    color: #7a5418;
     padding: 6px 14px;
     border-radius: 50px;
     font-size: 12px;
@@ -271,12 +238,11 @@
     font-size: clamp(1.6rem, 3.5vw, 2.3rem);
     font-weight: 800;
     margin: 0 0 10px;
-    color: #FFFDF8;
-    text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+    color: #3d2817;
 }
 .ahs-mirror-content p {
     font-size: clamp(0.95rem, 1.8vw, 1.1rem);
-    color: #F5E5D3;
+    color: #6b4f36;
     line-height: 1.7;
     margin: 0 0 22px;
 }
@@ -335,6 +301,59 @@
 @keyframes ahsScan {
     0%, 100% { left: 15%; opacity: 0; }
     50%      { left: 65%; opacity: 1; }
+}
+
+/* ==================== کارت‌های خدمات (نمونه قبل/بعد) زیر کارت آینه ==================== */
+.ahs-card.sample { order: 0; }
+.ahs-card.sample .ahs-card-inner {
+    height: 520px;
+    background: #2a1c12;
+}
+.ahs-card.sample .ahs-card-bg { opacity: 1; object-fit: cover; object-position: 50% 50%; }
+.ahs-card.sample .ahs-card-overlay {
+    background: linear-gradient(180deg, rgba(31,20,14,0) 40%, rgba(31,20,14,0.85) 100%);
+}
+.ahs-sample-badge {
+    position: absolute;
+    top: 20px; right: 20px;
+    z-index: 4;
+    background: rgba(255,248,235,0.92);
+    color: #6b4a12;
+    border: 1px solid rgba(212,175,55,0.7);
+    border-radius: 50px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 800;
+}
+.ahs-sample-info {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 92px;
+    z-index: 4;
+    text-align: center;
+    color: #FFFFFF;
+}
+.ahs-sample-info h3 {
+    font-size: 24px;
+    font-weight: 800;
+    margin: 0 0 10px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+}
+.ahs-sample-chips {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.ahs-sample-chips span {
+    background: rgba(255,255,255,0.18);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 50px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
 }
 
 /* ==================== دو کارت پایینی (مو و پوست) ==================== */
@@ -481,11 +500,9 @@
     .ahs-card.mirror .ahs-card-inner { height: auto; min-height: 0; }
     .ahs-card.mirror .ahs-card-overlay { display: none; }
     .ahs-ba-stage { position: relative; width: 100%; height: 240px; border-radius: 32px 32px 0 0; }
-    .ahs-ba-stage::after { background: linear-gradient(180deg, rgba(31,20,14,0) 60%, rgba(31,20,14,0.9) 100%); }
+    .ahs-ba-stage::after { background: linear-gradient(180deg, rgba(251,244,234,0) 60%, rgba(251,244,234,1) 100%); }
     .ahs-ba-stage .ahs-scanner-line { display: block; }
     .ahs-mirror-content { position: relative; top: auto; right: auto; transform: none; width: auto; max-width: none; padding: 24px 22px 30px; }
-    .ahs-mirror-services { grid-template-columns: 1fr; }
-    .ahs-mirror-service { flex-direction: row; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 }
 </style>
 {% endblock %}
@@ -512,6 +529,72 @@
 
         <!-- ======= ردیف ۱: کارت آینه زیبایی — منبع داخل giso/buti_ai ======= -->
         {% include "buti_ai/_analysis_mirror_card.html" %}
+
+        <!-- ======= خدمات اصلی: هر خدمت یک کارت نمونه‌ی قبل/بعد ======= -->
+        <div class="ahs-card sample">
+            <div class="ahs-card-inner">
+                <img class="ahs-card-bg" loading="lazy"
+                     src="{{ url_for('buti_ai.static', filename='services/mirror_home/eyebrow.webp') }}"
+                     alt="نمونه‌ی قبل و بعد ابرو">
+                <div class="ahs-card-overlay"></div>
+                <span class="ahs-sample-badge">نمونه</span>
+                <div class="ahs-sample-info">
+                    <h3>آینه ابرو</h3>
+                    <div class="ahs-sample-chips"><span>فرم</span><span>پرپشتی</span><span>هم‌ترازی</span></div>
+                </div>
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-card-btn">امتحان آینه ابرو 🪞</a>
+            </div>
+            <p class="ahs-card-caption">فرم و پرپشتی ابرو را قبل از هر کاری ببین.</p>
+        </div>
+
+        <div class="ahs-card sample">
+            <div class="ahs-card-inner">
+                <img class="ahs-card-bg" loading="lazy"
+                     src="{{ url_for('buti_ai.static', filename='services/mirror_home/nail.webp') }}"
+                     alt="نمونه‌ی قبل و بعد ناخن">
+                <div class="ahs-card-overlay"></div>
+                <span class="ahs-sample-badge">نمونه</span>
+                <div class="ahs-sample-info">
+                    <h3>آینه ناخن</h3>
+                    <div class="ahs-sample-chips"><span>طرح</span><span>رنگ لاک</span><span>براقیت</span></div>
+                </div>
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-card-btn">امتحان آینه ناخن 💅</a>
+            </div>
+            <p class="ahs-card-caption">طرح و رنگ ناخن را قبل از انتخاب امتحان کن.</p>
+        </div>
+
+        <div class="ahs-card sample">
+            <div class="ahs-card-inner">
+                <img class="ahs-card-bg" loading="lazy"
+                     src="{{ url_for('buti_ai.static', filename='services/mirror_home/lip_shading.webp') }}"
+                     alt="نمونه‌ی قبل و بعد لب">
+                <div class="ahs-card-overlay"></div>
+                <span class="ahs-sample-badge">نمونه</span>
+                <div class="ahs-sample-info">
+                    <h3>آینه لب</h3>
+                    <div class="ahs-sample-chips"><span>رنگ</span><span>شیدینگ</span><span>یکدست‌سازی</span></div>
+                </div>
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-card-btn">امتحان آینه لب 💋</a>
+            </div>
+            <p class="ahs-card-caption">رنگ و شیدینگ لب را با یک نگاه مقایسه کن.</p>
+        </div>
+
+        <div class="ahs-card sample">
+            <div class="ahs-card-inner">
+                <img class="ahs-card-bg" loading="lazy"
+                     src="{{ url_for('buti_ai.static', filename='services/mirror_home/hair_color.webp') }}"
+                     alt="نمونه‌ی قبل و بعد رنگ مو">
+                <div class="ahs-card-overlay"></div>
+                <span class="ahs-sample-badge">نمونه</span>
+                <div class="ahs-sample-info">
+                    <h3>آینه رنگ مو</h3>
+                    <div class="ahs-sample-chips"><span>رنگ</span><span>هایلایت</span><span>سایه</span></div>
+                </div>
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-card-btn">امتحان آینه رنگ مو 🎨</a>
+            </div>
+            <p class="ahs-card-caption">رنگ مو را روی عکس خودت ببین، بدون تغییر فرم.</p>
+        </div>
+
 
         <!-- ======= ردیف ۲ - کارت ۱: آنالیز مو ======= -->
         <div class="ahs-card hair">
