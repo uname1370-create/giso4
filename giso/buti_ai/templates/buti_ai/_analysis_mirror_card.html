@@ -1,29 +1,55 @@
 {#
   کارت ورودی آینه زیبایی در صفحه /analysis.
   منبع این کارت عمداً داخل giso/buti_ai است تا گزینه آینه از ماژول خودش خوانده شود.
+  پس‌زمینه: نمونه قبل/بعد ابرو. خط اسکنر حرکت می‌کند و بخشِ «بعد» را زنده نشان می‌دهد.
 #}
 <div class="ahs-card mirror">
     <div class="ahs-card-inner">
-        <img class="ahs-card-bg mirror-bg" loading="lazy"
-             src="{{ url_for('buti_ai.static', filename='brows/eyebrow_ai_mirror.jpg') }}"
-             alt="آینه ابرو گیسو">
+        <div class="ahs-ba-stage" aria-hidden="true">
+            <img class="ahs-ba-img ahs-ba-before" loading="lazy"
+                 src="{{ url_for('buti_ai.static', filename='services/mirror_home/eyebrow_card_before.webp') }}"
+                 alt="">
+            <img class="ahs-ba-img ahs-ba-after" loading="lazy"
+                 src="{{ url_for('buti_ai.static', filename='services/mirror_home/eyebrow_card_after.webp') }}"
+                 alt="">
+            <span class="ahs-ba-label ahs-ba-label-before">قبل</span>
+            <span class="ahs-ba-label ahs-ba-label-after">بعد</span>
+            <div class="ahs-scanner-line"></div>
+        </div>
         <div class="ahs-card-overlay"></div>
-        <div class="ahs-scanner-line"></div>
 
         <div class="ahs-mirror-content">
-            <span class="ahs-mirror-badge">✨ جدید | Buti AI</span>
+            <span class="ahs-mirror-badge">✨ جدید</span>
             <h2>آینه زیبایی گیسو</h2>
-            <p>قبل از هزینه، مدل زیبایی را روی عکس خودت ببین. از ابرو شروع کن یا آینه‌های فعال ناخن، لب و رنگ مو را امتحان کن.</p>
+            <p>قبل از هزینه، خدمت را روی عکس خودت ببین.</p>
 
-            <div class="ahs-mirror-tags">
-                <span class="ahs-mirror-tag">🪞 آینه ابرو</span>
-                <span class="ahs-mirror-tag">💅 آینه ناخن</span>
-                <span class="ahs-mirror-tag">💋 آینه لب</span>
-                <span class="ahs-mirror-tag">🎨 آینه رنگ مو</span>
+            <div class="ahs-mirror-services">
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-mirror-service">
+                    <strong>🪞 آینه ابرو</strong>
+                    <span>فرم و پرپشتی ابرو را ببین</span>
+                </a>
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-mirror-service">
+                    <strong>💅 آینه ناخن</strong>
+                    <span>طرح و رنگ ناخن را امتحان کن</span>
+                </a>
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-mirror-service">
+                    <strong>💋 آینه لب</strong>
+                    <span>رنگ و شیدینگ لب را ببین</span>
+                </a>
+                <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-mirror-service">
+                    <strong>🎨 آینه رنگ مو</strong>
+                    <span>رنگ مو را روی عکس خودت ببین</span>
+                </a>
             </div>
 
+            <ol class="ahs-mirror-steps">
+                <li>انتخاب خدمت</li>
+                <li>آپلود عکس</li>
+                <li>دیدن نتیجه</li>
+            </ol>
+
             <a href="{{ url_for('buti_ai.mirror_home') }}" class="ahs-mirror-btn">
-                <span>📸 ورود به آینه‌های گیسو</span>
+                <span>شروع فرایند آینه</span>
                 <span>←</span>
             </a>
         </div>

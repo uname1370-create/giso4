@@ -117,26 +117,140 @@
     order: 0;
 }
 .ahs-card.mirror .ahs-card-inner {
-    height: 420px;
+    height: 480px;
     background: linear-gradient(135deg, #1f140e 0%, #3d2817 50%, #916c28 100%);
     border: 2px solid rgba(212,175,55,0.4);
     box-shadow: 0 20px 50px rgba(92,61,46,0.22);
 }
+/* تیرگی سمت راست (زیر متن) تا خوانایی حفظ شود */
 .ahs-card.mirror .ahs-card-overlay {
-    background: linear-gradient(90deg, 
-        rgba(31,20,14,0.92) 0%, 
-        rgba(31,20,14,0.65) 45%, 
-        rgba(31,20,14,0.15) 100%);
+    z-index: 1;
+    background: linear-gradient(270deg,
+        rgba(31,20,14,0.96) 0%,
+        rgba(31,20,14,0.82) 42%,
+        rgba(31,20,14,0.25) 75%,
+        rgba(31,20,14,0.1) 100%);
+}
+
+/* ---- نمونه‌ی زنده‌ی قبل/بعد ابرو: سمت چپ کارت؛ خط اسکنر بخشِ «بعد» را باز می‌کند ---- */
+.ahs-ba-stage {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 50%;
+    z-index: 2;
+    overflow: hidden;
+    border-radius: 32px 0 0 32px;
+}
+.ahs-ba-stage::after {
+    content: "";
+    position: absolute; inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(31,20,14,0) 55%, rgba(31,20,14,0.85) 100%);
+}
+.ahs-ba-img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    object-position: 50% 40%;
+}
+.ahs-ba-before { z-index: 1; }
+.ahs-ba-after {
+    z-index: 2;
+    object-position: 50% 31%; /* هم‌ترازی ابروی «بعد» با «قبل» */
+    clip-path: inset(0 0 0 10%);
+    animation: ahsBaReveal 7s ease-in-out infinite;
+}
+@keyframes ahsBaReveal {
+    0%, 100% { clip-path: inset(0 0 0 10%); }
+    50%      { clip-path: inset(0 0 0 90%); }
+}
+.ahs-ba-stage .ahs-scanner-line {
+    z-index: 3;
+    left: 10%;
+    animation: ahsBaSweep 7s ease-in-out infinite;
+}
+@keyframes ahsBaSweep {
+    0%, 100% { left: 10%; }
+    50%      { left: 90%; }
+}
+.ahs-ba-label {
+    position: absolute;
+    top: 18px;
+    z-index: 5;
+    padding: 5px 12px;
+    border-radius: 50px;
+    background: rgba(20,12,6,0.65);
+    border: 1px solid rgba(212,175,55,0.6);
+    color: #FFE699;
+    font-size: 12px;
+    font-weight: 800;
+}
+.ahs-ba-label-before { left: 18px; }
+.ahs-ba-label-after  { right: 18px; }
+
+/* خدمات اصلی داخل کارت آینه: چهار کارت کوچک با توضیح */
+.ahs-mirror-services {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    max-width: 500px;
+    margin-bottom: 12px;
+}
+.ahs-mirror-service {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.26);
+    color: #FFFFFF;
+    text-decoration: none;
+    transition: transform .25s ease, background .25s ease;
+}
+.ahs-mirror-service:hover {
+    background: rgba(212,175,55,0.25);
+    transform: translateY(-2px);
+}
+.ahs-mirror-service strong { font-size: 14px; font-weight: 800; color: #FFFDF8; }
+.ahs-mirror-service span { font-size: 12px; color: #F5E5D3; line-height: 1.5; }
+
+/* مراحل فرایند */
+.ahs-mirror-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 18px;
+}
+.ahs-mirror-steps li {
+    background: rgba(212,175,55,0.16);
+    border: 1px solid rgba(212,175,55,0.5);
+    color: #FFE699;
+    border-radius: 50px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ahs-ba-after { animation: none; clip-path: inset(0 0 0 50%); }
+    .ahs-ba-stage .ahs-scanner-line { animation: none; left: 50%; }
 }
 
 /* محتوای متنی کارت آینه جادویی */
 .ahs-mirror-content {
     position: absolute;
     top: 50%;
-    right: 48px;
+    right: 40px;
     transform: translateY(-50%);
-    z-index: 4;
-    max-width: 520px;
+    z-index: 6;
+    width: 500px;
+    max-width: 500px;
     text-align: right;
     color: #FFFFFF;
 }
@@ -364,9 +478,14 @@
 /* ریسپانسیو موبایل */
 @media (max-width: 900px) {
     .ahs-cards { grid-template-columns: 1fr; gap: 30px; }
-    .ahs-card.mirror .ahs-card-inner { height: auto; min-height: 480px; }
-    .ahs-mirror-content { position: relative; top: auto; right: auto; transform: none; padding: 40px 24px 30px; }
-    .ahs-scanner-line { display: none; }
+    .ahs-card.mirror .ahs-card-inner { height: auto; min-height: 0; }
+    .ahs-card.mirror .ahs-card-overlay { display: none; }
+    .ahs-ba-stage { position: relative; width: 100%; height: 240px; border-radius: 32px 32px 0 0; }
+    .ahs-ba-stage::after { background: linear-gradient(180deg, rgba(31,20,14,0) 60%, rgba(31,20,14,0.9) 100%); }
+    .ahs-ba-stage .ahs-scanner-line { display: block; }
+    .ahs-mirror-content { position: relative; top: auto; right: auto; transform: none; width: auto; max-width: none; padding: 24px 22px 30px; }
+    .ahs-mirror-services { grid-template-columns: 1fr; }
+    .ahs-mirror-service { flex-direction: row; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 }
 </style>
 {% endblock %}
