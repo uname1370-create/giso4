@@ -50,6 +50,7 @@ import requests
 from giso.buti_ai.eyebrow import final_design
 from giso.buti_ai.eyebrow.landmarks import MASK_POLARITY, ensure_eyebrow_mask
 from giso.buti_ai.eyebrow.options import normalize_style_key
+from giso.buti_ai.image_validation import outside_mask_pixels_equal
 
 logger = logging.getLogger("giso_buti_ai_image_generation")
 
@@ -1162,6 +1163,8 @@ def _provider_eyebrow_mask_for_save(source_path: str, candidate: Dict[str, Any],
             mask = mask.filter(ImageFilter.MinFilter(size=3))
         except Exception:
             pass
+        # بلور کم تا لبه‌ها سفید نشود
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=0.35))
         _beauty_log(
             "[EYEBROW_MASK]",
             "provider_mask_ready",
@@ -1326,8 +1329,6 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
                           candidate: Optional[Dict[str, Any]] = None,
                           provider_kind: str = "", provider_endpoint: str = "",
                           provider_extra: Optional[Dict[str, Any]] = None) -> Tuple[str, Dict[str, Any]]:
-    if not source_path or candidate is None:
-        raise ImageProviderError("عکس مبنا برای composite ایمن ابرو موجود نیست")
     raw, _mime = _decode_image_value(image_value, timeout, provider_endpoint, provider_extra)
     if not raw:
         raise ImageProviderError("تصویر خروجی خالی است")
@@ -1335,7 +1336,6 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
     out_path = ""
     try:
         from PIL import Image
-        from giso.buti_ai.image_validation import outside_mask_pixels_equal, save_lossless_webp
 
         provider_image = Image.open(BytesIO(raw)).convert("RGB")
         meta: Dict[str, Any] = {
@@ -1346,16 +1346,20 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
         final_image = provider_image
         base_for_validation = None
         mask_for_validation = None
-        # Provider output is never trusted outside the detected eyebrow mask, including Flux.
+        if not source_path or candidate is None:
+            raise ImageProviderError("عکس مبنا برای composite ایمن ابرو موجود نیست")
         base = Image.open(source_path).convert("RGB")
         base.thumbnail((MAX_SAVE_SIDE, MAX_SAVE_SIDE))
         fitted_provider = _fit_provider_image_to_source(provider_image, base.size).convert("RGB")
         mask, detection = _provider_eyebrow_mask_for_save(source_path, candidate, base.size)
 
-        # The provider may change the whole frame; only its pixels under this binary mask survive.
-        # Reject the known all-white failure mode before compositing, then verify the saved file.
+        # --- پیش‌اعتبارسنجی: برای flux-2-klein-4b که مدل text-to-image است نه inpainting،
+        # خروجی خام همیشه پس‌زمینه/هویت متفاوت دارد. چون در مرحله بعد با mask کامپوزیت
+        # می‌کنیم و بیرون از ابرو دقیقاً برابر عکس اصلی می‌شود، نباید روی outside سخت‌گیری کنیم.
+        # فقط پس‌زمینه کاملاً سفید را رد می‌کنیم (مدل چهره جدید سفید ساخته).
         try:
-            # بررسی پس‌زمینه سفید کلی در خروجی provider
+            from PIL import Image as _PILImage
+            # بررسی پس‌زمینه سفید کلی در provider - فقط سفید خالص زیاد
             _w, _h = fitted_provider.size
             _total = max(1, _w * _h)
             _white_count = 0
@@ -1369,7 +1373,8 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
             _white_ratio_total = float(_white_count) / float(max(1, (_w // _stride_white) * (_h // _stride_white)))
             if _white_ratio_total > 0.55:
                 raise ImageProviderError("خروجی AI پس‌زمینه سفید زیاد دارد و رد شد (مدل چهره جدید ساخت)")
-            # تغییر بیرون از mask در raw provider قابل انتظار است؛ composite آن را دور می‌اندازد.
+            # برای مدل‌های غیر inpainting مثل flux-2-klein-4b، تغییر بیرون از mask طبیعی است
+            # چون بعداً با composite بیرون دقیقاً برابر base می‌شود. فقط لاگ می‌کنیم، رد نمی‌کنیم.
             try:
                 _outside_metrics_before = _visible_eyebrow_diff_metrics(base, fitted_provider, mask)
                 _beauty_log(
@@ -1379,7 +1384,7 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
                     outside_changed_ratio=_outside_metrics_before.get("outside_changed_ratio"),
                     inside_mean_delta=_outside_metrics_before.get("inside_mean_delta"),
                     white_ratio_total=round(_white_ratio_total, 4),
-                    note="raw provider pixels outside the mask are discarded by deterministic composite",
+                    note="flux model - outside change expected, will be fixed by composite",
                 )
             except Exception:
                 pass
@@ -1413,25 +1418,23 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
         if final_image.width <= 0 or final_image.height <= 0:
             raise ImageProviderError("ابعاد خروجی provider نامعتبر بود")
         os.makedirs(final_design.FINAL_DESIGN_DIR, exist_ok=True)
-        # Lossless WebP keeps exact composite pixels while giving the browser a compact final asset.
-        filename = f"final/ai_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.webp"
+        # PNG keeps every pixel outside the eyebrow mask identical after save; JPEG
+        # recompression can touch face/skin/background outside the ROI.
+        filename = f"final/ai_eyebrow_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:10]}.png"
         out_path = os.path.join(final_design.EYEBROW_UPLOAD_DIR, filename)
-        tmp_path = f"{out_path}.tmp-{uuid.uuid4().hex[:8]}.webp"
-        save_lossless_webp(final_image, tmp_path)
+        tmp_path = f"{out_path}.tmp-{uuid.uuid4().hex[:8]}.png"
+        final_image.save(tmp_path, "PNG", optimize=True)
         try:
             with Image.open(tmp_path) as saved_probe:
                 saved_probe.verify()
             with Image.open(tmp_path) as saved_image:
-                if saved_image.format != "WEBP":
-                    raise ImageProviderError("فرمت فایل نهایی ابرو WebP نیست")
                 saved_w, saved_h = saved_image.size
                 if base_for_validation is not None and mask_for_validation is not None:
-                    saved_rgb = saved_image.convert("RGB")
-                    if not outside_mask_pixels_equal(base_for_validation, saved_rgb, mask_for_validation):
-                        raise ImageProviderError("فایل WebP ذخیره‌شده پیکسل‌های بیرون mask ابرو را تغییر داده است")
+                    if not outside_mask_pixels_equal(base_for_validation, saved_image.convert("RGB"), mask_for_validation):
+                        raise ImageProviderError("فایل ذخیره‌شده خروجی AI پیکسل‌های بیرون mask ابرو را تغییر داده است")
                     saved_diff_meta = _validate_provider_visible_change(
                         base_for_validation,
-                        saved_rgb,
+                        saved_image.convert("RGB"),
                         mask_for_validation,
                     )
                     for diff_key, diff_value in saved_diff_meta.items():
@@ -1451,7 +1454,7 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
             "final_width": int(saved_w),
             "final_height": int(saved_h),
             "final_filename": filename,
-            "final_format": "WEBP",
+            "final_format": "PNG",
             "final_size_bytes": int(os.path.getsize(out_path)),
         })
         _beauty_log(
@@ -1484,6 +1487,7 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
             except Exception:
                 pass
         raise ImageProviderError(f"خروجی provider تصویر معتبر نبود: {str(exc)[:120]}") from exc
+
 
 def _friendly_provider_error(exc: Exception) -> str:
     raw = str(exc or "").strip() or "provider failed"

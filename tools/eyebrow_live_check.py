@@ -76,9 +76,8 @@ def main() -> int:
     real_ai = bool(result.get("ok")) and bool(result.get("is_ai_generated")) and bool(result.get("ai_inpainting"))
     if real_ai and result.get("filename"):
         os.makedirs(args.out, exist_ok=True)
-        src = os.path.join(final_dir, os.path.basename(result["filename"]))
-        if not os.path.exists(src):
-            src = os.path.join(final_dir, result["filename"])
+        # the production writer stores output at EYEBROW_UPLOAD_DIR/<filename>, filename starts with "final/"
+        src = os.path.join(upload_dir, result["filename"])
         dst = os.path.join(args.out, os.path.basename(src))
         shutil.copy(src, dst)
         print(f"REAL AI RESULT SAVED: {os.path.abspath(dst)}")

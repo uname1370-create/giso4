@@ -10,7 +10,7 @@ from giso.buti_ai.eyebrow import final_design, image_generation
 from giso.buti_ai.image_validation import outside_mask_pixels_equal
 
 
-def test_flux_provider_whole_frame_change_is_masked_and_lossless_webp_preserves_outside(tmp_path, monkeypatch):
+def test_flux_provider_whole_frame_change_is_masked_and_lossless_png_preserves_outside(tmp_path, monkeypatch):
     upload_root = tmp_path / "eyebrow-uploads"
     final_root = upload_root / "final"
     upload_root.mkdir()
@@ -68,10 +68,10 @@ def test_flux_provider_whole_frame_change_is_masked_and_lossless_webp_preserves_
     )
 
     output_path = upload_root / filename
-    assert filename.endswith(".webp")
+    assert filename.endswith(".png")
     assert output_path.is_file()
     with Image.open(output_path) as final:
-        assert final.format == "WEBP"
+        assert final.format == "PNG"
         final_rgb = final.convert("RGB")
         assert final_rgb.size == source.size
 
@@ -83,5 +83,5 @@ def test_flux_provider_whole_frame_change_is_masked_and_lossless_webp_preserves_
     assert meta["outside_mask_preserved"] is True
     assert meta["saved_outside_mask_preserved"] is True
     assert meta["saved_file_diff_validated"] is True
-    assert meta["final_format"] == "WEBP"
+    assert meta["final_format"] == "PNG"
     assert meta["final_size_bytes"] == output_path.stat().st_size
