@@ -171,6 +171,7 @@ def _build_telegram_app_with_proxy(token: str, proxy):
     from giso.telegram_http import build_bot_request
 
     # پروکسی هر دو دسته درخواست صریح است؛ HTTP_PROXY محیطی دوباره اعمال نمی‌شود.
+    health = platform_runtime.PollHealth()
     builder = (
         ApplicationBuilder()
         .token(token)
@@ -185,9 +186,11 @@ def _build_telegram_app_with_proxy(token: str, proxy):
             proxy=proxy,
             connect_timeout=20.0,
             read_timeout=20.0,
+            on_result=health.record,
         ))
     )
     app = builder.build()
+    health.app = app
     _register_handlers(app)
     return app
 
@@ -201,6 +204,9 @@ async def _verify_telegram(app) -> str:
         raise RuntimeError("Telegram is disabled")
     await app.initialize()
     me = await app.bot.get_me()
+    # مسیر polling هم باید کار کند: getMe سالم اما getUpdates قطع، پروکسی را خراب می‌کند.
+    await app.bot.delete_webhook()  # همان کاری که polling در bootstrap انجام می‌دهد
+    await app.bot.get_updates(timeout=3, limit=1)
     return me.username or str(me.id)
 
 
@@ -307,8 +313,7 @@ async def _try_build_telegram_app():
     return None, None
 
 
-async def _start_polling(app, name: str, already_initialized: bool = False,
-                         error_callback=None) -> bool:
+async def _start_polling(app, name: str, already_initialized: bool = False) -> bool:
     """
     راه‌اندازی polling یک Application با محافظت کامل.
     خروجی: True اگر موفق بود، False اگر شکست خورد (بدون پرتاب استثنا).
@@ -318,8 +323,7 @@ async def _start_polling(app, name: str, already_initialized: bool = False,
             await app.initialize()
         await app.start()
         await app.updater.start_polling(
-            allowed_updates=Update.ALL_TYPES, drop_pending_updates=True,
-            error_callback=error_callback,
+            allowed_updates=Update.ALL_TYPES, drop_pending_updates=True
         )
         return True
     except Exception as e:
@@ -393,10 +397,7 @@ async def _run_all():
 
     if tg_app is not None:
         # اپ در _try_build_telegram_app قبلاً initialize شده است
-        if await _start_polling(
-            tg_app, "تلگرام", already_initialized=True,
-            error_callback=platform_runtime.make_polling_error_callback(tg_app),
-        ):
+        if await _start_polling(tg_app, "تلگرام", already_initialized=True):
             register_platform_bot("telegram", tg_app.bot)
             running.append((tg_app, "تلگرام"))
             platform_runtime.set_telegram_app(tg_app, tg_proxy)

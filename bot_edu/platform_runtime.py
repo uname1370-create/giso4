@@ -18,7 +18,7 @@ from config import (
 logger = logging.getLogger(__name__)
 
 # اپ زندهٔ تلگرام (اگر در حال اجرا باشد) — توسط bot.py و همین ماژول ست می‌شود
-_STATE = {"app": None, "proxy": None, "builder": None}
+_STATE = {"app": None, "proxy": None, "builder": None, "reconnect": None}
 
 
 def is_telegram_enabled() -> bool:
@@ -120,52 +120,79 @@ def status_text() -> str:
     return "\n".join(lines)
 
 
-# ── پایش خطای polling تلگرام ──
-# PTB 20.7 هنگام خطای getUpdates بی‌پایان تلاش مجدد می‌کند و updater.running
-# همچنان True می‌ماند. بدون این سازوکار، وضعیت «متصل» دروغ می‌گفت و خطا بی‌پایان ادامه داشت.
-# اگر خطاها پیاپی باشند (فاصلهٔ هر خطا تا قبلی ≤ POLL_ERROR_WINDOW_SEC)، پس از
-# POLL_ERROR_LIMIT خطا، همان اپ خودکار قطع می‌شود. تنظیم ادمین (telegram_enabled) دست‌نخورده
-# می‌ماند؛ وضعیت پنل «فعال است ولی متصل نیست» نشان می‌دهد و ادمین می‌تواند دوباره روشن کند.
+# ── سلامت polling تلگرام ──
+# PTB 20.7 هنگام خطای getUpdates بی‌پایان تلاش مجدد می‌کند و updater.running همچنان True
+# می‌ماند؛ یعنی پنل «متصل» نشان می‌داد در حالی که هیچ پیامی نمی‌رسید.
+# قانون: هر درخواست موفق شمارش خطا را صفر می‌کند. فقط POLL_ERROR_LIMIT خطای پیاپی
+# (بدون هیچ موفقیتی بین آن‌ها) باعث قطع همان اپ می‌شود. بعد از قطع، اتصال با تأخیر
+# افزایشی دوباره برقرار می‌شود تا وقتی تنظیم ادمین روشن است و پروکسی سالم پیدا شود.
 POLL_ERROR_LIMIT = 8
-POLL_ERROR_WINDOW_SEC = 300
-_now = time.monotonic
+RECONNECT_DELAYS = (30, 60, 120, 300)
 
 
-def make_polling_error_callback(app):
-    """error_callback مخصوص یک اپ مشخص برای updater.start_polling."""
-    state = {"count": 0, "last": None, "stopping": False}
+class PollHealth:
+    """وضعیت سلامت polling یک اپ. روی درخواست getUpdates ثبت می‌شود."""
 
-    def _on_polling_error(exc):
-        now = _now()
-        if state["last"] is None or now - state["last"] > POLL_ERROR_WINDOW_SEC:
-            state["count"] = 0
-        state["count"] += 1
-        state["last"] = now
-        if state["count"] < POLL_ERROR_LIMIT or state["stopping"]:
+    def __init__(self):
+        self.app = None
+        self.failures = 0
+        self._stopping = False
+
+    def record(self, ok: bool, exc=None) -> None:
+        if ok:
+            self.failures = 0
             return
-        state["stopping"] = True
+        self.failures += 1
+        if self.failures < POLL_ERROR_LIMIT or self._stopping:
+            return
+        if self.app is None or _STATE.get("app") is not self.app:
+            return  # اپ زنده نیست (مثلاً تست اتصال قبل از فعال‌شدن)
+        self._stopping = True
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
+            self._stopping = False
             return
-        loop.create_task(_stop_after_polling_failures(app, state["count"], exc))
-
-    return _on_polling_error
+        loop.create_task(_recover_after_poll_failures(self.app, self.failures, exc))
 
 
-async def _stop_after_polling_failures(app, count, exc):
-    """قطع خودکار اتصال بعد از خطاهای پیاپی؛ فقط اگر همان اپ فعلی باشد."""
+async def _recover_after_poll_failures(app, count, exc):
+    """قطع اپ خراب و زمان‌بندی اتصال مجدد. فقط اگر همان اپ هنوز زنده است."""
     try:
         if _STATE.get("app") is not app:
             return
         # فقط نوع خطا لاگ می‌شود تا توکن (که ممکن است در متن خطای HTTP باشد) لو نرود.
         logger.error(
-            "📴 تلگرام پس از %d خطای پیاپی دریافت پیام قطع شد (نوع خطا: %s).",
+            "📡 تلگرام: %d درخواست پیاپی دریافت پیام ناموفق بود (%s). اتصال بازسازی می‌شود.",
             count, type(exc).__name__,
         )
         await stop_telegram()
     except Exception as e:
-        logger.error("خطا هنگام قطع خودکار تلگرام: %s", type(e).__name__)
+        logger.error("خطا هنگام قطع تلگرام برای بازسازی: %s", type(e).__name__)
+    _schedule_reconnect()
+
+
+def _schedule_reconnect() -> None:
+    task = _STATE.get("reconnect")
+    if task is not None and not task.done():
+        return
+    _STATE["reconnect"] = asyncio.get_running_loop().create_task(_reconnect_loop())
+
+
+async def _reconnect_loop() -> None:
+    attempt = 0
+    while True:
+        await asyncio.sleep(RECONNECT_DELAYS[min(attempt, len(RECONNECT_DELAYS) - 1)])
+        if not is_telegram_enabled() or is_telegram_running():
+            return
+        ok, _msg = await start_telegram()
+        if is_telegram_running():
+            logger.info("✅ تلگرام پس از خطای پیاپی دوباره متصل شد.")
+            if not is_telegram_enabled():
+                await stop_telegram()  # ادمین در این فاصله غیرفعال کرده است
+            return
+        attempt += 1
+        logger.warning("تلاش %d برای اتصال مجدد تلگرام ناموفق بود؛ دوباره تلاش می‌شود.", attempt)
 
 
 async def stop_telegram() -> tuple:
@@ -246,10 +273,7 @@ async def start_telegram() -> tuple:
 
     try:
         await app.start()
-        await app.updater.start_polling(
-            drop_pending_updates=True,
-            error_callback=make_polling_error_callback(app),
-        )
+        await app.updater.start_polling(drop_pending_updates=True)
     except Exception as e:
         logger.error(f"خطا هنگام شروع polling تلگرام: {e}")
         try:
@@ -273,6 +297,10 @@ async def apply_telegram_enabled(enabled: bool) -> tuple:
     """
     SETTINGS["telegram_enabled"] = 1 if enabled else 0
     save("settings")  # ← ماندگاری بعد از ری‌استارت
+    if not enabled:
+        task = _STATE.get("reconnect")
+        if task is not None and not task.done():
+            task.cancel()
 
     if enabled:
         return await start_telegram()
