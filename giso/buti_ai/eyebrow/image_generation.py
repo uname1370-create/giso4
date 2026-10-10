@@ -716,6 +716,21 @@ def _real_eyebrow_mask_for_candidate(source_path: str, candidate: Dict[str, Any]
     return detection, mask_path
 
 
+def _jpeg_for_inpainting(png_bytes: bytes, quality: int = 92) -> bytes:
+    """عکس inpainting به‌صورت JPEG برای فیلد `image` (آرایه بایت).
+
+    Cloudflare مدل inpainting را با آرایه‌ای از بایت‌های فایل تصویر می‌گیرد. PNG بایت‌ها را
+    در JSON حدود ۴ برابر بزرگ‌تر می‌کند؛ JPEG همان فیلد را با حجم بسیار کمتر می‌فرستد.
+    خروجی نهایی همچنان فقط داخل mask ابرو از روی عکس اصلی ساخته می‌شود.
+    """
+    from io import BytesIO
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.open(BytesIO(png_bytes)).convert("RGB").save(buf, "JPEG", quality=quality, optimize=True)
+    return buf.getvalue()
+
+
 def _call_cloudflare_inpainting(provider: ImageProviderConfig, source_path: str, candidate: Dict[str, Any], prompt: str, timeout: int) -> str:
     detection, mask_path = _real_eyebrow_mask_for_candidate(source_path, candidate)
     image_bytes, mask_bytes, width, height, mask_pixels, coverage = _prepare_cloudflare_inpainting_assets(source_path, mask_path)
@@ -734,7 +749,7 @@ def _call_cloudflare_inpainting(provider: ImageProviderConfig, source_path: str,
             "new face, changed identity, changed eyes, changed eyelids, changed eyelashes, skin retouching, "
             "hair change, background change, makeup change outside eyebrows, distorted face, cartoon, illustration"
         ),
-        "image": list(image_bytes),
+        "image": list(_jpeg_for_inpainting(image_bytes)),
         "mask": list(mask_bytes),
         "width": width,
         "height": height,
@@ -742,6 +757,7 @@ def _call_cloudflare_inpainting(provider: ImageProviderConfig, source_path: str,
         "strength": max(0.05, min(1.0, strength)),
         "guidance": guidance,
     }
+    request_body_bytes = len(json.dumps(payload))
     provider.extra["_last_request_meta"] = {
         "ai_inpainting": True,
         "mask_used": True,
@@ -754,14 +770,23 @@ def _call_cloudflare_inpainting(provider: ImageProviderConfig, source_path: str,
         "mask_filename": _upload_relative_path(mask_path),
         "reference_image_sent": False,
         "cloudflare_request_format": "json_image_and_mask_byte_arrays",
+        "cloudflare_request_bytes": request_body_bytes,
     }
-    response = _post_request(
-        provider.endpoint,
-        disable_env_proxy=True,
-        headers={**_authorization_headers(provider), "Content-Type": "application/json"},
-        json=payload,
-        timeout=timeout,
-    )
+    try:
+        response = _post_request(
+            provider.endpoint,
+            disable_env_proxy=True,
+            headers={**_authorization_headers(provider), "Content-Type": "application/json"},
+            json=payload,
+            timeout=timeout,
+        )
+    except requests.exceptions.ConnectionError as exc:
+        # خطای شبکه/سرویس قبل از پاسخ: علت واقعی و اندازه بدنه را صریح نشان می‌دهیم.
+        cause = exc.args[0] if exc.args else exc
+        raise ImageProviderError(
+            f"اتصال به Cloudflare قبل از پاسخ قطع شد ({type(cause).__name__}: {str(cause)[:160]}). "
+            f"مدل {provider.model}، حجم بدنه {request_body_bytes // 1024} KB، timeout {timeout}s."
+        ) from exc
     return _parse_response_image(response)
 
 
