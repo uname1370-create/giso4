@@ -7,7 +7,9 @@ platform_runtime.py — کنترل زندهٔ اتصال پلتفرم تلگرا
 این ماژول اجازه می‌دهد ادمین از پنل مدیریت، تلگرام را در همان لحظه
 فعال یا غیرفعال کند — بدون نیاز به ری‌استارت ربات.
 """
+import asyncio
 import logging
+import time
 
 from config import (
     SETTINGS, save, register_platform_bot, unregister_platform_bot,
@@ -118,6 +120,54 @@ def status_text() -> str:
     return "\n".join(lines)
 
 
+# ── پایش خطای polling تلگرام ──
+# PTB 20.7 هنگام خطای getUpdates بی‌پایان تلاش مجدد می‌کند و updater.running
+# همچنان True می‌ماند. بدون این سازوکار، وضعیت «متصل» دروغ می‌گفت و خطا بی‌پایان ادامه داشت.
+# اگر خطاها پیاپی باشند (فاصلهٔ هر خطا تا قبلی ≤ POLL_ERROR_WINDOW_SEC)، پس از
+# POLL_ERROR_LIMIT خطا، همان اپ خودکار قطع می‌شود. تنظیم ادمین (telegram_enabled) دست‌نخورده
+# می‌ماند؛ وضعیت پنل «فعال است ولی متصل نیست» نشان می‌دهد و ادمین می‌تواند دوباره روشن کند.
+POLL_ERROR_LIMIT = 8
+POLL_ERROR_WINDOW_SEC = 300
+_now = time.monotonic
+
+
+def make_polling_error_callback(app):
+    """error_callback مخصوص یک اپ مشخص برای updater.start_polling."""
+    state = {"count": 0, "last": None, "stopping": False}
+
+    def _on_polling_error(exc):
+        now = _now()
+        if state["last"] is None or now - state["last"] > POLL_ERROR_WINDOW_SEC:
+            state["count"] = 0
+        state["count"] += 1
+        state["last"] = now
+        if state["count"] < POLL_ERROR_LIMIT or state["stopping"]:
+            return
+        state["stopping"] = True
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        loop.create_task(_stop_after_polling_failures(app, state["count"], exc))
+
+    return _on_polling_error
+
+
+async def _stop_after_polling_failures(app, count, exc):
+    """قطع خودکار اتصال بعد از خطاهای پیاپی؛ فقط اگر همان اپ فعلی باشد."""
+    try:
+        if _STATE.get("app") is not app:
+            return
+        # فقط نوع خطا لاگ می‌شود تا توکن (که ممکن است در متن خطای HTTP باشد) لو نرود.
+        logger.error(
+            "📴 تلگرام پس از %d خطای پیاپی دریافت پیام قطع شد (نوع خطا: %s).",
+            count, type(exc).__name__,
+        )
+        await stop_telegram()
+    except Exception as e:
+        logger.error("خطا هنگام قطع خودکار تلگرام: %s", type(e).__name__)
+
+
 async def stop_telegram() -> tuple:
     """
     [کار ۲ — بند ۴] توقف واقعی اتصال تلگرام.
@@ -196,7 +246,10 @@ async def start_telegram() -> tuple:
 
     try:
         await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
+        await app.updater.start_polling(
+            drop_pending_updates=True,
+            error_callback=make_polling_error_callback(app),
+        )
     except Exception as e:
         logger.error(f"خطا هنگام شروع polling تلگرام: {e}")
         try:

@@ -307,7 +307,8 @@ async def _try_build_telegram_app():
     return None, None
 
 
-async def _start_polling(app, name: str, already_initialized: bool = False) -> bool:
+async def _start_polling(app, name: str, already_initialized: bool = False,
+                         error_callback=None) -> bool:
     """
     راه‌اندازی polling یک Application با محافظت کامل.
     خروجی: True اگر موفق بود، False اگر شکست خورد (بدون پرتاب استثنا).
@@ -317,7 +318,8 @@ async def _start_polling(app, name: str, already_initialized: bool = False) -> b
             await app.initialize()
         await app.start()
         await app.updater.start_polling(
-            allowed_updates=Update.ALL_TYPES, drop_pending_updates=True
+            allowed_updates=Update.ALL_TYPES, drop_pending_updates=True,
+            error_callback=error_callback,
         )
         return True
     except Exception as e:
@@ -391,7 +393,10 @@ async def _run_all():
 
     if tg_app is not None:
         # اپ در _try_build_telegram_app قبلاً initialize شده است
-        if await _start_polling(tg_app, "تلگرام", already_initialized=True):
+        if await _start_polling(
+            tg_app, "تلگرام", already_initialized=True,
+            error_callback=platform_runtime.make_polling_error_callback(tg_app),
+        ):
             register_platform_bot("telegram", tg_app.bot)
             running.append((tg_app, "تلگرام"))
             platform_runtime.set_telegram_app(tg_app, tg_proxy)
