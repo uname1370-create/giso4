@@ -1,12 +1,12 @@
 {
   "last_update": {
-    "date_user_timezone": "2026-10-07",
+    "date_user_timezone": "2026-10-12",
     "user_timezone": "Asia/Tehran",
-    "git_head": "da0cc1f",
-    "branch": "arena/01a0eecf-giso4"
+    "git_head": "03f3733",
+    "branch": "arena/7f567e47-giso4"
   },
-  "last_agent": "Arena.ai Agent Mode",
-  "status": "FINBUTI P0+P1 completed: Mirror History 4-tab (ابرو/مو/آرایش/ناخن) in panel_user/analyses, Luxury Minimal Salon Detail per 3d site.md, service_key/is_featured_service in beauty_center_services, service_key in beauty_center_images, portfolio per-service, owner service_key management, reservation linkage final_design_id/service_key/selected_style, admin tabs services/portfolio/reservations/mirror + Mirror analytics all services. No specialist table, no Bale Mirror (scope inactive). HEAD da0cc1f.",
+  "last_agent": "Manus technical audit / handoff",
+  "status": "Current Buti AI implementation handoff: four target services brow, lip_shading, blush, eyeliner; provider chain Cloudflare → AvalAI → local preview; read AGENT_START_HERE.md and FINAL_IMPLEMENTATION_SCENARIO_BUTI_AI_2026-10-12.md before coding.",
   "source_of_truth_layers": {
     "git_github": "Source of truth for code and tracked repository files.",
     "graphify": "Structural/dependency code map; updated to reflect HEAD da0cc1f FINBUTI.",
@@ -16,16 +16,19 @@
   },
   "project_identity": {
     "repository_url": "https://github.com/uname1370-create/giso4",
-    "branch": "arena/01a0eecf-giso4",
-    "local_head_during_update": "da0cc1f",
-    "local_head_subject": "FINBUTI P1 Admin: services/portfolio/reservations/mirror tabs + analytics all services",
-    "remote_head_observed": "da0cc1f",
+    "branch": "arena/7f567e47-giso4",
+    "local_head_during_update": "03f3733",
+    "local_head_subject": "Eyebrow output: port test-branch output handling (mask blur, PNG save, validated composite)",
+    "remote_head_observed": "03f3733",
     "git_history_note": "Branch arena/01a0eecf-giso4 includes rp5-rp8 docs + FINBUTI implementation commits 274942f, 4afbd2b, da0cc1f."
   },
   "current_git_state_observed": {
-    "status_short_branch": ["## arena/01a0eecf-giso4", "clean at da0cc1f"],
-    "latest_code_commit": "da0cc1f",
-    "latest_code_subject": "FINBUTI P1 Admin: services/portfolio/reservations/mirror tabs + analytics all services",
+    "status_short_branch": [
+      "## arena/7f567e47-giso4...origin/arena/7f567e47-giso4",
+      "clean at 03f3733"
+    ],
+    "latest_code_commit": "03f3733",
+    "latest_code_subject": "Eyebrow output: port test-branch output handling (mask blur, PNG save, validated composite)",
     "finbuti_commits": [
       "274942f FINBUTI P0+P1: mirror history 4-tab, lux salon detail, service_key portfolio, reservation linkage, owner service_key",
       "4afbd2b Simplify FINBUTI by removing specialist scope",
@@ -76,7 +79,7 @@
       "panel": "Admin: beauty_centers tabs requests/published/paused/services/portfolio/reservations/mirror/promotions/feedback/settings/dashboard"
     },
     "graphify": "Updated to HEAD da0cc1f, includes service_key/is_featured_service columns, new admin tabs, mirror history grouping",
-    "project_memory_letta": "Updated 2026-10-07 to reflect FINBUTI completion"
+    "project_memory_letta": "Updated 2026-10-12 with AGENT_START_HERE and final four-service implementation scenario"
   },
   "important_rules": [
     "Code Truth is source of truth",
@@ -88,7 +91,11 @@
     "Migrations additive idempotent PRAGMA check",
     "Design public salon page with 3d site.md Luxury Minimal Fast Mobile-first",
     "Specialist not part of project per FINBUTI final",
-    "Bale only if scope active"
+    "Bale only if scope active",
+    "Four target Buti AI services are brow, lip_shading, blush, eyeliner",
+    "Offline local preview must be labeled local_preview and never presented as real AI",
+    "Provider chain is Cloudflare inpainting, AvalAI image edit, then local preview",
+    "Add cost ledger, provider attempts, quota, idempotency and circuit breaker before public launch"
   ],
   "graphify_findings": {
     "purpose": "Code structure/dependency map",
@@ -100,7 +107,11 @@
       "manifest_entries": 371
     },
     "freshness": "Fresh — built from commit after FINBUTI P1 Admin, includes service_key/is_featured_service, mirror history, admin tabs",
-    "coverage_limitations": ["cluster-only", "no HTML nodes", "no Markdown content knowledge"]
+    "coverage_limitations": [
+      "cluster-only",
+      "no HTML nodes",
+      "no Markdown content knowledge"
+    ]
   },
   "decisions": [
     "FINBUTI P0 User Panel: Extend panel_user, not create parallel analysis module",
@@ -109,7 +120,9 @@
     "Reservation snapshot price/name/duration + final_design_id/service_key/selected_style preserved",
     "Admin extended with services/portfolio/reservations/mirror tabs for P1",
     "Specialist scope removed per commit 4afbd2b",
-    "Bale Mirror Flow left as P2 (scope inactive)"
+    "Bale Mirror Flow left as P2 (scope inactive)",
+    "Blush and eyeliner start with deterministic local preview before generative provider integration",
+    "Hoosha is not production until official server-to-server image-edit/mask API and commercial terms are verified"
   ],
   "completed_work": [
     "FINBUTI Phase 0 Freshness Audit",
@@ -121,8 +134,15 @@
     "Graph and Project Memory updated to HEAD da0cc1f"
   ],
   "next_action": [
-    "If Bale Mirror scope becomes active, implement adapter only in giso/buti_ai/bale_handlers reusing service_catalog/generic_service, without refactoring giso/bot.py",
-    "If specialist inside salon needed, add specialist_user_id to beauty_center_services only after real need proof",
-    "Keep graphify-out fresh after future changes via graphify update"
+    "Read project_memory/letta/AGENT_START_HERE.md before any future work",
+    "Implement cost ledger and idempotency for mirror generation",
+    "Implement deterministic local preview for blush and eyeliner",
+    "Validate AvalAI image edit with a real masked request",
+    "Add queue/worker boundary before public launch"
+  ],
+  "canonical_handoff_documents": [
+    "project_memory/letta/AGENT_START_HERE.md",
+    "project_memory/letta/FINAL_IMPLEMENTATION_SCENARIO_BUTI_AI_2026-10-12.md",
+    "project_memory/letta/BOOTSTRAP_PROMPT.md"
   ]
 }

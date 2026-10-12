@@ -1,10 +1,12 @@
-# Giso4 Project Memory — FINBUTI Updated
+# Giso4 Project Memory — Current Handoff
 
-Last Update: 2026-10-07 (Asia/Tehran)
-Branch: arena/01a0eecf-giso4
-HEAD: da0cc1f FINBUTI P1 Admin: services/portfolio/reservations/mirror tabs + analytics all services
-Agent: Arena.ai Agent Mode
-Status: FINBUTI P0+P1 completed — Mirror History 4-tab, Luxury Minimal Salon Detail per 3d site.md, service_key/is_featured_service, portfolio per-service, reservation linkage, admin tabs services/portfolio/reservations/mirror + Mirror analytics all services. Specialist removed per 4afbd2b. Bale Mirror scope inactive.
+Last Update: 2026-10-12 (Asia/Tehran)
+Branch: arena/7f567e47-giso4
+HEAD: 03f3733 Eyebrow output: port test-branch output handling (mask blur, PNG save, validated composite)
+Agent: Manus technical audit / handoff
+Status: Current product direction is the four-service Buti AI scenario: eyebrow, lip, blush, eyeliner. Read AGENT_START_HERE.md and FINAL_IMPLEMENTATION_SCENARIO_BUTI_AI_2026-10-12.md before coding.
+
+Historical FINBUTI state remains below for context.
 
 ---
 
@@ -71,3 +73,23 @@ Freshness Audit, P0 User Panel, P0 Public Detail Lux, P1 Service-Level Data, P1 
 - SECRET_KEY=test python -m venv test: app create_app() → list 200, admin 302, analyses 302→login
 - Migrations: beauty_center_services cols include service_key/is_featured_service, images include service_key
 - No secrets, no data loss
+
+
+## 12. Current Buti AI Implementation Handoff — 2026-10-12
+
+### Product decision
+- Four target services: `brow`, `lip_shading`, `blush`, `eyeliner`.
+- Eyebrow and lip use the main AI/inpainting path. Blush and eyeliner start with deterministic local preview, then provider integration only after real benchmark.
+- Recommended provider chain: Cloudflare inpainting → AvalAI image edit → local preview.
+- Hoosha is not a production provider until an official server-to-server image-edit/mask API, auth, pricing and SLA are verified.
+
+### Required implementation contracts
+- Add cost ledger, provider attempt tracking, user charge, idempotency key, quota and circuit breaker before public launch.
+- Offline output must have `local_preview` status and must never be presented as real AI output.
+- Keep Buti AI logic inside `giso/buti_ai/`; do not refactor `giso/bot.py`, `bot_edu/`, `web/` or `main.py` without explicit authorization.
+- Heavy image generation must run through a queue/worker, not the main Bale handler or a long synchronous web request.
+
+### Canonical documents
+- `project_memory/letta/AGENT_START_HERE.md`
+- `project_memory/letta/FINAL_IMPLEMENTATION_SCENARIO_BUTI_AI_2026-10-12.md`
+- `project_memory/letta/BOOTSTRAP_PROMPT.md`
