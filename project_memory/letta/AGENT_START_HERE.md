@@ -65,3 +65,71 @@ Cloudflare inpainting → AvalAI image edit → local preview
 - عملکرد واقعی تأییدشده
 - محدودیت‌های باقی‌مانده
 - گام بعدی
+
+## وضعیت به‌روز Buti AI — آپلود، تحلیل و پیشنهاد مدل — 2026-10-12
+
+### واقعاً اعمال‌شده و تأییدشده
+
+این موارد در کد موجود و تست‌شده هستند:
+
+- مسیرهای ابرو و لب/خدمات عمومی داخل `giso/buti_ai/` فعال هستند.
+- انتخاب مدل و شدت تغییر در session نگهداری می‌شود.
+- preview عکس در صفحه upload نمایش داده می‌شود.
+- محدودیت نوع فایل و حجم عکس در سمت کاربر و server وجود دارد.
+- endpointهای validate عکس برای ابرو و خدمات عمومی وجود دارند.
+- تحلیل‌های اختصاصی موجودند: `analyze_eyebrow_photo` و `analyze_lip_photo`.
+- زنجیره Vision از مدیریت مدل‌های AI خوانده می‌شود و token در کد/مستندات ذخیره نشده است.
+- مسیر تولید نهایی ابرو و لب و قرارداد mask/polarity قبلی حفظ شده‌اند.
+- خروجی before/after و گزارش دانلودی تصویر/PDF پیاده‌سازی شده است.
+- کنترل مالکیت session/candidate و جلوگیری از path traversal در دانلود پیاده‌سازی شده است.
+- مجموعه قبلی تست‌های Buti AI شامل ابرو، لب، خدمات عمومی و دانلود در یک اجرای سالم `65 passed` داشته است.
+
+### تغییر جدیدی که اکنون در working tree در حال تکمیل است
+
+برای اینکه ایجنت بعدی دوباره‌کاری نکند، سناریوی دقیق این کار در فایل زیر ثبت شده است:
+
+`BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_IMPLEMENTATION_SCENARIO.md`
+
+هدف این تغییر جدید این است که بعد از انتخاب عکس:
+
+```text
+preview → validate/quality → Vision analysis → دو گزینهٔ پیشنهاد/انتخاب دستی → تأیید کاربر → تولید نهایی
+```
+
+در working tree فعلی، اتصال اولیه این بخش‌ها اضافه شده است:
+
+- routeهای upload ابرو و generic دیگر در POST اول مستقیماً به final redirect نمی‌کنند و candidate تحلیل‌شده را برای نمایش پیشنهاد نگه می‌دارند.
+- پاسخ validate ابرو و لب/خدمات عمومی دارای `recommendation` است.
+- JavaScript آپلود از endpoint validate استفاده می‌کند و کارت پیشنهاد را در صفحه می‌سازد.
+- قالب‌های `eyebrow_wizard.html` و `generic_service_wizard.html` کارت «پیشنهاد گیسو» و «انتخاب خودم» دارند.
+- انتخاب تأییدشده با `analysis_confirmed=1` و `final_style` وارد مرحله تولید می‌شود.
+- candidate عمومی، `recommended_style` و `ai_analysis` را نگه می‌دارد.
+- استایل کارت تحلیل و دو انتخاب به CSS اضافه شده است.
+
+### وضعیت تأیید این تغییر جدید
+
+این اتصال جدید هنوز **کامل و قابل انتشار اعلام نشده است**. آخرین تست نشان داد که تست قدیمی انتظار redirect مستقیم `302` دارد، درحالی‌که قرارداد جدید باید در POST اول صفحه پیشنهاد را با `200` نمایش دهد:
+
+```text
+test_buti_ai_eyebrow_real_photo_step_flow_with_csrf
+expected 302, received 200
+```
+
+بنابراین ایجنت بعدی باید تست‌های direct-redirect را طبق سناریوی جدید اصلاح کند؛ نباید رفتار جدید را به redirect مستقیم برگرداند.
+
+تا قبل از سبز شدن تست‌های جدید، smoke test مرورگر و live provider:
+
+- commit جدید انجام نشود؛
+- push انجام نشود؛
+- پیشنهاد AI واقعی ادعا نشود.
+
+### ترتیب اجباری ادامه کار
+
+1. خواندن کامل `BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_IMPLEMENTATION_SCENARIO.md`.
+2. اجرای `git status --short --branch` و حفظ همه تغییرات موجود.
+3. تکمیل تست POST اول upload، نمایش recommendation و POST دوم confirmation.
+4. تست جداگانه ابرو و لب با mock provider و provider unavailable.
+5. اجرای `node --check giso/buti_ai/static/buti_ai.js` و `python3 -m py_compile`.
+6. اجرای suite کامل Buti AI.
+7. اجرای سایت و بررسی واقعی upload/recommendation/final با مرورگر.
+8. فقط پس از موفقیت همه موارد، commit محدود و push امن به شاخه `arena/7f567e47-giso4`.

@@ -887,3 +887,78 @@ giso/buti_ai/schema.py
 [4]: https://hoosha.com/image/ "Hoosha Image Generation and Image-to-Image Features"
 [5]: https://hoosha.com/blog/ai-api-web-services-guide/ "Hoosha API and Web Service Concepts"
 [6]: https://docs.bale.ai/ "Bale Bot API Documentation"
+
+# بخش تکمیلی — قرارداد نهایی آپلود، تحلیل و پیشنهاد مدل قبل از خروجی
+
+این بخش در تاریخ 2026-10-12 به سند نهایی اضافه شد تا ایجنت بعدی از وضعیت واقعی فعلی ادامه دهد و مرحله‌ها را دوباره از ابتدا طراحی نکند.
+
+## رفتار قطعی مورد انتظار
+
+برای ابرو و لب، flow باید این ترتیب را داشته باشد:
+
+```text
+انتخاب مدل/شدت
+→ آپلود عکس
+→ preview
+→ validate و بررسی کیفیت
+→ تحلیل Vision بر اساس عکس + مدل انتخابی + شدت تغییر
+→ نمایش دو گزینه: پیشنهاد گیسو / انتخاب دستی کاربر
+→ تأیید کاربر با final_style
+→ تولید نهایی با همان final_style
+→ before/after + وضعیت صادقانه AI/non-AI + دانلود تصویر/PDF
+```
+
+POST اول آپلود نباید مستقیماً به صفحه final redirect شود؛ باید candidate را نگه دارد و صفحه پیشنهاد را با status `200` برگرداند. POST دوم با `analysis_confirmed=1` و `final_style` مجاز است به final redirect شود.
+
+## قرارداد داده پیشنهاد
+
+```json
+{
+  "status": "ai_analyzed | ai_unavailable | local_checked",
+  "style": "validated-style-key",
+  "label": "نام مدل",
+  "reason": "دلیل کوتاه و غیرقطعی",
+  "alternatives": []
+}
+```
+
+برای ابرو، منبع تحلیل `analyze_eyebrow_photo` و برای لب، منبع تحلیل `analyze_lip_photo` است. اگر provider در دسترس نباشد، گزینه انتخاب دستی کاربر فعال می‌ماند و UI نباید fallback محلی را AI واقعی اعلام کند.
+
+## وضعیت واقعی اعمال‌شده در working tree
+
+اتصال اولیه این قرارداد اکنون در فایل‌های زیر اعمال شده است:
+
+- `giso/buti_ai/routes.py`: پاسخ recommendation، candidate مرحله‌ای و confirmation.
+- `giso/buti_ai/generic_service.py`: نگه‌داری `ai_analysis` و `recommended_style`.
+- `giso/buti_ai/static/buti_ai.js`: درخواست validate بعد از انتخاب فایل، نمایش checkها و کارت دوگزینه‌ای.
+- `giso/buti_ai/static/buti_ai.css`: ظاهر کارت تحلیل و انتخاب.
+- `giso/buti_ai/templates/buti_ai/eyebrow_wizard.html`: recommendation ابرو.
+- `giso/buti_ai/templates/buti_ai/generic_service_wizard.html`: recommendation لب و خدمات عمومی.
+
+این تغییرات هنوز انتشار نهایی محسوب نمی‌شوند؛ تست قدیمی direct-redirect باید مطابق قرارداد جدید اصلاح شود. آخرین failure ثبت‌شده:
+
+```text
+test_buti_ai_eyebrow_real_photo_step_flow_with_csrf
+expected 302, received 200
+```
+
+این failure نشان‌دهنده اختلاف تست قدیمی با رفتار سناریوی جدید است، نه مجوزی برای برگرداندن redirect مستقیم.
+
+## معیار انتشار
+
+پیش از commit/push باید این موارد واقعاً اجرا و سبز شوند:
+
+1. syntax Python و JavaScript.
+2. تست validate ابرو و لب با mock تحلیل موفق.
+3. تست provider unavailable و fallback صادقانه.
+4. تست POST اول با صفحه recommendation.
+5. تست POST دوم با `analysis_confirmed=1` و `final_style`.
+6. تست حفظ انتخاب دستی و اعمال پیشنهاد AI.
+7. تست مالکیت candidate و امنیت فایل.
+8. suite کامل Buti AI.
+9. اجرای سایت و بررسی مرورگری flow واقعی upload تا final.
+10. live provider check در صورت وجود credential.
+
+مرجع اجرایی جزئیات کامل این کار:
+
+`project_memory/letta/BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_IMPLEMENTATION_SCENARIO.md`
