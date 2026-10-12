@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS beauty_center_discounts (
 );
 CREATE INDEX IF NOT EXISTS idx_beauty_discounts_active ON beauty_center_discounts(center_id,status,expires_at);
 CREATE TABLE IF NOT EXISTS beauty_center_events (
- id INTEGER PRIMARY KEY AUTOINCREMENT,center_id INTEGER DEFAULT 0,event_type TEXT NOT NULL,user_id INTEGER DEFAULT 0,created_at TEXT DEFAULT ''
+ id INTEGER PRIMARY KEY AUTOINCREMENT,center_id INTEGER DEFAULT 0,event_type TEXT NOT NULL,user_id INTEGER DEFAULT 0,created_at TEXT DEFAULT '',service_id INTEGER NOT NULL DEFAULT 0,campaign_key TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_beauty_events_date ON beauty_center_events(event_type,created_at);
 CREATE TABLE IF NOT EXISTS beauty_center_expiry_notices (
@@ -166,6 +166,17 @@ def migrate_beauty_center_tables():
                            "salon_phone", "display_phone_choice", "last_edit_at"):
                 if column not in columns:
                     conn.execute(f"ALTER TABLE beauty_centers ADD COLUMN {column} TEXT DEFAULT ''")
+            if "instagram_url" not in columns:
+                conn.execute("ALTER TABLE beauty_centers ADD COLUMN instagram_url TEXT NOT NULL DEFAULT ''")
+            event_columns = {row[1] for row in conn.execute("PRAGMA table_info(beauty_center_events)").fetchall()}
+            if "service_id" not in event_columns:
+                conn.execute("ALTER TABLE beauty_center_events ADD COLUMN service_id INTEGER NOT NULL DEFAULT 0")
+            if "campaign_key" not in event_columns:
+                conn.execute("ALTER TABLE beauty_center_events ADD COLUMN campaign_key TEXT NOT NULL DEFAULT ''")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_beauty_events_instagram "
+                "ON beauty_center_events(center_id,event_type,created_at,service_id)"
+            )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_beauty_centers_category ON beauty_centers(category,status,is_active)")
             conn.commit()
     except Exception as exc:

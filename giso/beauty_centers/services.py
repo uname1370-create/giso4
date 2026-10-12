@@ -13,6 +13,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from giso.base import get_giso_db_conn, normalize_phone
 from giso.config import Config
@@ -70,6 +71,43 @@ except (TypeError, ValueError):
     CENTER_GALLERY_MAX_IMAGES = 12
 CENTER_GALLERY_ALT_MAX_CHARS = 180
 CENTER_GALLERY_CAPTION_MAX_CHARS = 300
+_INSTAGRAM_HANDLE_RE = re.compile(r"^[A-Za-z0-9._]{1,30}$")
+_CAMPAIGN_KEY_RE = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+try:
+    PUBLIC_SERVICE_DEMAND_MIN_SAMPLE = max(1, min(100, int(os.getenv("BEAUTY_SERVICE_DEMAND_MIN_SAMPLE", "5"))))
+except (TypeError, ValueError):
+    PUBLIC_SERVICE_DEMAND_MIN_SAMPLE = 5
+
+
+def normalize_instagram_url(value) -> str:
+    """Accept a profile username or instagram.com profile URL; reject other targets."""
+    raw = " ".join(str(value or "").split()).strip()
+    if not raw:
+        return ""
+    if raw.startswith("@"):
+        handle = raw[1:]
+    elif "://" not in raw and "/" not in raw and "?" not in raw and "#" not in raw:
+        handle = raw
+    else:
+        candidate = raw if "://" in raw else f"https://{raw}"
+        try:
+            parsed = urlsplit(candidate)
+            host = (parsed.hostname or "").lower()
+            if (parsed.scheme.lower() not in {"http", "https"}
+                    or host not in {"instagram.com", "www.instagram.com"}
+                    or parsed.username or parsed.password or parsed.port
+                    or parsed.query or parsed.fragment):
+                raise ValueError
+            segments = [segment for segment in parsed.path.split("/") if segment]
+            if len(segments) != 1:
+                raise ValueError
+            handle = segments[0][1:] if segments[0].startswith("@") else segments[0]
+        except (ValueError, TypeError):
+            raise ValueError("فقط نام کاربری یا لینک صفحهٔ Instagram معتبر پذیرفته می‌شود.")
+    if (not _INSTAGRAM_HANDLE_RE.fullmatch(handle) or handle.startswith(".")
+            or handle.endswith(".") or ".." in handle):
+        raise ValueError("نام کاربری Instagram معتبر نیست.")
+    return f"https://www.instagram.com/{handle}/"
 
 
 def normalize_gallery_metadata(service_key, alt_text, caption, available_service_keys=()):
@@ -219,6 +257,10 @@ def _normalize_fields(values: dict) -> tuple[dict, str]:
     price_level = str(values.get("price_level") or "on_request").strip()
     if price_level not in PRICE_LEVELS:
         return {}, "سطح هزینه معتبر نیست."
+    try:
+        instagram_url = normalize_instagram_url(values.get("instagram_url") or "")
+    except ValueError as exc:
+        return {}, str(exc)
     starting_price = _price_int(values.get("starting_price"))
     fields = {
         "name": " ".join(str(values.get("name") or "").split())[:160],
@@ -232,6 +274,7 @@ def _normalize_fields(values: dict) -> tuple[dict, str]:
         "display_phone_choice": str(values.get("display_phone_choice") or "business").strip(),
         "contact_time": " ".join(str(values.get("contact_time") or "").split())[:100],
         "description": str(values.get("description") or "").strip()[:700],
+        "instagram_url": instagram_url,
         "services_json": json.dumps(selected, ensure_ascii=False),
     }
     if not fields["name"]:
@@ -324,12 +367,12 @@ def create_center(owner_user_id: int, values: dict, image_path: str) -> tuple[bo
             cur = conn.execute(
                 "INSERT INTO beauty_centers "
                 "(owner_user_id,name,slug,category,center_type,price_level,starting_price,city,region,address_summary,business_phone,contact_time,"
-                "description,services_json,image_path,status,terms_version,terms_accepted_at,created_at,updated_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending_review',?,?,?,?)",
+                "description,instagram_url,services_json,image_path,status,terms_version,terms_accepted_at,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending_review',?,?,?,?)",
                 (int(owner_user_id), fields["name"], temp_slug, fields["category"], fields["center_type"],
                  fields["price_level"], fields["starting_price"], fields["city"],
                  fields["region"], fields["address_summary"], fields["business_phone"], fields["contact_time"],
-                 fields["description"], fields["services_json"], image_path, TERMS_VERSION, stamp, stamp, stamp),
+                 fields["description"], fields["instagram_url"], fields["services_json"], image_path, TERMS_VERSION, stamp, stamp, stamp),
             )
             center_id = int(cur.lastrowid)
             slug = f"{_slug_seed(fields['name'])}-{center_id}"
@@ -361,11 +404,11 @@ def update_owner_center(center_id: int, owner_user_id: int, values: dict, image_
         with get_giso_db_conn() as conn:
             conn.execute(
                 "UPDATE beauty_centers SET name=?,category=?,center_type=?,price_level=?,starting_price=?,city=?,region=?,address_summary=?,business_phone=?,"
-                "salon_phone=?,display_phone_choice=?,contact_time=?,description=?,services_json=?,image_path=?,status=?,last_edit_at=?,admin_note='',updated_at=? WHERE id=? AND owner_user_id=?",
+                "salon_phone=?,display_phone_choice=?,contact_time=?,description=?,instagram_url=?,services_json=?,image_path=?,status=?,last_edit_at=?,admin_note='',updated_at=? WHERE id=? AND owner_user_id=?",
                 (fields["name"], fields["category"], fields["center_type"], fields["price_level"], fields["starting_price"],
                  fields["city"], fields["region"], fields["address_summary"],
                  fields["business_phone"], fields["salon_phone"], fields["display_phone_choice"],
-                 fields["contact_time"], fields["description"], fields["services_json"],
+                 fields["contact_time"], fields["description"], fields["instagram_url"], fields["services_json"],
                  final_image, new_status, now_str(), now_str(), int(center_id), int(owner_user_id)),
             )
             conn.commit()
@@ -523,6 +566,226 @@ def increment_view(center_id: int):
         conn.execute("UPDATE beauty_centers SET views_count=views_count+1 WHERE id=? AND status='published'", (int(center_id),))
         conn.execute("INSERT INTO beauty_center_events(center_id,event_type,created_at) VALUES (?,'view',datetime('now','localtime'))",(int(center_id),))
         conn.commit()
+
+
+def track_instagram_click(center_id: int, *, service_id: int = 0, campaign_key: str = "", suppress_tracking: bool = False) -> str:
+    """Record an aggregate outbound click and return only this center's validated Instagram profile."""
+    try:
+        center_id = int(center_id)
+        service_id = max(0, int(service_id or 0))
+    except (TypeError, ValueError):
+        return ""
+    campaign = str(campaign_key or "")[:40]
+    if not _CAMPAIGN_KEY_RE.fullmatch(campaign):
+        campaign = ""
+    with get_giso_db_conn() as conn:
+        row = conn.execute(
+            "SELECT owner_user_id,status,is_active,listing_expires_at,instagram_url "
+            "FROM beauty_centers WHERE id=?", (center_id,),
+        ).fetchone()
+        if not row or row["status"] != "published" or not int(row["is_active"] or 0):
+            return ""
+        if row["listing_expires_at"] and str(row["listing_expires_at"]) <= now_str():
+            return ""
+        try:
+            target_url = normalize_instagram_url(row["instagram_url"])
+        except ValueError:
+            return ""
+        if not target_url:
+            return ""
+        if service_id:
+            active_service = conn.execute(
+                "SELECT 1 FROM beauty_center_services WHERE id=? AND center_id=? AND is_active=1",
+                (service_id, center_id),
+            ).fetchone()
+            if not active_service:
+                return ""
+        if not suppress_tracking:
+            conn.execute(
+                "INSERT INTO beauty_center_events(center_id,event_type,user_id,created_at,service_id,campaign_key) "
+                "VALUES (?,'instagram_click',0,datetime('now','localtime'),?,?)",
+                (center_id, service_id, campaign),
+            )
+            conn.commit()
+        return target_url
+
+
+def instagram_click_count(center_id: int) -> int:
+    try:
+        with get_giso_db_conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM beauty_center_events WHERE center_id=? AND event_type='instagram_click'",
+                (int(center_id),),
+            ).fetchone()
+        return int(row[0] or 0) if row else 0
+    except Exception:
+        logger.exception("instagram click count lookup failed for center %s", center_id)
+        return 0
+
+
+def _analytics_days(days) -> int:
+    try:
+        value = int(days)
+    except (TypeError, ValueError):
+        value = 30
+    return value if value in (7, 30, 90) else 30
+
+
+def track_booking_start(center_id: int, service_id: int, *, campaign_key: str = "") -> bool:
+    """Record an aggregate booking-form start for a currently published service.
+
+    No visitor/user identifier is stored. The route applies a short session-level
+    dedupe before calling this function; the event itself is intentionally counted
+    as a form-start signal, never as a person or a completed reservation.
+    """
+    try:
+        center_id, service_id = int(center_id or 0), int(service_id or 0)
+    except (TypeError, ValueError):
+        return False
+    if center_id <= 0 or service_id <= 0:
+        return False
+    campaign = str(campaign_key or "")[:40]
+    if not _CAMPAIGN_KEY_RE.fullmatch(campaign):
+        campaign = ""
+    with get_giso_db_conn() as conn:
+        center = conn.execute(
+            "SELECT 1 FROM beauty_centers WHERE id=? AND status='published' AND is_active=1 "
+            "AND (listing_expires_at='' OR listing_expires_at IS NULL "
+            "OR listing_expires_at>datetime('now','localtime'))",
+            (center_id,),
+        ).fetchone()
+        service = conn.execute(
+            "SELECT 1 FROM beauty_center_services WHERE id=? AND center_id=? AND is_active=1",
+            (service_id, center_id),
+        ).fetchone()
+        if not center or not service:
+            return False
+        conn.execute(
+            "INSERT INTO beauty_center_events(center_id,event_type,user_id,created_at,service_id,campaign_key) "
+            "VALUES (?,'booking_start',0,datetime('now','localtime'),?,?)",
+            (center_id, service_id, campaign),
+        )
+        conn.commit()
+    return True
+
+
+def public_service_demand(days: int = 30, limit: int = 6, *, by_city: bool = False,
+                          min_sample: int | None = None) -> list[dict]:
+    """Aggregate booking-form starts over the live active service inventory.
+
+    The grouping key is the service's current key, or its current normalized name
+    when it has no key. Thus adding, renaming or disabling a center service changes
+    the public list without editing a hard-coded brow/lip/hair taxonomy.
+    """
+    days = _analytics_days(days)
+    try:
+        limit = max(1, min(20, int(limit)))
+    except (TypeError, ValueError):
+        limit = 6
+    try:
+        min_sample = max(1, min(100, int(
+            PUBLIC_SERVICE_DEMAND_MIN_SAMPLE if min_sample is None else min_sample
+        )))
+    except (TypeError, ValueError):
+        min_sample = PUBLIC_SERVICE_DEMAND_MIN_SAMPLE
+    city_select = "c.city AS city," if by_city else ""
+    city_group = ",c.city" if by_city else ""
+    try:
+        with get_giso_db_conn() as conn:
+            rows = conn.execute(
+                "SELECT CASE WHEN TRIM(COALESCE(s.service_key,''))<>'' "
+                "THEN 'key:'||LOWER(TRIM(s.service_key)) "
+                "ELSE 'name:'||LOWER(TRIM(s.name)) END AS demand_key, "
+                + city_select +
+                "COALESCE(NULLIF(MAX(TRIM(s.name)),''),MAX(s.service_key),'خدمت') AS service_name, "
+                "COUNT(DISTINCT s.center_id) AS provider_count, "
+                "SUM(COALESCE(e.booking_starts,0)) AS booking_starts "
+                "FROM beauty_center_services s "
+                "JOIN beauty_centers c ON c.id=s.center_id "
+                "LEFT JOIN (SELECT center_id,service_id,COUNT(*) booking_starts "
+                "FROM beauty_center_events WHERE event_type='booking_start' "
+                "AND created_at>=datetime('now','localtime',?) GROUP BY center_id,service_id) e "
+                "ON e.center_id=s.center_id AND e.service_id=s.id "
+                "WHERE s.is_active=1 AND c.status='published' AND c.is_active=1 "
+                "AND (c.listing_expires_at='' OR c.listing_expires_at IS NULL "
+                "OR c.listing_expires_at>datetime('now','localtime')) "
+                "GROUP BY demand_key" + city_group +
+                " ORDER BY booking_starts DESC,provider_count DESC,service_name COLLATE NOCASE "
+                "LIMIT ?",
+                (f"-{days} days", limit),
+            ).fetchall()
+        return [
+            ({
+                "demand_key": str(row["demand_key"] or ""),
+                "service_name": str(row["service_name"] or "خدمت"),
+                "provider_count": int(row["provider_count"] or 0),
+                "booking_starts": int(row["booking_starts"] or 0),
+                "has_reliable_sample": int(row["booking_starts"] or 0) >= min_sample,
+                **({"city": str(row["city"] or "")} if by_city else {}),
+            })
+            for row in rows
+        ]
+    except Exception:
+        logger.exception("public service demand aggregation failed")
+        return []
+
+
+def center_smart_analytics(center_id: int, days: int = 30) -> dict:
+    """Return one center's aggregate event/reservation metrics, never cross-center."""
+    days = _analytics_days(days)
+    result = {
+        "days": days,
+        "events": {key: 0 for key in (
+            "view", "analysis_impression", "contact", "price_inquiry",
+            "instagram_click", "booking_start", "conversation",
+        )},
+        "reservations": {key: 0 for key in (
+            "total", "pending", "confirmed", "completed", "cancelled_user", "cancelled_center",
+        )},
+        "services": [],
+    }
+    try:
+        center_id = int(center_id or 0)
+        if center_id <= 0:
+            return result
+        since = f"-{days} days"
+        with get_giso_db_conn() as conn:
+            for row in conn.execute(
+                "SELECT event_type,COUNT(*) total FROM beauty_center_events "
+                "WHERE center_id=? AND created_at>=datetime('now','localtime',?) GROUP BY event_type",
+                (center_id, since),
+            ).fetchall():
+                result["events"][str(row["event_type"])] = int(row["total"] or 0)
+            for row in conn.execute(
+                "SELECT status,COUNT(*) total FROM beauty_center_reservations "
+                "WHERE center_id=? AND created_at>=datetime('now','localtime',?) GROUP BY status",
+                (center_id, since),
+            ).fetchall():
+                status = str(row["status"] or "")
+                count = int(row["total"] or 0)
+                if status in result["reservations"]:
+                    result["reservations"][status] = count
+                result["reservations"]["total"] += count
+            result["services"] = [dict(row) for row in conn.execute(
+                "SELECT s.id,s.name,s.service_key,s.is_active, "
+                "COALESCE(e.booking_starts,0) booking_starts, "
+                "COALESCE(r.reservation_requests,0) reservation_requests, "
+                "COALESCE(r.confirmed,0) confirmed,COALESCE(r.completed,0) completed "
+                "FROM beauty_center_services s "
+                "LEFT JOIN (SELECT service_id,COUNT(*) booking_starts FROM beauty_center_events "
+                "WHERE center_id=? AND event_type='booking_start' "
+                "AND created_at>=datetime('now','localtime',?) GROUP BY service_id) e ON e.service_id=s.id "
+                "LEFT JOIN (SELECT service_id,COUNT(*) reservation_requests, "
+                "SUM(CASE WHEN status='confirmed' THEN 1 ELSE 0 END) confirmed, "
+                "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) completed "
+                "FROM beauty_center_reservations WHERE center_id=? "
+                "AND created_at>=datetime('now','localtime',?) GROUP BY service_id) r ON r.service_id=s.id "
+                "WHERE s.center_id=? ORDER BY s.is_active DESC,s.sort_order,s.id LIMIT 100",
+                (center_id, since, center_id, since, center_id),
+            ).fetchall()]
+    except Exception:
+        logger.exception("center analytics lookup failed for center %s", center_id)
+    return result
 
 
 def reveal_contact(center_id: int, user_id: int, price_inquiry: bool = False) -> tuple[bool, str]:

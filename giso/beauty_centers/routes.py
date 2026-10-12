@@ -18,6 +18,8 @@ from giso.beauty_centers.services import (
     reveal_contact, save_center_image, send_conversation_message, set_owner_active, update_owner_center,
     center_feedback_summary, submit_center_feedback, purchase_center_promotion,
     center_promotion_availability, process_center_expiry_notifications, renew_center_listing,
+    instagram_click_count, track_instagram_click, public_service_demand,
+    center_smart_analytics,
 )
 from giso.beauty_centers.pricing.services import get_center_services, get_working_hours
 from giso.config import Config
@@ -189,13 +191,15 @@ def list_centers():
           "hair":conn.execute("SELECT COUNT(*) FROM analyses WHERE type='hair'").fetchone()[0],
           "skin":conn.execute("SELECT COUNT(*) FROM analyses WHERE type='skin'").fetchone()[0],
         }
+    service_demand = public_service_demand(days=30, limit=6)
     return render_template(
         "beauty_centers/list.html", centers=centers, featured=featured, related=related,
         query=query, city=city, category=category, center_type=center_type, service=service,
         price_level=price_level, analysis_id=analysis_id, price_levels=PRICE_LEVELS,
         cities=cities, center_categories=CENTER_CATEGORIES, center_types=CENTER_TYPES,
         category_center_types=CATEGORY_CENTER_TYPES, category_services=CATEGORY_SERVICES,
-services=SERVICES, disclaimer=DISCLAIMER, beauty_stats=beauty_stats,
+        services=SERVICES, disclaimer=DISCLAIMER, beauty_stats=beauty_stats,
+        service_demand=service_demand, service_demand_days=30,
         # SEO: جست‌وجو (q) ایندکس نشود؛ فیلترهای معنادار (city/category/...) و
         # لیست پایه indexable می‌مانند (قرارداد stage14).
         noindex=bool(query),
@@ -315,6 +319,33 @@ def center_detail(slug):
     )
 
 
+@beauty_centers_bp.route("/beauty-centers/<slug>/instagram", methods=["GET"])
+def center_instagram_redirect(slug):
+    """Track one aggregate outbound click and redirect only to the center's saved profile."""
+    center = get_center_by_slug(slug)
+    if not center or center.get("status") != "published" or not center.get("is_active"):
+        abort(404)
+    raw_service_id = request.args.get("service_id", "").strip()
+    try:
+        service_id = int(raw_service_id) if raw_service_id else 0
+    except (TypeError, ValueError):
+        abort(404)
+    if service_id < 0:
+        abort(404)
+    campaign_key = (request.args.get("campaign") or "")[:40]
+    target_url = track_instagram_click(
+        center.get("id"),
+        service_id=service_id,
+        campaign_key=campaign_key,
+        suppress_tracking=(
+            (_user_id() and int(center.get("owner_user_id") or 0) == _user_id()) or _is_staff()
+        ),
+    )
+    if not target_url:
+        abort(404)
+    return redirect(target_url, code=302)
+
+
 @beauty_centers_bp.route("/beauty-centers/<int:center_id>/contact", methods=["POST"])
 @login_required
 def center_contact(center_id):
@@ -390,8 +421,11 @@ def owner_dashboard():
     if not center:
         return redirect(url_for("beauty_centers.register_center"))
     tab = (request.args.get("tab") or "status").strip()
-    if tab not in ("status", "edit", "services", "messages", "promotion", "reservations"):
+    if tab not in ("status", "edit", "services", "messages", "promotion", "reservations", "analytics"):
         tab = "status"
+    analytics_days = request.args.get("days", 30, type=int)
+    if analytics_days not in (7, 30, 90):
+        analytics_days = 30
     panel_context = _owner_panel_context()
     if panel_context.pop("redirect_admin", False):
         return redirect(url_for("panel.dashboard"))
@@ -437,10 +471,13 @@ def owner_dashboard():
         purchase_nonces=purchase_nonces, promotion_history=promotion_history,
         promotion_availability=center_promotion_availability(center),
         owner_phone=(getattr(current_user, "phone", "") or ""),
+        center_analytics=(center_smart_analytics(center["id"], analytics_days) if tab == "analytics" else None),
+        analytics_days=analytics_days,
         center_categories=CENTER_CATEGORIES, center_types=CENTER_TYPES,
         category_center_types=CATEGORY_CENTER_TYPES, category_services=CATEGORY_SERVICES,
         price_levels=PRICE_LEVELS, services=SERVICES, status_fa=STATUS_FA,
-        disclaimer=DISCLAIMER, center_reservations=center_reservations, **panel_context,
+        disclaimer=DISCLAIMER, center_reservations=center_reservations,
+        instagram_clicks=instagram_click_count(center["id"]), **panel_context,
     )
 
 
@@ -468,6 +505,7 @@ def owner_update():
             "salon_phone": request.form.get("salon_phone"),
             "display_phone_choice": request.form.get("display_phone_choice"),
             "contact_time": request.form.get("contact_time"), "description": request.form.get("description"),
+            "instagram_url": request.form.get("instagram_url"),
             "services": request.form.getlist("services"),
         }, image_path=image_path,
     )

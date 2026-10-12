@@ -2,6 +2,15 @@
 
 اگر برای ادامهٔ کار روی Giso4 وارد شدی، قبل از هر تغییر کد فقط این پوشه را بخوان؛ کاربر نباید دوباره سناریو را توضیح دهد.
 
+## آخرین handoff — 2026-10-12، حدود 19:50 Asia/Tehran
+
+- شاخه `arena/7f567e47-giso4` روی commit pushشدهٔ `525e80e` متوقف است. Stage 4 (Instagram) و Stage 5 (آمار هوشمند) در working tree محلی هستند و commit/push نشده‌اند.
+- Stage 5: چهار آمار اصلی صفحه مراکز حفظ شدند؛ بخش تقاضای عمومی از خدمت‌های فعال موجود در inventory ساخته می‌شود و نام/گروه خدمت hardcode نیست. شروع فرم رزرو به‌صورت aggregate، با dedupe نشست/روز، ثبت می‌شود؛ شمارنده افراد یکتا یا رزرو قطعی نیست.
+- آمار عمومی ۳۰روزه زیر آستانهٔ پیش‌فرض ۵ نمایش دقیق نمی‌دهد؛ آستانه با `BEAUTY_SERVICE_DEMAND_MIN_SAMPLE` قابل تنظیم است. تب «آمار هوشمند» مالک فقط داده‌های مرکز resolveشدهٔ خودش را در بازه‌های ۷/۳۰/۹۰ روز نشان می‌دهد. مدیریت، تفکیک شهر/خدمت دارد.
+- حریم خصوصی: eventهای جدید `user_id=0` دارند و هیچ عکس، `final_design_id`، شماره تماس یا visitor ID ثبت نمی‌کنند.
+- اعتبارسنجی Stage 5 روی کد جاری: **70 passed، 132 warnings**؛ smoke عمومی HTTP 200 و حضور چهار KPI قدیمی همراه با بخش تقاضا/حالت خالی تأیید شد. Sweep گستردهٔ مراکز: **80 passed، 10 failed** در expectationهای قدیمی stage 7/10/12/13/14؛ فیکسچر مدیا و تست فرم GET/CSRF اصلاح شده‌اند. کل suite پس از Stage 5 اجرا نشده.
+- Stage 6 (مقایسه قیمت) هنوز آغاز نشده؛ تا تأیید کاربر متوقف بمان. قبل از push، درباره شکست‌های گستردهٔ تست‌ها و انتشار Stage 4–5 با کاربر هماهنگ کن.
+
 ## ترتیب مطالعهٔ اجباری
 
 1. `BOOTSTRAP_PROMPT.md`
@@ -65,6 +74,14 @@ Cloudflare inpainting → AvalAI image edit → local preview
 - عملکرد واقعی تأییدشده
 - محدودیت‌های باقی‌مانده
 - گام بعدی
+
+## Latest handoff — 2026-10-12, 18:17 Asia/Tehran
+
+- Stages 1–3 of the Beauty Centers roadmap are implemented and pushed to `arena/7f567e47-giso4` at commit `525e80e`.
+- Stage 4 (Instagram profile link and outbound click tracking) is implemented locally but remains uncommitted/unpushed. Dedicated tests pass (**7 passed**); final combined center/Buti AI regressions pass (**58 passed, 132 warnings**). `py_compile`, route-map check, Jinja compilation and `git diff --check` pass.
+- Full repository suite after Stage 3 and before Stage 4 was not green: **727 passed, 69 failed, 4 skipped, 364 warnings**. Failures span wider project areas; see `PROJECT_MEMORY.md` and the implementation scenario for details. `test_phase4_beauty_owner_ui` still expects the legacy label `افزایش دیده‌شدن آگهی`. Stage 4 has targeted/combined regressions, not a new full-suite run.
+- Stage 5 has not started. After reviewing Stage 4, ask the user before committing/pushing it or continuing to Stage 5.
+- The historical snapshot below may contain superseded status; prefer this latest handoff plus `PROJECT_MEMORY.md`.
 
 ## وضعیت به‌روز Buti AI — آپلود، تحلیل و پیشنهاد مدل — 2026-10-12
 

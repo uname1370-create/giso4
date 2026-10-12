@@ -5,6 +5,7 @@ from flask import flash, redirect, request, url_for
 from giso.base import get_giso_db_conn
 from giso.beauty_centers.services import (
     STATUS_FA, admin_set_status, list_admin_centers, set_center_gallery_image_status,
+    public_service_demand,
 )
 
 _SETTING_DEFAULTS = {
@@ -111,6 +112,7 @@ def _dashboard(conn) -> dict:
         "totals": totals,
         "performance": performance,
         "events": event_rows,
+        "service_demand": public_service_demand(days=30, limit=20, by_city=True),
         "eyebrow_demand_by_city": demand_by_city,
         "eyebrow_demand_recent": demand_recent,
         "mirror_demand_by_service": mirror_demand_by_service,

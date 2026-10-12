@@ -2,6 +2,7 @@
 """End-to-end MVP contract for modular Beauty Centers."""
 import io
 import json
+import uuid
 from pathlib import Path
 
 from PIL import Image
@@ -10,6 +11,7 @@ from werkzeug.security import generate_password_hash
 
 from giso.app import create_app
 from giso.base import get_giso_db_conn
+from giso.config import Config
 from giso.beauty_centers.services import (
     admin_set_status, create_center, get_center, get_owner_center,
     recommended_centers, reveal_contact, save_center_image,
@@ -64,6 +66,10 @@ def test_schema_public_seo_and_guest_gates():
 
 def test_center_lifecycle_matching_contact_and_owner_panel():
     app = create_app(); _cleanup(app); user_id = _user(app)
+    media_relative = f"uploads/test_beauty_center_{uuid.uuid4().hex}.png"
+    media_path = Path(Config.GISO_DIR) / "static" / media_relative
+    media_path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (4, 4), (240, 220, 225)).save(media_path)
     try:
         with app.app_context():
             ok, message, center = create_center(user_id, {
@@ -71,14 +77,14 @@ def test_center_lifecycle_matching_contact_and_owner_panel():
                 "business_phone": "09120009971", "contact_time": "۱۰ تا ۲۰",
                 "description": "مرکز تست خدمات ترمیم مو", "services": ["hair_repair", "haircut"],
                 "terms_accepted": True,
-            }, "uploads/hair_20260810140337.jpg")
+            }, media_relative)
             assert ok, message
             assert center["status"] == "pending_review"
             assert get_owner_center(user_id)["id"] == center["id"]
             assert all(row["id"] != center["id"] for row in __import__("giso.beauty_centers.services", fromlist=["list_public_centers"]).list_public_centers())
             ok, _message, center = admin_set_status(center["id"], "published")
             assert ok and center["status"] == "published"
-            analysis = Analysis(user_id=user_id, phone=PHONE, type="hair", photo_path="uploads/hair_20260810140337.jpg",
+            analysis = Analysis(user_id=user_id, phone=PHONE, type="hair", photo_path=media_relative,
                                 ai_report_json=json.dumps({"main_problems": [{"name": "آسیب و خشکی مو"}]}, ensure_ascii=False))
             db.session.add(analysis); db.session.commit()
             matched = recommended_centers(analysis.id, user_id, city="مشهد")
@@ -99,6 +105,7 @@ def test_center_lifecycle_matching_contact_and_owner_panel():
         assert "وضعیت مرکز" in owner.get_data(as_text=True)
     finally:
         _cleanup(app)
+        media_path.unlink(missing_ok=True)
 
 
 def test_authenticated_registration_form_creates_pending_center():

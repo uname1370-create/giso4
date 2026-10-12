@@ -2,17 +2,16 @@
 
 ## 1. Last Update
 
-- **Date/time:** 2026-10-12, approximately 17:43
+- **Date/time:** 2026-10-12, approximately 19:50
 - **User timezone:** Asia/Tehran
 - **Last Agent:** Manus
 - **Last Model:** not recorded / model-agnostic
 
 ## 2. Git State
 
-- **Branch:** `arena/7f567e47-giso4`
-- **Branch:** `arena/7f567e47-giso4` (verified in the active workspace).
-- **Working tree:** stage 1/2 salon changes and stage 3 Booking Bridge changes remain uncommitted; stage 3 regressions passed. Full-suite rerun is in progress before the requested GitHub push.
-- **Current-turn code change:** Mirror service-card preview entry, same-center/same-service reservation return path, real active service ID selection, server-side final-design ownership/type checks, and explicit no-photo-sharing copy.
+- **Branch:** `arena/7f567e47-giso4`; commit `525e80e` (`Implement beauty center mirror booking stages 1-3`) was pushed to `origin`.
+- **Working tree:** Stage 4 Instagram and Stage 5 smart analytics changes are local and uncommitted. Remote remains at commit `525e80e`; no Stage 4/5 push was done.
+- **Current-turn code change:** Stage 5 public demand board, event-level booking-start metric, owner analytics tab, admin city/service aggregation, dynamic current-service inventory, and related tests.
 - **Protected paths:** `web/`, `bot_edu/`, `main.py`, and `giso/bot.py` remain unchanged.
 
 ## 3. `sena.md` Status
@@ -23,7 +22,7 @@
 
 ## 4. Current Scenario
 
-- **Current user request:** complete roadmap stages 1–3, run health/regression tests, and push the result to `arena/7f567e47-giso4`; pause for approval before continuing to stage 4.
+- **Current user request:** implement Stage 5 smart demand analytics and make displayed service labels dynamic. Implemented locally; pause before Stage 6 and do not push without request.
 - **Stage 1:** reservation CTA and selected-service highlight were implemented in the center listing/detail experience.
 - **Stage 2:** gallery capacity/metadata/moderation and owner controls were implemented; pending items are not public before moderation.
 - **Stage 3:** compatible active service cards now offer Mirror preview; the result links back to the same center/service. Reservation GET/POST validates design ownership, type and active service mapping. The customer's photo is not exposed to the center.
@@ -31,15 +30,20 @@
 
 ## 5. Current Stage
 
-- **Stage 3 implementation:** done locally; tests for booking security, center CTA, gallery, cards and Buti AI passed (**51 passed**, 132 existing deprecation warnings). Python compile checks passed.
-- **Full suite:** first collection attempt identified the requirements-listed Telegram dependency was absent; it was installed and a complete rerun is in progress. Do not report a result until the process completes.
+- **Stage 3 implementation:** done and pushed in commit `525e80e`; tests for booking security, center CTA, gallery, cards and Buti AI passed (**51 passed**, 132 existing deprecation warnings). Python compile checks passed.
+- **Stage 4 implementation:** done locally; supports canonical profile links, owner editing, public CTA, no-open-redirect tracking and aggregate events. Event rows do not store visitor IDs; service attribution is checked against active center inventory. No Instagram API or scraping is used.
+- **Stage 4 tests:** dedicated module **7 passed**; combined center/gallery/CTA/Booking Bridge/Buti AI regression before Stage 5 **58 passed, 132 warnings**.
+- **Stage 5 implementation:** done locally. Public center page retains the original four cards and adds an aggregate 30-day service-demand board before filters. Services are derived from active inventory at currently published centers, grouped by current service key or current service name fallback; it is not hardcoded to brow/lip/hair. The owner dashboard has a 7/30/90-day analytics tab scoped to the owner’s resolved center; it separates event counts from actual reservation rows/current statuses and lists current services dynamically. The super-admin dashboard adds city/service aggregation.
+- **Stage 5 measurement/privacy:** valid reserve-form starts are logged as `booking_start`, once per signed browser session/day per center-service; owner opens are excluded. Events store aggregate center/service/source only (`user_id=0`), no photo, final-design ID, phone or visitor ID. Counts are form-start actions, not unique people or completed reservations. Public exact demand counts are suppressed below the configurable default sample size 5 (`BEAUTY_SERVICE_DEMAND_MIN_SAMPLE`, 1–100).
+- **Stage 5 focused validation on current code:** **70 passed, 132 warnings** across Stage 5, CSRF contract, Instagram, Booking Bridge, gallery, CTA and Buti AI tests. Python compilation and Jinja compilation for public/owner/admin templates passed. Public `/beauty-centers` smoke returned **HTTP 200** and verified that all four old KPIs and the new demand section/empty-state text render together.
+- **Wider beauty-center sweep:** **80 passed, 10 failed**. Remaining failures are older expectation/integration tests for stage 10, navigation stage 12, homepage card stage 13, SEO stage 14, notifications stage 7, and admin-bot stage 8. The lifecycle/media fixture and Stage 16 form-CSRF assertion that were affected by stale test setup/GET semantics are corrected and pass. No full repository suite was rerun after Stage 5.
+- **Full suite (after Stage 3, before Stage 4):** complete run returned **727 passed, 69 failed, 4 skipped, 364 warnings**. Failures span several project areas and include missing `cv2`, stale UI/authorization expectations, environment/file errors and Buti AI tests. One beauty-center owner UI test expects the old label `افزایش دیده‌شدن آگهی`; it remains for separate review. Stage 4 has targeted/combined regressions, not a new full-suite rerun.
 - **Privacy:** only internal `final_design_id` and service/style metadata are linked to reservations. The salon does not receive the customer's photo; the reservation UI states this explicitly.
-- **Not started:** stage 4 Instagram/social click tracking.
+- **Stage 4 and Stage 5:** local and uncommitted; remote branch still at `525e80e`. User requested Stage 5 coding; Stage 6 has not started and awaits confirmation.
 
 ## 6. Next Action
 
-- Finish the full-suite rerun, inspect `git diff --check` and final worktree, then commit/push requested stages 1–3 to `arena/7f567e47-giso4`.
-- After the push, report stage 3 and ask for explicit approval before beginning stage 4. Do not silently proceed to later roadmap stages.
+- Stage 4–5 were requested for GitHub publication; commit/push the accumulated changes and report 70 targeted passes plus 10 remaining wider-sweep failures. Do not claim the full repository suite is green; pause before Stage 6.
 - Keep public launch blocked until documented cost ledger, provider-attempt audit, charge, idempotency, quota, circuit breaker, consent and worker queue requirements are addressed.
 
 ## 7. Architecture / Guide Findings

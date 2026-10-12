@@ -54,6 +54,7 @@
         {% else %}
         <a class="bc-btn bc-btn-outline bc-chat-primary" href="{{ url_for('login',next=url_for('beauty_centers.center_chat',slug=center.slug)) }}"><i class="fas fa-comments"></i> گفتگو</a>
         {% endif %}
+        {% if center.instagram_url %}<a class="bc-btn bc-btn-outline bc-instagram-link" href="{{ url_for('beauty_centers.center_instagram_redirect', slug=center.slug, service_id=(selected_service.id if selected_service and selected_service.is_active else None), campaign='profile_hero') }}" rel="nofollow"><i class="fab fa-instagram"></i> صفحه Instagram</a>{% endif %}
       </div>
       <div class="bc-trust-line"><span class="bc-checked"><i class="fas fa-circle-check"></i> اطلاعات تماس و مشخصات اولیه بررسی شده</span><small>تضمین کیفیت نیست</small></div>
       <dl class="bc-facts bc-facts-inline"><div><dt>بازدید</dt><dd>{{ center.views_count }}</dd></div><div><dt>تماس</dt><dd>{{ center.contact_clicks or 0 }}</dd></div><div><dt>آدرس</dt><dd>{{ (center.address_summary or 'ثبت نشده')[:60] }}</dd></div></dl>

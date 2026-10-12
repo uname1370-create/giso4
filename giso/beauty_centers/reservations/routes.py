@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Phase B reservation routes (per gisobu.md)."""
-from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
 
 from datetime import datetime
@@ -12,6 +12,7 @@ from giso.beauty_centers.reservations.notifications import (
     notify_user_rejected,
 )
 from giso.beauty_centers.pricing.services import get_center_services
+from giso.beauty_centers.services import track_booking_start
 from giso.money import format_toman, to_persian_digits
 
 reservations_bp = Blueprint("beauty_reservations", __name__)
@@ -31,6 +32,36 @@ def _center_by_slug(slug):
             "SELECT * FROM beauty_centers WHERE slug=?", (str(slug or ""),)
         ).fetchone()
     return dict(row) if row else None
+
+
+def _record_booking_start_once(center, service, *, from_mirror=False):
+    """Count one valid service-form start per browser session/day, not a person."""
+    try:
+        user_id = int(getattr(current_user, "id", 0) or 0)
+        if user_id and user_id == int(center.get("owner_user_id") or 0):
+            return False
+        center_id = int(center.get("id") or 0)
+        service_id = int(service.get("id") or 0)
+        if not center_id or not service_id:
+            return False
+        today = datetime.now().strftime("%Y-%m-%d")
+        marker = f"{center_id}:{service_id}"
+        seen = session.get("_giso_beauty_booking_starts", {})
+        if not isinstance(seen, dict):
+            seen = {}
+        if seen.get(marker) == today:
+            return False
+        if not track_booking_start(
+            center_id, service_id,
+            campaign_key="mirror" if from_mirror else "center_service",
+        ):
+            return False
+        seen[marker] = today
+        # Bound the signed-session payload; this is a dedupe marker, not an ID store.
+        session["_giso_beauty_booking_starts"] = dict(list(seen.items())[-40:])
+        return True
+    except Exception:
+        return False
 
 
 def _valid_mirror_reservation_link(center, user_id, form):
@@ -136,6 +167,10 @@ def reserve(slug):
                     break
             if service_id and not service:
                 return jsonify({"ok": False, "error": "خدمت یافت نشد."}), 404
+        if service and center.get("status") == "published" and int(center.get("is_active") or 0):
+            _record_booking_start_once(
+                center, service, from_mirror=bool(request.args.get("final_design_id")),
+            )
         if date and service:
             try:
                 result = rsv.get_available_slots(center["id"], date, service_id)

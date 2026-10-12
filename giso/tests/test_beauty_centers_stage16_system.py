@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Stage 16: whole-feature architecture, route and legal regression audit."""
 from pathlib import Path
+import re
 
 from giso.app import create_app
 from giso.beauty_centers.services import DISCLAIMER
@@ -76,7 +77,9 @@ def test_all_mutating_html_forms_carry_csrf_and_routes_require_authenticated_par
     templates = MODULE / "templates/beauty_centers"
     for name in ("register.html", "detail.html", "chat.html", "owner_dashboard.html", "admin.html"):
         source = (templates / name).read_text(encoding="utf-8")
-        assert source.count("<form") == source.count('name="csrf_token"')
+        form_tags = re.findall(r"<form\b[^>]*>", source, flags=re.IGNORECASE)
+        mutating_forms = [tag for tag in form_tags if re.search(r"\bmethod\s*=\s*['\"]?post\b", tag, flags=re.IGNORECASE)]
+        assert len(mutating_forms) == source.count('name="csrf_token"')
     routes = (MODULE / "routes.py").read_text(encoding="utf-8")
     for function in (
         "center_contact", "center_chat_feedback", "register_center", "owner_dashboard", "owner_update",

@@ -222,3 +222,20 @@
 - فایل تست جدید: `giso/tests/test_beauty_center_reservation_booking_bridge.py`. `py_compile` موفق؛ regressions مرتبط (booking bridge، `test_buti_ai_phase1.py`، CTA، گالری و کارت‌های مرکز): **51 passed، 132 warnings**. هشدارهای عمده از `datetime.utcnow()` و Pillow `getdata()` موجود در کد/وابستگی است و در این Stage تغییر داده نشد.
 - full-suite نخست به‌علت نبودن dependency `python-telegram-bot==20.7` هنگام collection متوقف شد؛ dependency مطابق requirements نصب شد و اجرای دوبارهٔ full-suite جداگانه در حال انجام است. نتیجه تا دریافت نهایی اعلام نمی‌شود.
 - Stage 4 (Instagram) آغاز نشده است؛ ادامه فقط پس از تأیید کاربر.
+
+
+## 9. گزارش Stage 5 — آمار هوشمند و تقاضای خدمات (2026-10-12، حدود 19:50 Asia/Tehran)
+
+- صفحهٔ فهرست مراکز: چهار KPI قبلی حفظ شدند؛ یک نوار تقاضای ۳۰روزه پیش از فیلترها اضافه شد. کارت‌های خدمت از `beauty_center_services` فعالِ مراکز منتشرشده/فعال ساخته می‌شوند. گروه‌بندی با `service_key` جاری و در نبود آن با نام جاری خدمت است؛ بنابراین فهرست ثابت ابرو/لب/مو نیست و با تغییر inventory تغییر می‌کند.
+- تعریف سیگنال تقاضا: بازشدن فرم رزرو برای `service_id` معتبر؛ با `booking_start` در `beauty_center_events` ثبت می‌شود. هر خدمت/مرکز در نشست مرورگرِ امضاشده فقط یک بار در روز شمرده می‌شود؛ بازدیدهای مالک حذف می‌شوند. رویداد جدید `user_id=0` دارد و فقط center/service/campaign را نگه می‌دارد.
+- آمار رویداد با کاربر یکتا یکی نیست؛ `booking_start` رزرو قطعی یا فروش نیست. درخواست‌های واقعی جداگانه از جدول رزرو، بر اساس تاریخ ایجاد و وضعیت فعلی خوانده می‌شوند.
+- بخش عمومی مقادیر دقیق تقاضا را زیر حداقل نمونه نشان نمی‌دهد. پیش‌فرض `BEAUTY_SERVICE_DEMAND_MIN_SAMPLE=5` است و مقدار از طریق environment به بازهٔ ۱ تا ۱۰۰ قابل تنظیم است. این آمار فقط از مراکز/خدمات فعال منتشرشده aggregate می‌شود؛ PII، عکس و `final_design_id` در query/رویداد عمومی حضور ندارند.
+- داشبورد مالک: تب «آمار هوشمند»، بازه‌های ۷/۳۰/۹۰ روز؛ همهٔ queryها با `center_id` مرکز دریافت‌شده از حساب مالک محدودند. شمار بازدید، نمایش Mirror، تماس/قیمت/Instagram، شروع فرم و وضعیت‌های رزرو و breakdown خدمت نمایش داده می‌شود؛ service names از داده جاری می‌آیند.
+- داشبورد سوپرادمین: گزارش aggregate ۳۰روزهٔ شهر/خدمت و تعداد مرکز ارائه‌دهنده.
+- اعتبارسنجی هدفمند روی کد Stage 5 نهایی: **65 passed, 132 warnings**. `py_compile`، compile سه قالب public/owner/admin و Flask smoke روی `/beauty-centers` با **HTTP 200** موفق بود.
+- sweep گستردهٔ `test_beauty_center*.py` و `test_beauty_centers*.py`: **77 passed, 12 failed**. شکست‌ها در تست‌های موجود lifecycle/media، قراردادهای ثابت UI/SEO/navigation و admin hooks دیده شدند؛ هیچ‌کدام از تست‌های جدید Stage 5 fail نشدند. بااین‌حال پیش از pilot باید شکست‌ها triage و در صورت لزوم baseline بررسی شوند. Full suite کل مخزن پس از Stage 5 اجرا نشده است.
+- فایل‌های Stage 4–5 و memory updates local/uncommitted مانده‌اند؛ push انجام نشد. Stage 6 (مقایسهٔ قیمت) هنوز شروع نشده و نیازمند تأیید کاربر است.
+
+### بازبینی نمایشی و نتیجهٔ regression نهایی — 2026-10-12، حدود 20:02
+
+صفحهٔ `/beauty-centers` با Flask test client دوباره رندر شد: status 200، هر چهار KPI قدیمی حاضر، و بخش تقاضا نیز در محیط فعلی بدون خدمت فعال به‌همراه empty-state واضح نمایش داده می‌شود. قالب‌های public، owner و admin هم compile شدند. نسخهٔ نهایی تست هدفمند **70 passed، 132 warnings** است. sweep گستردهٔ مراکز **80 passed، 10 failed**؛ شکست‌ها باقی‌ماندهٔ expectationهای Stage 7/10/12/13/14 و admin-bot هستند و در تست‌های Stage 5/booking bridge/gallery/CTA/Instagram fail دیده نشد. یک شکست media از fixtureی ناشی بود که مسیر تصویر می‌داد ولی فایل نمی‌ساخت؛ fixture اکنون تصویر موقت واقعی ایجاد و پاک می‌کند. یک assertion CSRF نیز اصلاح شد تا فقط فرم‌های POST را الزام کند و CSRF token را در URL فرم GET فیلتر قرار ندهد.

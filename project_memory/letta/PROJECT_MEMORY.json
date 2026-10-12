@@ -1,13 +1,13 @@
 {
   "last_update": {
     "date_user_timezone": "2026-10-12",
-    "time_approx_user_timezone": "17:43",
+    "time_approx_user_timezone": "19:50",
     "user_timezone": "Asia/Tehran",
-    "git_head_before_current_changes": "57a2a43e24237342bfa7a865e148a2edb0e150b0",
+    "git_head_before_current_changes": "525e80ec9889e59bd73b824c1e26b0c8dcb53765",
     "branch": "arena/7f567e47-giso4"
   },
   "last_agent": "Manus",
-  "status": "Roadmap stages 1–3 for Beauty Centers/Mirror have been implemented locally. Stage 3 Booking Bridge and related regressions pass (51 tests); full-suite rerun is in progress before the requested push. Stage 4 must wait for explicit user approval.",
+  "status": "Stages 1–3 are pushed in commit 525e80e. Stages 4–5 are implemented and tested locally but uncommitted/unpushed. Stage 5 implements dynamic service-demand analytics. Ask before push or Stage 6.",
   "current_stage_3": {
     "feature": "Secure Buti AI final-design to beauty-center reservation bridge",
     "preview_entry": "Active supported service cards expose a Mirror preview CTA; the user must be authenticated.",
@@ -15,14 +15,26 @@
     "reservation_validation": "GET and POST verify final_design_id ownership, design/service type, service_id, active service state, and beauty-center service_key mapping; invalid links fail closed.",
     "privacy": "No customer photo is sent to or displayed to the salon. Only internal design reference and service/style metadata are linked; the reservation UI says so explicitly.",
     "ordinary_reservation": "Normal reservations without a final_design_id remain supported.",
-    "stage_4_started": false
+    "stage_4_started": true
+  },
+  "current_stage_4": {
+    "feature": "Instagram profile link and outbound referral click tracking",
+    "owner_field": "Owner can enter username or profile URL; input is normalized to https://www.instagram.com/{username}/ and invalid hosts, queries, fragments, and non-profile paths are rejected.",
+    "public_cta": "A public Instagram CTA is shown only when the center has a valid saved profile.",
+    "redirect_security": "Redirect route looks up the saved profile for the same published/active center and ignores user-supplied next/target URLs.",
+    "tracking": "Existing beauty_center_events is extended additively with service_id and campaign_key; only aggregate events are stored, service attribution must be active and owned by the center, and owner/staff clicks are suppressed.",
+    "instagram_views_or_follows_claimed": false,
+    "scraping_or_external_api": false,
+    "tests": "Dedicated Stage 4 module: 7 passed. Combined stages 1–4 center/gallery/CTA/Booking Bridge/Buti AI regression before Stage 5: 58 passed, 132 warnings.",
+    "committed_or_pushed": false,
+    "stage_5_started": true
   },
   "project_identity": {
     "repository_url": "https://github.com/uname1370-create/giso4",
     "branch": "arena/7f567e47-giso4",
-    "local_head_before_current_changes": "57a2a43e24237342bfa7a865e148a2edb0e150b0",
+    "local_head_before_current_changes": "525e80ec9889e59bd73b824c1e26b0c8dcb53765",
     "remote_head_observed_before_current_changes": "57a2a43e24237342bfa7a865e148a2edb0e150b0",
-    "working_tree": "Stage 1/2 center and gallery changes, Stage 3 Booking Bridge changes, tests, and Project Memory updates remain uncommitted pending full-suite result; requested branch is arena/7f567e47-giso4."
+    "working_tree": "Stage 1–3 committed and pushed as 525e80e. Stage 4–5 code, tests and Project Memory updates remain local and uncommitted on arena/7f567e47-giso4; remote still points to 525e80e."
   },
   "scenario": {
     "canonical_entrypoint": "project_memory/letta/AGENT_START_HERE.md",
@@ -35,7 +47,12 @@
       "Project Memory and audit updates"
     ],
     "production_settings_changed": false,
-    "protected_paths_unchanged": ["web/", "bot_edu/", "main.py", "giso/bot.py"],
+    "protected_paths_unchanged": [
+      "web/",
+      "bot_edu/",
+      "main.py",
+      "giso/bot.py"
+    ],
     "real_person_image_sent": false
   },
   "architecture_findings": {
@@ -60,16 +77,23 @@
   "validation": {
     "passed": [
       "Stage 3 targeted center/Buti AI regressions: 51 passed, 132 existing deprecation warnings",
+      "Stage 4 dedicated tests: 7 passed",
+      "Combined stages 1–4 center/Buti AI regressions: 58 passed",
       "py_compile for changed Python routes and tests",
       "pytest -q giso/tests/test_ai_cloudflare_vision.py: 2 passed",
       "py_compile giso/ai_brain.py giso/tests/test_ai_cloudflare_vision.py",
       "git diff --check",
-      "Broader related suite: 55 passed"
+      "Broader related suite: 55 passed",
+      "Stage 4 pre-Stage 5 combined center/gallery/CTA/Booking Bridge/Buti AI regression: 58 passed, 132 warnings",
+      "Stage 5 final focused regression including CSRF, Instagram, Booking Bridge, gallery, CTA and Buti AI: 70 passed, 132 warnings",
+      "Stage 5 broader beauty-center sweep: 80 passed, 10 failed in older stage 7/10/12/13/14 and admin-bot expectations",
+      "Python compile, public/owner/admin Jinja compile and live test-client GET /beauty-centers HTTP 200; four prior KPIs and demand empty-state rendered"
     ],
     "unrelated_failures": [
       "giso/tests/test_ai_runtime.py::test_failover_cooldown_skips_recently_failed_provider: AttributeError because _PROVIDER_FAIL_COOLDOWNS is absent.",
       "giso/tests/test_ai_runtime.py::test_superadmin_ai_setting_actions_and_user_delete: returned mode was message instead of expected pending."
     ],
+    "full_suite": "Run after Stage 3 and before Stage 4: 727 passed, 69 failed, 4 skipped, 364 warnings. After Stage 5, the wider beauty-center sweep returned 80 passed and 10 failed in older stage 7/10/12/13/14 and admin-bot expectations. No full repository suite was run after Stage 5.",
     "warnings": "36 warnings in the broader related suite, including existing datetime.utcnow() and Pyparsing deprecations.",
     "browser_download": "Earlier browser smoke download click failed with Browser not available; backend ownership/PDF tests passed but browser click remains unverified."
   },
@@ -98,9 +122,8 @@
     "Await user approval before proceeding to a new stage."
   ],
   "next_action": [
-    "Finish the full pytest suite rerun after installing the requirements-listed python-telegram-bot dependency.",
-    "Review git diff --check and worktree; commit and push requested stages 1–3 to arena/7f567e47-giso4.",
-    "After reporting the push, ask for explicit user approval before starting stage 4 Instagram/social click tracking."
+    "Commit and push accumulated Stage 4–5 changes to arena/7f567e47-giso4 as requested; report the 70-pass focused suite and 10 remaining wider-sweep failures.",
+    "Pause before Stage 6 (price comparison) until the user confirms."
   ],
   "canonical_handoff_documents": [
     "project_memory/letta/AGENT_START_HERE.md",
@@ -108,5 +131,19 @@
     "project_memory/letta/BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_IMPLEMENTATION_SCENARIO.md",
     "project_memory/letta/BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_TEST_PLAN.md",
     "project_memory/letta/BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_AUDIT_2026-10-12.md"
-  ]
+  ],
+  "current_stage_5": {
+    "feature": "Dynamic public service-demand board, owner analytics and admin city/service aggregation",
+    "public_page": "The existing four headline metrics remain. A 30-day demand section is inserted before filters and derives labels/groups from active services at published centers; no hardcoded brow/lip/hair list.",
+    "service_change_behavior": "Grouping uses current service_key or current service name fallback, so active inventory changes affect the list automatically.",
+    "booking_start_definition": "A valid service reservation-form GET; one event per signed browser session/day per center-service. This is an interaction count, not a unique-person or completed-booking count.",
+    "privacy": "New booking_start rows use user_id=0 and store only center/service/source. No photo, final_design_id, phone or visitor identifier is captured.",
+    "public_threshold": "Exact public demand is shown only at or above BEAUTY_SERVICE_DEMAND_MIN_SAMPLE (default 5; environment-adjustable 1–100); below it the page says there is not enough data.",
+    "owner_dashboard": "Analytics tab offers 7/30/90-day event and reservation-state totals scoped to the owner's resolved center, with service breakdown from that center's current service rows.",
+    "admin_dashboard": "Aggregate 30-day service demand grouped by city and service.",
+    "tests": "Current focused regression including Stage 5, CSRF, Instagram, Booking Bridge, gallery, CTA and Buti AI: 70 passed, 132 warnings. Broader beauty-center sweep: 80 passed, 10 failed in older stage 7/10/12/13/14 and admin-bot expectations.",
+    "smoke": "Python compilation, public/owner/admin Jinja compilation passed. GET /beauty-centers returned HTTP 200 and rendered all four prior KPIs plus the demand section with an explicit empty state in the current zero-active-service environment.",
+    "committed_or_pushed": false,
+    "stage_6_started": false
+  }
 }

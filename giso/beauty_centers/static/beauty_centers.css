@@ -354,3 +354,39 @@
 
 /* Gallery expansion: accessible metadata and moderation states */
 .bc-gallery-meta-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;width:100%}.bc-gallery-field{display:grid;gap:5px;font-size:.78rem;font-weight:800}.bc-gallery-field input,.bc-gallery-field select{width:100%;min-height:40px;padding:8px 10px;border:1px solid #eadfe0;border-radius:10px;background:#fff;font:inherit}.bc-gallery-review-note{color:#76696c;line-height:1.7}.bc-gallery-status{display:block;margin-top:5px;padding:3px 7px;border-radius:999px;width:max-content;background:#fff2d5;color:#73581e;font-size:.68rem}.bc-gallery-status.status-visible{background:#e8f7ed;color:#26704f}.bc-gallery-status.status-rejected{background:#fde8eb;color:#91414e}.bc-gallery-caption{position:absolute;inset:auto 8px 8px;padding:4px 7px;border-radius:7px;color:#fff;background:rgba(30,24,26,.72);font-size:.68rem}.bc-gallery-item{position:relative}.bc-gallery-item figcaption{display:grid;gap:4px}.bc-gallery-item .bc-gallery-status{font-size:.67rem}@media(max-width:650px){.bc-gallery-meta-fields{grid-template-columns:1fr}}
+
+.bc-instagram-link{color:#b94a79;border-color:rgba(185,74,121,.35)}.bc-instagram-link:hover{background:rgba(185,74,121,.08)}
+
+/* Stage 5 — service demand and owner smart analytics */
+.bc-demand{margin:0 0 22px;padding:20px;border:1px solid var(--lux-line);border-radius:20px;background:linear-gradient(135deg,#fffdfc,#fff7f4);box-shadow:0 10px 28px rgba(91,52,59,.05)}
+.bc-demand-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.bc-demand-head h2{margin:4px 0 6px;color:var(--bc-ink,#33282b);font-size:1.2rem}
+.bc-demand-head p,.bc-demand-note{margin:0;color:var(--bc-muted,#76666b);font-size:.82rem;line-height:1.8}
+.bc-demand-period{padding:6px 10px;border-radius:999px;background:#fff0f3;color:#9e405e;font-size:.76rem;white-space:nowrap}
+.bc-demand-note{margin:12px 0 16px;padding:8px 10px;border-radius:10px;background:#fff9e9;color:#77632b;font-size:.73rem}
+.bc-demand-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:10px}
+.bc-demand-card{display:grid;align-content:start;gap:8px;min-height:150px;padding:14px;border:1px solid var(--lux-line);border-radius:15px;background:#fff}
+.bc-demand-card h3{margin:0;color:#382e31;font-size:.96rem}
+.bc-demand-centers{color:var(--bc-muted,#76666b);font-size:.73rem}
+.bc-demand-card>strong{color:#b94a69;font-size:1.18rem}
+.bc-demand-card>strong small{display:block;color:#6f5c62;font-size:.72rem;font-weight:500}
+.bc-demand-sample{color:#7d6d45;font-size:.75rem;line-height:1.7}
+.bc-demand-card>a{justify-self:start;color:#a83e60;font-size:.76rem;text-decoration:underline;text-underline-offset:3px}
+.bc-smart-analytics>header{margin-bottom:14px}
+.bc-smart-analytics>header h2{margin:.25rem 0}
+.bc-smart-analytics>header p{color:var(--bc-muted,#76666b);line-height:1.8}
+.bc-analytics-period{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:14px 0}
+.bc-analytics-period label{display:grid;gap:5px;color:#5a4a4e;font-size:.8rem}
+.bc-analytics-period select{min-width:140px;padding:9px;border:1px solid var(--lux-line);border-radius:10px;background:#fff}
+.bc-analytics-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px}
+.bc-analytics-kpis article{display:grid;gap:6px;padding:14px;border:1px solid var(--lux-line);border-radius:13px;background:#fff}
+.bc-analytics-kpis article span{color:var(--bc-muted,#76666b);font-size:.75rem}
+.bc-analytics-kpis article strong{color:#b94a69;font-size:1.3rem}
+.bc-analytics-note{margin:14px 0;padding:10px 12px;border-radius:10px;background:#fff8e8;color:#76622e;font-size:.77rem;line-height:1.8}
+.bc-analytics-table-wrap{overflow-x:auto;margin-top:20px}
+.bc-analytics-table-wrap h3{margin:0 0 10px;font-size:1rem}
+.bc-analytics-table{width:100%;min-width:680px;border-collapse:collapse;background:#fff}
+.bc-analytics-table th,.bc-analytics-table td{padding:10px;border-bottom:1px solid var(--lux-line);text-align:right;font-size:.79rem}
+.bc-analytics-table th{background:#fff7f4;color:#6b4d56;white-space:nowrap}
+@media(max-width:640px){.bc-demand{padding:14px}.bc-demand-head h2{font-size:1.05rem}.bc-demand-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.bc-demand-card{min-height:155px;padding:11px}.bc-analytics-period select,.bc-analytics-period button{width:100%}}
+.bc-demand-empty{margin:0;padding:14px;border:1px dashed var(--lux-line);border-radius:12px;background:#fff;color:var(--bc-muted,#76666b);font-size:.82rem;line-height:1.8}
