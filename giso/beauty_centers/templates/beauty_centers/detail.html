@@ -90,6 +90,14 @@
       <div class="bc-service-card-head"><i class="fas fa-wand-sparkles"></i><b>{{ service.name }}</b>{% if service.category %}<span class="bc-category">{{ service.category }}</span>{% endif %}{% if service.is_featured_service %}<span class="bc-ribbon is-featured" style="position:static;">ویژه</span>{% endif %}{% if service.service_key %}<span class="bc-category is-service-key">{{ service.service_key }}</span>{% endif %}</div>
       {% if service.description %}<p class="bc-service-item-note">{{ service.description }}</p>{% endif %}
       <div class="bc-service-item-meta"><strong>{{ service.price_label }}</strong><span><i class="fas fa-clock"></i> {{ service.duration_label }}</span></div>
+      {% set benchmark = price_benchmarks.get(svc_key) if service.is_active and svc_key else none %}
+      <div class="bc-service-price-benchmark" aria-label="مقایسهٔ آماری قیمت">
+        {% if benchmark and benchmark.available %}
+        <strong>راهنمای قیمت در {{ center.city }} برای {{ service.name }}</strong><span>میانهٔ بازهٔ اعلامی: {{ toman(benchmark.median_min) }} تا {{ toman(benchmark.median_max) }}</span><small>بازهٔ مشاهده‌شده در {{ benchmark.provider_count }} مرکز دیگر: {{ toman(benchmark.observed_min) }} تا {{ toman(benchmark.observed_max) }} · محاسبه: {{ benchmark.calculated_at }}</small>
+        {% elif service.is_active %}
+        <small>برای مقایسهٔ منصفانهٔ این خدمت در {{ center.city }} هنوز دادهٔ کافی از مراکز دیگر وجود ندارد؛ حداقل نمونه {{ price_benchmark_min_centers }} مرکز است.</small>
+        {% endif %}
+      </div>
       <div class="bc-service-card-actions">
         <a href="{{ url_for('beauty_reservations.reserve', slug=center.slug, service_id=service.id) }}" class="bc-btn bc-btn-primary bc-btn-sm">📅 رزرو {{ service.name[:20] }}</a>
         {% if service.is_active and svc_key in mirror_service_catalog %}<a href="{{ url_for('buti_ai.center_service_preview', center_slug=center.slug, service_id=service.id) }}" class="bc-btn bc-btn-outline bc-btn-sm">🪞 پیش‌نمایش روی عکس من</a>{% endif %}

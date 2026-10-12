@@ -21,7 +21,10 @@ from giso.beauty_centers.services import (
     instagram_click_count, track_instagram_click, public_service_demand,
     center_smart_analytics,
 )
-from giso.beauty_centers.pricing.services import get_center_services, get_working_hours
+from giso.beauty_centers.pricing.services import (
+    get_center_services, get_price_benchmark_min_centers,
+    get_service_price_benchmarks, get_working_hours,
+)
 from giso.config import Config
 from giso.base import get_giso_db_conn
 from giso.money import format_toman, to_persian_digits
@@ -183,8 +186,16 @@ def list_centers():
     related = []
     if analysis_id and _user_id():
         related = recommended_centers(analysis_id, _user_id(), city=getattr(current_user, "city", "") or city)
-    cities = ["مشهد"]
     with get_giso_db_conn() as conn:
+        cities = [
+            str(row[0]).strip() for row in conn.execute(
+                "SELECT DISTINCT TRIM(city) FROM beauty_centers "
+                "WHERE status='published' AND is_active=1 AND TRIM(COALESCE(city,''))<>'' "
+                "ORDER BY TRIM(city)"
+            ).fetchall() if row[0] and str(row[0]).strip()
+        ]
+        if city and city not in cities:
+            cities.append(city)
         beauty_stats={
           "centers":conn.execute("SELECT COUNT(*) FROM beauty_centers WHERE status='published' AND is_active=1").fetchone()[0],
           "views":conn.execute("SELECT COALESCE(SUM(views_count),0) FROM beauty_centers WHERE status='published'").fetchone()[0],
@@ -192,6 +203,10 @@ def list_centers():
           "skin":conn.execute("SELECT COUNT(*) FROM analyses WHERE type='skin'").fetchone()[0],
         }
     service_demand = public_service_demand(days=30, limit=6)
+    try:
+        price_benchmarks = get_service_price_benchmarks(city, limit=8) if city else {}
+    except Exception:
+        price_benchmarks = {}
     return render_template(
         "beauty_centers/list.html", centers=centers, featured=featured, related=related,
         query=query, city=city, category=category, center_type=center_type, service=service,
@@ -200,6 +215,8 @@ def list_centers():
         category_center_types=CATEGORY_CENTER_TYPES, category_services=CATEGORY_SERVICES,
         services=SERVICES, disclaimer=DISCLAIMER, beauty_stats=beauty_stats,
         service_demand=service_demand, service_demand_days=30,
+        price_benchmarks=price_benchmarks,
+        price_benchmark_min_centers=get_price_benchmark_min_centers(),
         # SEO: جست‌وجو (q) ایندکس نشود؛ فیلترهای معنادار (city/category/...) و
         # لیست پایه indexable می‌مانند (قرارداد stage14).
         noindex=bool(query),
@@ -255,6 +272,19 @@ def center_detail(slug):
         except Exception:
             feedback_rows = []
     center_services = _center_services_for_display(center["id"])
+    price_benchmarks = {}
+    if center.get("status") == "published" and int(center.get("is_active") or 0):
+        comparable_keys = [
+            str(service.get("service_key") or "").strip().lower()
+            for service in center_services
+            if int(service.get("is_active") or 0) == 1 and str(service.get("service_key") or "").strip()
+        ]
+        try:
+            price_benchmarks = get_service_price_benchmarks(
+                center.get("city"), comparable_keys, exclude_center_id=center["id"]
+            )
+        except Exception:
+            price_benchmarks = {}
     # Selected service resolution
     selected_service = None
     if selected_service_id:
@@ -315,6 +345,8 @@ def center_detail(slug):
         beauty_hours=_center_hours_for_display(center["id"]),
         selected_service=selected_service,
         selected_service_key=selected_service_key,
+        price_benchmarks=price_benchmarks,
+        price_benchmark_min_centers=get_price_benchmark_min_centers(),
         today_weekday=today_weekday,
     )
 

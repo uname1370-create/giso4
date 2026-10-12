@@ -2,16 +2,16 @@
 
 ## 1. Last Update
 
-- **Date/time:** 2026-10-12, approximately 19:50
+- **Date/time:** 2026-10-12, approximately 20:19
 - **User timezone:** Asia/Tehran
 - **Last Agent:** Manus
 - **Last Model:** not recorded / model-agnostic
 
 ## 2. Git State
 
-- **Branch:** `arena/7f567e47-giso4`; Stage 1–3 commit `525e80e` and Stage 4–5 commit `e5512dc` are pushed to `origin`.
-- **Working tree:** clean after push; local and remote HEAD both resolve to `e5512dc`.
-- **Current-turn code change:** Stage 5 public demand board, event-level booking-start metric, owner analytics tab, admin city/service aggregation, dynamic current-service inventory, and related tests.
+- **Branch:** `arena/7f567e47-giso4`; Stage 1–3 commit `525e80e` and Stage 4–5 code commit `e5512dc` are pushed; handoff-only follow-up `c7362f0` is also on `origin`.
+- **Working tree:** Stage 6 local/uncommitted; local base and remote HEAD are both `c7362f0`.
+- **Current-turn code change:** read-only same-city/same-service price benchmark, public listing and per-service detail UI, dynamic city options, threshold tests.
 - **Protected paths:** `web/`, `bot_edu/`, `main.py`, and `giso/bot.py` remain unchanged.
 
 ## 3. `sena.md` Status
@@ -22,7 +22,7 @@
 
 ## 4. Current Scenario
 
-- **Current user request:** verify Stage 5 display/structure and push all accumulated changes. Completed in `e5512dc`; pause before Stage 6 for confirmation.
+- **Current user request:** start Stage 6 price comparison. Implemented and tested locally; Stage 6 has not been pushed. Pause before Stage 7 and await next instruction on publication.
 - **Stage 1:** reservation CTA and selected-service highlight were implemented in the center listing/detail experience.
 - **Stage 2:** gallery capacity/metadata/moderation and owner controls were implemented; pending items are not public before moderation.
 - **Stage 3:** compatible active service cards now offer Mirror preview; the result links back to the same center/service. Reservation GET/POST validates design ownership, type and active service mapping. The customer's photo is not exposed to the center.
@@ -36,14 +36,17 @@
 - **Stage 5 implementation:** done locally. Public center page retains the original four cards and adds an aggregate 30-day service-demand board before filters. Services are derived from active inventory at currently published centers, grouped by current service key or current service name fallback; it is not hardcoded to brow/lip/hair. The owner dashboard has a 7/30/90-day analytics tab scoped to the owner’s resolved center; it separates event counts from actual reservation rows/current statuses and lists current services dynamically. The super-admin dashboard adds city/service aggregation.
 - **Stage 5 measurement/privacy:** valid reserve-form starts are logged as `booking_start`, once per signed browser session/day per center-service; owner opens are excluded. Events store aggregate center/service/source only (`user_id=0`), no photo, final-design ID, phone or visitor ID. Counts are form-start actions, not unique people or completed reservations. Public exact demand counts are suppressed below the configurable default sample size 5 (`BEAUTY_SERVICE_DEMAND_MIN_SAMPLE`, 1–100).
 - **Stage 5 focused validation on current code:** **70 passed, 132 warnings** across Stage 5, CSRF contract, Instagram, Booking Bridge, gallery, CTA and Buti AI tests. Python compilation and Jinja compilation for public/owner/admin templates passed. Public `/beauty-centers` smoke returned **HTTP 200** and verified that all four old KPIs and the new demand section/empty-state text render together.
-- **Wider beauty-center sweep:** **80 passed, 10 failed**. Remaining failures are older expectation/integration tests for stage 10, navigation stage 12, homepage card stage 13, SEO stage 14, notifications stage 7, and admin-bot stage 8. The lifecycle/media fixture and Stage 16 form-CSRF assertion that were affected by stale test setup/GET semantics are corrected and pass. No full repository suite was rerun after Stage 5.
+- **Stage 6 implementation:** benchmark logic resides in `giso/beauty_centers/pricing/services.py` and is read-only. It compares only active services at published/active peer centers in the same normalized city and canonical service key; each peer center contributes once, and the viewed center is excluded. Existing prices and duration remain unchanged.
+- **Stage 6 UI:** the directory uses active city values and shows an alphabetically ordered overview only after city selection; service detail shows a matching benchmark beside the existing owner-declared price. Default sample threshold is 5 peer centers, configurable with `BEAUTY_PRICE_BENCHMARK_MIN_CENTERS` (clamped 1–100). Below threshold, exact values/sample counts remain hidden. Existing `price_level` budget filter stays intact; no price-based ranking is added.
+- **Stage 6 validation:** benchmark + existing pricing tests **11 passed**; detail route integration verifies sufficient/insufficient sample display, sample count/date, and unchanged own quote/duration. Python/Jinja compile and list smoke (no city / selected city) returned HTTP 200.
+- **Wider beauty-center sweep after Stage 6:** **88 passed, 10 failed** in older stage 7/10/12/13/14 and admin-bot expectations; all Stage 6 tests pass. No full repository suite was rerun after Stage 5/6.
 - **Full suite (after Stage 3, before Stage 4):** complete run returned **727 passed, 69 failed, 4 skipped, 364 warnings**. Failures span several project areas and include missing `cv2`, stale UI/authorization expectations, environment/file errors and Buti AI tests. One beauty-center owner UI test expects the old label `افزایش دیده‌شدن آگهی`; it remains for separate review. Stage 4 has targeted/combined regressions, not a new full-suite rerun.
 - **Privacy:** only internal `final_design_id` and service/style metadata are linked to reservations. The salon does not receive the customer's photo; the reservation UI states this explicitly.
-- **Stage 4 and Stage 5:** committed and pushed as `e5512dc`; Stage 6 has not started and awaits confirmation.
+- **Stage 4 and Stage 5:** committed and pushed as `e5512dc`. Stage 6 is local/uncommitted on base `c7362f0`; remote HEAD is also `c7362f0`. Stage 7 not started.
 
 ## 6. Next Action
 
-- Report commit/push `e5512dc`, 70 targeted passes and 10 remaining wider-sweep failures. Do not claim the full repository suite is green; pause before Stage 6.
+- Report Stage 6 local completion, 11 pricing/benchmark passes and 10 remaining wider-sweep failures. Await separate instruction before pushing Stage 6 or starting Stage 7; do not claim the full repository suite is green.
 - Keep public launch blocked until documented cost ledger, provider-attempt audit, charge, idempotency, quota, circuit breaker, consent and worker queue requirements are addressed.
 
 ## 7. Architecture / Guide Findings

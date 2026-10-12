@@ -14,7 +14,10 @@ index stay satisfied without ever recreating a table.
 from __future__ import annotations
 
 import logging
+import os
 import re
+import statistics
+from collections import Counter
 from datetime import datetime
 
 from giso.base import get_giso_db_conn
@@ -180,6 +183,122 @@ def get_center_services(center_id) -> list:
     return [dict(row) for row in rows]
 
 
+def get_price_benchmark_min_centers(value=None) -> int:
+    """Configurable privacy/quality threshold for public price comparisons."""
+    if value is None:
+        value = os.getenv("BEAUTY_PRICE_BENCHMARK_MIN_CENTERS", "5")
+    try:
+        parsed = int(str(value).strip())
+    except (TypeError, ValueError):
+        parsed = 5
+    return max(1, min(100, parsed))
+
+
+def _normalize_benchmark_city(value) -> str:
+    return " ".join(str(value or "").split()).casefold().replace("ي", "ی").replace("ك", "ک")
+
+
+def get_service_price_benchmarks(city, service_keys=None, *, exclude_center_id=0,
+                                 min_centers=None, limit=None) -> dict:
+    """Aggregate comparable price ranges by city and service key.
+
+    Each published, active peer center contributes at most one observation per
+    service key, even if it has duplicate service rows. An optional center is
+    excluded so its own prices never influence its comparison. Rows with missing
+    or invalid prices and unkeyed services are not comparable.
+    """
+    normalized_city = _normalize_benchmark_city(city)
+    if not normalized_city:
+        return {}
+    threshold = get_price_benchmark_min_centers(min_centers)
+    requested_keys = None
+    if service_keys is not None:
+        aliases = {"eyebrow": "brow", "hair-color": "hair_color", "lip-shading": "lip_shading"}
+        requested_keys = sorted({
+            aliases.get(" ".join(str(key or "").split()).lower(), " ".join(str(key or "").split()).lower())
+            for key in service_keys if " ".join(str(key or "").split())
+        })
+        if not requested_keys:
+            return {}
+
+    key_expr = (
+        "CASE lower(trim(COALESCE(s.service_key,''))) "
+        "WHEN 'eyebrow' THEN 'brow' WHEN 'hair-color' THEN 'hair_color' "
+        "WHEN 'lip-shading' THEN 'lip_shading' ELSE lower(trim(COALESCE(s.service_key,''))) END"
+    )
+    city_expr = "lower(replace(replace(trim(COALESCE(c.city,'')), 'ي', 'ی'), 'ك', 'ک'))"
+    raw_min = "CAST(COALESCE(s.price_min,0) AS INTEGER)"
+    raw_max = "CAST(COALESCE(s.price_max,0) AS INTEGER)"
+    effective_min = f"CASE WHEN {raw_min}>0 THEN {raw_min} ELSE {raw_max} END"
+    effective_max = f"CASE WHEN {raw_max}>0 THEN {raw_max} ELSE {raw_min} END"
+    clauses = [
+        "c.status='published'", "c.is_active=1", "s.is_active=1",
+        f"{city_expr}=?", f"{key_expr}<>''",
+        f"({raw_min}>0 OR {raw_max}>0)",
+        f"({raw_min}=0 OR {raw_max}=0 OR {raw_max}>={raw_min})",
+    ]
+    params = [normalized_city]
+    if exclude_center_id:
+        clauses.append("c.id<>?")
+        params.append(int(exclude_center_id))
+    if requested_keys is not None:
+        clauses.append(f"{key_expr} IN ({','.join('?' for _ in requested_keys)})")
+        params.extend(requested_keys)
+
+    query = f"""
+        SELECT c.id AS center_id, {key_expr} AS service_key,
+               MIN(NULLIF(trim(s.name),'')) AS service_name,
+               MIN({effective_min}) AS center_price_min,
+               MAX({effective_max}) AS center_price_max,
+               AVG(({effective_min}+{effective_max})/2.0) AS center_midpoint
+          FROM beauty_centers c
+          JOIN beauty_center_services s ON s.center_id=c.id
+         WHERE {' AND '.join(clauses)}
+         GROUP BY c.id, {key_expr}
+    """
+    with get_giso_db_conn() as conn:
+        rows = [dict(row) for row in conn.execute(query, tuple(params)).fetchall()]
+
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row["service_key"], []).append(row)
+    calculated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+    results = {}
+    keys = requested_keys if requested_keys is not None else sorted(grouped)
+    for key in keys:
+        peers = grouped.get(key, [])
+        names = [str(row.get("service_name") or "").strip() for row in peers]
+        names = [name for name in names if name]
+        common_name = sorted(Counter(names).items(), key=lambda item: (-item[1], item[0].casefold()))[0][0] if names else ""
+        result = {
+            "service_key": key,
+            "service_name": common_name,
+            "available": len(peers) >= threshold,
+            "min_centers": threshold,
+            "calculated_at": calculated_at,
+        }
+        if len(peers) >= threshold:
+            result.update({
+                "provider_count": len(peers),
+                "median_min": int(round(statistics.median(int(row["center_price_min"]) for row in peers))),
+                "median_max": int(round(statistics.median(int(row["center_price_max"]) for row in peers))),
+                "median_midpoint": int(round(statistics.median(float(row["center_midpoint"]) for row in peers))),
+                "observed_min": min(int(row["center_price_min"]) for row in peers),
+                "observed_max": max(int(row["center_price_max"]) for row in peers),
+            })
+        results[key] = result
+
+    if limit is not None:
+        try:
+            cap = max(1, min(50, int(limit)))
+        except (TypeError, ValueError):
+            cap = 8
+        candidates = [(key, item) for key, item in results.items() if item.get("available")]
+        chosen = sorted(candidates, key=lambda item: (item[1].get("service_name", "").casefold(), item[0]))[:cap]
+        results = dict(chosen)
+    return results
+
+
 def add_service(center_id, data) -> int:
     """Create a service and return its new row id. Raises ValueError on invalid data."""
     center_id = int(center_id or 0)
@@ -314,6 +433,8 @@ def save_working_hours(center_id, hours) -> None:
 
 __all__ = [
     "get_center_services",
+    "get_price_benchmark_min_centers",
+    "get_service_price_benchmarks",
     "add_service",
     "update_service",
     "delete_service",
