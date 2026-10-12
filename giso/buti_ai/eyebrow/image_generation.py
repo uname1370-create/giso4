@@ -658,7 +658,7 @@ def _prepare_cloudflare_inpainting_assets(source_path: str, mask_path: str) -> T
     byte array می‌فرستیم، نه multipart و نه فیلد حدسی mask_image/input_mask.
     """
     try:
-        from PIL import Image
+        from PIL import Image, ImageOps
     except Exception as exc:
         raise ImageProviderError("کتابخانه پردازش تصویر برای ساخت mask در دسترس نیست") from exc
 
@@ -691,6 +691,9 @@ def _prepare_cloudflare_inpainting_assets(source_path: str, mask_path: str) -> T
         raise ImageProviderError("mask واقعی ابرو خالی است؛ inpainting متوقف شد")
     if coverage > 0.12:
         raise ImageProviderError("mask ابرو بیش از حد وسیع است؛ برای حفظ صورت inpainting متوقف شد")
+    # Cloudflare SD 1.5 uses black pixels as editable and white as preserved.
+    # The internal mask remains white-edit/black-keep for local compositing.
+    mask = ImageOps.invert(mask)
 
     image_out = BytesIO()
     mask_out = BytesIO()
@@ -735,17 +738,23 @@ def _jpeg_for_inpainting(png_bytes: bytes, quality: int = 92) -> bytes:
 def _call_cloudflare_inpainting(provider: ImageProviderConfig, source_path: str, candidate: Dict[str, Any], prompt: str, timeout: int) -> str:
     detection, mask_path = _real_eyebrow_mask_for_candidate(source_path, candidate)
     image_bytes, mask_bytes, width, height, mask_pixels, coverage = _prepare_cloudflare_inpainting_assets(source_path, mask_path)
-    guidance = float(provider.extra.get("guidance") or _env_value(None, "CLOUDFLARE_INPAINTING_GUIDANCE") or 7.5)
-    strength = float(provider.extra.get("strength") or _env_value(None, "CLOUDFLARE_INPAINTING_STRENGTH") or 0.72)
+    # Eyebrow styles such as combination/giso_suggested need a stronger edit than
+    # lip tinting to produce a visible result inside the very small brow mask.
+    guidance = float(provider.extra.get("guidance") or _env_value(None, "CLOUDFLARE_INPAINTING_GUIDANCE") or 8.5)
+    strength = float(provider.extra.get("strength") or _env_value(None, "CLOUDFLARE_INPAINTING_STRENGTH") or 1.0)
     try:
         num_steps = int(provider.extra.get("num_steps") or _env_value(None, "CLOUDFLARE_INPAINTING_STEPS") or 20)
     except Exception:
         num_steps = 20
     num_steps = max(1, min(20, num_steps))
+    provider_prompt = str(final_design.build_inpainting_prompt(candidate)).replace(
+        "white pixels are editable eyebrow pixels, black pixels must remain unchanged.",
+        "black pixels are editable eyebrow pixels, white pixels must remain unchanged.",
+    )
     payload = {
         # Built to fit SD 1.5's 77-token window (style, change level, mask rule first).
         # The long `prompt` argument is only kept for the stored/logged prompt.
-        "prompt": final_design.build_inpainting_prompt(candidate),
+        "prompt": provider_prompt,
         "negative_prompt": (
             "new face, changed identity, changed eyes, changed eyelids, changed eyelashes, skin retouching, "
             "hair change, background change, makeup change outside eyebrows, distorted face, cartoon, illustration"
@@ -766,7 +775,7 @@ def _call_cloudflare_inpainting(provider: ImageProviderConfig, source_path: str,
         "mask_height": height,
         "mask_pixels": mask_pixels,
         "mask_coverage_ratio": coverage,
-        "mask_polarity": MASK_POLARITY,
+        "mask_polarity": "black_edit_white_keep",
         "mask_source_method": detection.get("method"),
         "mask_filename": _upload_relative_path(mask_path),
         "reference_image_sent": False,
@@ -1393,6 +1402,35 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
         except Exception:
             pass
 
+        if provider_kind in CLOUDFLARE_INPAINTING_KINDS:
+            # SD 1.5 can hallucinate saturated yellow/white brow pigment even
+            # when the geometry is correct. Preserve the customer's local hue
+            # and cap brightness inside the AI mask; texture/shape still comes
+            # from the provider image and pixels outside the mask are untouched.
+            base_hsv = base.convert("HSV")
+            provider_hsv = fitted_provider.convert("HSV")
+            source_hsv_pixels = list(base_hsv.getdata())
+            mask_pixels_for_color = list(mask.getdata())
+            dark_brow_hues = [
+                px[0] for px, mask_px in zip(source_hsv_pixels, mask_pixels_for_color)
+                if int(mask_px) >= 18 and px[2] < 190 and px[1] > 20
+            ]
+            dark_brow_saturations = [
+                px[1] for px, mask_px in zip(source_hsv_pixels, mask_pixels_for_color)
+                if int(mask_px) >= 18 and px[2] < 190 and px[1] > 20
+            ]
+            target_hue = sorted(dark_brow_hues)[len(dark_brow_hues) // 2] if dark_brow_hues else 20
+            target_saturation = sorted(dark_brow_saturations)[len(dark_brow_saturations) // 2] if dark_brow_saturations else 80
+            corrected = []
+            for source_px, generated_px, mask_px in zip(source_hsv_pixels, provider_hsv.getdata(), mask_pixels_for_color):
+                if int(mask_px) < 18:
+                    corrected.append(generated_px)
+                    continue
+                _base_h, _base_s, base_v = source_px
+                _generated_h, generated_s, generated_v = generated_px
+                corrected.append((target_hue, max(30, min(generated_s, target_saturation + 25, 90)), min(generated_v, max(75, int(base_v * 1.15)))))
+            provider_hsv.putdata(corrected)
+            fitted_provider = provider_hsv.convert("RGB")
         final_image = Image.composite(fitted_provider, base, mask)
         if not outside_mask_pixels_equal(base, final_image, mask):
             raise ImageProviderError("composite نهایی پیکسل‌های بیرون mask ابرو را دقیق حفظ نکرد")
@@ -1574,7 +1612,15 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
     timeout = _timeout_seconds(env)
     attempts: List[Dict[str, Any]] = []
 
+    provider_sequence: List[ImageProviderConfig] = []
     for provider in providers:
+        provider_sequence.append(provider)
+        # SD 1.5 is stochastic; a very small brow mask can occasionally produce
+        # an output with no visible in-mask change. Retry once before fallback.
+        if provider.kind in CLOUDFLARE_INPAINTING_KINDS:
+            provider_sequence.append(provider)
+
+    for provider in provider_sequence:
         started = time.monotonic()
         _beauty_log(
             "[AI]",

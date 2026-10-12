@@ -87,12 +87,17 @@ def test_small_mask_is_sent_as_crop_and_composite_keeps_outside_pixels(monkeypat
     _fake_post(monkeypatch, captured)
 
     value = sig._call_cloudflare_inpainting(
-        _provider(), "lip_shading", source, mask_path, {"detection": {}}, "prompt", 30,
+        _provider(), "lip_shading", source, mask_path, {"detection": {}},
+        "Edit only inside the white mask; black pixels stay unchanged", 30,
     )
     payload = captured["payload"]
     assert payload["width"] == payload["height"] == 512
-    # A 60x30 px mask on a 1200x900 photo covers ~0.2% of the frame; in the crop it is far larger.
-    assert _white_ratio(payload["mask"]) > 0.10
+    # Cloudflare's contract is the inverse of the internal white-edit mask:
+    # black pixels are editable and white pixels are preserved.
+    white_ratio = _white_ratio(payload["mask"])
+    assert white_ratio > 0.80
+    assert white_ratio < 1.0
+    assert "black mask; white pixels stay unchanged" in payload["prompt"]
     assert value.startswith("data:image/png;base64,")
 
     filename, meta = sig._save_constrained_provider_output(
@@ -165,4 +170,4 @@ def test_landmarks_requirements_never_pull_opencv_contrib():
     requirements = [ln for ln in lines if ln and not ln.startswith("#")]
     assert not any(ln.startswith("opencv-contrib") for ln in requirements)
     assert "opencv-python-headless==4.11.0.86" in requirements
-    assert not any(ln.startswith("mediapipe") for ln in requirements)  # installed separately with --no-deps
+    assert "mediapipe==0.10.21" in requirements

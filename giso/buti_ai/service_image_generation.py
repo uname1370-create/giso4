@@ -199,10 +199,10 @@ def _save_constrained_provider_output(
                 pass
 
 
-def _prepare_png_image_and_mask(source_path: str, mask_path: str, max_side: int) -> Tuple[bytes, bytes, int, int, int, float]:
+def _prepare_png_image_and_mask(source_path: str, mask_path: str, max_side: int, invert_mask_for_provider: bool = False) -> Tuple[bytes, bytes, int, int, int, float]:
     """Return same-size PNG image/mask bytes for providers that accept masks."""
     from io import BytesIO
-    from PIL import Image
+    from PIL import Image, ImageOps
 
     image = Image.open(source_path).convert("RGB")
     mask = Image.open(mask_path).convert("L")
@@ -225,6 +225,8 @@ def _prepare_png_image_and_mask(source_path: str, mask_path: str, max_side: int)
     coverage = float(mask_pixels) / float(max(1, new_w * new_h))
     if mask_pixels <= 0:
         raise ServiceImageGenerationError("mask خدمت برای ارسال به AI خالی است.")
+    if invert_mask_for_provider:
+        mask = ImageOps.invert(mask)
     image_out = BytesIO()
     mask_out = BytesIO()
     image.save(image_out, "PNG", optimize=True)
@@ -288,9 +290,9 @@ def _roi_square(bbox: Tuple[int, int, int, int], width: int, height: int) -> Opt
     return (x0, y0, x0 + side, y0 + side)
 
 
-def _encode_inpainting_inputs(image, mask, size: int) -> Tuple[bytes, bytes, int]:
+def _encode_inpainting_inputs(image, mask, size: int, invert_mask_for_provider: bool = False) -> Tuple[bytes, bytes, int]:
     from io import BytesIO
-    from PIL import Image
+    from PIL import Image, ImageOps
 
     resample = Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
     nearest = Image.Resampling.NEAREST if hasattr(Image, "Resampling") else Image.NEAREST
@@ -299,6 +301,8 @@ def _encode_inpainting_inputs(image, mask, size: int) -> Tuple[bytes, bytes, int
     mask_pixels = int(mask.histogram()[255])
     if mask_pixels <= 0:
         raise ServiceImageGenerationError("mask خدمت برای ارسال به AI خالی است.")
+    if invert_mask_for_provider:
+        mask = ImageOps.invert(mask)
     image_out = BytesIO()
     mask_out = BytesIO()
     image.save(image_out, "PNG", optimize=True)
@@ -340,6 +344,7 @@ def _call_cloudflare_inpainting(provider: shared_image.ImageProviderConfig, serv
             source_path,
             mask_path,
             shared_image.MAX_INPAINTING_INPUT_SIDE,
+            invert_mask_for_provider=True,
         )
         roi_info: Dict[str, Any] = {"roi_crop": False}
     else:
@@ -347,7 +352,7 @@ def _call_cloudflare_inpainting(provider: shared_image.ImageProviderConfig, serv
         side = x1 - x0
         size = shared_image.MAX_INPAINTING_INPUT_SIDE
         image_bytes, mask_bytes, mask_pixels = _encode_inpainting_inputs(
-            source.crop(roi), full_mask.crop(roi), size
+            source.crop(roi), full_mask.crop(roi), size, invert_mask_for_provider=True
         )
         width = height = size
         coverage = round(float(mask_pixels) / float(size * size), 6)
@@ -358,10 +363,14 @@ def _call_cloudflare_inpainting(provider: shared_image.ImageProviderConfig, serv
         num_steps = int(provider.extra.get("num_steps") or shared_image._env_value(None, "CLOUDFLARE_INPAINTING_STEPS") or 20)
     except Exception:
         num_steps = 20
+    provider_prompt = str(prompt or "").replace(
+        "white mask; black pixels stay unchanged",
+        "black mask; white pixels stay unchanged",
+    )
     payload = {
         # The service prompt already carries the mask-polarity rule first. Appending
         # more text here would be cut off by the CLIP 77-token window anyway.
-        "prompt": prompt,
+        "prompt": provider_prompt,
         "negative_prompt": (
             "changed identity, changed face shape, changed skin outside mask, changed teeth, changed eyes, "
             "changed clothes, changed background, distorted anatomy, cartoon, illustration, beauty filter outside mask"
@@ -382,7 +391,7 @@ def _call_cloudflare_inpainting(provider: shared_image.ImageProviderConfig, serv
         "mask_height": height,
         "mask_pixels": mask_pixels,
         "mask_coverage_ratio": coverage,
-        "mask_polarity": "white_edit_black_keep",
+        "mask_polarity": "black_edit_white_keep",
         "mask_source_method": detection.get("method") if isinstance(detection, dict) else "",
         "mask_filename": shared_image._upload_relative_path(mask_path),
         "cloudflare_request_format": "json_image_and_service_mask_byte_arrays",

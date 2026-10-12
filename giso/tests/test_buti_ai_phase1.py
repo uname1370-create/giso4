@@ -903,17 +903,18 @@ def test_cloudflare_inpainting_request_uses_real_eyebrow_mask(tmp_path, monkeypa
         mask = mask_image.convert("L")
         assert mask.size == (payload["width"], payload["height"])
         nonzero = sum(1 for px in mask.getdata() if px > 0)
-        assert nonzero > 0
-        assert nonzero < payload["width"] * payload["height"] * 0.18
+        zero = payload["width"] * payload["height"] - nonzero
+        assert nonzero > payload["width"] * payload["height"] * 0.80
+        assert 0 < zero < payload["width"] * payload["height"] * 0.18
     assert "Apply the selected eyebrow design only inside the uploaded inpainting mask." in payload["prompt"]
-    assert "white pixels are editable eyebrow pixels, black pixels must remain unchanged." in payload["prompt"]
+    assert "black pixels are editable eyebrow pixels, white pixels must remain unchanged." in payload["prompt"]
     assert result["ok"] is True
     assert result["status"] == "ai_inpainting_ready"
     assert result["ai_inpainting"] is True
     assert result["mask_used"] is True
     assert result["mask_width"] == payload["width"]
     assert result["mask_height"] == payload["height"]
-    assert result["mask_polarity"] == "white_edit_black_keep"
+    assert result["mask_polarity"] == "black_edit_white_keep"
     assert result["provider"] == "ai_mirror_cloudflare_1"
     assert result["model"] == "@cf/runwayml/stable-diffusion-v1-5-inpainting"
     assert (tmp_path / result["filename"]).exists()
