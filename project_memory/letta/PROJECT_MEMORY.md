@@ -10,7 +10,7 @@
 ## 2. Git State
 
 - **Branch:** `arena/7f567e47-giso4`; Stage 1–3 commit `525e80e` and Stage 4–5 code commit `e5512dc` are pushed; handoff-only follow-up `c7362f0` is also on `origin`.
-- **Working tree:** Stage 6 local/uncommitted; Stage 6 code is pushed as `ca522c0`; handoff follow-up is `50cbc2b`; local/remote HEAD match at `50cbc2b` and the tree is clean.
+- **Working tree:** Stage 6 local/uncommitted; Stage 6 code is pushed as `ca522c0`; handoff follow-ups are pushed and local/remote branch state is synchronized.
 - **Current-turn code change:** read-only same-city/same-service price benchmark, public listing and per-service detail UI, dynamic city options, threshold tests.
 - **Protected paths:** `web/`, `bot_edu/`, `main.py`, and `giso/bot.py` remain unchanged.
 
@@ -42,7 +42,7 @@
 - **Wider beauty-center sweep after Stage 6:** **88 passed, 10 failed** in older stage 7/10/12/13/14 and admin-bot expectations; all Stage 6 tests pass. No full repository suite was rerun after Stage 5/6.
 - **Full suite (after Stage 3, before Stage 4):** complete run returned **727 passed, 69 failed, 4 skipped, 364 warnings**. Failures span several project areas and include missing `cv2`, stale UI/authorization expectations, environment/file errors and Buti AI tests. One beauty-center owner UI test expects the old label `افزایش دیده‌شدن آگهی`; it remains for separate review. Stage 4 has targeted/combined regressions, not a new full-suite rerun.
 - **Privacy:** only internal `final_design_id` and service/style metadata are linked to reservations. The salon does not receive the customer's photo; the reservation UI states this explicitly.
-- **Stage 4 and Stage 5:** committed and pushed as `e5512dc`. Stage 6 code is committed and pushed as `ca522c0`; final handoff is `50cbc2b` on `arena/7f567e47-giso4`; Stage 7 not started.
+- **Stage 4 and Stage 5:** committed and pushed as `e5512dc`. Stage 6 code and its handoff updates are pushed to `arena/7f567e47-giso4`; Stage 7 not started.
 
 ## 6. Next Action
 
