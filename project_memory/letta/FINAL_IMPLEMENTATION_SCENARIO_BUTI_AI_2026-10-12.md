@@ -547,7 +547,7 @@ makeup
 - پیشخوان مدیریت جدول تجمیعی ۳۰روزهٔ شهر/خدمت فعال را دارد. شمارها aggregate هستند و جدول عمومی PII یا عکس ندارد.
 - آزمون نهایی هدفمند روی کد فعلی: **۷۰ passed، ۱۳۲ warning**. کامپایل Python و سه قالب Jinja (public/owner/admin) موفق‌اند؛ smoke مسیر `/beauty-centers` با Flask test client پاسخ **۲۰۰** داد و در محیط بدون خدمت فعال، هر چهار KPI قدیمی به‌همراه بخش جدید و پیام خالی به‌طور واقعی در HTML دیده شدند.
 - sweep گسترده‌تر فایل‌های `test_beauty_center*.py` و `test_beauty_centers*.py` در اجرای نهایی **۸۰ passed، ۱۰ failed** داشت. شکست‌های باقیمانده در expectationهای قدیمی/integration stage 10، stage 12–14، notification stage 7 و admin-bot stage 8 هستند؛ تست Stage 5 و CSRF/mutating-form مربوط به Stage 16 سبز است. فیکسچر تست lifecycle/media اصلاح شد تا تصویر واقعی موقت بسازد و endpoint مدیا درست آزموده شود. Full suite سراسری بعد از Stage 5 اجرا نشده؛ پس این push اعلام «سبز بودن کل مخزن» نیست.
-- تغییرات Stage 4 و Stage 5 هر دو در working tree هستند و هنوز commit/push نشده‌اند. Stage 6 (مقایسهٔ قیمت) شروع نشده و تا تأیید جداگانه متوقف می‌ماند.
+- تغییرات Stage 4 و Stage 5 در commit `e5512dc` به شاخهٔ `arena/7f567e47-giso4` push شدند. Stage 6 (مقایسهٔ قیمت) شروع نشده و تا تأیید جداگانه متوقف می‌ماند.
 
 ### مرحلهٔ ۶ — مقایسهٔ قیمت منصفانه
 

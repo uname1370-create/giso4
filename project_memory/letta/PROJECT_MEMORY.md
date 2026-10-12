@@ -9,8 +9,8 @@
 
 ## 2. Git State
 
-- **Branch:** `arena/7f567e47-giso4`; commit `525e80e` (`Implement beauty center mirror booking stages 1-3`) was pushed to `origin`.
-- **Working tree:** Stage 4 Instagram and Stage 5 smart analytics changes are local and uncommitted. Remote remains at commit `525e80e`; no Stage 4/5 push was done.
+- **Branch:** `arena/7f567e47-giso4`; Stage 1–3 commit `525e80e` and Stage 4–5 commit `e5512dc` are pushed to `origin`.
+- **Working tree:** clean after push; local and remote HEAD both resolve to `e5512dc`.
 - **Current-turn code change:** Stage 5 public demand board, event-level booking-start metric, owner analytics tab, admin city/service aggregation, dynamic current-service inventory, and related tests.
 - **Protected paths:** `web/`, `bot_edu/`, `main.py`, and `giso/bot.py` remain unchanged.
 
@@ -22,7 +22,7 @@
 
 ## 4. Current Scenario
 
-- **Current user request:** implement Stage 5 smart demand analytics and make displayed service labels dynamic. Implemented locally; pause before Stage 6 and do not push without request.
+- **Current user request:** verify Stage 5 display/structure and push all accumulated changes. Completed in `e5512dc`; pause before Stage 6 for confirmation.
 - **Stage 1:** reservation CTA and selected-service highlight were implemented in the center listing/detail experience.
 - **Stage 2:** gallery capacity/metadata/moderation and owner controls were implemented; pending items are not public before moderation.
 - **Stage 3:** compatible active service cards now offer Mirror preview; the result links back to the same center/service. Reservation GET/POST validates design ownership, type and active service mapping. The customer's photo is not exposed to the center.
@@ -39,11 +39,11 @@
 - **Wider beauty-center sweep:** **80 passed, 10 failed**. Remaining failures are older expectation/integration tests for stage 10, navigation stage 12, homepage card stage 13, SEO stage 14, notifications stage 7, and admin-bot stage 8. The lifecycle/media fixture and Stage 16 form-CSRF assertion that were affected by stale test setup/GET semantics are corrected and pass. No full repository suite was rerun after Stage 5.
 - **Full suite (after Stage 3, before Stage 4):** complete run returned **727 passed, 69 failed, 4 skipped, 364 warnings**. Failures span several project areas and include missing `cv2`, stale UI/authorization expectations, environment/file errors and Buti AI tests. One beauty-center owner UI test expects the old label `افزایش دیده‌شدن آگهی`; it remains for separate review. Stage 4 has targeted/combined regressions, not a new full-suite rerun.
 - **Privacy:** only internal `final_design_id` and service/style metadata are linked to reservations. The salon does not receive the customer's photo; the reservation UI states this explicitly.
-- **Stage 4 and Stage 5:** local and uncommitted; remote branch still at `525e80e`. User requested Stage 5 coding; Stage 6 has not started and awaits confirmation.
+- **Stage 4 and Stage 5:** committed and pushed as `e5512dc`; Stage 6 has not started and awaits confirmation.
 
 ## 6. Next Action
 
-- Stage 4–5 were requested for GitHub publication; commit/push the accumulated changes and report 70 targeted passes plus 10 remaining wider-sweep failures. Do not claim the full repository suite is green; pause before Stage 6.
+- Report commit/push `e5512dc`, 70 targeted passes and 10 remaining wider-sweep failures. Do not claim the full repository suite is green; pause before Stage 6.
 - Keep public launch blocked until documented cost ledger, provider-attempt audit, charge, idempotency, quota, circuit breaker, consent and worker queue requirements are addressed.
 
 ## 7. Architecture / Guide Findings

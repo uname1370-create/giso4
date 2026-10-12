@@ -239,3 +239,7 @@
 ### بازبینی نمایشی و نتیجهٔ regression نهایی — 2026-10-12، حدود 20:02
 
 صفحهٔ `/beauty-centers` با Flask test client دوباره رندر شد: status 200، هر چهار KPI قدیمی حاضر، و بخش تقاضا نیز در محیط فعلی بدون خدمت فعال به‌همراه empty-state واضح نمایش داده می‌شود. قالب‌های public، owner و admin هم compile شدند. نسخهٔ نهایی تست هدفمند **70 passed، 132 warnings** است. sweep گستردهٔ مراکز **80 passed، 10 failed**؛ شکست‌ها باقی‌ماندهٔ expectationهای Stage 7/10/12/13/14 و admin-bot هستند و در تست‌های Stage 5/booking bridge/gallery/CTA/Instagram fail دیده نشد. یک شکست media از fixtureی ناشی بود که مسیر تصویر می‌داد ولی فایل نمی‌ساخت؛ fixture اکنون تصویر موقت واقعی ایجاد و پاک می‌کند. یک assertion CSRF نیز اصلاح شد تا فقط فرم‌های POST را الزام کند و CSRF token را در URL فرم GET فیلتر قرار ندهد.
+
+### انتشار Stage 4–5
+
+درخواست کاربر برای ارسال همهٔ تغییرات اجرا شد: commit `e5512dc` با عنوان `Complete beauty center stages 4-5 analytics` به شاخهٔ `arena/7f567e47-giso4` push شد. بررسی پس از push تأیید کرد HEAD محلی و remote هر دو `e5512dc` هستند و working tree پاک است. Stage 6 آغاز نشده و منتظر تأیید بعدی است.
