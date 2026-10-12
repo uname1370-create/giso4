@@ -1,5 +1,6 @@
-# Optional: MediaPipe FaceMesh for the lip service (trusted lip region).
-# Without it, the lip detector stays untrusted and no lip AI call is made (fail-closed).
+# Required for trusted landmark masks in Buti AI eyebrow/lip services.
+# Without it, the eyebrow path can only produce a proportional fallback mask;
+# that mask is intentionally rejected for real AI image generation.
 #
 # Install AFTER requirements.txt:
 #   pip install -r requirements.txt -r requirements-landmarks.txt
@@ -8,6 +9,7 @@
 # --no-deps is required. mediapipe 0.10.21 declares opencv-contrib-python, which needs
 # libGL.so.1 and replaces the headless cv2 build; on a headless server that breaks
 # `import cv2` for the whole app. The packages below are the ones FaceMesh actually imports.
+mediapipe==0.10.21
 absl-py
 attrs>=19.1.0
 flatbuffers>=2.0

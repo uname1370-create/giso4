@@ -36,15 +36,19 @@ def main() -> int:
 
     work = tempfile.mkdtemp(prefix="eyebrow_live_")
     upload_dir = os.path.join(work, "upload")
-    final_dir = os.path.join(work, "final")
+    # Production stores final/<filename> below EYEBROW_UPLOAD_DIR. Keep the
+    # live-check sandbox layout identical; otherwise the real generation path
+    # succeeds but the checker fails while writing the PNG.
+    final_dir = os.path.join(upload_dir, "final")
     os.makedirs(upload_dir)
     os.makedirs(final_dir)
-    shutil.copy(args.photo, os.path.join(upload_dir, "live_face" + os.path.splitext(args.photo)[1].lower()))
+    live_filename = "live_face" + os.path.splitext(args.photo)[1].lower()
+    shutil.copy(args.photo, os.path.join(upload_dir, live_filename))
     final_design.EYEBROW_UPLOAD_DIR = upload_dir
     final_design.FINAL_DESIGN_DIR = final_dir
 
     candidate = {
-        "photo_filename": os.path.basename(os.path.join(upload_dir, os.listdir(upload_dir)[0])),
+        "photo_filename": live_filename,
         "final_style": args.style,
         "selected_style": args.style,
         "change_key": args.change,
