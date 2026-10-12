@@ -4,7 +4,7 @@
 
 ## آخرین handoff — 2026-10-12، حدود 20:19 Asia/Tehran
 
-- شاخه `arena/7f567e47-giso4` شامل Stage 1–3 در `525e80e` و Stage 4–5 در commit pushشدهٔ `e5512dc` است. Stage 6 در commit `ca522c0` به همان branch push شده؛ remote و local اکنون روی همین commit هستند.
+- شاخه `arena/7f567e47-giso4` شامل Stage 1–3 در `525e80e` و Stage 4–5 در commit pushشدهٔ `e5512dc` است. کد Stage 6 در commit `ca522c0` و handoff آن در `50cbc2b` push شده؛ local و remote روی `50cbc2b` هستند.
 - Stage 5: چهار آمار اصلی صفحه مراکز حفظ شدند؛ بخش تقاضای عمومی از خدمت‌های فعال موجود در inventory ساخته می‌شود و نام/گروه خدمت hardcode نیست. شروع فرم رزرو به‌صورت aggregate، با dedupe نشست/روز، ثبت می‌شود؛ شمارنده افراد یکتا یا رزرو قطعی نیست.
 - آمار عمومی ۳۰روزه زیر آستانهٔ پیش‌فرض ۵ نمایش دقیق نمی‌دهد؛ آستانه با `BEAUTY_SERVICE_DEMAND_MIN_SAMPLE` قابل تنظیم است. تب «آمار هوشمند» مالک فقط داده‌های مرکز resolveشدهٔ خودش را در بازه‌های ۷/۳۰/۹۰ روز نشان می‌دهد. مدیریت، تفکیک شهر/خدمت دارد.
 - حریم خصوصی: eventهای جدید `user_id=0` دارند و هیچ عکس، `final_design_id`، شماره تماس یا visitor ID ثبت نمی‌کنند.
