@@ -9,8 +9,9 @@ import logging
 import os
 import shutil
 import tempfile
+from io import BytesIO
 
-from flask import abort, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
 from flask_login import current_user
 
 from giso.base import get_giso_db_conn
@@ -47,8 +48,9 @@ from giso.buti_ai.eyebrow.final_design import (
     update_final_selection,
 )
 from giso.buti_ai.eyebrow.image_generation import generate_final_design
-from giso.buti_ai.eyebrow.ai import check_photo_quality
+from giso.buti_ai.eyebrow.ai import analyze_eyebrow_photo, check_photo_quality
 from giso.buti_ai.eyebrow.upload import EYEBROW_UPLOAD_DIR, save_eyebrow_photo
+from giso.buti_ai.downloads import build_design_report_pdf
 from giso.buti_ai.schema import init_buti_ai_db
 from giso.buti_ai.services import (
     get_final_design_by_id,
@@ -110,6 +112,37 @@ def _selection_from_form(form):
     }
 
 
+def _eyebrow_recommendation(selection, analysis):
+    """Convert the private analysis result to the documented public contract."""
+    selection = selection or {}
+    analysis = analysis if isinstance(analysis, dict) else {}
+    selected_style = normalize_style_key(selection.get("style"))
+    status = str(analysis.get("status") or "ai_unavailable").strip()
+    data = analysis.get("data") if isinstance(analysis.get("data"), dict) else {}
+    recommended_style = normalize_style_key(
+        data.get("recommended_style") if status == "ai_analyzed" else selected_style
+    )
+    alternatives = []
+    for value in data.get("alternative_styles") or []:
+        style_key = normalize_style_key(value)
+        if style_key not in alternatives and style_key != recommended_style:
+            alternatives.append(style_key)
+    reason = str(data.get("short_reason") or data.get("why") or "").strip()
+    if not reason:
+        reason = (
+            "پیشنهاد بر اساس عکس، مدل انتخابی و شدت تغییر است."
+            if status == "ai_analyzed" else
+            "تحلیل هوشمند فعلاً در دسترس نیست؛ می‌توانی مدل انتخابی خودت را ادامه بدهی."
+        )
+    return {
+        "status": "ai_analyzed" if status == "ai_analyzed" else "ai_unavailable",
+        "style": recommended_style,
+        "label": EYEBROW_STYLES[recommended_style]["label"],
+        "reason": reason[:220],
+        "alternatives": alternatives[:3],
+    }
+
+
 def _current_selection():
     selection = session.get(EYEBROW_SELECTION_SESSION_KEY)
     if not isinstance(selection, dict):
@@ -126,6 +159,7 @@ def _state_with_selection(step="model", error_message=""):
         "form_values": _current_selection(),
         "error_message": error_message or "",
         "flow_step": step,
+        "candidate": None,
     }
 
 
@@ -138,6 +172,7 @@ def _render_eyebrow_wizard(state):
         result=state["result"],
         error_message=state["error_message"],
         flow_step=state.get("flow_step") or ("result" if state.get("result") else "model"),
+        candidate=state.get("candidate"),
     )
 
 def _safe_current_user_id():
@@ -185,6 +220,18 @@ def _private_mirror_filename(filename):
     if any(part in ("", ".", "..") for part in parts):
         return ""
     return raw
+
+
+def _candidate_file_path(root, filename):
+    """Resolve only a candidate-owned relative file below its service root."""
+    safe_name = _private_mirror_filename(filename)
+    if not safe_name:
+        return "", ""
+    absolute_root = os.path.abspath(str(root or ""))
+    path = os.path.abspath(os.path.join(absolute_root, safe_name))
+    if not path.startswith(absolute_root + os.sep) or not os.path.isfile(path):
+        return "", ""
+    return safe_name, path
 
 
 def _session_candidate_has_file(candidate, filename):
@@ -287,7 +334,8 @@ def eyebrow_wizard():
     """مرحله انتخاب مدل ابرو؛ آپلود عکس در route جدا انجام می‌شود."""
     init_buti_ai_db()
     if request.method == "POST":
-        # سازگاری با فرم/تست‌های قدیمی: اگر عکس مستقیم ارسال شد، همان‌جا آماده طراحی نهایی شود.
+        # سازگاری با فرم قدیمی: حتی اگر عکس مستقیم به این مسیر فرستاده شود،
+        # قرارداد جدید را حفظ می‌کنیم و پیش از final تأیید کاربر می‌گیریم.
         selection = _selection_from_form(request.form)
         session[EYEBROW_SELECTION_SESSION_KEY] = selection
         session.modified = True
@@ -306,7 +354,9 @@ def eyebrow_wizard():
             session.modified = True
             if state.get("flash_message"):
                 flash(state["flash_message"], state.get("flash_category") or "info")
-            return redirect(url_for("buti_ai.eyebrow_final_design"))
+            state["candidate"] = candidate
+            state["flow_step"] = "upload"
+            return _render_eyebrow_wizard(state)
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
         return _render_eyebrow_wizard(state)
@@ -328,11 +378,15 @@ def eyebrow_model_selection():
 
 @buti_ai_bp.route("/eyebrow/upload", methods=["GET", "POST"])
 def eyebrow_upload():
-    """مرحله مستقل آپلود عکس؛ بعد از آپلود مستقیم به طراحی نهایی می‌رود (4 مرحله‌ای)."""
+    """مرحله مستقل آپلود، تحلیل و نمایش پیشنهاد قبل از طراحی نهایی."""
     init_buti_ai_db()
     selection = _current_selection()
     if request.method == "GET":
-        return _render_eyebrow_wizard(_state_with_selection("upload"))
+        state = _state_with_selection("upload")
+        candidate = get_final_candidate(session)
+        if candidate and _candidate_belongs_to_current_user(candidate) and not candidate.get("analysis_confirmed"):
+            state["candidate"] = candidate
+        return _render_eyebrow_wizard(state)
 
     merged_form = dict(request.form)
     merged_form["style"] = selection["style"]
@@ -342,8 +396,6 @@ def eyebrow_upload():
         request.files,
         user_id=_safe_current_user_id(),
     )
-    # برای 4 مرحله‌ای شدن، دیگر flow_step=result نمایش داده نمی‌شود
-    # بعد از آپلود موفق مستقیم به /eyebrow/final می‌رویم
     if state.get("result"):
         candidate = store_final_candidate(session, state.get("result"), state.get("photo_status"))
         candidate["_owner_user_id"] = _safe_current_user_id()
@@ -352,7 +404,9 @@ def eyebrow_upload():
         _log_preview_candidate(candidate, source="upload_route")
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
-        return redirect(url_for("buti_ai.eyebrow_final_design"))
+        state["candidate"] = candidate
+        state["flow_step"] = "upload"
+        return _render_eyebrow_wizard(state)
     if state.get("flash_message"):
         flash(state["flash_message"], state.get("flash_category") or "info")
     # در صورت خطا، همان صفحه آپلود با پیام خطا
@@ -381,6 +435,13 @@ def eyebrow_validate_photo():
         warnings = []
         if q_ok is None:
             warnings.append("بررسی هوشمند کامل در دسترس نبود؛ عکس دریافت شد و می‌توانی ادامه بدهی.")
+        selection = _current_selection()
+        analysis = {}
+        if valid:
+            analysis = analyze_eyebrow_photo(
+                saved.get("path"), selection["style"], selection["change_level"]
+            )
+        recommendation = _eyebrow_recommendation(selection, analysis)
         checks = quality.get("checks") or {}
         return jsonify({
             "valid": bool(valid),
@@ -394,6 +455,7 @@ def eyebrow_validate_photo():
                 "angle": checks.get("angle"),
                 "sharpness": checks.get("sharpness"),
             },
+            "recommendation": recommendation,
         }), (200 if valid else 422)
     finally:
         try:
@@ -412,6 +474,10 @@ def eyebrow_finalize_choice():
     if not candidate:
         flash("اول مدل را انتخاب کن و عکس را آپلود کن، بعد طراحی نهایی را بساز.", "warning")
         return redirect(url_for("buti_ai.eyebrow_wizard"))
+
+    if request.form.get("analysis_confirmed") != "1":
+        flash("برای ساخت عکس نهایی، یکی از گزینه‌های تحلیل را تأیید کن.", "warning")
+        return redirect(url_for("buti_ai.eyebrow_upload"))
 
     candidate = update_final_selection(session, request.form.get("final_style"))
     if not candidate.get("photo_filename"):
@@ -581,6 +647,55 @@ def eyebrow_uploaded_file(filename):
     return response
 
 
+@buti_ai_bp.route("/eyebrow/download/image", methods=["GET"])
+def eyebrow_download_image():
+    """Download only the current owner's validated final eyebrow image."""
+    candidate = get_final_candidate(session)
+    if not _candidate_belongs_to_current_user(candidate):
+        abort(404)
+    generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
+    if not generation.get("ok"):
+        abort(404)
+    filename, _path = _candidate_file_path(EYEBROW_UPLOAD_DIR, generation.get("filename"))
+    if not filename:
+        abort(404)
+    return send_from_directory(
+        EYEBROW_UPLOAD_DIR,
+        filename,
+        as_attachment=True,
+        download_name="giso-eyebrow-final.webp",
+    )
+
+
+@buti_ai_bp.route("/eyebrow/download/report.pdf", methods=["GET"])
+def eyebrow_download_report_pdf():
+    """Build a private before/after PDF in memory for the candidate owner."""
+    candidate = get_final_candidate(session)
+    if not _candidate_belongs_to_current_user(candidate):
+        abort(404)
+    generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
+    if not generation.get("ok"):
+        abort(404)
+    _source_name, source_path = _candidate_file_path(EYEBROW_UPLOAD_DIR, candidate.get("photo_filename"))
+    _final_name, final_path = _candidate_file_path(EYEBROW_UPLOAD_DIR, generation.get("filename"))
+    if not source_path or not final_path:
+        abort(404)
+    try:
+        report = build_design_report_pdf(
+            "آینه ابرو گیسو", candidate, generation, source_path, final_path
+        )
+    except Exception as exc:
+        _beauty_route_log("[BUTI_DOWNLOAD]", "pdf_failed", service_key="eyebrow", error=type(exc).__name__)
+        abort(500)
+    return send_file(
+        BytesIO(report),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="giso-eyebrow-report.pdf",
+        max_age=0,
+    )
+
+
 @buti_ai_bp.route("/eyebrow/centers", methods=["GET", "POST"])
 def eyebrow_centers():
     """بعد از طراحی نهایی: مرکز فعال ابرو یا ثبت درخواست انتظار.
@@ -694,6 +809,7 @@ def _new_service_state(service_key, step="model", error_message=""):
         "result": None,
         "error_message": error_message or "",
         "flow_step": step,
+        "candidate": None,
     }
 
 
@@ -707,6 +823,7 @@ def _render_new_service_wizard(service_key, state):
         form_values=state["form_values"],
         error_message=state["error_message"],
         flow_step=state.get("flow_step") or "model",
+        candidate=state.get("candidate"),
     )
 
 
@@ -723,18 +840,19 @@ def _get_new_service_candidate(service_key):
     return candidate if isinstance(candidate, dict) else None
 
 
-def _update_new_service_final_selection(service_key):
+def _update_new_service_final_selection(service_key, final_style_key=None):
     candidate = _get_new_service_candidate(service_key)
     if not candidate:
         return None
-    # Single Source of Truth: the model chosen in stage ۲ remains final.
-    style_key = generic_service.normalize_model_key(service_key, candidate.get("selected_style") or candidate.get("final_style"))
+    style_key = generic_service.normalize_model_key(
+        service_key,
+        final_style_key or candidate.get("selected_style") or candidate.get("recommended_style") or candidate.get("final_style"),
+    )
     styles = getattr(generic_service.service_module(service_key), "STYLES", {})
     style = styles[style_key]
     candidate["final_style"] = style_key
     candidate["final_label"] = style.get("label")
-    candidate["selected_style"] = style_key
-    candidate["selected_label"] = style.get("label")
+    candidate["analysis_confirmed"] = True
     session[_new_service_candidate_key(service_key)] = candidate
     session.modified = True
     return candidate
@@ -844,9 +962,12 @@ def generic_service_wizard(service_slug):
         )
         state["flow_step"] = "upload"
         if state.get("result"):
-            _store_new_service_candidate(service_key, state.get("result"), state.get("photo_status"))
+            candidate = _store_new_service_candidate(service_key, state.get("result"), state.get("photo_status"))
             if state.get("flash_message"):
                 flash(state["flash_message"], state.get("flash_category") or "info")
+            if service_key == "lip_shading":
+                state["candidate"] = candidate
+                return _render_new_service_wizard(service_key, state)
             return redirect(url_for("buti_ai.generic_service_final_design", service_slug=slug_for_service(service_key)))
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
@@ -879,7 +1000,16 @@ def generic_service_upload(service_slug):
         return redirect(url_for("buti_ai.mirror_home"))
     selection = _current_new_service_selection(service_key)
     if request.method == "GET":
-        return _render_new_service_wizard(service_key, _new_service_state(service_key, "upload"))
+        state = _new_service_state(service_key, "upload")
+        candidate = _get_new_service_candidate(service_key)
+        if (
+            service_key == "lip_shading"
+            and candidate
+            and _candidate_belongs_to_current_user(candidate)
+            and not candidate.get("analysis_confirmed")
+        ):
+            state["candidate"] = candidate
+        return _render_new_service_wizard(service_key, state)
 
     merged_form = dict(request.form)
     merged_form["style"] = selection["style"]
@@ -891,9 +1021,13 @@ def generic_service_upload(service_slug):
         user_id=_safe_current_user_id(),
     )
     if state.get("result"):
-        _store_new_service_candidate(service_key, state.get("result"), state.get("photo_status"))
+        candidate = _store_new_service_candidate(service_key, state.get("result"), state.get("photo_status"))
         if state.get("flash_message"):
             flash(state["flash_message"], state.get("flash_category") or "info")
+        if service_key == "lip_shading":
+            state["candidate"] = candidate
+            state["flow_step"] = "upload"
+            return _render_new_service_wizard(service_key, state)
         return redirect(url_for("buti_ai.generic_service_final_design", service_slug=slug_for_service(service_key)))
     state["flow_step"] = "upload"
     if state.get("flash_message"):
@@ -919,18 +1053,30 @@ def generic_service_validate_photo(service_slug):
                 "message": saved.get("message") or "عکس مناسب نیست.",
                 "checks": {},
             }), 400
-        quality = module.local_quality_report(saved.get("path"))
+        quality_fn = (
+            getattr(module, "check_photo_quality", None) or module.local_quality_report
+            if service_key == "lip_shading" else module.local_quality_report
+        )
+        quality = quality_fn(saved.get("path"))
         q_ok = quality.get("ok")
         valid = q_ok is not False
         warnings = []
         if q_ok is None:
             warnings.append("بررسی کامل در دسترس نبود؛ اگر عکس واضح است می‌توانی ادامه بدهی.")
+        selection = _current_new_service_selection(service_key)
+        analysis = {}
+        if valid and service_key == "lip_shading":
+            analysis_fn = getattr(module, "analyze_lip_photo", None)
+            if callable(analysis_fn):
+                analysis = analysis_fn(saved.get("path"), selection["style"], selection["change_level"])
+        recommendation = generic_service.recommendation_payload(service_key, selection["style"], analysis)
         return jsonify({
             "valid": bool(valid),
             "status": quality.get("status"),
             "message": quality.get("message") or ("عکس برای طراحی مناسب است." if valid else "این عکس برای طراحی دقیق مناسب نیست."),
             "warnings": warnings,
             "checks": quality.get("checks") or {},
+            "recommendation": recommendation,
         }), (200 if valid else 422)
     finally:
         try:
@@ -952,7 +1098,10 @@ def generic_service_finalize_choice(service_slug):
     if not candidate:
         flash("اول مدل را انتخاب کن و عکس را آپلود کن، بعد طراحی نهایی را بساز.", "warning")
         return redirect(url_for("buti_ai.generic_service_wizard", service_slug=slug_for_service(service_key)))
-    candidate = _update_new_service_final_selection(service_key)
+    if service_key == "lip_shading" and request.form.get("analysis_confirmed") != "1":
+        flash("برای ساخت عکس نهایی، یکی از گزینه‌های تحلیل را تأیید کن.", "warning")
+        return redirect(url_for("buti_ai.generic_service_upload", service_slug=slug_for_service(service_key)))
+    candidate = _update_new_service_final_selection(service_key, request.form.get("final_style"))
     if not candidate.get("photo_filename"):
         flash("برای طراحی نهایی، عکس واقعی لازم است.", "warning")
         return redirect(url_for("buti_ai.generic_service_wizard", service_slug=slug_for_service(service_key)))
@@ -1132,6 +1281,65 @@ def generic_service_uploaded_file(service_slug, filename):
     return response
 
 
+@buti_ai_bp.route("/<service_slug>/download/image", methods=["GET"])
+def generic_service_download_image(service_slug):
+    service_key = _active_service_from_slug(service_slug)
+    if service_key != "lip_shading":
+        abort(404)
+    candidate = _get_new_service_candidate(service_key)
+    if not _candidate_belongs_to_current_user(candidate):
+        abort(404)
+    generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
+    if not generation.get("ok"):
+        abort(404)
+    root = generic_service.uploaded_root(service_key)
+    filename, _path = _candidate_file_path(root, generation.get("filename"))
+    if not filename:
+        abort(404)
+    return send_from_directory(
+        root,
+        filename,
+        as_attachment=True,
+        download_name="giso-lip-shading-final.webp",
+    )
+
+
+@buti_ai_bp.route("/<service_slug>/download/report.pdf", methods=["GET"])
+def generic_service_download_report_pdf(service_slug):
+    service_key = _active_service_from_slug(service_slug)
+    if service_key != "lip_shading":
+        abort(404)
+    candidate = _get_new_service_candidate(service_key)
+    if not _candidate_belongs_to_current_user(candidate):
+        abort(404)
+    generation = candidate.get("generation") if isinstance(candidate.get("generation"), dict) else {}
+    if not generation.get("ok"):
+        abort(404)
+    root = generic_service.uploaded_root(service_key)
+    _source_name, source_path = _candidate_file_path(root, candidate.get("photo_filename"))
+    _final_name, final_path = _candidate_file_path(root, generation.get("filename"))
+    if not source_path or not final_path:
+        abort(404)
+    try:
+        report = build_design_report_pdf(
+            str(get_service_meta(service_key).get("title") or "آینه لب گیسو"),
+            candidate,
+            generation,
+            source_path,
+            final_path,
+        )
+    except Exception as exc:
+        _beauty_route_log("[BUTI_DOWNLOAD]", "pdf_failed", service_key=service_key, error=type(exc).__name__)
+        abort(500)
+    return send_file(
+        BytesIO(report),
+        mimetype="application/pdf",
+        as_attachment=True,
+        download_name="giso-lip-shading-report.pdf",
+        max_age=0,
+    )
+
+
 @buti_ai_bp.route("/<service_slug>/centers", methods=["GET", "POST"])
 def generic_service_centers(service_slug):
     init_buti_ai_db()
@@ -1251,5 +1459,3 @@ def eyebrow_consultant_chat():
         return {"ok": True, "reply": reply, "context": context}
     except Exception as exc:
         return {"ok": False, "error": f"خطای مشاور ابرو: {str(exc)[:200]}"}, 500
-
-

@@ -1,148 +1,79 @@
 {
   "last_update": {
     "date_user_timezone": "2026-10-12",
+    "time_approx_user_timezone": "13:54",
     "user_timezone": "Asia/Tehran",
-    "git_head": "03f3733",
+    "git_head_base": "1f96ffa6db7b0cc3f78e45ecf284bb86e3521d99",
     "branch": "arena/7f567e47-giso4"
   },
-  "last_agent": "Manus technical audit / handoff",
-  "status": "Current Buti AI implementation handoff: four target services brow, lip_shading, blush, eyeliner; provider chain Cloudflare → AvalAI → local preview; read AGENT_START_HERE.md and FINAL_IMPLEMENTATION_SCENARIO_BUTI_AI_2026-10-12.md before coding.",
-  "source_of_truth_layers": {
-    "git_github": "Source of truth for code and tracked repository files.",
-    "graphify": "Structural/dependency code map; updated to reflect HEAD da0cc1f FINBUTI.",
-    "project_memory": "Independent project state, rules, decisions, progress, current stage, and handoff — updated 2026-10-07.",
-    "letta": "Optional agent memory layer.",
-    "coding_agent": "Execution/change layer."
-  },
+  "last_agent": "Manus",
+  "status": "Uncommitted Buti AI implementation: eyebrow and lip now follow upload → analysis/recommendation → explicit confirmation → final output, with protected image/PDF downloads. Real provider is unconfigured in the active environment; no service is declared real-AI ready.",
   "project_identity": {
     "repository_url": "https://github.com/uname1370-create/giso4",
     "branch": "arena/7f567e47-giso4",
-    "local_head_during_update": "03f3733",
-    "local_head_subject": "Eyebrow output: port test-branch output handling (mask blur, PNG save, validated composite)",
-    "remote_head_observed": "03f3733",
-    "git_history_note": "Branch arena/01a0eecf-giso4 includes rp5-rp8 docs + FINBUTI implementation commits 274942f, 4afbd2b, da0cc1f."
+    "local_head_during_update": "1f96ffa",
+    "local_head_subject": "Document Buti AI upload analysis recommendation flow",
+    "remote_head_observed": "1f96ffa",
+    "working_tree": "intentionally dirty; no commit or push made in this task"
   },
-  "current_git_state_observed": {
-    "status_short_branch": [
-      "## arena/7f567e47-giso4...origin/arena/7f567e47-giso4",
-      "clean at 03f3733"
+  "scenario": {
+    "canonical_entrypoint": "project_memory/letta/AGENT_START_HERE.md",
+    "implemented_contract": [
+      "select service and style",
+      "local preview and same-origin CSRF validation",
+      "quality/Vision analysis with normalized recommendation",
+      "first upload POST stores candidate and does not generate",
+      "second finalize POST requires analysis_confirmed=1",
+      "confirmed final_style controls generation",
+      "honest AI/non-AI final label",
+      "candidate-owner-protected final image and PDF download"
     ],
-    "latest_code_commit": "03f3733",
-    "latest_code_subject": "Eyebrow output: port test-branch output handling (mask blur, PNG save, validated composite)",
-    "finbuti_commits": [
-      "274942f FINBUTI P0+P1: mirror history 4-tab, lux salon detail, service_key portfolio, reservation linkage, owner service_key",
-      "4afbd2b Simplify FINBUTI by removing specialist scope",
-      "da0cc1f FINBUTI P1 Admin: services/portfolio/reservations/mirror tabs + analytics all services"
-    ],
-    "forbidden_paths_modified": false,
-    "protected_paths_note": "No changes under web/, bot_edu/, main.py, giso/bot.py per FINBUTI rules; only additive migrations."
+    "allowed_scope": ["giso/buti_ai", "giso/tests/test_buti_ai*", "project_memory/letta"],
+    "protected_paths_unchanged": ["web/", "bot_edu/", "main.py", "giso/bot.py"]
   },
-  "finbuti_scope": {
-    "file": "finbuti.md",
-    "p0_completed": [
-      "اتصال Mirror History به پنل کاربر",
-      "تب‌های ابرو، مو، آرایش، ناخن",
-      "منوی زیبایی من",
-      "صفحه عمومی سالن UX خدمت‌محور و لوکس per 3d site.md"
-    ],
-    "p1_completed": [
-      "service_key in beauty_center_services",
-      "is_featured_service in beauty_center_services",
-      "service_key in beauty_center_images",
-      "Portfolio per-service",
-      "Owner service_key management",
-      "Reservation linkage final_design_id/service_key/selected_style",
-      "Admin services/portfolio/reservations/mirror tabs",
-      "Mirror analytics all services"
-    ],
-    "p1_skipped_by_design": [
-      "specialist_user_id — only if needed, per FINBUTI",
-      "Bale Mirror Flow — scope inactive"
-    ],
-    "p2_out_of_scope": [
-      "specialist table, staff table, wishlist, Instagram/Logo, AI boosting, images 800+, new arch, bot rewrite"
-    ]
+  "architecture_findings": {
+    "routes": "giso/buti_ai/routes.py owns staged routes, session owner checks and protected download routes.",
+    "eyebrow_flow": "giso/buti_ai/eyebrow/flow.py analyzes at upload and defers final generation until confirmation.",
+    "final_selection": "giso/buti_ai/eyebrow/final_design.py keeps selected_style, recommended_style and final_style distinct; only final_style controls prompt/generation.",
+    "generic_flow": "giso/buti_ai/generic_service.py exposes the recommendation contract; the new confirmation UI is limited to lip_shading.",
+    "pdf": "giso/buti_ai/downloads.py creates in-memory private Persian before/after reports using FPDF and does not retain a duplicate download file.",
+    "runtime_catalog": "service_catalog.py calls eyebrow/nail/hair_color/lip_shading active; blush and eyeliner are not implemented in the runtime catalog or routes."
   },
-  "architecture": {
-    "root": {
-      "main.py": "Unified launcher",
-      "giso/app.py": "Flask app factory create_app()",
-      "finbuti.md": "Final Beauty Ecosystem scenario",
-      "3d site.md": "Design Skill Luxury Minimal"
-    },
-    "giso": {
-      "beauty_centers": "Beauty Center registration, approval, services, pricing, hours, gallery with service_key, reservations, chat, feedback, promotions",
-      "beauty_centers/pricing": "Services + working hours, now service_key/is_featured_service",
-      "beauty_centers/reservations": "Reservation flow with final_design_id/service_key/selected_style snapshot",
-      "buti_ai": "Mirror: eyebrow baseline + nail/hair_color/lip_shading generic, service_catalog, upload/quality/detection/analysis/generation/validation/final, history via buti_ai_final_designs, consultant, centers enrichment",
-      "panel_user": "User Panel: overview, زیبایی من (beauty_centers_list,reservations,center_chats,analyses), beauty_center owner, marketplace, wallet, etc.",
-      "panel": "Admin: beauty_centers tabs requests/published/paused/services/portfolio/reservations/mirror/promotions/feedback/settings/dashboard"
-    },
-    "graphify": "Updated to HEAD da0cc1f, includes service_key/is_featured_service columns, new admin tabs, mirror history grouping",
-    "project_memory_letta": "Updated 2026-10-12 with AGENT_START_HERE and final four-service implementation scenario"
+  "service_status": {
+    "eyebrow": "Staged selection/upload/validate/recommend/confirm/final/download code implemented; browser fallback flow verified; real AI not verified because runtime provider count was zero.",
+    "lip_shading": "Staged selection/upload/validate/recommend/confirm/final/download code implemented; mock contract and downloads verified; real AI unverified due to missing provider.",
+    "nail": "Catalog says active and older staged generic flow remains; not changed by this scenario; no new download implementation; real AI unverified.",
+    "hair_color": "Catalog says active and older staged generic flow remains; not changed by this scenario; no new download implementation; real AI unverified.",
+    "blush": "Mentioned by higher-level documentation but no active runtime module/route found; not implemented.",
+    "eyeliner": "Mentioned by higher-level documentation but no active runtime module/route found; not implemented.",
+    "hoosha": "Not production-ready: no verified official server-to-server image-edit/mask API, auth, pricing or SLA."
   },
-  "important_rules": [
-    "Code Truth is source of truth",
-    "Reuse > Extend > New",
-    "No parallel Beauty Center/Reservation/Mirror/Analysis/Service Catalog/Pricing systems",
-    "No Eyebrow baseline modification",
-    "No bot.py/bot_edu/web/main.py refactor",
-    "No hard-coded API keys, no fallback as real AI",
-    "Migrations additive idempotent PRAGMA check",
-    "Design public salon page with 3d site.md Luxury Minimal Fast Mobile-first",
-    "Specialist not part of project per FINBUTI final",
-    "Bale only if scope active",
-    "Four target Buti AI services are brow, lip_shading, blush, eyeliner",
-    "Offline local preview must be labeled local_preview and never presented as real AI",
-    "Provider chain is Cloudflare inpainting, AvalAI image edit, then local preview",
-    "Add cost ledger, provider attempts, quota, idempotency and circuit breaker before public launch"
-  ],
-  "graphify_findings": {
-    "purpose": "Code structure/dependency map",
-    "local_status": "graphify-out/graph.json generated 2026-10-06 22:08 UTC after da0cc1f (21:42 UTC) — considered fresh for FINBUTI",
-    "stats_observed": {
-      "nodes": 7755,
-      "links": 24200,
-      "communities": 241,
-      "manifest_entries": 371
-    },
-    "freshness": "Fresh — built from commit after FINBUTI P1 Admin, includes service_key/is_featured_service, mirror history, admin tabs",
-    "coverage_limitations": [
-      "cluster-only",
-      "no HTML nodes",
-      "no Markdown content knowledge"
-    ]
+  "validation": {
+    "commands_passed": [
+      "node --check giso/buti_ai/static/buti_ai.js",
+      "python -m py_compile for changed Buti AI Python modules",
+      "git diff --check",
+      "SECRET_KEY=arena-test-secret-for-buti-ai-tests-32chars .venv/bin/python -m pytest -q giso/tests/test_buti_ai_phase1.py giso/tests/test_buti_ai_new_services.py giso/tests/test_buti_ai_upload_recommendation.py"
+    ],
+    "pytest_result": "53 passed, 114 existing/deprecation warnings, 35.60s",
+    "browser_smoke": "Eyebrow selection → upload → validate fallback → confirmation → final before/after completed. Browser tool was unavailable when clicking the download link; protected image/PDF routes themselves passed automated tests."
   },
-  "decisions": [
-    "FINBUTI P0 User Panel: Extend panel_user, not create parallel analysis module",
-    "FINBUTI P0 Public Detail: Luxury Minimal per 3d site.md, selective 3D only if real visual value else CSS/SVG",
-    "FINBUTI P1: service_key/is_featured_service in beauty_center_services, service_key in beauty_center_images, portfolio per-service",
-    "Reservation snapshot price/name/duration + final_design_id/service_key/selected_style preserved",
-    "Admin extended with services/portfolio/reservations/mirror tabs for P1",
-    "Specialist scope removed per commit 4afbd2b",
-    "Bale Mirror Flow left as P2 (scope inactive)",
-    "Blush and eyeliner start with deterministic local preview before generative provider integration",
-    "Hoosha is not production until official server-to-server image-edit/mask API and commercial terms are verified"
-  ],
-  "completed_work": [
-    "FINBUTI Phase 0 Freshness Audit",
-    "Phase 1 P0 User Panel: زیبایی من grouping, analyses.py 4-tab, analyses.html lux cards",
-    "Phase 2 P0 Public Beauty Center Design: hero lux, chip filter, service cards lux, portfolio lux, trust lux, sticky CTA",
-    "Phase 3 P1 Service-Level Data: migrations service_key/is_featured_service, owner management",
-    "Phase 4 P1 Owner/Admin: service management, portfolio management, reservation management, Mirror analytics all services",
-    "Security/Performance/SEO/Accessibility/Responsive/Regression verified",
-    "Graph and Project Memory updated to HEAD da0cc1f"
+  "known_issues": [
+    "No matching Cloudflare/OpenAI/Vision connector was configured and browser runtime logs showed zero Vision-capable providers; real provider analysis/generation cannot be claimed verified.",
+    "Public launch prerequisites in documentation remain unimplemented here: cost ledger, provider attempt audit, user charge, idempotency, quota, circuit breaker, explicit consent and worker queue.",
+    "datetime.utcnow() deprecation warnings pre-exist in Buti AI upload/final modules; do a separate timezone-aware cleanup."
   ],
   "next_action": [
-    "Read project_memory/letta/AGENT_START_HERE.md before any future work",
-    "Implement cost ledger and idempotency for mirror generation",
-    "Implement deterministic local preview for blush and eyeliner",
-    "Validate AvalAI image edit with a real masked request",
-    "Add queue/worker boundary before public launch"
+    "Configure a real server-to-server Vision/image-edit provider in the project's AI management source.",
+    "Execute the real-provider matrix in project_memory/letta/BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_TEST_PLAN.md with a non-sensitive test image.",
+    "Implement production prerequisite controls before public activation.",
+    "Re-run the recorded validation commands before commit."
   ],
   "canonical_handoff_documents": [
     "project_memory/letta/AGENT_START_HERE.md",
     "project_memory/letta/FINAL_IMPLEMENTATION_SCENARIO_BUTI_AI_2026-10-12.md",
-    "project_memory/letta/BOOTSTRAP_PROMPT.md"
+    "project_memory/letta/BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_IMPLEMENTATION_SCENARIO.md",
+    "project_memory/letta/BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_TEST_PLAN.md",
+    "project_memory/letta/BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_AUDIT_2026-10-12.md"
   ]
 }

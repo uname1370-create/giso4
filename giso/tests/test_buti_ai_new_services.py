@@ -151,6 +151,19 @@ def test_lip_shading_mirror_uses_staged_flow_and_truthful_guided_output():
         content_type="multipart/form-data",
         follow_redirects=False,
     )
+    assert response.status_code == 200
+    recommendation_text = response.get_data(as_text=True)
+    assert "پیشنهاد و انتخاب نهایی" in recommendation_text
+    confirm_token = _csrf(recommendation_text)
+    response = client.post(
+        "/analysis/mirror/lip-shading/finalize",
+        data={
+            "csrf_token": confirm_token,
+            "analysis_confirmed": "1",
+            "final_style": "soft_pink_tint",
+        },
+        follow_redirects=False,
+    )
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/analysis/mirror/lip-shading/final")
     final_page = client.get(response.headers["Location"])
@@ -302,6 +315,19 @@ def test_every_new_service_model_selection_survives_upload_and_generation():
                 content_type="multipart/form-data",
                 follow_redirects=False,
             )
+            if service_key == SERVICE_LIP:
+                assert response.status_code == 200
+                recommendation_text = response.get_data(as_text=True)
+                assert "پیشنهاد و انتخاب نهایی" in recommendation_text
+                response = client.post(
+                    f"/analysis/mirror/{slug}/finalize",
+                    data={
+                        "csrf_token": _csrf(recommendation_text),
+                        "analysis_confirmed": "1",
+                        "final_style": style_key,
+                    },
+                    follow_redirects=False,
+                )
             assert response.status_code == 302
             assert response.headers["Location"].endswith(f"/analysis/mirror/{slug}/final")
             final_page = client.get(response.headers["Location"])
@@ -427,6 +453,18 @@ def test_lip_finalize_does_not_recover_an_unowned_upload_from_client_filename():
         content_type="multipart/form-data",
         follow_redirects=False,
     )
+    assert response.status_code == 200
+    recommendation_text = response.get_data(as_text=True)
+    assert "پیشنهاد و انتخاب نهایی" in recommendation_text
+    response = client.post(
+        "/analysis/mirror/lip-shading/finalize",
+        data={
+            "csrf_token": _csrf(recommendation_text),
+            "analysis_confirmed": "1",
+            "final_style": "peach_nude",
+        },
+        follow_redirects=False,
+    )
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/analysis/mirror/lip-shading/final")
     final_page = client.get(response.headers["Location"])
@@ -441,6 +479,7 @@ def test_lip_finalize_does_not_recover_an_unowned_upload_from_client_filename():
         "/analysis/mirror/lip-shading/finalize",
         data={
             "csrf_token": upload_token,
+            "analysis_confirmed": "1",
             "final_style": "peach_nude",
             "selected_style": "peach_nude",
             "change_level": "medium",

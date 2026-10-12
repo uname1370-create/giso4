@@ -60,6 +60,43 @@ def initial_form_values(service_key: str) -> Dict[str, str]:
     }
 
 
+def recommendation_payload(service_key: str, selected_style: Any, analysis: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    """Return the public, normalized recommendation contract for a service.
+
+    A missing provider deliberately keeps the user's original option available;
+    it never manufactures an AI recommendation from the local renderer.
+    """
+    selected_key = normalize_model_key(service_key, selected_style)
+    styles = getattr(service_module(service_key), "STYLES", {})
+    analysis = analysis if isinstance(analysis, dict) else {}
+    status = str(analysis.get("status") or "ai_unavailable").strip()
+    data = analysis.get("data") if isinstance(analysis.get("data"), dict) else {}
+    recommended_key = normalize_model_key(
+        service_key,
+        data.get("recommended_style") if status == "ai_analyzed" else selected_key,
+    )
+    is_ai = status == "ai_analyzed"
+    reason = str(data.get("short_reason") or data.get("why") or "").strip()
+    if not reason:
+        reason = (
+            "پیشنهاد بر اساس تحلیل عکس، مدل انتخابی و شدت تغییر است."
+            if is_ai else
+            "تحلیل هوشمند فعلاً در دسترس نیست؛ می‌توانی مدل انتخابی خودت را ادامه بدهی."
+        )
+    alternatives = []
+    for value in data.get("alternative_styles") or []:
+        key = normalize_model_key(service_key, value)
+        if key not in alternatives and key != recommended_key:
+            alternatives.append(key)
+    return {
+        "status": "ai_analyzed" if is_ai else "ai_unavailable",
+        "style": recommended_key,
+        "label": styles[recommended_key].get("label") or recommended_key,
+        "reason": reason[:220],
+        "alternatives": alternatives[:3],
+    }
+
+
 def build_result(service_key: str, style_key: str, change_key: str, photo_status: Dict[str, Any],
                  detection: Dict[str, Any] | None = None, quality_report: Dict[str, Any] | None = None) -> Dict[str, Any]:
     module = service_module(service_key)
@@ -122,6 +159,7 @@ def process_service_submission(service_key: str, form, files, user_id=None) -> D
             error_message = quality_report.get("message") or "این عکس برای طراحی دقیق مناسب نیست."
         else:
             detection = module.detect_regions(photo_status.get("path"), allow_fallback=True)
+            analysis_result = {}
             analysis_data = {}
             try:
                 analysis_fn_name = {
@@ -135,10 +173,15 @@ def process_service_submission(service_key: str, form, files, user_id=None) -> D
                     if isinstance(analysis_result, dict) and analysis_result.get("data"):
                         analysis_data = analysis_result.get("data") or {}
             except Exception:
+                analysis_result = {"status": "ai_unavailable", "ok": None, "data": {}}
                 analysis_data = {}
             result = build_result(service_key, style_key, change_key, photo_status, detection=detection, quality_report=quality_report)
+            recommendation = recommendation_payload(service_key, style_key, analysis_result)
+            result["ai_analysis"] = analysis_data
+            result["analysis_status"] = recommendation["status"]
+            result["recommended_style_key"] = recommendation["style"]
+            result["recommendation"] = recommendation
             if analysis_data:
-                result["ai_analysis"] = analysis_data
                 if analysis_data.get("short_reason"):
                     result["short_reason"] = analysis_data.get("short_reason")
                 if analysis_data.get("do"):
@@ -152,7 +195,11 @@ def process_service_submission(service_key: str, form, files, user_id=None) -> D
                 status=f"{service_key}_photo_ready_final_design",
             )
             result["session_id"] = session_id
-            flash_message = "عکس دریافت شد؛ همین مدل وارد طراحی عکس نهایی می‌شود."
+            flash_message = (
+                "عکس بررسی شد؛ یکی از گزینه‌های پیشنهادی را تأیید کن."
+                if service_key == "lip_shading" else
+                "عکس دریافت شد؛ همین مدل وارد طراحی عکس نهایی می‌شود."
+            )
             flash_category = "success"
 
     return {
@@ -176,6 +223,8 @@ def build_final_candidate(service_key: str, result: Dict[str, Any], photo_status
     result = result or {}
     photo_status = photo_status or {}
     style_key = normalize_model_key(service_key, result.get("selected_style_key") or result.get("style_key"))
+    recommendation = result.get("recommendation") if isinstance(result.get("recommendation"), dict) else {}
+    recommended_style = normalize_model_key(service_key, recommendation.get("style") or result.get("recommended_style_key") or style_key)
     change_key = normalize_change_level(result.get("selected_change_key") or result.get("change_key"))
     styles = getattr(module, "STYLES", {})
     meta = get_service_meta(service_key)
@@ -191,6 +240,12 @@ def build_final_candidate(service_key: str, result: Dict[str, Any], photo_status
         "photo_filename": filename,
         "selected_style": style_key,
         "selected_label": styles[style_key]["label"],
+        "recommended_style": recommended_style,
+        "recommended_label": styles[recommended_style]["label"],
+        "recommendation_status": str(recommendation.get("status") or result.get("analysis_status") or "ai_unavailable"),
+        "analysis_status": str(recommendation.get("status") or result.get("analysis_status") or "ai_unavailable"),
+        "ai_analysis": result.get("ai_analysis") if isinstance(result.get("ai_analysis"), dict) else {},
+        "analysis_reason": str(recommendation.get("reason") or "")[:220],
         "final_style": style_key,
         "final_label": styles[style_key]["label"],
         "change_key": change_key,

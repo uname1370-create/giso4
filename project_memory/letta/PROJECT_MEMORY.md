@@ -1,95 +1,103 @@
 # Giso4 Project Memory — Current Handoff
 
-Last Update: 2026-10-12 (Asia/Tehran)
-Branch: arena/7f567e47-giso4
-HEAD: 03f3733 Eyebrow output: port test-branch output handling (mask blur, PNG save, validated composite)
-Agent: Manus technical audit / handoff
-Status: Current product direction is the four-service Buti AI scenario: eyebrow, lip, blush, eyeliner. Read AGENT_START_HERE.md and FINAL_IMPLEMENTATION_SCENARIO_BUTI_AI_2026-10-12.md before coding.
+## 1. Last Update
 
-Historical FINBUTI state remains below for context.
+- **Date/time:** 2026-10-12, approximately 13:54
+- **User timezone:** Asia/Tehran
+- **Last Agent:** Manus
+- **Last Model:** not recorded / model-agnostic
 
----
+## 2. Git State
 
-## 1. Layer Contract
-- Git/GitHub = source of truth
-- Graphify = structural map, now fresh (graph.json 2026-10-06 22:08 UTC after da0cc1f 21:42 UTC)
-- Project Memory = independent state, now updated to FINBUTI
-- Letta = optional memory layer
-- Coding Agent = execution layer
+- **Branch:** `arena/7f567e47-giso4`
+- **Local HEAD / remote ref:** `1f96ffa6db7b0cc3f78e45ecf284bb86e3521d99` — `Document Buti AI upload analysis recommendation flow`
+- **Status:** uncommitted Buti AI implementation and test changes; no commit or push was made in this task.
+- **Local/remote discrepancy:** none at HEAD before work; working tree is now intentionally dirty.
+- **Intentionally changed/new paths:**
+  - `giso/buti_ai/{routes.py,generic_service.py,downloads.py}`
+  - `giso/buti_ai/eyebrow/{flow.py,result.py,final_design.py}`
+  - `giso/buti_ai/static/{buti_ai.js,buti_ai.css}`
+  - `giso/buti_ai/templates/buti_ai/{eyebrow_wizard.html,eyebrow_final_design.html,generic_service_wizard.html,generic_final_design.html}`
+  - `giso/tests/{test_buti_ai_phase1.py,test_buti_ai_new_services.py,test_buti_ai_upload_recommendation.py}`
+  - `project_memory/letta/{BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_TEST_PLAN.md,BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_AUDIT_2026-10-12.md,PROJECT_MEMORY.md,PROJECT_MEMORY.json}`
 
-## 2. Project Identity
-- Repository: https://github.com/uname1370-create/giso4
-- Branch: arena/01a0eecf-giso4
-- HEAD: da0cc1f FINBUTI P1 Admin
-- Previous FINBUTI commits: 274942f P0+P1, 4afbd2b remove specialist, da0cc1f admin
-- Remote: origin/arena/01a0eecf-giso4 exists, up to date
+## 3. `sena.md` Status
 
-## 3. Current Git State
-```
-## arena/01a0eecf-giso4
-clean at da0cc1f
-```
-No forbidden paths modified, migrations additive idempotent.
+- `sena.md`: absent locally.
+- No remote `sena.md` ref/blob was consulted.
+- No scenario was inferred or executed from `sena.md`.
 
-## 4. FINBUTI Scope
-P0 Completed: Mirror History → User Panel, 4 tabs ابرو/مو/آرایش/ناخن, زیبایی من grouping, public salon lux per 3d site.md
-P1 Completed: service_key/is_featured_service in beauty_center_services, service_key in beauty_center_images, portfolio per-service, owner management, reservation linkage final_design_id/service_key/selected_style, admin services/portfolio/reservations/mirror + analytics all services
-P1 Skipped by design: specialist_user_id only if needed, Bale Mirror Flow scope inactive
-P2 Out of Scope: specialist table, staff table, wishlist, Instagram/Logo, AI boosting, images 800+, new arch, bot rewrite
+## 4. Current Scenario
 
-## 5. Architecture
-- giso/app.py: create_app()
-- beauty_centers: registration, approval, services with service_key/is_featured_service, hours, gallery with service_key, reservations with mirror linkage, chat, feedback, promotions
-- beauty_centers/pricing: services + working hours
-- beauty_centers/reservations: reservation flow snapshot + mirror linkage
-- buti_ai: eyebrow baseline + nail/hair_color/lip_shading generic, service_catalog, upload/quality/detection/analysis/generation/validation/final, history buti_ai_final_designs, consultant, centers enrichment
-- panel_user: overview, زیبایی من (beauty_centers_list,reservations,center_chats,analyses), beauty_center owner
-- panel: admin beauty_centers tabs requests/published/paused/services/portfolio/reservations/mirror/promotions/feedback/settings/dashboard
+- **User asked:** read the canonical Letta start file and each referenced file in order; implement the documented upload → analysis → recommendation → confirmation → final-output flow; verify real status of services; test as far as possible; report blockers without guessing.
+- **Allowed scope:** Buti AI code, Buti AI tests and Letta Project Memory.
+- **Forbidden/protected:** `web/`, `bot_edu/`, `main.py`, `giso/bot.py`; no refactor outside `giso/buti_ai/`.
+- **Locked-path result:** protected paths were not modified.
 
-## 6. Important Rules
-Code Truth, Reuse > Extend > New, no parallel systems, no eyebrow baseline mod, no bot.py/bot_edu/web/main.py refactor, no hard-coded API keys, no fallback as AI, migrations additive, luxury minimal per 3d site.md, specialist not part, Bale only if active
+## 5. Current Stage
 
-## 7. Graphify Findings
-graph.json 2026-10-06 22:08 UTC after da0cc1f 21:42 UTC — fresh for FINBUTI. Nodes 7755, links 24200, communities 241. Includes service_key/is_featured_service, mirror history, admin tabs.
+- **Completed:** browser and backend two-stage flow for eyebrow and lip; protected image/PDF downloads; honest AI/non-AI labels; tests and browser smoke.
+- **In progress:** none.
+- **Blocked by:** no configured production Vision/image-edit provider in the active environment; production preconditions (ledger/quota/idempotency/queue/consent) are not in this task’s implementation scope.
 
-## 8. Decisions
-- Extend panel_user, not parallel analysis module
-- Luxury minimal per 3d site.md, selective 3D only if real value else CSS/SVG
-- service_key/is_featured_service migration additive
-- Reservation snapshot preserved + mirror linkage
-- Admin extended with 4 new tabs
-- Specialist removed per 4afbd2b
-- Bale left as P2
+## 6. Next Action
 
-## 9. Completed Work
-Freshness Audit, P0 User Panel, P0 Public Detail Lux, P1 Service-Level Data, P1 Owner/Admin, Security/Performance/SEO/A11y/Responsive/Regression, Graph+Memory updated
+1. Configure one real, server-to-server Vision/image-edit provider in the project’s AI-management source; do not use a browser-only credential.
+2. Run the real-provider matrix in `BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_TEST_PLAN.md` with a non-sensitive test image.
+3. Before public activation, implement the documented cost ledger, provider-attempt audit, quota/idempotency/circuit breaker, explicit consent and queued generation prerequisites.
+4. Before committing, re-run:
+   ```bash
+   node --check giso/buti_ai/static/buti_ai.js
+   .venv/bin/python -m py_compile giso/buti_ai/routes.py giso/buti_ai/generic_service.py giso/buti_ai/downloads.py giso/buti_ai/eyebrow/flow.py giso/buti_ai/eyebrow/result.py giso/buti_ai/eyebrow/final_design.py
+   SECRET_KEY=arena-test-secret-for-buti-ai-tests-32chars .venv/bin/python -m pytest -q giso/tests/test_buti_ai_phase1.py giso/tests/test_buti_ai_new_services.py giso/tests/test_buti_ai_upload_recommendation.py
+   git diff --check
+   ```
 
-## 10. Next Actions
-- Bale Mirror if scope active: adapter only in giso/buti_ai/bale_handlers reusing service_catalog/generic_service
-- specialist_user_id only if real need
-- Keep graphify fresh via graphify update
+## 7. Architecture / Guide Findings
 
-## 11. Validations
-- SECRET_KEY=test python -m venv test: app create_app() → list 200, admin 302, analyses 302→login
-- Migrations: beauty_center_services cols include service_key/is_featured_service, images include service_key
-- No secrets, no data loss
+- `giso/buti_ai/routes.py`: owns staged wizard routing, session ownership checks and private uploaded-file/download routes.
+- `giso/buti_ai/eyebrow/flow.py`: now does quality + Vision analysis at upload; it must not trigger final generation.
+- `giso/buti_ai/eyebrow/final_design.py`: preserves the user’s selected style, holds the AI recommendation separately and sends only the confirmed `final_style` to prompt/generation.
+- `giso/buti_ai/generic_service.py`: shares the contract; the recommendation confirmation UI is enabled only for `lip_shading` in this change.
+- `giso/buti_ai/downloads.py`: creates an in-memory private PDF; routes validate candidate ownership and candidate-bound paths first.
+- `giso/buti_ai/service_catalog.py`: runtime catalog labels eyebrow/nail/hair_color/lip_shading active. This conflicts with higher-level docs that name brow/lip/blush/eyeliner; do not call blush or eyeliner implemented without code.
+- Browser smoke log recorded Vision provider count `0`; code must label fallback non-AI in that condition.
 
+## 8. Graphify Findings
 
-## 12. Current Buti AI Implementation Handoff — 2026-10-12
+- No Graphify artifact was regenerated in this task.
+- Historical graph information in earlier memory was built before this working-tree implementation; it does not cover the new uncommitted flow.
 
-### Product decision
-- Four target services: `brow`, `lip_shading`, `blush`, `eyeliner`.
-- Eyebrow and lip use the main AI/inpainting path. Blush and eyeliner start with deterministic local preview, then provider integration only after real benchmark.
-- Recommended provider chain: Cloudflare inpainting → AvalAI image edit → local preview.
-- Hoosha is not a production provider until an official server-to-server image-edit/mask API, auth, pricing and SLA are verified.
+## 9. Letta Status
 
-### Required implementation contracts
-- Add cost ledger, provider attempt tracking, user charge, idempotency key, quota and circuit breaker before public launch.
-- Offline output must have `local_preview` status and must never be presented as real AI output.
-- Keep Buti AI logic inside `giso/buti_ai/`; do not refactor `giso/bot.py`, `bot_edu/`, `web/` or `main.py` without explicit authorization.
-- Heavy image generation must run through a queue/worker, not the main Bale handler or a long synchronous web request.
+- Letta reference documents were used as the canonical task handoff.
+- `letta --version` produced no available version output in this environment.
+- Cloud auth/API key, local backend and project-agent initialization were not required or verified.
+- MCP was not required for Letta itself.
 
-### Canonical documents
-- `project_memory/letta/AGENT_START_HERE.md`
-- `project_memory/letta/FINAL_IMPLEMENTATION_SCENARIO_BUTI_AI_2026-10-12.md`
-- `project_memory/letta/BOOTSTRAP_PROMPT.md`
+## 10. Known Issues
+
+- **No real provider configured:** connector inspection found no matching connector and browser log showed zero Vision-capable providers. **Risk:** only `ai_unavailable`/guided fallback can be verified. **Next:** configure and benchmark provider.
+- **Browser download check incomplete:** the browser tool became unavailable after reaching final; protected route tests passed for both eyebrow and lip. **Risk:** browser-session download UX needs rerun when browser is available.
+- **Production gate incomplete:** ledger/quota/idempotency/circuit breaker/consent/queue are documented prerequisites but unimplemented here. **Risk:** public launch must remain blocked.
+- **Deprecated timestamps:** existing `datetime.utcnow()` calls produce pytest warnings. **Next:** separate timezone-aware cleanup task.
+
+## 11. Decisions
+
+- Kept recommendation and final selection separate: AI proposes; the user confirms; `final_style` alone controls generation.
+- Chose no-AI continuation when provider unavailable; no synthetic AI success signal is emitted.
+- Added downloads only for the requested eyebrow/lip scenario. Nail and hair behavior remains unchanged.
+- Used FPDF + project dependencies in-memory for a PDF instead of retaining duplicate media.
+
+## 12. Completed Work
+
+- Implemented the documented two-POST analysis/confirmation flow for eyebrow and lip.
+- Added same-origin validation feedback, preview, recommendation cards and cache-busted JS/CSS.
+- Added protected downloads for final image and PDF.
+- Added/updated contract tests, including provider success/unavailable mocks, explicit confirmation, candidate ownership and PDF routes.
+- **Validation:** 53 tests passed in 35.60s; JS syntax, Python compilation and `git diff --check` passed.
+- **Browser:** actual eyebrow fallback flow reached final before/after and rendered download links; real provider not configured.
+
+## 13. JSON Synchronization
+
+Durable findings are mirrored in `project_memory/letta/PROJECT_MEMORY.json`. No secrets, credentials, database files, uploads or generated assets were recorded.

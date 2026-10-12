@@ -23,7 +23,7 @@
                 <div>
                     <b>طراحی عکس نهایی ابرو</b>
                     <small>
-                        {% if generation and generation.status == 'ai_failed' %}AI FAILED - تلاش مجدد{% elif generation and generation.ai_inpainting and generation.is_ai_generated %}AI Inpainting با ماسک ابرو{% elif generation and generation.fallback_used %}نسخه راهنمای غیر AI بعد از تلاش مدل{% elif generation and generation.is_ai_generated %}ساخته‌شده با مدل AI{% else %}AI FAILED{% endif %}
+                        {% if generation and generation.status == 'ai_failed' %}AI FAILED - تلاش مجدد{% elif generation and generation.ai_inpainting and generation.is_ai_generated %}AI Inpainting با ماسک ابرو{% elif generation and generation.fallback_used %}نسخه راهنمای غیر AI بعد از تلاش مدل{% elif generation and generation.is_ai_generated %}ساخته‌شده با مدل AI{% else %}راهنمای غیر AI{% endif %}
                     </small>
                 </div>
             </div>
@@ -51,6 +51,8 @@
             </div>
             <div class="bti-compare-actions">
                 <button class="bti-secondary-action bti-zoom-action" type="button" data-bti-lightbox-image="{{ final_image_url }}">بزرگنمایی طراحی</button>
+                <a class="bti-secondary-action" href="{{ url_for('buti_ai.eyebrow_download_image') }}">دانلود تصویر</a>
+                <a class="bti-secondary-action" href="{{ url_for('buti_ai.eyebrow_download_report_pdf') }}">دانلود گزارش PDF</a>
             </div>
             <p>خط وسط را بکش؛ سمت راست عکس اصلی و سمت چپ طراحی نهایی را نشان می‌دهد.</p>
         </div>
@@ -81,7 +83,7 @@
                     {% elif generation.is_ai_generated %}
                     طراحی عکس نهایی با مدل AI و تغییر قابل مشاهده ابرو آماده شد
                     {% else %}
-                    AI FAILED - طراحی با AI انجام نشد
+                    طراحی راهنمای غیر AI آماده شد
                     {% endif %}
                 </b>
                 <span>
@@ -143,7 +145,7 @@
             {% elif generation and generation.is_ai_generated and not generation.fallback_used %}
             <span>این تصویر، طراحی عکس نهایی AI در گیسو است؛ خروجی فقط بعد از تأیید تغییر قابل مشاهده داخل ابرو نمایش داده شده و بیرون از mask حفظ شده است.</span>
             {% else %}
-            <span>AI FAILED - این تصویر AI واقعی نیست و نمایش داده نمی‌شود.</span>
+            <span>این تصویر، راهنمای غیر AI برای طراحی عکس نهایی است و نتیجه اجرای قطعی سالن نیست.</span>
             {% endif %}
         </div>
 

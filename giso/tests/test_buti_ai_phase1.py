@@ -126,13 +126,23 @@ def test_buti_ai_eyebrow_real_photo_step_flow_with_csrf():
         content_type="multipart/form-data",
         follow_redirects=False,
     )
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith("/analysis/mirror/eyebrow/final")
+    assert response.status_code == 200
+    response_text = response.get_data(as_text=True)
+    assert "پیشنهاد و انتخاب نهایی" in response_text
+    assert "تأیید انتخاب و ساخت عکس نهایی" in response_text
     with client.session_transaction() as sess:
         candidate = dict(sess["buti_ai_eyebrow_final_candidate"])
     assert candidate["selected_style"] == "microblading"
     assert candidate["final_style"] == "microblading"
     assert candidate["photo_filename"].endswith(".jpg")
+    confirm_token = re.search(r'name="csrf_token" value="([^"]+)"', response_text).group(1)
+    final = client.post(
+        "/analysis/mirror/eyebrow/finalize",
+        data={"csrf_token": confirm_token, "analysis_confirmed": "1", "final_style": "microblading"},
+        follow_redirects=False,
+    )
+    assert final.status_code == 302
+    assert final.headers["Location"].endswith("/analysis/mirror/eyebrow/final")
 
     _cleanup_buti_ai_sessions()
 
@@ -175,12 +185,12 @@ def test_eyebrow_upload_preserves_every_selected_model_as_final_source(tmp_path,
             content_type="multipart/form-data",
             follow_redirects=False,
         )
-        assert response.status_code == 302
-        assert response.headers["Location"].endswith("/analysis/mirror/eyebrow/final")
+        assert response.status_code == 200
+        response_text = response.get_data(as_text=True)
+        assert "پیشنهاد و انتخاب نهایی" in response_text
         with client.session_transaction() as sess:
             candidate = dict(sess[FINAL_DESIGN_SESSION_KEY])
         assert candidate["selected_style"] == style_key
-        assert candidate["recommended_style"] == style_key
         assert candidate["final_style"] == style_key
         assert candidate["selected_label"] == style_meta["label"]
         assert candidate["final_label"] == style_meta["label"]
@@ -188,6 +198,14 @@ def test_eyebrow_upload_preserves_every_selected_model_as_final_source(tmp_path,
         assert candidate["photo_filename"].endswith(".jpg")
         assert (tmp_path / candidate["photo_filename"]).exists()
         assert candidate["eyebrow_detection"] == {}
+        confirm_token = re.search(r'name="csrf_token" value="([^"]+)"', response_text).group(1)
+        final = client.post(
+            "/analysis/mirror/eyebrow/finalize",
+            data={"csrf_token": confirm_token, "analysis_confirmed": "1", "final_style": style_key},
+            follow_redirects=False,
+        )
+        assert final.status_code == 302
+        assert final.headers["Location"].endswith("/analysis/mirror/eyebrow/final")
 
     _cleanup_buti_ai_sessions()
 
@@ -333,9 +351,10 @@ def test_eyebrow_ai_helpers_parse_quality_and_analysis(monkeypatch):
     assert result["ai_recommended_style_key"] == "natural"
     assert result["face_shape"] == "بیضی"
     assert result["face_analysis"]["brow_density"] == "متوسط"
-    assert result["style_scores"][0]["style_key"] == "microblading"
-    assert result["style_scores"][0]["score"] == 72
-    assert "میکروبلیدینگ" in result["short_reason"]
+    assert result["recommended_style_key"] == "natural"
+    assert result["style_scores"][0]["style_key"] == "natural"
+    assert result["style_scores"][0]["score"] == 88
+    assert "نچرال" in result["short_reason"]
     assert preview["available"] is True
     assert preview["mode"] == "guided_before_after"
     assert len(calls) == 2
@@ -366,7 +385,7 @@ def test_final_candidate_uses_selected_style_even_if_ai_recommends_other():
     assert result["ai_recommended_style_key"] == "natural"
     assert candidate["selected_style"] == "powder"
     assert candidate["final_style"] == "powder"
-    assert candidate["recommended_style"] == "powder"
+    assert candidate["recommended_style"] == "natural"
     assert candidate["final_label"] == "شیدینگ پودری"
     prompt = build_design_prompt(candidate)
     assert "Selected eyebrow model: شیدینگ پودری" in prompt
@@ -389,7 +408,7 @@ def test_reference_image_comes_from_selected_final_style():
 
     reference = image_generation._reference_image_path(candidate)
 
-    assert reference.endswith("powder.jpg")
+    assert reference.endswith("powder.png")
     assert Path(reference).exists()
 
 
@@ -405,16 +424,8 @@ def test_selected_model_a_and_b_stay_exactly_in_final_candidate(monkeypatch):
     monkeypatch.setattr(eyebrow_flow, "check_photo_quality", lambda path: {
         "status": "ai_checked", "ok": True, "message": "عکس مناسب است.", "checks": {}, "reasons": []
     })
-    monkeypatch.setattr(eyebrow_flow, "detect_eyebrow_regions", lambda path, allow_fallback=False: {
-        "ok": True,
-        "method": "pytest_roi",
-        "confidence": 0.9,
-        "image_width": 640,
-        "image_height": 820,
-        "regions": [
-            {"side": "left", "x": 190, "y": 250, "width": 95, "height": 30},
-            {"side": "right", "x": 350, "y": 250, "width": 95, "height": 30},
-        ],
+    monkeypatch.setattr(eyebrow_flow, "analyze_eyebrow_photo", lambda *args: {
+        "status": "ai_unavailable", "ok": None, "data": {}, "message": "provider unavailable"
     })
     monkeypatch.setattr(eyebrow_flow, "save_mirror_session", lambda **kwargs: 101)
 
@@ -426,70 +437,52 @@ def test_selected_model_a_and_b_stay_exactly_in_final_candidate(monkeypatch):
         assert state["result"]["style_key"] == style_key
         candidate = build_final_candidate(state["result"], state["photo_status"])
         assert candidate["selected_style"] == style_key
+        assert candidate["recommended_style"] == style_key
         assert candidate["final_style"] == style_key
         assert candidate["final_label"] == label
         assert f"Selected eyebrow model: {label}" in build_design_prompt(candidate)
 
 
-
-def test_eyebrow_photo_post_goes_directly_to_final_auth_with_selected_model(monkeypatch):
+def test_eyebrow_photo_post_requires_confirmation_before_final(monkeypatch):
     app = create_app()
     _cleanup_buti_ai_sessions()
     client = app.test_client()
 
     def fake_save(file_storage):
         assert file_storage.filename == "face.jpg"
-        return {
-            "ok": True,
-            "path": "/tmp/buti-ai-face.jpg",
-            "filename": "face.jpg",
-            "message": "عکس دریافت شد.",
-        }
-
-    def fake_vision(image_path, prompt, max_tokens=1000):
-        assert "کیفیت عکس" in prompt
-        return {"ok": True, "data": {"ok": True, "message": "عکس مناسب است."}}
+        return {"ok": True, "path": "/tmp/buti-ai-face.jpg", "filename": "face.jpg", "message": "عکس دریافت شد."}
 
     monkeypatch.setattr(eyebrow_flow, "save_eyebrow_photo", fake_save)
-    monkeypatch.setattr(eyebrow_flow, "detect_eyebrow_regions", lambda path, allow_fallback=False: {
-        "ok": True,
-        "method": "pytest_roi",
-        "confidence": 0.9,
-        "image_width": 640,
-        "image_height": 820,
-        "regions": [
-            {"side": "left", "x": 190, "y": 250, "width": 95, "height": 30},
-            {"side": "right", "x": 350, "y": 250, "width": 95, "height": 30},
-        ],
+    monkeypatch.setattr(eyebrow_flow, "check_photo_quality", lambda _path: {
+        "status": "ai_checked", "ok": True, "message": "عکس مناسب است.", "checks": {}, "reasons": []
     })
-    monkeypatch.setattr(eyebrow_ai, "_call_vision_json", fake_vision)
+    monkeypatch.setattr(eyebrow_flow, "analyze_eyebrow_photo", lambda *_args: {
+        "status": "ai_analyzed", "ok": True,
+        "data": {"recommended_style": "natural", "short_reason": "انتخاب طبیعی متعادل‌تر است."},
+    })
 
     page = client.get("/analysis/mirror/eyebrow")
     token = re.search(r'name="csrf_token" value="([^"]+)"', page.get_data(as_text=True)).group(1)
     response = client.post(
         "/analysis/mirror/eyebrow",
         data={
-            "csrf_token": token,
-            "style": "natural",
-            "change_level": "medium",
+            "csrf_token": token, "style": "powder", "change_level": "medium",
             "photo": (BytesIO(b"not-a-real-image-but-not-used"), "face.jpg"),
         },
         content_type="multipart/form-data",
-        follow_redirects=True,
+        follow_redirects=False,
     )
 
     assert response.status_code == 200
     text = response.get_data(as_text=True)
-    assert "ورود لازم است" in text
-    assert "طبیعی و نچرال" in text
-    assert "کامبینیشن" not in text
-    assert "ثبت‌نام سریع" in text
-
+    assert "پیشنهاد و انتخاب نهایی" in text
+    assert "ورود لازم است" not in text
     with client.session_transaction() as sess:
         candidate = sess["buti_ai_eyebrow_final_candidate"]
-    assert candidate["selected_style"] == "natural"
-    assert candidate["final_style"] == "natural"
-    assert candidate["eyebrow_detection"]["method"] == "pytest_roi"
+    assert candidate["selected_style"] == "powder"
+    assert candidate["recommended_style"] == "natural"
+    assert candidate["final_style"] == "powder"
+    assert candidate["eyebrow_detection"] == {}
 
     _cleanup_buti_ai_sessions()
 
@@ -937,10 +930,11 @@ def test_final_selection_keeps_selected_style_as_source_of_truth():
         }
         candidate = update_final_selection(session, "natural")
         assert candidate["selected_style"] == "combination"
-        assert candidate["recommended_style"] == "combination"
-        assert candidate["final_style"] == "combination"
-        assert candidate["generation"]["filename"] == "final/old.jpg"
-        assert candidate["final_design_id"] == 123
+        assert candidate["recommended_style"] == "natural"
+        assert candidate["final_style"] == "natural"
+        assert candidate["analysis_confirmed"] is True
+        assert "generation" not in candidate
+        assert "final_design_id" not in candidate
 
 
 def _cleanup_buti_ai_waitlist():
@@ -1337,8 +1331,8 @@ def test_final_design_template_uses_drag_compare_slider():
     assert "provider_output_constrained_to_eyebrow_mask" in tpl
     assert "attempt.error" in tpl
     assert "bti-before-after bti-final-before-after" not in tpl
-    assert "eyebrow_final_retry" not in tpl
-    assert "تلاش دوباره با مدل‌های AI" not in tpl
+    assert "eyebrow_download_image" in tpl
+    assert "eyebrow_download_report_pdf" in tpl
 
     css = Path("giso/buti_ai/static/buti_ai.css").read_text(encoding="utf-8")
     assert "width: min(100%, 780px)" in css

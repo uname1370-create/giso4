@@ -3384,3 +3384,74 @@
         max-height: 200px !important;
     }
 }
+
+/* Upload analysis and explicit final-style confirmation */
+.bti-upload-checks,
+.bti-upload-recommendation,
+.bti-recommendation-board {
+    margin-top: 14px;
+    padding: 15px;
+    border: 1px solid rgba(255,173,18,.24);
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(255,173,18,.08), rgba(255,255,255,.025));
+}
+
+.bti-upload-check-status { color: #fff; font-weight: 900; line-height: 1.8; }
+.bti-upload-check-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.bti-upload-check-list span,
+.bti-upload-recommendation small {
+    display: inline-flex;
+    padding: 6px 9px;
+    border-radius: 999px;
+    color: #d8d8d8;
+    background: rgba(255,255,255,.06);
+    font-size: .80rem;
+    line-height: 1.6;
+}
+.bti-upload-check-list .is-warning { color: #ffe0a4; background: rgba(255,173,18,.12); }
+.bti-upload-recommendation { display: grid; gap: 8px; }
+.bti-upload-recommendation b { color: #fff; }
+.bti-upload-recommendation b.is-ai { color: var(--bti-green); }
+.bti-upload-recommendation b.is-unavailable { color: var(--bti-gold); }
+.bti-upload-recommendation p { margin: 0; color: #fff; font-weight: 900; }
+
+.bti-recommendation-form { display: grid; gap: 16px; }
+.bti-recommendation-board header { margin-bottom: 14px; }
+.bti-recommendation-board header span {
+    display: inline-flex;
+    padding: 5px 9px;
+    border-radius: 999px;
+    color: #111;
+    background: var(--bti-gold);
+    font-size: .76rem;
+    font-weight: 1000;
+}
+.bti-recommendation-board h2 { margin: 10px 0 0; color: #fff; font-size: 1.22rem; }
+.bti-recommendation-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bti-recommendation-option {
+    display: grid;
+    gap: 8px;
+    min-height: 155px;
+    padding: 15px;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 16px;
+    background: rgba(0,0,0,.18);
+    cursor: pointer;
+    transition: border-color .18s ease, transform .18s ease, background .18s ease;
+}
+.bti-recommendation-option:hover,
+.bti-recommendation-option:has(input:checked),
+.bti-recommendation-option.is-selected { border-color: rgba(255,173,18,.72); background: rgba(255,173,18,.09); transform: translateY(-1px); }
+.bti-recommendation-option.is-ai { border-color: rgba(37,211,154,.34); }
+.bti-recommendation-option.is-unavailable { border-color: rgba(255,173,18,.34); }
+.bti-recommendation-option input { position: absolute; opacity: 0; pointer-events: none; }
+.bti-recommendation-option-title { color: #fff; font-weight: 950; line-height: 1.7; }
+.bti-recommendation-option small { color: var(--bti-muted); line-height: 1.8; }
+.bti-recommendation-option em { width: fit-content; margin-top: auto; padding: 5px 8px; border-radius: 999px; color: #111; background: var(--bti-gold); font-size: .72rem; font-style: normal; font-weight: 950; }
+.bti-recommendation-option.is-ai em { background: var(--bti-green); }
+.bti-recommendation-note { margin: 14px 0 0; color: var(--bti-muted); font-size: .84rem; line-height: 1.9; }
+
+@media (max-width: 720px) {
+    .bti-recommendation-options { grid-template-columns: 1fr; }
+    .bti-recommendation-option { min-height: auto; }
+}

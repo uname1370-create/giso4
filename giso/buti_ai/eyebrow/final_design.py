@@ -138,8 +138,12 @@ def build_final_candidate(result, photo_status):
     result = result or {}
     photo_status = photo_status or {}
     selected_style = normalize_style_key(result.get("selected_style_key") or result.get("style_key"))
-    # مدل انتخاب‌شده کاربر تنها منبع حقیقت طراحی نهایی است؛ recommended فقط سازگاری قدیمی است.
-    recommended_style = selected_style
+    ai_analysis = result.get("ai_analysis") if isinstance(result.get("ai_analysis"), dict) else {}
+    analysis_status = str(ai_analysis.get("status") or "").strip()
+    analyzed_style = result.get("ai_recommended_style_key") or result.get("recommended_style_key")
+    # پیشنهاد تنها وقتی از دادهٔ AI گرفته می‌شود که تحلیل واقعاً موفق بوده باشد.
+    # در غیر این صورت، همان انتخاب کاربر تنها گزینهٔ قابل ادامه است.
+    recommended_style = normalize_style_key(analyzed_style if analysis_status == "ai_analyzed" else selected_style)
     change_key = normalize_change_level(result.get("selected_change_key") or result.get("change_key"))
     filename = _safe_filename(photo_status.get("filename") or (result.get("preview") or {}).get("before_filename"))
     selected_meta = EYEBROW_STYLES[selected_style]
@@ -151,6 +155,14 @@ def build_final_candidate(result, photo_status):
         "photo_filename": filename,
         "recommended_style": recommended_style,
         "recommended_label": _style_label(recommended_style),
+        "recommendation_status": analysis_status or "ai_unavailable",
+        "analysis_status": analysis_status or "ai_unavailable",
+        "ai_analysis": (ai_analysis.get("data") if isinstance(ai_analysis.get("data"), dict) else {}),
+        "analysis_reason": _clean_text(
+            (ai_analysis.get("data") or {}).get("short_reason") or (ai_analysis.get("data") or {}).get("why"),
+            "تحلیل هوشمند فعلاً در دسترس نیست؛ می‌توانی مدل انتخابی خودت را ادامه بدهی.",
+            220,
+        ),
         "service_label": result.get("service_label") or "آینه ابرو گیسو / طراحی هوشمند ابرو",
         "selected_style": selected_style,
         "selected_label": _style_label(selected_style),
@@ -185,16 +197,13 @@ def get_final_candidate(session_obj):
 
 
 def update_final_selection(session_obj, final_style_key=None):
-    """سازگاری با route قدیمی finalize؛ مدل نهایی از انتخاب اولیه کاربر می‌آید."""
+    """انتخاب تأییدشده را بدون از دست دادن مدل اولیه یا پیشنهاد ثبت می‌کند."""
     candidate = get_final_candidate(session_obj)
     previous_style = normalize_style_key(candidate.get("final_style") or candidate.get("selected_style"))
-    final_style = normalize_style_key(candidate.get("selected_style") or final_style_key or candidate.get("recommended_style"))
-    candidate["selected_style"] = final_style
-    candidate["selected_label"] = _style_label(final_style)
-    candidate["recommended_style"] = final_style
-    candidate["recommended_label"] = _style_label(final_style)
+    final_style = normalize_style_key(final_style_key or candidate.get("selected_style") or candidate.get("recommended_style"))
     candidate["final_style"] = final_style
     candidate["final_label"] = _style_label(final_style)
+    candidate["analysis_confirmed"] = True
     if final_style != previous_style:
         candidate.pop("generation", None)
         candidate.pop("final_design_id", None)
@@ -381,8 +390,8 @@ def build_design_prompt(candidate):
     """پرامپت دقیق برای provider تصویر — دقیقاً مثل buti-test با STYLE CONTRACT."""
     final_style_key = normalize_style_key(candidate.get("final_style"))
     style_label = candidate.get("final_label") or _style_label(final_style_key)
-    model_label = candidate.get("selected_label") or style_label
-    selected_style_key = normalize_style_key(candidate.get("selected_style") or final_style_key)
+    model_label = style_label
+    selected_style_key = final_style_key
 
     STYLE_CONTRACTS = {
         "natural": "STYLE CONTRACT: Natural soft eyebrow, keep own hair, light grooming. Preserve customer brow boundary, position, arch, tail, growth direction, gaps and asymmetry. Sparse soft front, natural density, tapered tail. NO powder fill, NO skin tint, NO shadow, NO halo.",
@@ -438,7 +447,7 @@ INPAINT_CHANGE_EN = {
 def build_inpainting_prompt(candidate):
     """Short prompt for Cloudflare inpainting (style + change level + mask rule)."""
     style_key = normalize_style_key((candidate or {}).get("final_style"))
-    selected_key = normalize_style_key((candidate or {}).get("selected_style") or style_key)
+    selected_key = style_key
     style_en = INPAINT_STYLE_EN.get(selected_key, INPAINT_STYLE_EN.get(style_key, INPAINT_STYLE_EN["giso_suggested"]))
     change_en = INPAINT_CHANGE_EN.get(normalize_change_level((candidate or {}).get("change_key")), INPAINT_CHANGE_EN["medium"])
     return (

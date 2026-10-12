@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """ارکستریشن سناریوی آینه ابرو؛ بدون وابستگی مستقیم به Flask routeها."""
+from giso.buti_ai.eyebrow.ai import analyze_eyebrow_photo, check_photo_quality
 from giso.buti_ai.eyebrow.options import initial_form_values, normalize_change_level, normalize_style_key
 from giso.buti_ai.eyebrow.preview import build_before_after_preview
 from giso.buti_ai.eyebrow.result import build_eyebrow_result
@@ -8,7 +9,7 @@ from giso.buti_ai.services import save_mirror_session
 
 
 def get_mirror_services(eyebrow_href):
-    """لیست خدمات آینه زیبایی برای صفحه اصلی Buti AI."""
+    """فهرست سازگار قدیمی خدمات آینه زیبایی برای صفحه اصلی Buti AI."""
     return [
         {
             "key": "eyebrow",
@@ -82,12 +83,10 @@ def _demo_analysis_report():
 
 
 def process_eyebrow_submission(form, files, user_id=None):
-    """پردازش POST آینه ابرو — فقط ذخیره عکس و Preview، بدون هیچ تحلیل AI.
+    """ذخیرهٔ عکس، بررسی کیفیت و تحلیل پیش از تأیید نهایی کاربر.
 
-    طبق درخواست کاربر:
-    انتخاب عکس → نمایش عکس روی صفحه → تمام
-    هیچ تحلیل، کیفیت، MediaPipe، OpenCV، Mask یا API هوشمندی در این مرحله اجرا نشود.
-    تمام پردازش‌ها فقط وقتی شروع شوند که کاربر روی دکمه طراحی عکس نهایی کلیک کند.
+    این تابع عمداً generation یا mask نهایی را اجرا نمی‌کند. route باید candidate
+    را نگه دارد و فقط بعد از ``analysis_confirmed=1`` به صفحهٔ final برود.
     """
     form = form or {}
     files = files or {}
@@ -121,34 +120,46 @@ def process_eyebrow_submission(form, files, user_id=None):
         if not photo_status.get("ok"):
             error_message = photo_status.get("message") or "عکس دریافت نشد."
         else:
-            quality_report = {"status": "skipped", "ok": None, "message": "بررسی کیفیت در مرحله طراحی نهایی انجام می‌شود."}
-            ai_analysis = {"status": "skipped", "ok": None, "message": "تحلیل در مرحله نهایی انجام می‌شود."}
-            eyebrow_detection = {}
-            result = build_eyebrow_result(
-                style_key,
-                change_key,
-                photo_status,
-                demo_mode=False,
-                quality_report=quality_report,
-                ai_analysis=ai_analysis,
-            )
-            result["eyebrow_detection"] = eyebrow_detection
+            quality_report = check_photo_quality(photo_status.get("path"))
+            if quality_report.get("ok") is False:
+                error_message = quality_report.get("message") or "این عکس برای تحلیل دقیق مناسب نیست."
+            else:
+                ai_analysis = analyze_eyebrow_photo(
+                    photo_status.get("path"), style_key, change_key
+                )
+                result = build_eyebrow_result(
+                    style_key,
+                    change_key,
+                    photo_status,
+                    demo_mode=False,
+                    quality_report=quality_report,
+                    ai_analysis=ai_analysis,
+                )
+                # Mask detection/generation is intentionally deferred until the
+                # user confirms one of the offered styles.
+                result["eyebrow_detection"] = eyebrow_detection
 
     if result:
         result["preview"] = build_before_after_preview(photo_status, result)
+        analysis_status = str(ai_analysis.get("status") or "").strip()
         session_id = save_mirror_session(
             user_id=user_id,
             service_type="eyebrow",
             city="مشهد",
-            status="mvp_demo" if demo_mode else "photo_ready_final_design",
+            status="mvp_demo" if demo_mode else (
+                "ai_analyzed" if analysis_status == "ai_analyzed" else "photo_checked"
+            ),
         )
         result["session_id"] = session_id
         if demo_mode:
             flash_message = "نتیجه نمونه بدون عکس نمایش داده شد."
             flash_category = "info"
-        else:
-            flash_message = "عکس دریافت شد؛ با همان مدل انتخابی وارد طراحی عکس نهایی می‌شویم."
+        elif analysis_status == "ai_analyzed":
+            flash_message = "عکس و تحلیل آماده است؛ یکی از دو گزینه را تأیید کن."
             flash_category = "success"
+        else:
+            flash_message = "عکس بررسی شد؛ تحلیل هوشمند در دسترس نبود و انتخاب مدل خودت حفظ شده است."
+            flash_category = "info"
 
     return {
         "form_values": form_values,

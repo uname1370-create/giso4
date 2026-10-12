@@ -232,15 +232,16 @@ def build_eyebrow_result(style_key, change_key, photo_status, demo_mode=False,
     ai_data = (ai_analysis or {}).get("data") or {}
 
     ai_recommended_style_key = normalize_style_key(ai_data.get("recommended_style") or selected_style_key)
-    # مدل و شدت انتخاب‌شده کاربر Single Source of Truth هستند؛ AI دیگر مدل را عوض نمی‌کند.
-    recommended_style_key = selected_style_key
+    # انتخاب اولیهٔ کاربر منبع حقیقت خودش می‌ماند. پیشنهاد AI فقط یک گزینهٔ
+    # دوم است و تا تأیید صریح کاربر، مدل نهایی را عوض نمی‌کند.
+    ai_is_real = (ai_analysis or {}).get("status") == "ai_analyzed"
+    recommended_style_key = ai_recommended_style_key if ai_is_real else selected_style_key
     result_change_key = selected_change_key
     style = EYEBROW_STYLES[selected_style_key]
     change_label = CHANGE_LEVELS.get(result_change_key, CHANGE_LEVELS[DEFAULT_CHANGE_LEVEL])
 
     fallback_do = style.get("do", [])
     fallback_avoid = style.get("avoid", [])
-    ai_is_real = (ai_analysis or {}).get("status") == "ai_analyzed"
     face_analysis = _clean_face_analysis(ai_data)
     style_scores = _clean_style_scores(ai_data.get("style_scores"), recommended_style_key, selected_style_key)
     score_cards = _build_score_cards(
@@ -252,7 +253,7 @@ def build_eyebrow_result(style_key, change_key, photo_status, demo_mode=False,
         ai_data,
         style_scores,
     )
-    ai_reason_allowed = ai_recommended_style_key == selected_style_key
+    ai_reason_allowed = ai_is_real
     short_reason = _clean_text(
         (ai_data.get("short_reason") or ai_data.get("why")) if ai_reason_allowed else "",
         style.get("why", ""),
@@ -260,9 +261,10 @@ def build_eyebrow_result(style_key, change_key, photo_status, demo_mode=False,
     )
 
     return {
-        "style_key": recommended_style_key,
+        "style_key": selected_style_key,
         "selected_style_key": selected_style_key,
         "ai_recommended_style_key": ai_recommended_style_key,
+        "recommended_style_key": recommended_style_key,
         "style": style,
         "change_key": result_change_key,
         "selected_change_key": selected_change_key,

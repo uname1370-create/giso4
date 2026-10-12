@@ -2,177 +2,72 @@
 
 {% block title %}{{ service_meta.title }} | انتخاب مدل{% endblock %}
 {% block meta %}
-<meta name="description" content="{{ service_meta.title }}؛ مدل دلخواهت را انتخاب کن، عکس واضح بفرست و طراحی عکس نهایی قبل/بعد را ببین.">
+<meta name="description" content="{{ service_meta.title }}؛ مدل دلخواهت را انتخاب کن، عکس واضح بفرست، پیشنهاد را تأیید کن و طراحی عکس نهایی را ببین.">
 <meta property="og:title" content="{{ service_meta.title }}">
-<meta property="og:description" content="انتخاب مدل، آپلود عکس واقعی و آماده‌سازی طراحی عکس نهایی در آینه زیبایی گیسو.">
+<meta property="og:description" content="انتخاب مدل، آپلود عکس واقعی، تحلیل و تأیید انتخاب نهایی در آینه زیبایی گیسو.">
 <link rel="canonical" href="{{ url_for('buti_ai.generic_service_wizard', service_slug=service_meta.slug, _external=True) }}">
 <meta property="og:url" content="{{ url_for('buti_ai.generic_service_wizard', service_slug=service_meta.slug, _external=True) }}">
 {% endblock %}
 
 {% block head %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=32">
+<link rel="stylesheet" href="{{ url_for('buti_ai.static', filename='buti_ai.css') }}?v=34">
 {% endblock %}
 
 {% block content %}
 <main class="bti-page bti-service-experience bti-eyebrow-flow bti-generic-flow bti-service-{{ service_meta.slug }}" dir="rtl">
     {% set flow_step = flow_step|default('model') %}
     <section class="bti-shell bti-eyebrow-board">
-        <div class="bti-board-topbar">
-            <div class="bti-brand-mark">
-                <span>{{ service_meta.short_title }}</span>
-                <div>
-                    <b>{{ service_meta.title }}</b>
-                    <small>Giso Guided Beauty Mirror</small>
-                </div>
-            </div>
-        </div>
-
+        <div class="bti-board-topbar"><div class="bti-brand-mark"><span>{{ service_meta.short_title }}</span><div><b>{{ service_meta.title }}</b><small>Giso Guided Beauty Mirror</small></div></div></div>
         <nav class="bti-eyebrow-mini-flow" aria-label="مراحل {{ service_meta.title }}">
             <span class="is-done"><b>۱</b> انتخاب خدمت</span>
             <span class="{{ 'is-done' if flow_step == 'upload' else 'is-active' }}"><b>۲</b> انتخاب مدل</span>
-            <span class="{{ 'is-active' if flow_step == 'upload' else '' }}"><b>۳</b> آپلود عکس</span>
-            <span><b>۴</b> طراحی نهایی و رزرو</span>
+            <span class="{{ 'is-active' if flow_step == 'upload' and not candidate else 'is-done' if candidate else '' }}"><b>۳</b> آپلود و تحلیل</span>
+            <span class="{{ 'is-active' if candidate else '' }}"><b>۴</b> {% if service_key == 'lip_shading' %}تأیید و طراحی نهایی{% else %}طراحی نهایی و رزرو{% endif %}</span>
         </nav>
 
         {% if flow_step == 'model' %}
         <form class="bti-eyebrow-form bti-eyebrow-form-separated bti-eyebrow-form-clean" method="post" action="{{ url_for('buti_ai.generic_service_model_selection', service_slug=service_meta.slug) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-            <section class="bti-form-panel bti-step-panel bti-model-panel" id="btiModelStep">
-                <div class="bti-form-panel-head">
-                    <span>{{ service_meta.short_title }}</span>
-                    <div>
-                        <h2>کدام مدل را می‌خواهی روی عکس خودت ببینی؟</h2>
-                        <p>فعلاً فقط مدل را انتخاب کن؛ عکس در مرحله بعد آپلود می‌شود و همین مدل بدون جایگزینی وارد طراحی نهایی می‌شود.</p>
-                    </div>
-                </div>
-
+            <section class="bti-form-panel bti-step-panel bti-model-panel">
+                <div class="bti-form-panel-head"><span>{{ service_meta.short_title }}</span><div><h2>کدام مدل را می‌خواهی روی عکس خودت ببینی؟</h2><p>فعلاً فقط مدل را انتخاب کن؛ عکس در مرحله بعد آپلود می‌شود.</p></div></div>
                 <div class="bti-style-list bti-style-sample-list" role="radiogroup" aria-label="انتخاب مدل {{ service_meta.short_title }}">
                     {% for key, item in styles.items() %}
-                    <label class="bti-style-choice is-style-{{ key }} {{ 'is-selected' if form_values.style == key else '' }}">
-                        <input type="radio" name="style" value="{{ key }}" {{ 'checked' if form_values.style == key else '' }}>
-                        <span class="bti-style-info">
-                            <span class="bti-style-row-icon">{{ item.icon }}</span>
-                            <span class="bti-style-row-copy">
-                                <b>{{ item.label }}</b>
-                                <small>{{ item.summary }}</small>
-                                <em class="bti-sample-badge">نمونه {{ item.label }}</em>
-                                {% if loop.first %}<em class="bti-safe-badge">انتخاب امن</em>{% endif %}
-                            </span>
-                        </span>
-                        <span class="bti-brow-sample is-wide-png">
-                            <picture>
-                                <source srcset="{{ url_for('buti_ai.static', filename=service_meta.sample_dir ~ '/' ~ key ~ '.webp') }}" type="image/webp">
-                                <img src="{{ url_for('buti_ai.static', filename=service_meta.sample_dir ~ '/' ~ key ~ '.webp') }}" alt="نمونه {{ item.label }} - {{ item.summary }}" loading="lazy" width="800" height="1000">
-                            </picture>
-                        </span>
-                    </label>
+                    <label class="bti-style-choice is-style-{{ key }} {{ 'is-selected' if form_values.style == key else '' }}"><input type="radio" name="style" value="{{ key }}" {{ 'checked' if form_values.style == key else '' }}><span class="bti-style-info"><span class="bti-style-row-icon">{{ item.icon }}</span><span class="bti-style-row-copy"><b>{{ item.label }}</b><small>{{ item.summary }}</small><em class="bti-sample-badge">نمونه {{ item.label }}</em>{% if loop.first %}<em class="bti-safe-badge">انتخاب امن</em>{% endif %}</span></span><span class="bti-brow-sample is-wide-png"><picture><source srcset="{{ url_for('buti_ai.static', filename=service_meta.sample_dir ~ '/' ~ key ~ '.webp') }}" type="image/webp"><img src="{{ url_for('buti_ai.static', filename=service_meta.sample_dir ~ '/' ~ key ~ '.webp') }}" alt="نمونه {{ item.label }} - {{ item.summary }}" loading="lazy" width="800" height="1000"></picture></span></label>
                     {% endfor %}
                 </div>
             </section>
-
-            <section class="bti-form-panel bti-step-panel bti-change-panel">
-                <div class="bti-form-panel-head">
-                    <span>شدت تغییر</span>
-                    <div>
-                        <h2>چقدر تغییر می‌خواهی؟</h2>
-                        <p>کم، متوسط یا واضح؛ انتخاب با توست.</p>
-                    </div>
-                </div>
-                <div class="bti-change-row" role="radiogroup" aria-label="میزان تغییر">
-                    {% for key, label in change_levels.items() %}
-                    <label>
-                        <input type="radio" name="change_level" value="{{ key }}" {{ 'checked' if form_values.change_level == key else '' }}>
-                        <span>{{ label }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
-            </section>
-            <div class="bti-step-actions">
-                <a class="bti-secondary-action bti-step-back" href="{{ url_for('buti_ai.mirror_home') }}">بازگشت به انتخاب خدمت</a>
-                <button class="bti-primary-action bti-step-next" type="submit">مرحله بعد: آپلود عکس</button>
-            </div>
+            <section class="bti-form-panel bti-step-panel bti-change-panel"><div class="bti-form-panel-head"><span>شدت تغییر</span><div><h2>چقدر تغییر می‌خواهی؟</h2><p>کم، متوسط یا واضح؛ انتخاب با توست.</p></div></div><div class="bti-change-row" role="radiogroup" aria-label="میزان تغییر">{% for key, label in change_levels.items() %}<label><input type="radio" name="change_level" value="{{ key }}" {{ 'checked' if form_values.change_level == key else '' }}><span>{{ label }}</span></label>{% endfor %}</div></section>
+            <div class="bti-step-actions"><a class="bti-secondary-action bti-step-back" href="{{ url_for('buti_ai.mirror_home') }}">بازگشت به انتخاب خدمت</a><button class="bti-primary-action bti-step-next" type="submit">مرحله بعد: آپلود عکس</button></div>
         </form>
+
+        {% elif flow_step == 'upload' and candidate %}
+        {% set recommendation_is_ai = candidate.recommendation_status == 'ai_analyzed' %}
+        {% set default_style = candidate.recommended_style if recommendation_is_ai else candidate.selected_style %}
+        <section class="bti-form-panel bti-step-panel bti-selection-summary-panel"><div class="bti-form-panel-head"><span>عکس بررسی شد</span><div><h2>{{ candidate.selected_label }}</h2><p>{% if recommendation_is_ai %}تحلیل هوشمند لب انجام شد. یکی از دو گزینه را تأیید کن؛ تا قبل از تأیید هیچ طراحی نهایی ساخته نمی‌شود.{% else %}تحلیل هوشمند در دسترس نبود؛ می‌توانی مدل انتخابی خودت را ادامه بدهی.{% endif %}</p></div></div></section>
+        <form class="bti-recommendation-form" method="post" action="{{ url_for('buti_ai.generic_service_finalize_choice', service_slug=service_meta.slug) }}" data-bti-finalize-form>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="analysis_confirmed" value="1"><input type="hidden" id="btiFinalStyle" name="final_style" value="{{ default_style }}">
+            <section class="bti-recommendation-board" aria-label="انتخاب مدل نهایی {{ service_meta.short_title }}"><header><span>پیشنهاد و انتخاب نهایی</span><h2>کدام مدل روی عکس نهایی اعمال شود؟</h2></header><div class="bti-recommendation-options">
+                <label class="bti-recommendation-option {{ 'is-selected' if default_style == candidate.recommended_style else '' }} {{ 'is-ai' if recommendation_is_ai else 'is-unavailable' }}"><input type="radio" name="recommendation_choice" value="{{ candidate.recommended_style }}" data-bti-final-style="{{ candidate.recommended_style }}" {{ 'checked' if default_style == candidate.recommended_style else '' }}><span class="bti-recommendation-option-title">{% if recommendation_is_ai %}پیشنهاد گیسو: {{ candidate.recommended_label }}{% else %}مدل قابل ادامه: {{ candidate.recommended_label }}{% endif %}</span><small>{{ candidate.analysis_reason }}</small><em>{% if recommendation_is_ai %}تحلیل AI{% else %}AI در دسترس نیست{% endif %}</em></label>
+                <label class="bti-recommendation-option {{ 'is-selected' if default_style == candidate.selected_style else '' }}"><input type="radio" name="recommendation_choice" value="{{ candidate.selected_style }}" data-bti-final-style="{{ candidate.selected_style }}" {{ 'checked' if default_style == candidate.selected_style else '' }}><span class="bti-recommendation-option-title">همان مدل انتخابی من: {{ candidate.selected_label }}</span><small>این گزینه بدون جایگزینی نسبت به انتخاب اولیهٔ تو ادامه پیدا می‌کند.</small><em>انتخاب دستی</em></label>
+            </div><p class="bti-recommendation-note">مدل نهایی فقط پس از تأیید تو ساخته می‌شود. این تصویر پیش‌نمایش است و نتیجه اجرای قطعی سالن نیست.</p></section>
+            <div class="bti-step-actions"><a class="bti-secondary-action bti-step-back" href="{{ url_for('buti_ai.generic_service_upload', service_slug=service_meta.slug) }}">تغییر عکس</a><button class="bti-primary-action bti-step-next" type="submit">تأیید انتخاب و ساخت عکس نهایی</button></div>
+        </form>
+
         {% elif flow_step == 'upload' %}
         <form class="bti-eyebrow-form bti-eyebrow-form-separated bti-eyebrow-form-clean" method="post" enctype="multipart/form-data" action="{{ url_for('buti_ai.generic_service_upload', service_slug=service_meta.slug) }}" data-bti-upload-form data-bti-validate-url="{{ url_for('buti_ai.generic_service_validate_photo', service_slug=service_meta.slug) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <section class="bti-form-panel bti-step-panel bti-selection-summary-panel">
-                <div class="bti-form-panel-head">
-                    <span>انتخاب شما</span>
-                    <div>
-                        <h2>{{ styles[form_values.style].icon }} {{ styles[form_values.style].label }}</h2>
-                        <p>شدت تغییر: {{ change_levels[form_values.change_level] }} — اگر خواستی، قبل از آپلود مدل را ویرایش کن.</p>
-                    </div>
-                </div>
-                <a class="bti-secondary-action" href="{{ url_for('buti_ai.generic_service_wizard', service_slug=service_meta.slug) }}">ویرایش مدل</a>
-            </section>
-
+            <section class="bti-form-panel bti-step-panel bti-selection-summary-panel"><div class="bti-form-panel-head"><span>انتخاب شما</span><div><h2>{{ styles[form_values.style].icon }} {{ styles[form_values.style].label }}</h2><p>شدت تغییر: {{ change_levels[form_values.change_level] }} — اگر خواستی، قبل از آپلود مدل را ویرایش کن.</p></div></div><a class="bti-secondary-action" href="{{ url_for('buti_ai.generic_service_wizard', service_slug=service_meta.slug) }}">ویرایش مدل</a></section>
             <section class="bti-form-panel bti-step-panel bti-upload-panel-separated" id="btiUploadStep">
-                <div class="bti-form-panel-head">
-                    <span>آپلود عکس</span>
-                    <div>
-                        <h2>عکس واضح و واقعی را بفرست</h2>
-                        <p>اول عکس بررسی می‌شود؛ بعد همان مدل انتخابی مستقیم وارد طراحی عکس نهایی می‌شود.</p>
-                    </div>
-                </div>
-                <div class="bti-upload-layout bti-upload-layout-redesigned">
-                    <div class="bti-upload-action-card">
-                        <label class="bti-upload-zone" id="btiUploadZone" for="btiEyebrowPhoto">
-                            <span class="bti-upload-placeholder" id="btiUploadPlaceholder">
-                                <i class="fas fa-cloud-arrow-up"></i>
-                                <b id="btiUploadText">انتخاب عکس</b>
-                                <small>jpg، png یا webp؛ عکس واقعی و واضح</small>
-                            </span>
-                            <span class="bti-upload-preview-frame" id="btiUploadPreviewFrame" hidden>
-                                <img id="btiUploadPreview" class="bti-upload-preview" alt="پیش‌نمایش عکس انتخاب‌شده">
-                                <span class="bti-laser-scan" aria-hidden="true"></span>
-                                <em id="btiUploadScanLabel">در حال آنالیز عکس...</em>
-                            </span>
-                            <input id="btiEyebrowPhoto" type="file" name="photo" accept="image/jpeg,image/png,image/webp" required>
-                        </label>
-                        <div class="bti-upload-under-actions">
-                            <button class="bti-secondary-action bti-change-photo" id="btiChangePhotoBtn" type="button" hidden>تغییر عکس</button>
-                            <span id="btiUploadFileName">عکسی انتخاب نشده</span>
-                        </div>
-                    </div>
-                    <div class="bti-upload-side-card">
-                        <div class="bti-upload-sample-card is-compact">
-                            <img src="{{ url_for('buti_ai.static', filename=service_meta.upload_sample) }}" alt="نمونه عکس مناسب {{ service_meta.short_title }}">
-                            <div>
-                                <b>نمونه عکس مناسب</b>
-                                <span>نور کافی، تصویر واضح، بدون فیلتر سنگین</span>
-                            </div>
-                        </div>
-                        <div class="bti-upload-guide-card is-compact">
-                            <b>برای نتیجه بهتر</b>
-                            {% if service_key == 'nail' %}
-                            <span>دست و ناخن‌ها داخل قاب</span><span>نور نرم</span><span>بدون افکت رنگی</span>
-                            {% elif service_key == 'hair_color' %}
-                            <span>مو کامل مشخص باشد</span><span>نور طبیعی</span><span>فیلتر رنگی نداشته باشد</span>
-                            {% else %}
-                            <span>لب‌ها واضح باشند</span><span>نور کافی</span><span>صورت یا لب بدون فیلتر</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                <div class="bti-upload-checks" id="btiUploadChecks" hidden>
-                    <div class="bti-upload-check-status" id="btiUploadCheckStatus">در حال بررسی اولیه عکس...</div>
-                    <div class="bti-upload-check-list" id="btiUploadCheckList"></div>
-                </div>
-                {% if error_message %}
-                <div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ error_message }}</div>
-                {% endif %}
+                <div class="bti-form-panel-head"><span>آپلود عکس</span><div><h2>عکس واضح و واقعی را بفرست</h2><p>{% if service_key == 'lip_shading' %}کیفیت عکس و تحلیل لب بررسی می‌شود؛ سپس پیشنهاد گیسو یا انتخاب خودت را تأیید می‌کنی.{% else %}اول عکس بررسی می‌شود؛ بعد همان مدل انتخابی وارد طراحی عکس نهایی می‌شود.{% endif %}</p></div></div>
+                <div class="bti-upload-layout bti-upload-layout-redesigned"><div class="bti-upload-action-card"><label class="bti-upload-zone" id="btiUploadZone" for="btiEyebrowPhoto"><span class="bti-upload-placeholder" id="btiUploadPlaceholder"><i class="fas fa-cloud-arrow-up"></i><b id="btiUploadText">انتخاب عکس</b><small>jpg، png یا webp؛ عکس واقعی و واضح</small></span><span class="bti-upload-preview-frame" id="btiUploadPreviewFrame" hidden><img id="btiUploadPreview" class="bti-upload-preview" alt="پیش‌نمایش عکس انتخاب‌شده"><span class="bti-laser-scan" aria-hidden="true"></span><em id="btiUploadScanLabel">در حال آنالیز عکس...</em></span><input id="btiEyebrowPhoto" type="file" name="photo" accept="image/jpeg,image/png,image/webp" required></label><div class="bti-upload-under-actions"><button class="bti-secondary-action bti-change-photo" id="btiChangePhotoBtn" type="button" hidden>تغییر عکس</button><span id="btiUploadFileName">عکسی انتخاب نشده</span></div></div><div class="bti-upload-side-card"><div class="bti-upload-sample-card is-compact"><img src="{{ url_for('buti_ai.static', filename=service_meta.upload_sample) }}" alt="نمونه عکس مناسب {{ service_meta.short_title }}"><div><b>نمونه عکس مناسب</b><span>نور کافی، تصویر واضح، بدون فیلتر سنگین</span></div></div><div class="bti-upload-guide-card is-compact"><b>برای نتیجه بهتر</b>{% if service_key == 'nail' %}<span>دست و ناخن‌ها داخل قاب</span><span>نور نرم</span><span>بدون افکت رنگی</span>{% elif service_key == 'hair_color' %}<span>مو کامل مشخص باشد</span><span>نور طبیعی</span><span>فیلتر رنگی نداشته باشد</span>{% else %}<span>لب‌ها واضح باشند</span><span>نور کافی</span><span>صورت یا لب بدون فیلتر</span>{% endif %}</div></div></div>
+                <div class="bti-upload-checks" id="btiUploadChecks" hidden><div class="bti-upload-check-status" id="btiUploadCheckStatus">در حال بررسی اولیه عکس...</div><div class="bti-upload-check-list" id="btiUploadCheckList"></div></div><div class="bti-upload-recommendation" id="btiUploadRecommendation" hidden aria-live="polite"></div>
+                {% if error_message %}<div class="bti-error"><i class="fas fa-circle-exclamation"></i>{{ error_message }}</div>{% endif %}
             </section>
-
-            <div class="bti-step-actions">
-                <a class="bti-secondary-action bti-step-back" href="{{ url_for('buti_ai.generic_service_wizard', service_slug=service_meta.slug) }}">بازگشت به انتخاب مدل</a>
-                <button class="bti-primary-action bti-step-next is-disabled" id="btiAnalyzeBtn" type="submit" disabled>ادامه به طراحی عکس نهایی</button>
-            </div>
+            <div class="bti-step-actions"><a class="bti-secondary-action bti-step-back" href="{{ url_for('buti_ai.generic_service_wizard', service_slug=service_meta.slug) }}">بازگشت به انتخاب مدل</a><button class="bti-primary-action bti-step-next is-disabled" id="btiAnalyzeBtn" type="submit" disabled>{% if service_key == 'lip_shading' %}ثبت عکس و دیدن گزینه‌های نهایی{% else %}ادامه به طراحی عکس نهایی{% endif %}</button></div>
         </form>
         {% endif %}
     </section>
-
 </main>
-<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=24" defer></script>
+<script src="{{ url_for('buti_ai.static', filename='buti_ai.js') }}?v=26" defer></script>
 {% endblock %}

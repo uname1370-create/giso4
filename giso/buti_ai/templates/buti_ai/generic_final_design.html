@@ -49,6 +49,10 @@
             </div>
             <div class="bti-compare-actions">
                 <button class="bti-secondary-action bti-zoom-action" type="button" data-bti-lightbox-image="{{ final_image_url }}">بزرگنمایی طراحی</button>
+                {% if service_key == 'lip_shading' %}
+                <a class="bti-secondary-action" href="{{ url_for('buti_ai.generic_service_download_image', service_slug=service_meta.slug) }}">دانلود تصویر</a>
+                <a class="bti-secondary-action" href="{{ url_for('buti_ai.generic_service_download_report_pdf', service_slug=service_meta.slug) }}">دانلود گزارش PDF</a>
+                {% endif %}
             </div>
             <p>خط وسط را بکش و قبل/بعد را در همان تصویر مقایسه کن.</p>
         </div>
