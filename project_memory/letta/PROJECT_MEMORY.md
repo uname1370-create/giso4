@@ -2,7 +2,7 @@
 
 ## 1. Last Update
 
-- **Date/time:** 2026-10-12, approximately 14:08
+- **Date/time:** 2026-10-12, approximately 14:41
 - **User timezone:** Asia/Tehran
 - **Last Agent:** Manus
 - **Last Model:** not recorded / model-agnostic
@@ -10,16 +10,11 @@
 ## 2. Git State
 
 - **Branch:** `arena/7f567e47-giso4`
-- **Local HEAD:** `e49945b` — `Implement Buti AI upload recommendation confirmation flow`
-- **Status:** implementation committed locally; the commit is being pushed in this task.
-- **Local/remote discrepancy:** remote remains at `1f96ffa` until the requested push completes.
-- **Intentionally changed/new paths:**
-  - `giso/buti_ai/{routes.py,generic_service.py,downloads.py}`
-  - `giso/buti_ai/eyebrow/{flow.py,result.py,final_design.py}`
-  - `giso/buti_ai/static/{buti_ai.js,buti_ai.css}`
-  - `giso/buti_ai/templates/buti_ai/{eyebrow_wizard.html,eyebrow_final_design.html,generic_service_wizard.html,generic_final_design.html}`
-  - `giso/tests/{test_buti_ai_phase1.py,test_buti_ai_new_services.py,test_buti_ai_upload_recommendation.py}`
-  - `project_memory/letta/{BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_TEST_PLAN.md,BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_AUDIT_2026-10-12.md,PROJECT_MEMORY.md,PROJECT_MEMORY.json}`
+- **HEAD before this memory-only update:** `cb53d58135bec2ab861be8ec3fc50bd00e5f8929` — `Update Buti AI handoff for successor agent`
+- **Remote:** `origin/arena/7f567e47-giso4` was at the same commit before this update.
+- **Working tree:** clean before the current documentation update; audit and memory changes are being prepared for one docs-only commit/push.
+- **Paths changed in this update:** `project_memory/letta/BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_AUDIT_2026-10-12.md`, `PROJECT_MEMORY.md`, and `PROJECT_MEMORY.json` only.
+- The final commit hash and push result are reported in the task completion message; no source-code change is part of this update.
 
 ## 3. `sena.md` Status
 
@@ -29,44 +24,39 @@
 
 ## 4. Current Scenario
 
-- **User asked:** read the canonical Letta start file and each referenced file in order; implement the documented upload → analysis → recommendation → confirmation → final-output flow; verify real status of services; test as far as possible; report blockers without guessing.
-- **Allowed scope:** Buti AI code, Buti AI tests and Letta Project Memory.
-- **Forbidden/protected:** `web/`, `bot_edu/`, `main.py`, `giso/bot.py`; no refactor outside `giso/buti_ai/`.
-- **Locked-path result:** protected paths were not modified.
+- **User asked:** continue the Buti AI upload → analysis → recommendation → confirmation → final-output work; rerun the documented test plan; verify real provider readiness without guessing; update audit/memory; commit and push to the authorized branch if safe.
+- **Allowed scope:** `giso/buti_ai/`, Buti AI tests, and `project_memory/letta/`.
+- **Protected:** `web/`, `bot_edu/`, `main.py`, `giso/bot.py`; no refactor outside Buti AI.
+- **Current-turn code/config changes:** none. Test runs used a temporary git worktree and temporary virtualenv outside the main checkout.
 
 ## 5. Current Stage
 
-- **Completed:** browser and backend two-stage flow for eyebrow and lip; protected image/PDF downloads; honest AI/non-AI labels; tests and browser smoke.
-- **In progress:** none.
-- **Blocked by:** no configured production Vision/image-edit provider in the active environment; production preconditions (ledger/quota/idempotency/queue/consent) are not in this task’s implementation scope.
+- **Completed:** full Buti AI suite: 137 passed, 4 skipped; focused Vision/provider-registry suite: 32 passed; JS syntax, Python compilation and diff checks passed.
+- **Also observed:** two unrelated `giso/tests/test_ai_runtime.py` tests fail and reproduce individually; details are in the audit. No code outside Buti AI was changed.
+- **In progress:** docs-only audit/memory update, then commit and push to the authorized branch.
+- **Blocked/unverified:** live Cloudflare Vision/inpainting and admin-panel readiness. This checkout has no `giso/data/giso.db` or `giso/data/.env`, there is no authenticated superadmin panel session, and no real test photo was supplied in this turn.
 
 ## 6. Next Action
 
-1. Configure one real, server-to-server Vision/image-edit provider in the project’s AI-management source; do not use a browser-only credential.
-2. Run the real-provider matrix in `BUTI_AI_UPLOAD_ANALYSIS_RECOMMENDATION_TEST_PLAN.md` with a non-sensitive test image.
-3. Before public activation, implement the documented cost ledger, provider-attempt audit, quota/idempotency/circuit breaker, explicit consent and queued generation prerequisites.
-4. Before committing, re-run:
-   ```bash
-   node --check giso/buti_ai/static/buti_ai.js
-   .venv/bin/python -m py_compile giso/buti_ai/routes.py giso/buti_ai/generic_service.py giso/buti_ai/downloads.py giso/buti_ai/eyebrow/flow.py giso/buti_ai/eyebrow/result.py giso/buti_ai/eyebrow/final_design.py
-   SECRET_KEY=arena-test-secret-for-buti-ai-tests-32chars .venv/bin/python -m pytest -q giso/tests/test_buti_ai_phase1.py giso/tests/test_buti_ai_new_services.py giso/tests/test_buti_ai_upload_recommendation.py
-   git diff --check
-   ```
+1. Run the pre-commit checks and secret/scope scan on the three documentation changes; commit them and push to `origin/arena/7f567e47-giso4` if checks pass.
+2. For live readiness, use an authenticated `/admin/ai` session and a non-sensitive test photo; do not create a parallel provider or bypass the current panel contract.
+3. Re-run the real Vision/inpainting matrix only after those prerequisites are available; direct-env history does not establish current panel readiness.
+4. Keep production activation blocked until documented cost-ledger, provider-attempt audit, charge, idempotency, quota, circuit-breaker, consent and worker-queue controls are addressed.
 
 ## 7. Architecture / Guide Findings
 
-- `giso/buti_ai/routes.py`: owns staged wizard routing, session ownership checks and private uploaded-file/download routes.
-- `giso/buti_ai/eyebrow/flow.py`: now does quality + Vision analysis at upload; it must not trigger final generation.
-- `giso/buti_ai/eyebrow/final_design.py`: preserves the user’s selected style, holds the AI recommendation separately and sends only the confirmed `final_style` to prompt/generation.
-- `giso/buti_ai/generic_service.py`: shares the contract; the recommendation confirmation UI is enabled only for `lip_shading` in this change.
-- `giso/buti_ai/downloads.py`: creates an in-memory private PDF; routes validate candidate ownership and candidate-bound paths first.
-- `giso/buti_ai/service_catalog.py`: runtime catalog labels eyebrow/nail/hair_color/lip_shading active. This conflicts with higher-level docs that name brow/lip/blush/eyeliner; do not call blush or eyeliner implemented without code.
-- Browser smoke log recorded Vision provider count `0`; code must label fallback non-AI in that condition.
+- `giso/buti_ai/routes.py`: staged wizard routing, session ownership checks and private uploaded-file/download routes.
+- `giso/buti_ai/eyebrow/flow.py`: quality + Vision analysis at upload; final generation is deferred until user confirmation.
+- `giso/buti_ai/eyebrow/final_design.py`: keeps `selected_style`, `recommended_style` and `final_style` distinct; only confirmed `final_style` controls prompt/generation.
+- `giso/buti_ai/generic_service.py`: shares the contract; recommendation confirmation UI is limited to `lip_shading` in this change.
+- `giso/buti_ai/downloads.py`: creates an in-memory private PDF; routes validate ownership and candidate-bound paths.
+- `giso/buti_ai/service_catalog.py`: runtime catalog labels eyebrow/nail/hair_color/lip_shading active. Higher-level docs differ; blush/eyeliner are not implemented in the current runtime catalog/routes.
+- Focused provider-registry tests use temporary DB/config and mocks; they do not prove a configured production provider or panel readiness.
 
 ## 8. Graphify Findings
 
 - No Graphify artifact was regenerated in this task.
-- Historical graph information in earlier memory was built before this working-tree implementation; it does not cover the new uncommitted flow.
+- Historical graph information does not cover this current test-only/documentation update.
 
 ## 9. Letta Status
 
@@ -77,27 +67,32 @@
 
 ## 10. Known Issues
 
-- **No real provider configured:** connector inspection found no matching connector and browser log showed zero Vision-capable providers. **Risk:** only `ai_unavailable`/guided fallback can be verified. **Next:** configure and benchmark provider.
-- **Browser download check incomplete:** the browser tool became unavailable after reaching final; protected route tests passed for both eyebrow and lip. **Risk:** browser-session download UX needs rerun when browser is available.
-- **Production gate incomplete:** ledger/quota/idempotency/circuit breaker/consent/queue are documented prerequisites but unimplemented here. **Risk:** public launch must remain blocked.
-- **Deprecated timestamps:** existing `datetime.utcnow()` calls produce pytest warnings. **Next:** separate timezone-aware cleanup task.
+- **Live provider/panel not verified:** current checkout contains neither `giso/data/giso.db` nor `giso/data/.env`; no authenticated superadmin panel session or real photo was available. No live provider call was made. The provider state described in the user prompt is historical and was not rechecked in this workspace.
+- **Four real-photo tests skipped:** close-up lip and real-hair photo inputs are absent; mocked contract tests are not evidence of live image quality.
+- **Out-of-scope runtime tests:** `test_failover_cooldown_skips_recently_failed_provider` expects missing `_PROVIDER_FAIL_COOLDOWNS` (`test_ai_runtime.py:209`); `test_superadmin_ai_setting_actions_and_user_delete` expects `pending` but receives `message` (`:432`). Both were reproduced individually and left unchanged because they are outside the Buti AI boundary.
+- **Production gate incomplete:** cost ledger, provider-attempt audit, charge, idempotency, quota, circuit breaker, explicit consent and worker queue remain documented prerequisites.
+- **Warnings:** test runs emitted existing deprecation/runtime warnings; no cleanup outside scope was attempted.
 
 ## 11. Decisions
 
-- Kept recommendation and final selection separate: AI proposes; the user confirms; `final_style` alone controls generation.
-- Chose no-AI continuation when provider unavailable; no synthetic AI success signal is emitted.
-- Added downloads only for the requested eyebrow/lip scenario. Nail and hair behavior remains unchanged.
-- Used FPDF + project dependencies in-memory for a PDF instead of retaining duplicate media.
+- Did not use the supplied credential for a live call: current provider settings and admin readiness are not accessible here, and no real test image was supplied.
+- Did not fake panel state or treat mock-provider tests as live AI success.
+- Did not change product code or unrelated runtime tests; focused safe backend testing and documentation updates remained within scope.
+- Continued to distinguish local non-AI fallback from actual AI output.
 
 ## 12. Completed Work
 
-- Implemented the documented two-POST analysis/confirmation flow for eyebrow and lip.
-- Added same-origin validation feedback, preview, recommendation cards and cache-busted JS/CSS.
-- Added protected downloads for final image and PDF.
-- Added/updated contract tests, including provider success/unavailable mocks, explicit confirmation, candidate ownership and PDF routes.
-- **Validation:** 53 tests passed in 35.60s; JS syntax, Python compilation and `git diff --check` passed.
-- **Browser:** actual eyebrow fallback flow reached final before/after and rendered download links; real provider not configured.
+- Re-ran `node --check giso/buti_ai/static/buti_ai.js` — passed.
+- Compiled relevant Python route, flow, generation, download, panel and provider modules — passed.
+- Upload/recommendation/download/output-format tests — 11 passed.
+- Eyebrow mask/detection/request/ROI/recolor tests — 22 passed.
+- New-service/fallback/four-service tests — 38 passed, 4 skipped.
+- Full suite `giso/tests/test_buti_ai*.py` — **137 passed, 4 skipped, 153 warnings in 88.02s**.
+- Focused Cloudflare Vision/provider-registry tests — **32 passed in 1.82s**.
+- `git diff --check` — passed in the isolated test worktree; the main checkout remains unmodified outside this documentation update.
+- No real Vision/image-generation or browser smoke test was performed; image/PDF download code paths are covered by backend tests.
+- This current turn changes only the audit and Project Memory documentation; it makes no Python/JavaScript or provider-setting changes.
 
 ## 13. JSON Synchronization
 
-Durable findings are mirrored in `project_memory/letta/PROJECT_MEMORY.json`. No secrets, credentials, database files, uploads or generated assets were recorded.
+Durable findings are mirrored in `project_memory/letta/PROJECT_MEMORY.json`. No credentials, database files, uploads or generated assets are recorded.
