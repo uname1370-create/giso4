@@ -70,6 +70,12 @@ CREATE TABLE IF NOT EXISTS beauty_center_images (
     image_path TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT DEFAULT '',
+    service_key TEXT NOT NULL DEFAULT '',
+    alt_text TEXT NOT NULL DEFAULT '',
+    caption TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'visible',
+    moderated_by INTEGER,
+    moderated_at TEXT DEFAULT '',
     FOREIGN KEY(center_id) REFERENCES beauty_centers(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_beauty_center_images ON beauty_center_images(center_id,sort_order,id);
@@ -132,6 +138,21 @@ def migrate_beauty_center_tables():
     try:
         with get_giso_db_conn() as conn:
             conn.executescript(SCHEMA)
+            image_columns = {row[1] for row in conn.execute("PRAGMA table_info(beauty_center_images)").fetchall()}
+            for column, definition in (
+                ("service_key", "service_key TEXT NOT NULL DEFAULT ''"),
+                ("alt_text", "alt_text TEXT NOT NULL DEFAULT ''"),
+                ("caption", "caption TEXT NOT NULL DEFAULT ''"),
+                ("status", "status TEXT NOT NULL DEFAULT 'visible'"),
+                ("moderated_by", "moderated_by INTEGER"),
+                ("moderated_at", "moderated_at TEXT DEFAULT ''"),
+            ):
+                if column not in image_columns:
+                    conn.execute(f"ALTER TABLE beauty_center_images ADD COLUMN {definition}")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_beauty_center_images_status "
+                "ON beauty_center_images(center_id,status,sort_order,id)"
+            )
             columns = {row[1] for row in conn.execute("PRAGMA table_info(beauty_centers)").fetchall()}
             if "category" not in columns:
                 conn.execute("ALTER TABLE beauty_centers ADD COLUMN category TEXT NOT NULL DEFAULT 'hair'")

@@ -4,7 +4,7 @@ ROOT=Path(__file__).resolve().parents[2]
 
 def test_public_card_shows_category_cost_and_starting_price_disclaimer():
     card=(ROOT/'giso/beauty_centers/templates/beauty_centers/_card.html').read_text(encoding='utf-8')
-    for marker in ('category_label','price_level_label','starting_price','شروع خدمات از','اطلاعات هزینه توسط مرکز اعلام شده است','مشاهده مرکز'):
+    for marker in ('category_label','price_level_label','starting_price','شروع خدمات از','اطلاعات هزینه توسط مرکز اعلام شده است','مشاهده خدمات و رزرو'):
         assert marker in card
 
 def test_card_pricing_has_scoped_visual_style():

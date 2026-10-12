@@ -3,7 +3,9 @@
 from flask import flash, redirect, request, url_for
 
 from giso.base import get_giso_db_conn
-from giso.beauty_centers.services import STATUS_FA, admin_set_status, list_admin_centers
+from giso.beauty_centers.services import (
+    STATUS_FA, admin_set_status, list_admin_centers, set_center_gallery_image_status,
+)
 
 _SETTING_DEFAULTS = {
     "beauty_promotions_enabled": "1",
@@ -262,3 +264,18 @@ def handle_feedback(feedback_id:int):
         conn.execute("UPDATE beauty_center_feedback SET status=? WHERE id=?",(status,int(feedback_id)));conn.commit()
     flash("وضعیت بازخورد ذخیره شد.","success")
     return redirect(url_for('panel.beauty_centers',tab='feedback'))
+
+
+def handle_gallery_status(image_id: int):
+    from flask_login import current_user
+    status = (request.form.get("status") or "").strip().lower()
+    try:
+        updated = set_center_gallery_image_status(
+            image_id, status, int(getattr(current_user, "id", 0) or 0),
+        )
+    except ValueError as exc:
+        flash(str(exc), "danger")
+        return redirect(url_for("panel.beauty_centers", tab="portfolio"))
+    flash("وضعیت نمونه‌کار به‌روزرسانی شد." if updated else "نمونه‌کار پیدا نشد.",
+          "success" if updated else "warning")
+    return redirect(url_for("panel.beauty_centers", tab="portfolio"))

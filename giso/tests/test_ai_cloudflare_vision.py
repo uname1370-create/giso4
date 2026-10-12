@@ -75,14 +75,19 @@ def test_cloudflare_vision_uses_workers_ai_image_payload_and_skips_flux(tmp_path
     assert call["headers"]["Authorization"] == "Bearer FAKE_TOKEN"
     payload = call["json"]
     assert payload["prompt"] == "فقط JSON بده"
-    assert payload["messages"][1]["content"] == "فقط JSON بده"
-    assert payload["image"].startswith("data:image/jpeg;base64,")
+    assert set(payload) == {"prompt", "image", "max_tokens"}
+    assert isinstance(payload["image"], list)
+    assert payload["image"] == list(image_path.read_bytes())
+    assert all(isinstance(value, int) and 0 <= value <= 255 for value in payload["image"])
     assert payload["max_tokens"] == 77
-    assert result["request_format"] == "messages_image_data_uri"
+    assert result["request_format"] == "prompt_image_byte_array"
 
 
 def test_cloudflare_text_parser_accepts_official_string_result():
     from giso.ai_brain import _ai_text_cloudflare
+    import json
 
     assert _ai_text_cloudflare({"result": "متن پاسخ"}) == "متن پاسخ"
     assert _ai_text_cloudflare({"result": {"response": "ok"}}) == "ok"
+    structured = _ai_text_cloudflare({"result": [{"red_rectangles": 2, "green_circles": 1}]})
+    assert json.loads(structured) == [{"red_rectangles": 2, "green_circles": 1}]

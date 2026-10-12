@@ -91,6 +91,7 @@
       <div class="bc-service-item-meta"><strong>{{ service.price_label }}</strong><span><i class="fas fa-clock"></i> {{ service.duration_label }}</span></div>
       <div class="bc-service-card-actions">
         <a href="{{ url_for('beauty_reservations.reserve', slug=center.slug, service_id=service.id) }}" class="bc-btn bc-btn-primary bc-btn-sm">📅 رزرو {{ service.name[:20] }}</a>
+        {% if service.is_active and svc_key in mirror_service_catalog %}<a href="{{ url_for('buti_ai.center_service_preview', center_slug=center.slug, service_id=service.id) }}" class="bc-btn bc-btn-outline bc-btn-sm">🪞 پیش‌نمایش روی عکس من</a>{% endif %}
         <a href="{{ url_for('beauty_centers.center_chat', slug=center.slug) }}" class="bc-btn bc-btn-outline bc-btn-sm">💬 مشاوره</a>
       </div>
     </article>
@@ -105,13 +106,13 @@
 {# خدمت انتخاب‌شده — اگر ?service= یا ?service_id= — نمایش جزئیات + نمونه‌کار همان خدمت + قیمت + رزرو #}
 {% if selected_service %}
 <section class="bc-selected-service" id="bcSelectedService">
-  <div class="bc-selected-info"><i class="fas fa-star"></i><div><h3>خدمت انتخاب‌شده: {{ selected_service.name }}</h3><p>{{ selected_service.description or 'خدمت انتخاب‌شده از همین سالن' }} — {{ selected_service.price_label }} — {{ selected_service.duration_label }}</p><span>این بخش مستقیماً با Mirror service_key هماهنگ است.</span></div></div>
+  <div class="bc-selected-info"><i class="fas fa-star"></i><div><h3>خدمت انتخاب‌شده: {{ selected_service.name }}</h3><p>{{ selected_service.description or 'خدمت انتخاب‌شده از همین سالن' }} — {{ selected_service.price_label }} — {{ selected_service.duration_label }}</p><span>خدمت و قیمت از فهرست فعال همین مرکز خوانده شده است.</span><a class="bc-btn bc-btn-primary" href="{{ url_for('beauty_reservations.reserve', slug=center.slug, service_id=selected_service.id, final_design_id=request.args.get('final_design_id') or None, service_key=request.args.get('service_key') or None, selected_style=request.args.get('selected_style') or None) }}">رزرو همین خدمت</a></div></div>
 </section>
 {% endif %}
 
 {# نمونه‌کارها — Portfolio — Gallery filter per service — FINBUTI #}
 <section class="bc-portfolio-section" id="bcPortfolio">
-  <header><span class="bc-kicker">گالری واقعی سالن</span><h2>نمونه‌کارها</h2><p>تصاویر عمومی و تصاویر به تفکیک خدمت — service_key خالی = عمومی</p></header>
+  <header><span class="bc-kicker">نمونه‌کارهای ثبت‌شده توسط مرکز</span><h2>نمونه‌کارها</h2><p>تصاویر ارسالی مرکز پس از بررسی مدیر؛ پیش‌نمایش آینهٔ هوش مصنوعی در این گالری قرار نمی‌گیرد.</p></header>
   <div class="bc-chip-filter" role="tablist" aria-label="فیلتر نمونه‌کار">
     <button type="button" class="bc-chip active" data-gallery-filter="all" role="tab" aria-selected="true">همه</button>
     <button type="button" class="bc-chip" data-gallery-filter="brow" role="tab">ابرو</button>
@@ -126,9 +127,10 @@
       <span class="bc-gallery-badge">اصلی</span>
     </button>
     {% for image in gallery_images %}
-    <button type="button" class="bc-gallery-item-lux" data-lightbox-src="{{ url_for('beauty_centers.gallery_media',image_id=image.id) }}" data-service-key="{{ image.service_key if image.service_key is defined else '' }}" aria-label="تصویر {{ loop.index + 1 }}">
-      <img src="{{ url_for('beauty_centers.gallery_media',image_id=image.id) }}" alt="تصویر {{ loop.index + 1 }} از {{ center.name }}" loading="lazy" onerror="this.style.display='none'">
-      {% if image.service_key %}<span class="bc-gallery-badge">{{ image.service_key }}</span>{% else %}<span class="bc-gallery-badge is-general">عمومی</span>{% endif %}
+    <button type="button" class="bc-gallery-item-lux" data-lightbox-src="{{ url_for('beauty_centers.gallery_media',image_id=image.id) }}" data-service-key="{{ image.service_key if image.service_key is defined else '' }}" aria-label="{{ image.alt_text or ('نمونه‌کار ' ~ loop.index) }}">
+      <img src="{{ url_for('beauty_centers.gallery_media',image_id=image.id) }}" alt="{{ image.alt_text or center.name }}" loading="lazy" onerror="this.style.display='none'">
+      {% if image.service_key %}<span class="bc-gallery-badge">{{ services.get(image.service_key, image.service_key) }}</span>{% else %}<span class="bc-gallery-badge is-general">عمومی</span>{% endif %}
+      {% if image.caption %}<small class="bc-gallery-caption">{{ image.caption }}</small>{% endif %}
     </button>
     {% endfor %}
   </div>
@@ -145,7 +147,7 @@
   <div class="bc-score-empty"><i class="fas fa-chart-simple"></i><p>هنوز ارزیابی کافی برای نمایش امتیاز عمومی ثبت نشده است.</p></div>
   {% endif %}
   <div class="bc-trust-badges">
-    <span class="bc-checked"><i class="fas fa-circle-check"></i> اطلاعات تماس بررسی شده</span>
+    <span class="bc-checked"><i class="fas fa-circle-check"></i> مرکز منتشرشده</span>
     <span class="bc-checked"><i class="fas fa-eye"></i> {{ center.views_count }} بازدید</span>
     <span class="bc-checked"><i class="fas fa-phone"></i> {{ center.contact_clicks or 0 }} تماس</span>
     {% if center.is_featured %}<span class="bc-checked"><i class="fas fa-crown"></i> منتخب گیسو</span>{% endif %}
@@ -187,7 +189,7 @@
 
 {# Bottom sticky CTA for mobile — FINBUTI + 3d site.md Mobile-first #}
 <div class="bc-sticky-cta" id="bcStickyCta" aria-label="رزرو سریع">
-  <a href="#bcServices" class="bc-btn bc-btn-primary">📅 رزرو نوبت</a>
+  {% if selected_service %}<a href="{{ url_for('beauty_reservations.reserve', slug=center.slug, service_id=selected_service.id, final_design_id=request.args.get('final_design_id') or None, service_key=request.args.get('service_key') or None, selected_style=request.args.get('selected_style') or None) }}" class="bc-btn bc-btn-primary">📅 رزرو همین خدمت</a>{% else %}<a href="#bcServices" class="bc-btn bc-btn-primary">📅 مشاهده خدمات و رزرو</a>{% endif %}
   {% if current_user.is_authenticated %}<a href="{{ url_for('beauty_centers.center_chat',slug=center.slug) }}" class="bc-btn bc-btn-outline">💬 گفتگو</a>{% else %}<a href="{{ url_for('login',next=url_for('beauty_centers.center_chat',slug=center.slug)) }}" class="bc-btn bc-btn-outline">💬 گفتگو</a>{% endif %}
 </div>
 

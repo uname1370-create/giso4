@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Phase B reservation routes (per gisobu.md)."""
-from flask import Blueprint, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
 from datetime import datetime
@@ -31,6 +31,48 @@ def _center_by_slug(slug):
             "SELECT * FROM beauty_centers WHERE slug=?", (str(slug or ""),)
         ).fetchone()
     return dict(row) if row else None
+
+
+def _valid_mirror_reservation_link(center, user_id, form):
+    """Validate an optional private Mirror design against its owner and service."""
+    raw_design_id = form.get("final_design_id") or request.args.get("final_design_id") or ""
+    if not str(raw_design_id).strip():
+        return True
+    try:
+        design_id = int(raw_design_id)
+        service_id = int(form.get("service_id") or request.args.get("service_id") or 0)
+    except (TypeError, ValueError):
+        return False
+    mirror_key = str(form.get("service_key") or request.args.get("service_key") or "").strip().lower()
+    if not design_id or not service_id or not mirror_key or not user_id:
+        return False
+
+    try:
+        from giso.buti_ai.service_catalog import get_service_meta
+        from giso.buti_ai.services import get_final_design_by_id
+
+        meta = get_service_meta(mirror_key)
+        design = get_final_design_by_id(design_id, user_id)
+        if not meta or not design:
+            return False
+        candidate = design.get("candidate") if isinstance(design.get("candidate"), dict) else {}
+        actual_type = str(design.get("service_type") or candidate.get("service_type") or "").strip().lower().replace("-", "_")
+        actual_type = {"hair": "hair_color", "lip": "lip_shading", "manicure": "nail", "pedicure": "nail"}.get(actual_type, actual_type)
+        expected_type = str(meta.get("service_type") or mirror_key).strip().lower().replace("-", "_")
+        if actual_type != expected_type:
+            return False
+
+        center_service_key = str(meta.get("beauty_center_service") or "").strip().lower()
+        matching_service = next(
+            (service for service in get_center_services(center["id"])
+             if int(service.get("id") or 0) == service_id
+             and int(service.get("is_active") or 0) == 1
+             and str(service.get("service_key") or "").strip().lower() == center_service_key),
+            None,
+        )
+        return bool(matching_service and center_service_key)
+    except Exception:
+        return False
 
 
 def _owner_center(center_id, owner_id):
@@ -79,6 +121,10 @@ def reserve(slug):
         )
         service_id = request.args.get("service_id", "")
         date = request.args.get("date", "")
+        if request.args.get("final_design_id") and not _valid_mirror_reservation_link(
+            center, getattr(current_user, "id", 0), request.args,
+        ):
+            abort(404)
         service = None
         slots = []
         if service_id:
@@ -103,6 +149,14 @@ def reserve(slug):
             today_jalali_year=_jy, today_jalali_month=_jm, today_jalali_day=_jd,
         )
     form = request.get_json(silent=True) or request.form
+    if form.get("final_design_id") or request.args.get("final_design_id"):
+        if not _valid_mirror_reservation_link(
+            center, getattr(current_user, "id", 0), form,
+        ):
+            if request.is_json:
+                return jsonify({"ok": False, "error": "طرح آینه یا خدمت انتخاب‌شده معتبر نیست."}), 403
+            flash("طرح آینه فقط با حساب مالک و خدمت سازگار همین مرکز قابل رزرو است.", "warning")
+            return redirect(url_for("beauty_centers.center_detail", slug=center["slug"]))
     try:
         rid = rsv.create_reservation(
             center["id"], getattr(current_user, "id", 0),

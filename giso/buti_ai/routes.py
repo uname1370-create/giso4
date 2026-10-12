@@ -9,6 +9,7 @@ import logging
 import os
 import shutil
 import tempfile
+import time
 from io import BytesIO
 
 from flask import abort, flash, jsonify, redirect, render_template, request, send_file, send_from_directory, session, url_for
@@ -63,6 +64,7 @@ from giso.buti_ai.services import (
 
 
 EYEBROW_SELECTION_SESSION_KEY = "buti_ai_eyebrow_selection"
+CENTER_MIRROR_BOOKING_SESSION_KEY = "buti_ai_center_mirror_booking"
 logger = logging.getLogger("giso_buti_ai_routes")
 
 
@@ -550,12 +552,14 @@ def eyebrow_final_design():
             is_ai_generated=generation.get("is_ai_generated") if isinstance(generation, dict) else False,
             ok=generation.get("ok") if isinstance(generation, dict) else False,
         )
-        if generation.get("ok") and not candidate.get("final_design_id"):
-            design_id = save_final_design(_safe_current_user_id(), candidate, generation)
+    user_id = _safe_current_user_id()
+    if generation.get("ok") and user_id and not candidate.get("final_design_id"):
+        design_id = save_final_design(user_id, candidate, generation)
+        if design_id:
             candidate["final_design_id"] = design_id
-        candidate["generation"] = _compact_generation_for_session(generation)
-        session[FINAL_DESIGN_SESSION_KEY] = candidate
-        session.modified = True
+    candidate["generation"] = _compact_generation_for_session(generation)
+    session[FINAL_DESIGN_SESSION_KEY] = candidate
+    session.modified = True
 
     center_city = (request.args.get("city") or user_default_city(current_user)).strip() or "مشهد"
     center_suggestions = enrich_eyebrow_center_suggestions(
@@ -610,6 +614,7 @@ def eyebrow_final_design():
         consultant_context = {}
         consultant_invite = ""
 
+    center_mirror_booking = _center_mirror_booking_for_candidate("eyebrow", candidate)
     return render_template(
         "buti_ai/eyebrow_final_design.html",
         candidate=candidate,
@@ -622,6 +627,7 @@ def eyebrow_final_design():
         default_phone=user_default_phone(current_user),
         consultant_context=consultant_context,
         consultant_invite=consultant_invite,
+        center_mirror_booking=center_mirror_booking,
     )
 
 
@@ -893,6 +899,100 @@ def _service_center_label(service_key):
         return SERVICES.get(service_filter) or str(get_service_meta(service_key).get("short_title") or get_service_meta(service_key).get("title") or "این خدمت")
     except Exception:
         return str(get_service_meta(service_key).get("short_title") or "این خدمت")
+
+
+def _mirror_key_for_center_service(center_service_key):
+    center_service_key = str(center_service_key or "").strip().lower()
+    for mirror_key in ("eyebrow", *supported_service_keys()):
+        meta = get_service_meta(mirror_key)
+        if str(meta.get("beauty_center_service") or "").strip().lower() == center_service_key:
+            return mirror_key
+    return ""
+
+
+def _center_mirror_booking_for_candidate(service_key, candidate):
+    """Return a verified same-center booking target for the current user's design."""
+    context = session.get(CENTER_MIRROR_BOOKING_SESSION_KEY)
+    user_id = _safe_current_user_id()
+    if not isinstance(context, dict) or not user_id:
+        return None
+    try:
+        if int(context.get("user_id") or 0) != int(user_id):
+            session.pop(CENTER_MIRROR_BOOKING_SESSION_KEY, None)
+            return None
+        if int(time.time()) - int(context.get("created_at") or 0) > 3600:
+            session.pop(CENTER_MIRROR_BOOKING_SESSION_KEY, None)
+            return None
+        if str(context.get("mirror_service_key") or "") != str(service_key or ""):
+            return None
+        design_id = int((candidate or {}).get("final_design_id") or 0)
+        if not design_id or not get_final_design_by_id(design_id, user_id):
+            return None
+        from giso.beauty_centers.services import get_center_by_slug
+        from giso.beauty_centers.pricing.services import get_center_services
+
+        center = get_center_by_slug(context.get("center_slug") or "")
+        if not center or center.get("status") != "published" or not center.get("is_active"):
+            return None
+        mirror_meta = get_service_meta(service_key)
+        expected_center_key = str(mirror_meta.get("beauty_center_service") or "").strip().lower()
+        target_service = next(
+            (service for service in get_center_services(center.get("id"))
+             if int(service.get("id") or 0) == int(context.get("service_id") or 0)
+             and int(service.get("is_active") or 0) == 1
+             and str(service.get("service_key") or "").strip().lower() == expected_center_key),
+            None,
+        )
+        if not target_service or _mirror_key_for_center_service(target_service.get("service_key")) != service_key:
+            return None
+        return {
+            "center_id": int(center.get("id") or 0),
+            "center_name": str(center.get("name") or "مرکز زیبایی"),
+            "center_slug": str(center.get("slug") or ""),
+            "service_id": int(target_service.get("id") or 0),
+            "service_name": str(target_service.get("name") or "خدمت انتخاب‌شده"),
+        }
+    except Exception:
+        return None
+
+
+@buti_ai_bp.route("/center-service/<center_slug>/<int:service_id>/preview", methods=["GET"])
+def center_service_preview(center_slug, service_id):
+    """Start a supported Mirror flow from a specific active center service."""
+    if not getattr(current_user, "is_authenticated", False):
+        return redirect(url_for("login", next=request.full_path))
+    try:
+        from giso.beauty_centers.services import get_center_by_slug
+        from giso.beauty_centers.pricing.services import get_center_services
+
+        center = get_center_by_slug(center_slug)
+        if not center or center.get("status") != "published" or not center.get("is_active"):
+            abort(404)
+        service = next(
+            (item for item in get_center_services(center.get("id"))
+             if int(item.get("id") or 0) == int(service_id)
+             and int(item.get("is_active") or 0) == 1),
+            None,
+        )
+        mirror_key = _mirror_key_for_center_service((service or {}).get("service_key"))
+        if not service or not mirror_key:
+            abort(404)
+        session[CENTER_MIRROR_BOOKING_SESSION_KEY] = {
+            "user_id": _safe_current_user_id(),
+            "center_id": int(center.get("id") or 0),
+            "center_slug": str(center.get("slug") or ""),
+            "service_id": int(service.get("id") or 0),
+            "center_service_key": str(service.get("service_key") or ""),
+            "mirror_service_key": mirror_key,
+            "created_at": int(time.time()),
+        }
+        session.modified = True
+        if mirror_key == "eyebrow":
+            return redirect(url_for("buti_ai.eyebrow_wizard"))
+        return redirect(url_for("buti_ai.generic_service_wizard", service_slug=slug_for_service(mirror_key)))
+    except Exception:
+        logger.exception("center service Mirror preview start failed")
+        abort(404)
 
 
 def _enrich_generic_centers(service_key, centers, candidate=None, city=""):
@@ -1238,6 +1338,7 @@ def generic_service_final_design(service_slug):
         consultant_context = {}
         consultant_invite = ""
 
+    center_mirror_booking = _center_mirror_booking_for_candidate(service_key, candidate)
     return render_template(
         "buti_ai/generic_final_design.html",
         service_key=service_key,
@@ -1254,6 +1355,7 @@ def generic_service_final_design(service_slug):
         uploaded_url_builder=_new_service_uploaded_url,
         consultant_context=consultant_context,
         consultant_invite=consultant_invite,
+        center_mirror_booking=center_mirror_booking,
     )
 
 

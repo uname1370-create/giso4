@@ -1063,6 +1063,7 @@ def _render_final_design_template(center_suggestions):
 
     app = create_app()
     candidate = _sample_final_candidate()
+    candidate["final_design_id"] = 321
     with app.test_request_context("/analysis/mirror/eyebrow/final"):
         return render_template(
             "buti_ai/eyebrow_final_design.html",
@@ -1080,6 +1081,13 @@ def _render_final_design_template(center_suggestions):
             centers_url="/beauty-centers?service=brow&city=مشهد",
             register_center_url="/beauty-centers/register",
             default_phone="09123456789",
+            center_mirror_booking={
+                "center_id": 10,
+                "center_name": "سالن تست",
+                "center_slug": "test-brow-center",
+                "service_id": 77,
+                "service_name": "خدمت ابرو",
+            },
         )
 
 
@@ -1096,12 +1104,16 @@ def test_final_design_template_shows_inline_center_suggestions():
             "feedback": {"label": "رضایت خوب", "score100": 85},
             "services": ["brow"],
             "service_labels": ["خدمات ابرو"],
+            "matched_service_id": 77,
         }
     ])
 
     assert "مراکز پیشنهادی برای خدمات ابرو" in html
     assert "مرکز ابروی تست" in html
     assert "رزرو/بررسی زمان" in html
+    assert "service_id=77" in html
+    assert "final_design_id=321" in html
+    assert "رزرو همین خدمت در سالن تست" in html
     assert "مشاهده مرکز" in html
     assert "مشاهده همه مراکز ابرو" in html
     assert "برای اجرای" in html

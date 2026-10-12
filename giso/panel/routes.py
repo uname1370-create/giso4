@@ -507,10 +507,10 @@ def beauty_centers():
     if not module_allowed("beauty_centers", role, perms):
         return redirect(url_for("panel.dashboard"))
     tab = (request.args.get("tab") or "requests").strip()
-    super_tabs = {"dashboard", "promotions", "feedback", "settings"}
+    super_tabs = {"dashboard", "services", "portfolio", "reservations", "mirror", "promotions", "feedback", "settings"}
     if tab in super_tabs and role != "super":
         tab = "requests"
-    if tab not in ("dashboard", "requests", "published", "paused", "reports", "promotions", "feedback", "settings"):
+    if tab not in ("dashboard", "requests", "published", "paused", "reports", "services", "portfolio", "reservations", "mirror", "promotions", "feedback", "settings"):
         tab = "requests"
     return _render("beauty_centers", "beauty_centers/admin.html", **_beauty_centers.context(tab))
 
@@ -532,6 +532,14 @@ def beauty_center_status(center_id):
         return redirect(url_for("panel.dashboard"))
     from flask_login import current_user
     return _beauty_centers.handle_status(center_id, int(getattr(current_user, "id", 0) or 0))
+
+
+@panel_bp.route("/beauty-centers/gallery/<int:image_id>/status", methods=["POST"])
+@require_super
+def beauty_center_gallery_status(image_id):
+    if r := _guard():
+        return r
+    return _beauty_centers.handle_gallery_status(image_id)
 
 
 @panel_bp.route("/beauty-centers/feature-selected", methods=["POST"])

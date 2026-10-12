@@ -64,6 +64,46 @@ CENTER_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 CENTER_IMAGE_MAX_PIXELS = 20_000_000
 CENTER_IMAGE_MAX_SIDE = 12_000
 CENTER_IMAGE_FORMATS = frozenset({"JPEG", "PNG", "WEBP"})
+try:
+    CENTER_GALLERY_MAX_IMAGES = min(12, max(6, int(os.getenv("BEAUTY_CENTER_GALLERY_MAX_IMAGES", "12"))))
+except (TypeError, ValueError):
+    CENTER_GALLERY_MAX_IMAGES = 12
+CENTER_GALLERY_ALT_MAX_CHARS = 180
+CENTER_GALLERY_CAPTION_MAX_CHARS = 300
+
+
+def normalize_gallery_metadata(service_key, alt_text, caption, available_service_keys=()):
+    """Validate gallery metadata against the center's active service inventory."""
+    key = " ".join(str(service_key or "").split()).lower()[:60]
+    aliases = {"eyebrow": "brow", "hair-color": "hair_color", "lip-shading": "lip_shading"}
+    key = aliases.get(key, key)
+    available = {" ".join(str(item or "").split()).lower()[:60] for item in available_service_keys}
+    available.discard("")
+    if key and key not in available:
+        raise ValueError("نمونه‌کار را فقط به یکی از خدمات فعال همین مرکز وصل کن.")
+    alt = " ".join(str(alt_text or "").split())[:CENTER_GALLERY_ALT_MAX_CHARS]
+    if not alt:
+        raise ValueError("برای دسترس‌پذیری، متن جایگزین تصویر را وارد کن.")
+    note = " ".join(str(caption or "").split())[:CENTER_GALLERY_CAPTION_MAX_CHARS]
+    return {"service_key": key, "alt_text": alt, "caption": note}
+
+
+def set_center_gallery_image_status(image_id, status, moderator_user_id):
+    """Approve or reject one gallery image; return False when it no longer exists."""
+    status = str(status or "").strip().lower()
+    if status not in {"visible", "rejected"}:
+        raise ValueError("وضعیت بررسی تصویر نامعتبر است.")
+    try:
+        with get_giso_db_conn() as conn:
+            cursor = conn.execute(
+                "UPDATE beauty_center_images SET status=?,moderated_by=?,moderated_at=? WHERE id=?",
+                (status, int(moderator_user_id or 0) or None, now_str(), int(image_id)),
+            )
+            conn.commit()
+            return bool(cursor.rowcount)
+    except Exception:
+        logger.exception("center gallery moderation failed for image %s", image_id)
+        return False
 
 _KEYWORD_TAGS = {
     "دکلره": ("bleach", "hair_repair"), "آسیب": ("hair_repair",),
@@ -379,10 +419,17 @@ def list_public_centers(query: str = "", city: str = "", category: str = "", cen
     if center_type in CENTER_TYPES:
         clauses.append("center_type=?"); params.append(center_type)
     if service in SERVICES:
-        clauses.append("services_json LIKE ?"); params.append(f'%"{service}"%')
+        clauses.append(
+            "EXISTS (SELECT 1 FROM beauty_center_services svc "
+            "WHERE svc.center_id=beauty_centers.id AND svc.is_active=1 AND svc.service_key=?)"
+        )
+        params.append(service)
     if price_level in PRICE_LEVELS:
         clauses.append("price_level=?"); params.append(price_level)
-    params.append(max(1, min(100, int(limit))))
+    requested_limit = max(1, min(100, int(limit)))
+    # Mirror suggestions need a concrete, active booking service ID. Fetch a
+    # bounded candidate pool first, then retain only centers with that inventory.
+    params.append(100 if service in SERVICES else requested_limit)
     try:
         with get_giso_db_conn() as conn:
             rows = conn.execute(
@@ -390,7 +437,7 @@ def list_public_centers(query: str = "", city: str = "", category: str = "", cen
                 " ORDER BY CASE WHEN promotion_type='featured' AND promotion_expires_at>datetime('now','localtime') THEN 2 ELSE 0 END DESC, promotion_bumped_at DESC,is_featured DESC,sort_order DESC,published_at DESC,id DESC LIMIT ?", params,
             ).fetchall()
             ids = [int(row["id"]) for row in rows]
-            feedbacks, discount_services = {}, set()
+            feedbacks, discount_services, matching_services = {}, set(), {}
             if ids:
                 marks = ",".join("?" for _ in ids)
                 rating_rows=conn.execute(f"SELECT center_id,COUNT(*) count,SUM(CASE overall_level WHEN 'good' THEN 5 WHEN 'average' THEN 3 ELSE 1 END) points FROM beauty_center_feedback WHERE status='visible' AND center_id IN ({marks}) GROUP BY center_id",ids).fetchall()
@@ -399,7 +446,23 @@ def list_public_centers(query: str = "", city: str = "", category: str = "", cen
                     feedbacks[int(rating['center_id'])]={"count":count,"score":round(score,1),"score100":round(score*20),"label":_feedback_label(score)}
                 promo_rows=conn.execute(f"SELECT DISTINCT center_id FROM beauty_center_promotions WHERE package_key='discount' AND status='active' AND expires_at>datetime('now','localtime') AND center_id IN ({marks})",ids).fetchall()
                 discount_services={int(r['center_id']) for r in promo_rows}
-        return [decorate_center(row, {}, feedbacks.get(int(row["id"]), {}), int(row["id"]) in discount_services) for row in rows]
+                if service in SERVICES:
+                    service_rows = conn.execute(
+                        f"SELECT id,center_id,name,service_key FROM beauty_center_services "
+                        f"WHERE center_id IN ({marks}) AND is_active=1 AND service_key=? "
+                        "ORDER BY is_featured_service DESC,sort_order ASC,id ASC",
+                        [*ids, service],
+                    ).fetchall()
+                    for service_row in service_rows:
+                        matching_services.setdefault(int(service_row["center_id"]), dict(service_row))
+        centers = [decorate_center(row, {}, feedbacks.get(int(row["id"]), {}), int(row["id"]) in discount_services) for row in rows]
+        if service in SERVICES:
+            for center in centers:
+                matched = matching_services.get(int(center.get("id") or 0))
+                center["matched_service_id"] = int(matched["id"]) if matched else 0
+                center["matched_service_name"] = str(matched.get("name") or "") if matched else ""
+            centers = [center for center in centers if center.get("matched_service_id")]
+        return centers[:requested_limit]
     except Exception as exc:
         logger.warning("list public centers failed: %s", exc)
         return []

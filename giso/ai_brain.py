@@ -656,6 +656,8 @@ def _ai_text_cloudflare(raw):
     result = raw.get("result", {})
     if isinstance(result, str):
         return result
+    if isinstance(result, list):
+        return json.dumps(result, ensure_ascii=False)
     if isinstance(result, dict):
         for k in ("response", "text", "output_text", "content"):
             if isinstance(result.get(k), str):
@@ -1434,36 +1436,18 @@ def _cloudflare_vision_candidates(row, requested_model=""):
 
 
 def _cloudflare_vision_payloads(prompt: str, image_data_uri: str, image_base64: str, max_tokens: int):
-    system_text = "You are a careful image analysis assistant. Follow the user's requested JSON/output format exactly."
+    """Build the Workers AI REST schema accepted by the Cloudflare model endpoint.
+
+    The model's synchronous REST schema requires `prompt` and accepts `image` as
+    an array of 8-bit byte values. Sending `prompt` together with `messages`
+    matches overlapping oneOf branches and is rejected by the live endpoint.
+    """
     user_text = str(prompt or "").strip()
-    simple_messages = [
-        {"role": "system", "content": system_text},
-        {"role": "user", "content": user_text},
-    ]
-    # مستند رسمی Workers AI برای Llama Vision از messages + image استفاده می‌کند؛
-    # برای سازگاری با schemaهای قدیمی، prompt و حالت base64 خام هم fallback هستند.
+    image_bytes = base64.b64decode(image_base64, validate=True)
     return [
-        ("messages_image_data_uri", {
+        ("prompt_image_byte_array", {
             "prompt": user_text,
-            "messages": simple_messages,
-            "image": image_data_uri,
-            "max_tokens": int(max_tokens or 1200),
-        }),
-        ("messages_image_base64", {
-            "prompt": user_text,
-            "messages": simple_messages,
-            "image": image_base64,
-            "max_tokens": int(max_tokens or 1200),
-        }),
-        ("content_image_url", {
-            "prompt": user_text,
-            "messages": [{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": user_text},
-                    {"type": "image_url", "image_url": {"url": image_data_uri}},
-                ],
-            }],
+            "image": list(image_bytes),
             "max_tokens": int(max_tokens or 1200),
         }),
     ]

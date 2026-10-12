@@ -173,3 +173,52 @@
 - هیچ فایل Python/JavaScript یا تنظیم provider تغییر نکرد؛ این بازاجرا فقط برای راستی‌آزمایی بود. تغییرات این نشست محدود به همین audit و دو فایل Project Memory است.
 - برای تکمیل live-provider matrix، نشست مجاز پنل `/admin/ai` و یک عکس آزمایشی غیرحساس لازم است. تا آن زمان، وضعیت Vision/image generation واقعی و readiness پنل **تأییدنشده** می‌ماند؛ fallback محلی نباید AI واقعی معرفی شود.
 - اگر credential فرستاده‌شده در پیام، دسترسی production دارد، پس از این کار آن را rotate کنید؛ این نشست از آن استفاده نکرده است.
+
+
+## 9. ادامهٔ آزمون زندهٔ Cloudflare Vision — 2026-10-12، حدود 16:14 Asia/Tehran
+
+### موافقت مدل و محدودهٔ آزمون
+
+- کاربر payload دقیق `{"prompt":"agree"}` را برای مدل Vision پیش‌فرض تأیید کرد. مستند رسمی Cloudflare همین درخواست آغازین را برای پذیرش شرایط Meta مشخص می‌کند. پاسخ نخست HTTP 403 با کد 5016 بود، اما متن Cloudflare صریحاً می‌گفت شرایط پذیرفته شده و مدل اکنون قابل استفاده است؛ payload توافق دوباره ارسال نشد.
+- برای آزمون، provider فقط در دیتابیس موقت `/tmp/giso4-admin-preview/giso/data/giso.db` تنظیم شد؛ هیچ تنظیم production یا پنل واقعی تغییر نکرد. پس از پایان آزمون، API key این DB پاک و provider غیرفعال شد. مقدار credential در این گزارش ذخیره نشده است.
+- فقط مدل پیش‌فرض Vision پروژه، `@cf/meta/llama-3.2-11b-vision-instruct`، آزمایش شد. ورودی یک PNG کاملاً مصنوعی 256×256 شامل دو مستطیل قرمز و یک دایرهٔ سبز بود؛ عکس کاربر یا چهره ارسال نشد. فراخوانی از `giso.ai_brain.ask_ai_vision` انجام شد و زنجیرهٔ fallback به مدل دیگر بسته بود.
+- آزمون زنده از مسیر برنامه موفق شد: `request_format=prompt_image_byte_array`، زمان حدود 4.53 ثانیه، و پاسخ تعداد دو مستطیل قرمز و یک دایرهٔ سبز را درست گزارش کرد. پاسخ جملهٔ توضیحی نیز داشت؛ بنابراین تضمین JSON خالص در این آزمون ثابت نشد و باید در prompt/flow واقعی ابرو و لب جداگانه بررسی شود.
+
+### اصلاح لازم در اتصال Cloudflare
+
+- درخواست قبلی پروژه `prompt` و `messages` را هم‌زمان همراه تصویر می‌فرستاد؛ endpoint واقعی آن را با HTTP 400 و خطای schema رد کرد.
+- schema رسمی REST برای مدل، `prompt` و تصویر به‌صورت آرایهٔ byte را می‌پذیرد. همین schema با درخواست زنده موفق شد. parser پاسخ نیز پیش‌تر خروجی ساختاریافتهٔ فهرستی را نادیده می‌گرفت.
+- اصلاح محدود در `giso/ai_brain.py` انجام شد: payload به `prompt + image byte array` تغییر کرد و parser فهرست‌های `result` را به JSON متن تبدیل می‌کند. تست قرارداد در `giso/tests/test_ai_cloudflare_vision.py` نیز به‌روزرسانی شد. این تغییر عمومی provider حداقلی و برای اتصال Cloudflare لازم بود؛ منطق محصول Buti AI به فایل‌های عمومی منتقل نشد.
+
+### اعتبارسنجی و وضعیت فعلی
+
+| بررسی | نتیجه |
+| --- | --- |
+| آزمون زندهٔ synthetic Vision از مسیر `ask_ai_vision` با مدل پیش‌فرض | موفق؛ پاسخ count مطابق تصویر مصنوعی |
+| `pytest -q giso/tests/test_ai_cloudflare_vision.py` | 2 passed |
+| `py_compile` برای `giso/ai_brain.py` و تست مربوط | موفق |
+| `git diff --check` | موفق |
+| مجموعهٔ مرتبط AI/provider و flowها با `SECRET_KEY` موقت | 55 passed، 2 failed، 36 warnings |
+
+دو تست ناموفق همان موارد خارج از این اصلاح در `giso/tests/test_ai_runtime.py` هستند: `test_failover_cooldown_skips_recently_failed_provider` به‌علت نبودن `_PROVIDER_FAIL_COOLDOWNS` و `test_superadmin_ai_setting_actions_and_user_delete` به‌علت دریافت `mode='message'` به‌جای `pending`. سایر تست‌های انتخاب‌شده در همان اجرا pass شدند. هشدارهای `datetime.utcnow()` و Pyparsing در فایل‌ها/وابستگی‌های موجود مشاهده شدند و در این تغییر رفع نشدند.
+
+### مواردی که همچنان تأیید نشده‌اند
+
+- ورود احراز‌شده به پنل `/admin/ai` و وضعیت provider در production بررسی نشد؛ دیتابیس و provider این آزمون صرفاً محلی و موقت بودند.
+- مسیر کامل ابرو/لب از upload، تحلیل واقعی با prompt محصول، تأیید، generation، دانلود تصویر و PDF در این مرحله اجرا نشد. خروجی مصنوعی Vision به‌تنهایی کیفیت آینه، mask یا flow محصول را ثابت نمی‌کند.
+- خطای قبلی ابزار مرورگر هنگام smoke دانلود هنوز با این آزمون حل نشده است.
+- هزینه/ledger، provider-attempt audit، charge، idempotency، quota، circuit breaker، رضایت صریح و queue/worker همچنان پیش‌نیازهای production هستند.
+- API key فقط برای آزمون در دیتابیس موقت بود؛ پس از آزمون پاک و provider غیرفعال شد. چون credential در گفت‌وگو به اشتراک گذاشته شده، چرخاندن/تعویض آن توصیه می‌شود.
+
+**وضعیت Git این مرحله:** تغییرات کد و تست در `giso/ai_brain.py` و `giso/tests/test_ai_cloudflare_vision.py` محلی و هنوز commit نشده‌اند. پنل و تنظیمات production دست‌نخورده مانده‌اند.
+
+
+## 9. Stage 3 مراکز زیبایی — Booking Bridge — 2026-10-12
+
+- صفحهٔ مرکز برای هر خدمت فعال و پشتیبانی‌شده، CTA «پیش‌نمایش روی عکس من» دارد. مسیر preview ورود کاربر را لازم دارد، خدمت را از inventory واقعی و فعال سالن می‌خواند و context مقصد را به‌صورت session-bound (شناسهٔ کاربر/مرکز/خدمت، مهلت یک‌ساعته) نگه می‌دارد.
+- در صفحهٔ نتیجه، مقصد رزرو همان مرکز فقط پس از بازبینی وضعیت انتشار مرکز، فعال‌بودن service، تطابق service key با Mirror و مالکیت `final_design_id` نشان داده می‌شود. لینک رزرو شناسهٔ واقعی `service_id` و `final_design_id` را می‌فرستد.
+- در `beauty_centers/reservations/routes.py`، کنترل سروری در GET و POST تضمین می‌کند طراحی متعلق به کاربر واردشده باشد و نوع طراحی با خدمت فعال همان مرکز تطابق داشته باشد؛ ورودی جعلی، طرح کاربر دیگر و خدمت ناسازگار fail-closed می‌شوند. مراکز پیشنهادی از inventory فعال همان خدمت استفاده می‌کنند.
+- تصویر شخصی کاربر به مرکز نمایش داده/ارسال نمی‌شود؛ فقط شناسهٔ داخلی طرح و metadata خدمت/استایل به رزرو پیوند می‌خورد. فرم رزرو این محدودیت را صریح می‌گوید. رزروهای معمولی بدون `final_design_id` مسیر قدیمی را حفظ می‌کنند.
+- فایل تست جدید: `giso/tests/test_beauty_center_reservation_booking_bridge.py`. `py_compile` موفق؛ regressions مرتبط (booking bridge، `test_buti_ai_phase1.py`، CTA، گالری و کارت‌های مرکز): **51 passed، 132 warnings**. هشدارهای عمده از `datetime.utcnow()` و Pillow `getdata()` موجود در کد/وابستگی است و در این Stage تغییر داده نشد.
+- full-suite نخست به‌علت نبودن dependency `python-telegram-bot==20.7` هنگام collection متوقف شد؛ dependency مطابق requirements نصب شد و اجرای دوبارهٔ full-suite جداگانه در حال انجام است. نتیجه تا دریافت نهایی اعلام نمی‌شود.
+- Stage 4 (Instagram) آغاز نشده است؛ ادامه فقط پس از تأیید کاربر.

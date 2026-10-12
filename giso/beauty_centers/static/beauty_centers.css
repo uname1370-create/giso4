@@ -351,3 +351,6 @@
 @media(prefers-reduced-motion:reduce){
   .bc-service-card-lux,.bc-gallery-item-lux{transition:none;}
 }
+
+/* Gallery expansion: accessible metadata and moderation states */
+.bc-gallery-meta-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;width:100%}.bc-gallery-field{display:grid;gap:5px;font-size:.78rem;font-weight:800}.bc-gallery-field input,.bc-gallery-field select{width:100%;min-height:40px;padding:8px 10px;border:1px solid #eadfe0;border-radius:10px;background:#fff;font:inherit}.bc-gallery-review-note{color:#76696c;line-height:1.7}.bc-gallery-status{display:block;margin-top:5px;padding:3px 7px;border-radius:999px;width:max-content;background:#fff2d5;color:#73581e;font-size:.68rem}.bc-gallery-status.status-visible{background:#e8f7ed;color:#26704f}.bc-gallery-status.status-rejected{background:#fde8eb;color:#91414e}.bc-gallery-caption{position:absolute;inset:auto 8px 8px;padding:4px 7px;border-radius:7px;color:#fff;background:rgba(30,24,26,.72);font-size:.68rem}.bc-gallery-item{position:relative}.bc-gallery-item figcaption{display:grid;gap:4px}.bc-gallery-item .bc-gallery-status{font-size:.67rem}@media(max-width:650px){.bc-gallery-meta-fields{grid-template-columns:1fr}}

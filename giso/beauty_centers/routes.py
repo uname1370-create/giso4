@@ -6,10 +6,12 @@ import time
 
 from flask import abort, flash, redirect, render_template, request, send_file, session, url_for
 from flask_login import current_user, login_required
+from werkzeug.exceptions import HTTPException
 
 from giso.beauty_centers import beauty_centers_bp
 from giso.beauty_centers.services import (
     CENTER_CATEGORIES, CENTER_TYPES, CATEGORY_CENTER_TYPES, CATEGORY_SERVICES,
+    CENTER_GALLERY_MAX_IMAGES, normalize_gallery_metadata,
     DISCLAIMER, PRICE_LEVELS, SERVICES, STATUS_FA, close_conversation, conversation_for_party,
     conversation_messages, create_center, get_center, get_center_by_slug, get_or_create_conversation,
     get_owner_center, increment_view, list_public_centers, owner_conversations, owner_conversation_unread_count, recommended_centers,
@@ -232,17 +234,11 @@ def center_detail(slug):
     except Exception:
         today_weekday = 0
     with get_giso_db_conn() as conn:
-        # Ensure additive columns exist for P1 (service_key in images, service_key/is_featured in services)
-        try:
-            cols = {r[1] for r in conn.execute("PRAGMA table_info(beauty_center_images)").fetchall()}
-            if "service_key" not in cols:
-                # Migration will be done in Phase 3, but allow template to work without column
-                pass
-        except Exception:
-            pass
         try:
             gallery_images = [dict(row) for row in conn.execute(
-                "SELECT * FROM beauty_center_images WHERE center_id=? ORDER BY sort_order,id", (int(center["id"]),)
+                "SELECT * FROM beauty_center_images WHERE center_id=? "
+                "AND (?=1 OR status='visible') ORDER BY sort_order,id",
+                (int(center["id"]), int(is_owner or is_staff)),
             ).fetchall()]
         except Exception:
             gallery_images = []
@@ -275,18 +271,28 @@ def center_detail(slug):
                 if key_lower in str(svc.get("name") or "").lower() or key_lower in str(svc.get("category") or "").lower():
                     selected_service = svc
                     break
-    # Filter gallery by selected service if service_key column exists and selected
+    # For a selected service, show its samples plus uncategorized general samples;
+    # never substitute another service's portfolio.
     filtered_gallery = gallery_images
     if selected_service_key:
         try:
-            # If service_key column exists, prioritize matching
-            has_key = any("service_key" in img for img in gallery_images)
-            if has_key:
-                matched = [img for img in gallery_images if str(img.get("service_key") or "").lower() == selected_service_key.lower()]
-                if matched:
-                    filtered_gallery = matched
+            filtered_gallery = [
+                img for img in gallery_images
+                if not str(img.get("service_key") or "").strip()
+                or str(img.get("service_key") or "").lower() == selected_service_key.lower()
+            ]
         except Exception:
-            pass
+            filtered_gallery = []
+
+    try:
+        from giso.buti_ai.service_catalog import SERVICE_CATALOG
+        mirror_service_catalog = {
+            str(meta.get("beauty_center_service") or "").strip(): mirror_key
+            for mirror_key, meta in SERVICE_CATALOG.items()
+            if meta.get("status") == "active" and meta.get("beauty_center_service")
+        }
+    except Exception:
+        mirror_service_catalog = {}
 
     return render_template(
         "beauty_centers/detail.html",
@@ -301,6 +307,7 @@ def center_detail(slug):
         disclaimer=DISCLAIMER,
         contact_revealed=revealed,
         center_services=center_services,
+        mirror_service_catalog=mirror_service_catalog,
         beauty_hours=_center_hours_for_display(center["id"]),
         selected_service=selected_service,
         selected_service_key=selected_service_key,
@@ -395,6 +402,10 @@ def owner_dashboard():
         gallery_images = [dict(row) for row in conn.execute(
             "SELECT * FROM beauty_center_images WHERE center_id=? ORDER BY sort_order,id", (int(center["id"]),)
         ).fetchall()]
+        gallery_count = int(conn.execute(
+            "SELECT COUNT(*) FROM beauty_center_images WHERE center_id=? AND COALESCE(status,'visible')<>'rejected'",
+            (int(center["id"]),),
+        ).fetchone()[0] or 0)
     profile_checks = [
         bool(center.get("name")), bool(center.get("category")), bool(center.get("center_type")),
         bool(center.get("city")), bool(center.get("business_phone")), bool(center.get("description")),
@@ -419,7 +430,7 @@ def owner_dashboard():
     return render_template(
         "beauty_centers/owner_dashboard.html", center=center, beauty_tab=tab,
         beauty_conversations=conversations, beauty_unread=owner_conversation_unread_count(_user_id()), profile_completion=profile_completion,
-        gallery_images=gallery_images, promotion_prices=promotion_prices,
+        gallery_images=gallery_images, gallery_count=gallery_count, promotion_prices=promotion_prices,
         center_services=_center_services_for_display(center["id"]),
         beauty_hours=_center_hours_for_display(center["id"], fill_defaults=True),
         promotion_enabled=promotion_enabled, promotion_package_enabled=promotion_package_enabled,
@@ -562,37 +573,69 @@ def owner_gallery_upload():
     center = get_owner_center(_user_id())
     if not center:
         abort(404)
-    with get_giso_db_conn() as conn:
-        count = int(conn.execute("SELECT COUNT(*) FROM beauty_center_images WHERE center_id=?", (int(center["id"]),)).fetchone()[0] or 0)
-    total = count + (1 if center.get("image_path") else 0)
-    if total >= 3:
-        flash("حداکثر سه تصویر برای مرکز قابل ثبت است.", "warning")
+    if request.form.get("before_after") or request.form.get("image_relation") in {"before", "after", "before_after"}:
+        flash("نمایش قبل/بعد تا زمان پیاده‌سازی رضایت جداگانه فعال نیست.", "warning")
+        return redirect(url_for("beauty_centers.owner_dashboard", tab="edit"))
+    active_service_keys = {
+        str(service.get("service_key") or "").strip().lower()
+        for service in get_center_services(center["id"])
+        if int(service.get("is_active") or 0) == 1 and str(service.get("service_key") or "").strip()
+    }
+    try:
+        metadata = normalize_gallery_metadata(
+            request.form.get("service_key"), request.form.get("alt_text"),
+            request.form.get("caption"), active_service_keys,
+        )
+    except ValueError as exc:
+        flash(str(exc), "warning")
         return redirect(url_for("beauty_centers.owner_dashboard", tab="edit"))
     image_path, image_error = save_center_image(request.files.get("center_image") or request.files.get("gallery_image"))
     if image_error:
         flash(image_error, "danger")
     else:
-        # FINBUTI P1: service_key for portfolio
-        svc_key = (request.form.get("service_key") or "").strip().lower()[:60]
-        # Normalize mapping
-        key_map = {"eyebrow": "brow", "hair-color": "hair_color", "lip-shading": "lip_shading"}
-        svc_key = key_map.get(svc_key, svc_key)
-        allowed = {"brow", "hair_color", "haircut", "keratin", "nail", "lip_shading", "facial", "makeup", "lash", "extension", "hair_repair", "bleach", "makeup", "hairstyle", "manicure", "pedicure", ""}
-        if svc_key not in allowed:
-            svc_key = ""
-        with get_giso_db_conn() as conn:
-            # Check if service_key column exists
-            cols = {r[1] for r in conn.execute("PRAGMA table_info(beauty_center_images)").fetchall()}
-            has_svc = "service_key" in cols
-            if not center.get("image_path"):
-                conn.execute("UPDATE beauty_centers SET image_path=?,updated_at=datetime('now','localtime') WHERE id=? AND owner_user_id=?", (image_path, int(center["id"]), _user_id()))
-            else:
-                if has_svc:
-                    conn.execute("INSERT INTO beauty_center_images(center_id,image_path,sort_order,created_at,service_key) VALUES (?,?,?,?,datetime('now','localtime'),?)", (int(center["id"]), image_path, count + 1, svc_key))
+        try:
+            with get_giso_db_conn() as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                owner_row = conn.execute(
+                    "SELECT owner_user_id,image_path FROM beauty_centers WHERE id=?",
+                    (int(center["id"]),),
+                ).fetchone()
+                if not owner_row or int(owner_row["owner_user_id"] or 0) != _user_id():
+                    conn.rollback()
+                    _remove_saved_image(image_path)
+                    abort(404)
+                count = int(conn.execute(
+                    "SELECT COUNT(*) FROM beauty_center_images WHERE center_id=? AND COALESCE(status,'visible')<>'rejected'",
+                    (int(center["id"]),),
+                ).fetchone()[0] or 0)
+                total = count + (1 if owner_row["image_path"] else 0)
+                if total >= CENTER_GALLERY_MAX_IMAGES:
+                    conn.rollback()
+                    _remove_saved_image(image_path)
+                    flash(f"سقف {CENTER_GALLERY_MAX_IMAGES} تصویر برای مرکز تکمیل شده است.", "warning")
                 else:
-                    conn.execute("INSERT INTO beauty_center_images(center_id,image_path,sort_order,created_at) VALUES (?,?,?,datetime('now','localtime'))", (int(center["id"]), image_path, count + 1))
-            conn.commit()
-        flash("تصویر به اسلایدر مرکز اضافه شد.", "success")
+                    next_order = int(conn.execute(
+                        "SELECT COALESCE(MAX(sort_order),0)+1 FROM beauty_center_images WHERE center_id=?",
+                        (int(center["id"]),),
+                    ).fetchone()[0] or 1)
+                    conn.execute(
+                        "INSERT INTO beauty_center_images "
+                        "(center_id,image_path,sort_order,created_at,service_key,alt_text,caption,status) "
+                        "VALUES (?,?,?,datetime('now','localtime'),?,?,?,'pending')",
+                        (int(center["id"]), image_path, next_order, metadata["service_key"],
+                         metadata["alt_text"], metadata["caption"]),
+                    )
+                    conn.commit()
+                    flash("نمونه‌کار برای بررسی مدیر ثبت شد؛ تا تأیید منتشر نمی‌شود.", "success")
+        except HTTPException:
+            raise
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            _remove_saved_image(image_path)
+            flash("ثبت نمونه‌کار انجام نشد؛ تصویر منتشر نشده است.", "danger")
     return redirect(url_for("beauty_centers.owner_dashboard", tab="edit"))
 
 
@@ -638,11 +681,19 @@ def owner_gallery_delete(image_id):
 @beauty_centers_bp.route("/beauty-centers/gallery/<int:image_id>")
 def gallery_media(image_id):
     with get_giso_db_conn() as conn:
-        row = conn.execute("SELECT i.*,b.owner_user_id,b.status,b.is_active FROM beauty_center_images i JOIN beauty_centers b ON b.id=i.center_id WHERE i.id=?", (int(image_id),)).fetchone()
+        row = conn.execute(
+            "SELECT i.*,b.owner_user_id,b.status AS center_status,b.is_active,"
+            "COALESCE(i.status,'visible') AS image_status "
+            "FROM beauty_center_images i JOIN beauty_centers b ON b.id=i.center_id WHERE i.id=?",
+            (int(image_id),),
+        ).fetchone()
     if not row:
         abort(404)
     owner = _user_id() and int(row["owner_user_id"] or 0) == _user_id()
-    if (row["status"] != "published" or not row["is_active"]) and not (owner or _is_staff()):
+    if (
+        row["center_status"] != "published" or not row["is_active"]
+        or str(row["image_status"] or "visible") != "visible"
+    ) and not (owner or _is_staff()):
         abort(404)
     static_root = (Path(Config.GISO_DIR) / "static").resolve()
     raw = str(row["image_path"] or "").replace("\\", "/").lstrip("/")
@@ -652,6 +703,8 @@ def gallery_media(image_id):
     if static_root not in candidate.parents or not candidate.is_file(): abort(404)
     response = send_file(candidate, conditional=True, max_age=3600)
     response.headers["X-Content-Type-Options"] = "nosniff"
+    if str(row["image_status"] or "visible") != "visible":
+        response.headers["Cache-Control"] = "private, no-store"
     return response
 
 

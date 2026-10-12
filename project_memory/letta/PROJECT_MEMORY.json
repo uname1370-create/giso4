@@ -1,101 +1,106 @@
 {
   "last_update": {
     "date_user_timezone": "2026-10-12",
-    "time_approx_user_timezone": "14:41",
+    "time_approx_user_timezone": "17:43",
     "user_timezone": "Asia/Tehran",
-    "git_head_before_memory_update": "cb53d58135bec2ab861be8ec3fc50bd00e5f8929",
+    "git_head_before_current_changes": "57a2a43e24237342bfa7a865e148a2edb0e150b0",
     "branch": "arena/7f567e47-giso4"
   },
   "last_agent": "Manus",
-  "status": "Current-turn validation only: 137 Buti AI tests passed, 4 real-photo-dependent tests skipped; focused Vision/provider-registry tests 32 passed. Live provider and admin-panel readiness were not verified because this workspace has no project DB/env config, no authenticated panel session, and no real test photo. No source code or provider settings changed.",
+  "status": "Roadmap stages 1–3 for Beauty Centers/Mirror have been implemented locally. Stage 3 Booking Bridge and related regressions pass (51 tests); full-suite rerun is in progress before the requested push. Stage 4 must wait for explicit user approval.",
+  "current_stage_3": {
+    "feature": "Secure Buti AI final-design to beauty-center reservation bridge",
+    "preview_entry": "Active supported service cards expose a Mirror preview CTA; the user must be authenticated.",
+    "return_target": "A signed Flask session stores the user, center, active service ID/key, Mirror key, and one-hour expiry; final page revalidates center/service state and returns a same-center booking CTA.",
+    "reservation_validation": "GET and POST verify final_design_id ownership, design/service type, service_id, active service state, and beauty-center service_key mapping; invalid links fail closed.",
+    "privacy": "No customer photo is sent to or displayed to the salon. Only internal design reference and service/style metadata are linked; the reservation UI says so explicitly.",
+    "ordinary_reservation": "Normal reservations without a final_design_id remain supported.",
+    "stage_4_started": false
+  },
   "project_identity": {
     "repository_url": "https://github.com/uname1370-create/giso4",
     "branch": "arena/7f567e47-giso4",
-    "local_head_before_update": "cb53d58135bec2ab861be8ec3fc50bd00e5f8929",
-    "local_head_subject": "Update Buti AI handoff for successor agent",
-    "remote_head_observed_before_update": "cb53d58135bec2ab861be8ec3fc50bd00e5f8929",
-    "working_tree_before_update": "clean and synchronized with origin; documentation-only changes are being prepared for commit/push"
+    "local_head_before_current_changes": "57a2a43e24237342bfa7a865e148a2edb0e150b0",
+    "remote_head_observed_before_current_changes": "57a2a43e24237342bfa7a865e148a2edb0e150b0",
+    "working_tree": "Stage 1/2 center and gallery changes, Stage 3 Booking Bridge changes, tests, and Project Memory updates remain uncommitted pending full-suite result; requested branch is arena/7f567e47-giso4."
   },
   "scenario": {
     "canonical_entrypoint": "project_memory/letta/AGENT_START_HERE.md",
-    "user_goal": "Rerun the Buti AI upload-analysis-recommendation-confirmation-final-output test plan, verify real provider status without guessing, update audit and memory, and commit/push only safe in-scope changes.",
-    "implemented_contract": [
-      "select service and style",
-      "local preview and same-origin CSRF validation",
-      "quality/Vision analysis with normalized recommendation",
-      "first upload POST stores candidate and does not generate",
-      "second finalize POST requires analysis_confirmed=1",
-      "confirmed final_style controls generation",
-      "honest AI/non-AI final label",
-      "candidate-owner-protected final image and PDF download"
+    "user_goal": "Proceed stage-by-stage, inspect/configure Giso AI, test the project's registered Cloudflare Vision model with explicit user approval, and report remaining work.",
+    "allowed_scope_this_stage": [
+      "Disposable local DB and preview",
+      "Synthetic image only",
+      "Exact user-approved Cloudflare model-agreement request",
+      "Minimal provider transport fix and regression test",
+      "Project Memory and audit updates"
     ],
-    "allowed_scope": ["giso/buti_ai", "giso/tests/test_buti_ai*", "project_memory/letta"],
+    "production_settings_changed": false,
     "protected_paths_unchanged": ["web/", "bot_edu/", "main.py", "giso/bot.py"],
-    "current_turn_code_changes": false,
-    "test_isolation": "Temporary git worktree and temporary virtualenv outside the main checkout; external credentials removed from test environment."
+    "real_person_image_sent": false
   },
   "architecture_findings": {
-    "routes": "giso/buti_ai/routes.py owns staged routes, session owner checks and protected download routes.",
+    "routes": "giso/buti_ai/routes.py owns staged routes, session ownership checks and protected download routes.",
     "eyebrow_flow": "giso/buti_ai/eyebrow/flow.py analyzes at upload and defers final generation until confirmation.",
     "final_selection": "giso/buti_ai/eyebrow/final_design.py keeps selected_style, recommended_style and final_style distinct; only final_style controls prompt/generation.",
-    "generic_flow": "giso/buti_ai/generic_service.py exposes the recommendation contract; the confirmation UI is limited to lip_shading.",
-    "pdf": "giso/buti_ai/downloads.py creates in-memory private Persian before/after reports using FPDF and does not retain a duplicate download file.",
-    "runtime_catalog": "service_catalog.py calls eyebrow/nail/hair_color/lip_shading active; blush and eyeliner are not implemented in the runtime catalog or routes.",
-    "test_scope": "Mock-provider and temporary-registry tests verify request/response contracts, not live provider availability or real image quality."
+    "generic_flow": "giso/buti_ai/generic_service.py exposes the recommendation contract; confirmation UI is limited to lip_shading.",
+    "cloudflare_vision_request": "The live-tested Workers AI REST request for @cf/meta/llama-3.2-11b-vision-instruct uses prompt plus an 8-bit image byte array; combining prompt and messages was rejected by the live schema.",
+    "cloudflare_response_parser": "Cloudflare result may be a structured list; giso.ai_brain._ai_text_cloudflare now serializes that list to JSON text.",
+    "runtime_catalog": "Runtime catalog labels eyebrow/nail/hair_color/lip_shading active; blush and eyeliner are absent from runtime routes/modules."
   },
-  "service_status": {
-    "eyebrow": "Flow, mask, request schema and validation contracts passed locally; live Vision and image generation were not run.",
-    "lip_shading": "Recommendation/finalize/ownership/download contracts passed; close-up real-photo FaceMesh tests skipped; live generation was not run.",
-    "nail": "Flow and fail-closed behavior for untrusted masks passed; no real-photo/provider readiness claim.",
-    "hair_color": "Segmentation/gating and fail-closed contracts passed; real-photo tests skipped; no live provider readiness claim.",
-    "blush": "Mentioned by higher-level documentation but no active runtime module/route found; not implemented.",
-    "eyeliner": "Mentioned by higher-level documentation but no active runtime module/route found; not implemented.",
-    "hoosha": "Not production-ready: no verified official server-to-server image-edit/mask API, auth, pricing or SLA."
+  "live_test": {
+    "user_approved_agreement_payload": "{\"prompt\":\"agree\"}",
+    "agreement_result": "Cloudflare returned HTTP 403/code 5016 with explicit message that terms were accepted and the model may now be used; payload was not resent.",
+    "provider": "Cloudflare Workers AI",
+    "model": "@cf/meta/llama-3.2-11b-vision-instruct",
+    "input": "Synthetic 256x256 diagram with two red rectangles and one green circle; no user/face photo.",
+    "execution_path": "giso.ai_brain.ask_ai_vision",
+    "result": "Success; approximately 4.53 seconds; model correctly reported two red rectangles and one green circle. It added a prose preamble, so strict-JSON behavior remains to be checked with the product prompt.",
+    "temporary_provider_cleanup": "API key cleared and temporary provider disabled after the test. Production settings untouched."
   },
   "validation": {
-    "commands_passed": [
-      "node --check giso/buti_ai/static/buti_ai.js",
-      "python -m py_compile for relevant Buti AI, panel AI and provider modules",
-      "pytest -q giso/tests/test_buti_ai_upload_recommendation.py giso/tests/test_buti_ai_output_formats.py: 11 passed",
-      "eyebrow mask/detection/request/ROI/recolor tests: 22 passed",
-      "new-service/fallback/four-service tests: 38 passed, 4 skipped",
-      "pytest -q giso/tests/test_buti_ai*.py: 137 passed, 4 skipped, 153 warnings, 88.02s",
-      "focused test_ai_cloudflare_vision.py, test_ai_provider_admin_registry.py, test_ai_provider_ssrf.py, test_ai_clean_registry.py, test_ai_discovery.py: 32 passed, 1.82s",
-      "git diff --check in isolated test worktree"
+    "passed": [
+      "Stage 3 targeted center/Buti AI regressions: 51 passed, 132 existing deprecation warnings",
+      "py_compile for changed Python routes and tests",
+      "pytest -q giso/tests/test_ai_cloudflare_vision.py: 2 passed",
+      "py_compile giso/ai_brain.py giso/tests/test_ai_cloudflare_vision.py",
+      "git diff --check",
+      "Broader related suite: 55 passed"
     ],
-    "skips": "Four tests requiring a close-up lip photo or real hair-photo set were skipped because those inputs were unavailable.",
-    "additional_out_of_scope_failures": [
-      "giso/tests/test_ai_runtime.py::test_failover_cooldown_skips_recently_failed_provider: AttributeError because _PROVIDER_FAIL_COOLDOWNS is absent at test line 209.",
-      "giso/tests/test_ai_runtime.py::test_superadmin_ai_setting_actions_and_user_delete: actual mode was message instead of the expected pending at test line 432."
+    "unrelated_failures": [
+      "giso/tests/test_ai_runtime.py::test_failover_cooldown_skips_recently_failed_provider: AttributeError because _PROVIDER_FAIL_COOLDOWNS is absent.",
+      "giso/tests/test_ai_runtime.py::test_superadmin_ai_setting_actions_and_user_delete: returned mode was message instead of expected pending."
     ],
-    "browser_smoke": "Not run in this turn; no authenticated admin panel session or user-provided real test image was available.",
-    "live_provider": "No live Cloudflare/Vision/inpainting request was made; no credential was used or stored."
+    "warnings": "36 warnings in the broader related suite, including existing datetime.utcnow() and Pyparsing deprecations.",
+    "browser_download": "Earlier browser smoke download click failed with Browser not available; backend ownership/PDF tests passed but browser click remains unverified."
   },
   "provider_readiness": {
-    "current_workspace_database_present": false,
-    "current_workspace_provider_env_present": false,
-    "authenticated_superadmin_panel_session": false,
-    "real_test_photo_available": false,
-    "panel_readiness": "Not verified in this workspace. Historical provider state in the user prompt was not independently rechecked.",
-    "previous_direct_env_success": "Reported historically by the user; not rerun and does not establish current panel readiness."
+    "temporary_local_provider_used": true,
+    "production_panel_authenticated": false,
+    "production_settings_changed": false,
+    "synthetic_live_vision": "Verified successful",
+    "full_eyebrow_lip_live_flow": "Not run in this stage",
+    "provider_key_after_test": "Cleared from disposable DB; provider disabled",
+    "credential_rotation_recommended": true
   },
   "known_issues": [
-    "Live provider analysis/generation and admin-panel readiness remain unverified; current workspace has no giso/data/giso.db or giso/data/.env and no authenticated superadmin session or real user test image.",
-    "Four real-photo-dependent tests are skipped; mock-provider results do not establish model output quality.",
-    "Two unrelated giso/tests/test_ai_runtime.py tests fail as detailed in validation; left unchanged because they are outside the Buti AI boundary.",
-    "Public launch prerequisites remain unimplemented here: cost ledger, provider-attempt audit, user charge, idempotency, quota, circuit breaker, explicit consent and worker queue.",
-    "Existing deprecation/runtime warnings remain; no out-of-scope cleanup was attempted."
+    "Authenticated /admin/ai panel inspection and production provider readiness remain unverified.",
+    "Full eyebrow/lip flow with product prompts, recommendation, generation and image/PDF browser downloads was not run in this stage.",
+    "Synthetic model answer was accurate but included a prose preamble; downstream strict-JSON behavior needs testing with the product prompt.",
+    "Two unrelated ai_runtime tests fail as listed in validation.",
+    "Existing datetime.utcnow() and Pyparsing warnings remain.",
+    "Production prerequisites remain: cost ledger, provider-attempt audit, charge, idempotency, quota, circuit breaker, explicit consent and worker queue."
   ],
   "decisions": [
-    "Did not use the supplied credential for a live call because current provider/panel state could not be inspected and no real test photo was available.",
-    "Did not fake panel readiness or treat mock-provider tests as live AI success.",
-    "Did not change product code or unrelated runtime tests; current-turn changes are limited to audit and Project Memory documentation.",
-    "Kept non-AI fallback distinct from actual AI output."
+    "Sent the exact user-approved model agreement payload once; Cloudflare's explicit acceptance message plus a successful subsequent model request confirmed acceptance.",
+    "Tested only the registered default Vision model and synthetic image; no model fallback or user photo.",
+    "Applied a minimal generic Cloudflare Vision transport/parser fix and regression test.",
+    "Cleared the temporary credential and disabled the provider after the live test; did not touch production settings.",
+    "Await user approval before proceeding to a new stage."
   ],
   "next_action": [
-    "Commit and push the documentation-only audit/memory update to origin/arena/7f567e47-giso4 after pre-commit and secret/scope checks.",
-    "Use an authenticated /admin/ai session and a non-sensitive real test photo to complete the live Vision/inpainting matrix.",
-    "Treat direct-env history as separate from current panel readiness and keep production launch blocked until documented prerequisites are implemented."
+    "Finish the full pytest suite rerun after installing the requirements-listed python-telegram-bot dependency.",
+    "Review git diff --check and worktree; commit and push requested stages 1–3 to arena/7f567e47-giso4.",
+    "After reporting the push, ask for explicit user approval before starting stage 4 Instagram/social click tracking."
   ],
   "canonical_handoff_documents": [
     "project_memory/letta/AGENT_START_HERE.md",

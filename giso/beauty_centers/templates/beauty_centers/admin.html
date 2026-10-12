@@ -43,7 +43,27 @@
   <section class="pnl-card"><h2>🧾 مدیریت خدمات — service_key / featured / is_active</h2><p class="pnl-muted">فهرست همه خدمات مراکز — بر اساس center/service_key/is_active/featured — FINBUTI P1</p><div class="pnl-table-wrap"><table class="pnl-table"><tr><th>مرکز</th><th>خدمت</th><th>service_key</th><th>دسته</th><th>قیمت</th><th>مدت</th><th>ویژه</th><th>فعال</th></tr>{% for s in beauty_services %}<tr><td>{{ s.center_name }}</td><td>{{ s.name }}</td><td><code>{{ s.service_key or '—' }}</code></td><td>{{ s.category or '—' }}</td><td>{{ s.price_min }}-{{ s.price_max }}</td><td>{{ s.duration_minutes }}د</td><td>{{ '⭐' if s.is_featured_service else '' }}</td><td>{{ '✅' if s.is_active else '❌' }}</td></tr>{% else %}<tr><td colspan="8">خدمتی ثبت نشده</td></tr>{% endfor %}</table></div></section>
 
   {% elif beauty_tab=='portfolio' and is_super %}
-  <section class="pnl-card"><h2>🖼 مدیریت نمونه‌کار — per service_key</h2><p class="pnl-muted">تصاویر عمومی service_key خالی دارند — تصاویر با service_key نمونه‌کار همان خدمت هستند</p><div class="pnl-table-wrap"><table class="pnl-table"><tr><th>مرکز</th><th>تصویر</th><th>service_key</th><th>ترتیب</th></tr>{% for img in beauty_portfolio %}<tr><td>{{ img.center_name }}</td><td><a href="/beauty-centers/gallery/{{ img.id }}" target="_blank">تصویر #{{ img.id }}</a></td><td><code>{{ img.service_key or 'عمومی' }}</code></td><td>{{ img.sort_order }}</td></tr>{% else %}<tr><td colspan="4">نمونه‌کاری ثبت نشده</td></tr>{% endfor %}</table></div></section>
+  <section class="pnl-card">
+    <h2>🖼 مدیریت نمونه‌کار — per service_key</h2>
+    <p class="pnl-muted">تصاویر جدید تا بررسی مدیر عمومی نیستند؛ تصویرهای قدیمی برای سازگاری منتشرشده باقی می‌مانند. تصویر آینهٔ هوش مصنوعی نمونه‌کار واقعی سالن محسوب نمی‌شود.</p>
+    <div class="pnl-table-wrap"><table class="pnl-table">
+      <tr><th>مرکز</th><th>تصویر</th><th>خدمت</th><th>توضیح دسترس‌پذیری</th><th>وضعیت</th><th>اقدام</th></tr>
+      {% for img in beauty_portfolio %}
+      <tr>
+        <td>{{ img.center_name }}</td>
+        <td><a href="{{ url_for('beauty_centers.gallery_media', image_id=img.id) }}" target="_blank" rel="noopener">تصویر #{{ img.id }}</a></td>
+        <td><code>{{ img.service_key or 'عمومی' }}</code><br><small>ترتیب {{ img.sort_order }}</small></td>
+        <td>{{ img.alt_text or 'متن جایگزین ثبت نشده' }}{% if img.caption %}<br><small>{{ img.caption }}</small>{% endif %}</td>
+        <td>{{ {'visible':'منتشرشده','pending':'در انتظار بررسی','rejected':'ردشده'}.get(img.status or 'visible', img.status) }}</td>
+        <td><form method="post" action="{{ url_for('panel.beauty_center_gallery_status', image_id=img.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="pu-btn pu-btn-rose" name="status" value="visible" type="submit">تأیید و انتشار</button>
+          <button class="pu-btn pu-btn-quiet" name="status" value="rejected" type="submit">رد</button>
+        </form></td>
+      </tr>
+      {% else %}<tr><td colspan="6">نمونه‌کاری ثبت نشده</td></tr>{% endfor %}
+    </table></div>
+  </section>
 
   {% elif beauty_tab=='reservations' and is_super %}
   <section class="pnl-card"><h2>📅 مدیریت رزروها — center/service/status/date + Mirror linkage</h2><div class="pnl-table-wrap"><table class="pnl-table"><tr><th>مرکز</th><th>کاربر</th><th>خدمت</th><th>تاریخ</th><th>ساعت</th><th>وضعیت</th><th>Mirror</th></tr>{% for r in beauty_reservations %}<tr><td>{{ r.center_name }}</td><td>{{ r.user_name or r.user_phone or r.user_id }}</td><td>{{ r.service_name }}</td><td>{{ r.reservation_date }}</td><td>{{ r.reservation_time }}</td><td>{{ r.status }}</td><td>{% if r.final_design_id %}<code>#{{ r.final_design_id }} {{ r.service_key }} {{ r.selected_style }}</code>{% else %}—{% endif %}</td></tr>{% else %}<tr><td colspan="7">رزروی ثبت نشده</td></tr>{% endfor %}</table></div></section>
