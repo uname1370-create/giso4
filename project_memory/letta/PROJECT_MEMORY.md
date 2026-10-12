@@ -10,7 +10,7 @@
 ## 2. Git State
 
 - **Branch:** `arena/7f567e47-giso4`; Stage 1–3 commit `525e80e` and Stage 4–5 code commit `e5512dc` are pushed; handoff-only follow-up `c7362f0` is also on `origin`.
-- **Working tree:** Stage 6 local/uncommitted; local base and remote HEAD are both `c7362f0`.
+- **Working tree:** Stage 6 local/uncommitted; Stage 6 is pushed as `ca522c0`; current local/remote HEAD is `ca522c0`.
 - **Current-turn code change:** read-only same-city/same-service price benchmark, public listing and per-service detail UI, dynamic city options, threshold tests.
 - **Protected paths:** `web/`, `bot_edu/`, `main.py`, and `giso/bot.py` remain unchanged.
 
@@ -22,7 +22,7 @@
 
 ## 4. Current Scenario
 
-- **Current user request:** start Stage 6 price comparison. Implemented and tested locally; Stage 6 has not been pushed. Pause before Stage 7 and await next instruction on publication.
+- **Current user request:** start Stage 6 price comparison. Implemented, tested and pushed in commit `ca522c0`. Pause before Stage 7 and await confirmation.
 - **Stage 1:** reservation CTA and selected-service highlight were implemented in the center listing/detail experience.
 - **Stage 2:** gallery capacity/metadata/moderation and owner controls were implemented; pending items are not public before moderation.
 - **Stage 3:** compatible active service cards now offer Mirror preview; the result links back to the same center/service. Reservation GET/POST validates design ownership, type and active service mapping. The customer's photo is not exposed to the center.
@@ -42,11 +42,11 @@
 - **Wider beauty-center sweep after Stage 6:** **88 passed, 10 failed** in older stage 7/10/12/13/14 and admin-bot expectations; all Stage 6 tests pass. No full repository suite was rerun after Stage 5/6.
 - **Full suite (after Stage 3, before Stage 4):** complete run returned **727 passed, 69 failed, 4 skipped, 364 warnings**. Failures span several project areas and include missing `cv2`, stale UI/authorization expectations, environment/file errors and Buti AI tests. One beauty-center owner UI test expects the old label `افزایش دیده‌شدن آگهی`; it remains for separate review. Stage 4 has targeted/combined regressions, not a new full-suite rerun.
 - **Privacy:** only internal `final_design_id` and service/style metadata are linked to reservations. The salon does not receive the customer's photo; the reservation UI states this explicitly.
-- **Stage 4 and Stage 5:** committed and pushed as `e5512dc`. Stage 6 is local/uncommitted on base `c7362f0`; remote HEAD is also `c7362f0`. Stage 7 not started.
+- **Stage 4 and Stage 5:** committed and pushed as `e5512dc`. Stage 6 is committed and pushed as `ca522c0` on `arena/7f567e47-giso4`; Stage 7 not started.
 
 ## 6. Next Action
 
-- Report Stage 6 local completion, 11 pricing/benchmark passes and 10 remaining wider-sweep failures. Await separate instruction before pushing Stage 6 or starting Stage 7; do not claim the full repository suite is green.
+- Report Stage 6 local completion, 11 pricing/benchmark passes and 10 remaining wider-sweep failures. Await separate confirmation before starting Stage 7; do not claim the full repository suite is green.
 - Keep public launch blocked until documented cost ledger, provider-attempt audit, charge, idempotency, quota, circuit breaker, consent and worker queue requirements are addressed.
 
 ## 7. Architecture / Guide Findings
