@@ -184,7 +184,7 @@ def test_legacy_ai_credit_schema_is_migrated_before_panel_queries(tmp_path, monk
     with app.app_context():
         panel_data = context()["ai"]
     names = {str(row.get("name")) for row in panel_data.get("providers", [])}
-    assert {"groq", "openrouter", "mistral", "sambanova", "cloudflare", "gemini", "gapgpt", "avalai"}.issubset(names)
+    assert {"groq", "openrouter", "mistral", "cloudflare", "gemini", "gapgpt", "avalai"}.issubset(names)
 
 
 def test_ai_provider_context_survives_optional_credit_query_error(tmp_path, monkeypatch):
@@ -203,7 +203,7 @@ def test_ai_provider_context_survives_optional_credit_query_error(tmp_path, monk
         provider_context = context()["ai"]
 
     names = {str(row.get("name")) for row in provider_context.get("providers", [])}
-    assert {"groq", "openrouter", "mistral", "sambanova", "cloudflare", "gemini", "gapgpt", "avalai"}.issubset(names)
+    assert {"groq", "openrouter", "mistral", "cloudflare", "gemini", "gapgpt", "avalai"}.issubset(names)
     assert provider_context["credit_users"] == []
 
 

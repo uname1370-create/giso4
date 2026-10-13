@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
-"""فرم ساده «مدل دلخواه» در پنل AI سایت.
+"""گزینه‌های «افزودن سرویس» در پنل AI سایت.
 
-فقط سه ورودی لازم است: نام مدل، کلید API و آدرس بیس.
+۱) Cloudflare: نام (cf / cf1 / cf2 / cf3)، کلید API و Account ID.
+۲) مدل دلخواه: نام پروایدر، کلید API و آدرس بیس؛ مدل‌ها بعد از ذخیره
+   خودکار از /models شناسایی و اولین مدل پیداشده انتخاب می‌شود.
+
+شناسایی /models با مرز شبکه جایگزین شده است؛ هیچ درخواست واقعی ارسال نمی‌شود.
 """
 import os
 import sys
@@ -19,8 +23,8 @@ from giso import ai_brain  # noqa: E402
 SUPER_PHONE = normalize_phone("09156012931")
 ADMIN_PHONE = normalize_phone("09124445566")
 CSRF = "fixed-test-csrf-token"
-HOST = "api.custom-model-simple-test.example"
-URL = f"https://{HOST}/v1"
+BASE = "https://api.mtest-alpha.example/v1"
+NAMES = ("mtest-alpha", "mtest-beta", "mtest-host-check", "mtest-missing")
 
 
 def _ensure_user(app, phone):
@@ -38,9 +42,14 @@ def _login(client, phone):
         s["admin_panel_verified_until"] = int(time.time()) + 1800
 
 
-def _post(client, data):
-    return client.post("/admin/ai/custom-model/add", data=data,
-                       headers={"X-GISO-CSRF": CSRF}, follow_redirects=False)
+def _post(client, path, data):
+    data = dict(data)
+    data["csrf_token"] = CSRF
+    return client.post(path, data=data, headers={"X-GISO-CSRF": CSRF}, follow_redirects=False)
+
+
+def _custom(client, data):
+    return _post(client, "/admin/ai/custom-model/add", data)
 
 
 def _row(name):
@@ -48,140 +57,166 @@ def _row(name):
 
 
 def _cleanup():
-    for name in ("custom-api-custom-model-simple-test-example",
-                 "custom-api-custom-model-simple-test-example-2"):
+    for name in NAMES:
         if _row(name):
             ai_brain.delete_ai_provider(name)
 
 
-def test_custom_model_saved_with_only_three_fields():
+def _fake_fetch(items=None, ok=True, error=""):
+    async def _fetch(row):
+        if not ok:
+            return {"ok": False, "error": error or "HTTP 404"}
+        return {"ok": True, "items": list(items or [])}
+    return _fetch
+
+
+def _setup(monkeypatch, phone=SUPER_PHONE):
     app = create_app()
-    _ensure_user(app, SUPER_PHONE)
+    _ensure_user(app, phone)
     client = app.test_client()
-    _login(client, SUPER_PHONE)
+    _login(client, phone)
     _cleanup()
+    return client
+
+
+# ── گزینه مدل دلخواه ─────────────────────────────────────────
+
+def test_custom_provider_saved_and_discovered_models_picked(monkeypatch):
+    client = _setup(monkeypatch)
+    monkeypatch.setattr(ai_brain, "_fetch_remote_models", _fake_fetch(
+        items=[{"id": "plain-text-one"}, {"id": "llava-vision-two"}]))
     try:
-        r = _post(client, {"model_name": "my-model-v1", "api_key": "FAKE-SIMPLE-KEY-0001", "base_url": URL,
-                           "csrf_token": CSRF})
+        r = _custom(client, {"provider_name": "mtest-alpha", "api_key": "FAKE-ALPHA-KEY-0001", "base_url": BASE})
         assert r.status_code == 302
-        row = _row("custom-api-custom-model-simple-test-example")
+        row = _row("mtest-alpha")
         assert row is not None
         assert row["kind"] == "openai"
-        assert row["base_url"] == URL
-        assert row["api_root"] == URL
-        assert row["selected_model"] == "my-model-v1"
-        assert row["api_key"] == "FAKE-SIMPLE-KEY-0001"
-        assert int(row["timeout"]) == 20
-        assert int(row["is_iranian"]) == 0
-        assert int(row["use_proxy"]) == 0
+        assert row["base_url"] == BASE
+        assert row["api_key"] == "FAKE-ALPHA-KEY-0001"
         assert int(row["enabled"]) == 1
-        env_text = ai_brain._ENV_PATH.read_text(encoding="utf-8") if ai_brain._ENV_PATH.exists() else ""
-        assert "custom-api-custom-model-simple-test-example" in env_text
+        assert row["models_source"] == "discovered"
+        assert row["selected_model"] == "llava-vision-two"  # Vision اول
+        assert "llava-vision-two" in row["vision_models_json"]
+        assert "plain-text-one" in row["text_models_json"]
     finally:
         _cleanup()
 
 
-def test_same_domain_gets_new_name_and_never_overwrites():
-    app = create_app()
-    _ensure_user(app, SUPER_PHONE)
-    client = app.test_client()
-    _login(client, SUPER_PHONE)
-    _cleanup()
+def test_discovery_failure_still_saves_and_warns(monkeypatch):
+    client = _setup(monkeypatch)
+    monkeypatch.setattr(ai_brain, "_fetch_remote_models", _fake_fetch(ok=False, error="HTTP 404"))
     try:
-        _post(client, {"model_name": "m-one", "api_key": "FAKE-FIRST-KEY-0002", "base_url": URL, "csrf_token": CSRF})
-        _post(client, {"model_name": "m-two", "api_key": "FAKE-SECOND-KEY-0003", "base_url": URL, "csrf_token": CSRF})
-        first = _row("custom-api-custom-model-simple-test-example")
-        second = _row("custom-api-custom-model-simple-test-example-2")
-        assert first["api_key"] == "FAKE-FIRST-KEY-0002"
-        assert first["selected_model"] == "m-one"
-        assert second is not None
-        assert second["api_key"] == "FAKE-SECOND-KEY-0003"
-        assert second["selected_model"] == "m-two"
-    finally:
-        _cleanup()
-
-
-def test_unsafe_or_plain_http_base_url_is_rejected():
-    app = create_app()
-    _ensure_user(app, SUPER_PHONE)
-    client = app.test_client()
-    _login(client, SUPER_PHONE)
-    _cleanup()
-    try:
-        for bad in ("https://127.0.0.1/v1", "https://localhost/v1", "http://api.custom-model-simple-test.example/v1"):
-            _post(client, {"model_name": "x", "api_key": "FAKE-BAD-KEY-0004", "base_url": bad, "csrf_token": CSRF})
-        assert _row("custom-api-custom-model-simple-test-example") is None
-        assert _row("custom-127-0-0-1") is None
-        assert _row("custom-localhost") is None
-    finally:
-        _cleanup()
-
-
-def test_missing_fields_are_rejected():
-    app = create_app()
-    _ensure_user(app, SUPER_PHONE)
-    client = app.test_client()
-    _login(client, SUPER_PHONE)
-    _cleanup()
-    try:
-        _post(client, {"model_name": "", "api_key": "FAKE-KEY-0005", "base_url": URL, "csrf_token": CSRF})
-        _post(client, {"model_name": "m", "api_key": "", "base_url": URL, "csrf_token": CSRF})
-        _post(client, {"model_name": "m", "api_key": "FAKE-KEY-0005", "base_url": "", "csrf_token": CSRF})
-        _post(client, {"model_name": "has space", "api_key": "FAKE-KEY-0005", "base_url": URL, "csrf_token": CSRF})
-        assert _row("custom-api-custom-model-simple-test-example") is None
-    finally:
-        _cleanup()
-
-
-def test_non_super_admin_cannot_add():
-    app = create_app()
-    _ensure_user(app, ADMIN_PHONE)
-    client = app.test_client()
-    _login(client, ADMIN_PHONE)
-    _cleanup()
-    try:
-        r = _post(client, {"model_name": "m", "api_key": "FAKE-KEY-0006", "base_url": URL, "csrf_token": CSRF})
+        r = _custom(client, {"provider_name": "mtest-beta", "api_key": "FAKE-BETA-KEY-0002", "base_url": BASE})
         assert r.status_code == 302
-        assert _row("custom-api-custom-model-simple-test-example") is None
+        row = _row("mtest-beta")
+        assert row is not None
+        assert row["selected_model"] == ""
+        with client.session_transaction() as s:
+            flashes = " ".join(m for _, m in s.get("_flashes", []))
+        assert "شناسایی مدل‌ها انجام نشد" in flashes
     finally:
         _cleanup()
 
 
-def test_simple_form_and_advanced_form_are_both_on_page():
-    app = create_app()
-    _ensure_user(app, SUPER_PHONE)
-    client = app.test_client()
-    _login(client, SUPER_PHONE)
-    html = client.get("/admin/ai").get_data(as_text=True)
-    assert "افزودن مدل دلخواه (ساده)" in html
-    assert "افزودن سرویس پیشرفته" in html
-    assert 'name="model_name"' in html
-    assert "/admin/ai/custom-model/add" in html or "ai_custom_model_add" in html or "custom-model/add" in html
-
-
-def test_cloudflare_url_is_refused_in_simple_form():
-    app = create_app()
-    _ensure_user(app, SUPER_PHONE)
-    client = app.test_client()
-    _login(client, SUPER_PHONE)
-    _cleanup()
+def test_existing_name_is_never_overwritten(monkeypatch):
+    client = _setup(monkeypatch)
+    monkeypatch.setattr(ai_brain, "_fetch_remote_models", _fake_fetch(items=[{"id": "plain-text-one"}]))
     try:
+        _custom(client, {"provider_name": "mtest-alpha", "api_key": "FAKE-FIRST-KEY-0003", "base_url": BASE})
+        _custom(client, {"provider_name": "mtest-alpha", "api_key": "FAKE-SECOND-KEY-0004",
+                         "base_url": "https://api.other-host.example/v1"})
+        row = _row("mtest-alpha")
+        assert row["api_key"] == "FAKE-FIRST-KEY-0003"
+        assert row["base_url"] == BASE
+    finally:
+        _cleanup()
+
+
+def test_reserved_and_registry_names_are_rejected(monkeypatch):
+    client = _setup(monkeypatch)
+    try:
+        for reserved in ("cf", "cf1", "cloudflare", "groq", "gemini", "Bad Name!"):
+            before = _row(reserved)
+            before_key = before["api_key"] if before else None
+            key = f"FAKE-RESERVED-{reserved}-0005"
+            r = _custom(client, {"provider_name": reserved, "api_key": key, "base_url": BASE})
+            assert r.status_code == 302
+            after = _row(reserved)
+            assert (after["api_key"] if after else None) == before_key
+            assert after is None or key not in str(after["api_key"])
+    finally:
+        _cleanup()
+
+
+def test_plain_http_and_cloudflare_host_are_rejected(monkeypatch):
+    client = _setup(monkeypatch)
+    try:
+        _custom(client, {"provider_name": "mtest-missing", "api_key": "FAKE-HTTP-KEY-0006",
+                         "base_url": "http://api.mtest-missing.example/v1"})
+        assert _row("mtest-missing") is None
         cf = "https://api.cloudflare.com/client/v4/accounts/1234567890abcdef1234567890abcdef/ai/run"
-        r = _post(client, {"model_name": "m", "api_key": "FAKE-CF-KEY-0007", "base_url": cf, "csrf_token": CSRF})
-        assert r.status_code == 302
-        assert _row("custom-cloudflare") is None
-        assert _row("custom-api-cloudflare-com") is None
+        _custom(client, {"provider_name": "mtest-host-check", "api_key": "FAKE-CF-HOST-0007", "base_url": cf})
+        assert _row("mtest-host-check") is None
     finally:
         _cleanup()
 
 
-def test_advanced_form_is_collapsed_by_default_and_simple_form_is_open():
-    app = create_app()
-    _ensure_user(app, SUPER_PHONE)
-    client = app.test_client()
-    _login(client, SUPER_PHONE)
+def test_missing_fields_are_rejected(monkeypatch):
+    client = _setup(monkeypatch)
+    try:
+        _custom(client, {"provider_name": "mtest-missing", "api_key": "", "base_url": BASE})
+        _custom(client, {"provider_name": "", "api_key": "FAKE-MISS-KEY-0008", "base_url": BASE})
+        _custom(client, {"provider_name": "mtest-missing", "api_key": "FAKE-MISS-KEY-0008", "base_url": ""})
+        assert _row("mtest-missing") is None
+    finally:
+        _cleanup()
+
+
+def test_non_super_admin_cannot_add(monkeypatch):
+    client = _setup(monkeypatch, phone=ADMIN_PHONE)
+    try:
+        r = _custom(client, {"provider_name": "mtest-alpha", "api_key": "FAKE-ADMIN-KEY-0009", "base_url": BASE})
+        assert r.status_code == 302
+        assert _row("mtest-alpha") is None
+    finally:
+        _cleanup()
+
+
+# ── صفحه ───────────────────────────────────────────────────────
+
+def test_page_has_two_options_and_no_old_three_field_card(monkeypatch):
+    client = _setup(monkeypatch)
     html = client.get("/admin/ai").get_data(as_text=True)
-    adv = html.index("افزودن سرویس پیشرفته")
-    assert '<details class="pnl-card" style="padding:0;">' in html
-    assert html.index("افزودن مدل دلخواه (ساده)") < html.index('<details class="pnl-card" style="padding:0;">')
-    assert "data-ai-provider-add-form" in html  # full form still exists inside the collapsed block
+    assert "data-add-chooser" in html
+    assert 'value="cf"' in html and 'value="custom"' in html
+    assert "افزودن مدل Cloudflare" in html
+    assert "مدل دلخواه (هر سرویس سازگار با OpenAI)" in html
+    assert 'name="provider_name"' in html
+    assert "نام مدل* — مثلاً my-model-v1" not in html  # فرم قدیمی سه‌فیلدی حذف شده
+    assert "افزودن سرویس پیشرفته" in html  # فرم پیشرفته باقی مانده
+
+
+def test_cloudflare_option_posts_to_provider_add_with_account_field(monkeypatch):
+    client = _setup(monkeypatch)
+    html = client.get("/admin/ai").get_data(as_text=True)
+    cf_start = html.index('data-add-panel="cf"')
+    cf_block = html[html.rindex("<form", 0, cf_start):html.index("</form>", cf_start)]
+    assert 'name="account_id"' in cf_block
+    assert 'name="api_key"' in cf_block
+    assert '<option value="cf1">' in cf_block
+    import re
+    action = re.search(r'action="([^"]+)"', cf_block).group(1)
+    assert "provider" in action and "custom-model" not in action
+
+
+def test_provider_card_lists_discovered_models(monkeypatch):
+    client = _setup(monkeypatch)
+    monkeypatch.setattr(ai_brain, "_fetch_remote_models", _fake_fetch(
+        items=[{"id": "plain-text-one"}, {"id": "llava-vision-two"}]))
+    try:
+        _custom(client, {"provider_name": "mtest-alpha", "api_key": "FAKE-ALPHA-KEY-0010", "base_url": BASE})
+        html = client.get("/admin/ai").get_data(as_text=True)
+        assert '<option value="llava-vision-two" selected>' in html
+        assert '<option value="plain-text-one"' in html
+    finally:
+        _cleanup()

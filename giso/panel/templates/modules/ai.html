@@ -34,16 +34,55 @@
     <!-- ═══ تب ۱: پروایدرها ═══ -->
     <!-- ═══ تب ۱: پروایدرها ═══ -->
     <section class="pnl-pane show" id="pane-providers">
-        <div class="pnl-card">
-            <h3>🧩 افزودن مدل دلخواه (ساده)</h3>
-            <p class="pnl-muted" style="line-height:1.9;">فقط سه مورد لازم است. نام پروایدر به‌صورت خودکار از دامنهٔ آدرس ساخته می‌شود. برای Cloudflare یا تنظیمات پیشرفته، فرم «افزودن سرویس» پایین را استفاده کنید.</p>
-            <form method="POST" action="{{ url_for('panel.ai_custom_model_add') }}" class="pnl-grid-form">
+        <div class="pnl-card" data-add-chooser>
+            <h3>➕ افزودن سرویس</h3>
+            <p class="pnl-muted" style="line-height:1.9;">یکی از دو گزینه را انتخاب کن:</p>
+            <div style="display:flex;flex-wrap:wrap;gap:14px;margin:8px 0 12px;">
+                <label class="pnl-check"><input type="radio" name="add_choice" value="cf" checked data-add-choice> ⚡ افزودن مدل Cloudflare (cf / cf1 / cf2 / cf3)</label>
+                <label class="pnl-check"><input type="radio" name="add_choice" value="custom" data-add-choice> 🧩 مدل دلخواه (هر سرویس سازگار با OpenAI)</label>
+            </div>
+
+            <form method="POST" action="{{ url_for('panel.ai_provider_add') }}" class="pnl-grid-form" data-add-panel="cf">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="text" name="model_name" placeholder="نام مدل* — مثلاً my-model-v1" dir="ltr" required>
-                <input type="password" name="api_key" placeholder="کلید API / Token* (الزامی)" dir="ltr" autocomplete="off" required>
-                <input type="text" name="base_url" placeholder="آدرس بیس* — مثلاً https://api.example.com/v1" dir="ltr" required>
-                <button class="pnl-btn pnl-btn-gold">💾 ذخیره مدل دلخواه</button>
+                <select name="name" required>
+                    <option value="cf">cf — Cloudflare اصلی</option>
+                    <option value="cf1">cf1 — Cloudflare اکانت ۱</option>
+                    <option value="cf2">cf2 — Cloudflare اکانت ۲</option>
+                    <option value="cf3">cf3 — Cloudflare اکانت ۳</option>
+                </select>
+                <input type="password" name="api_key" placeholder="API Token* (الزامی)" dir="ltr" autocomplete="off" required>
+                <input type="text" name="account_id" placeholder="Cloudflare Account ID* (الزامی)" dir="ltr" required>
+                <small class="pnl-muted" style="grid-column:1/-1;">آدرس اجرا خودکار ساخته می‌شود. مدل‌ها از رجیستری Cloudflare شناسایی می‌شوند. هر اکانت را با نام جدا (cf1، cf2، cf3) ثبت کن؛ ثبت دوباره همان نام، ردیف قبلی را جایگزین می‌کند.</small>
+                <button class="pnl-btn pnl-btn-gold">💾 ذخیره و شناسایی مدل‌ها</button>
             </form>
+
+            <form method="POST" action="{{ url_for('panel.ai_custom_model_add') }}" class="pnl-grid-form" data-add-panel="custom" style="display:none;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="provider_name" placeholder="نام پروایدر* — مثلاً my-provider (انگلیسی)" dir="ltr" pattern="[a-z][a-z0-9_\-]{1,39}" title="۲ تا ۴۰ نویسه: حروف انگلیسی کوچک، عدد، - یا _" required disabled>
+                <input type="password" name="api_key" placeholder="کلید API / Token* (الزامی)" dir="ltr" autocomplete="off" required disabled>
+                <input type="text" name="base_url" placeholder="آدرس بیس* — مثلاً https://api.example.com/v1" dir="ltr" required disabled>
+                <small class="pnl-muted" style="grid-column:1/-1;">مدل‌ها بعد از ذخیره، مستقیم از <code dir="ltr">/models</code> همان سرویس خوانده می‌شوند و اولین مدل پیدا‌شده به‌عنوان مدل انتخابی ثبت می‌شود. نام تکراری هرگز رونویسی نمی‌شود.</small>
+                <button class="pnl-btn pnl-btn-gold">💾 ذخیره و شناسایی خودکار مدل‌ها</button>
+            </form>
+
+            <script>
+            (function(){
+              var card=document.querySelector('[data-add-chooser]');
+              if(!card) return;
+              function show(choice){
+                card.querySelectorAll('[data-add-panel]').forEach(function(f){
+                  var on=f.getAttribute('data-add-panel')===choice;
+                  f.style.display=on?'':'none';
+                  f.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=!on; });
+                });
+              }
+              card.querySelectorAll('[data-add-choice]').forEach(function(r){
+                r.addEventListener('change',function(){ if(r.checked) show(r.value); });
+              });
+              var checked=card.querySelector('[data-add-choice]:checked');
+              show(checked?checked.value:'cf');
+            })();
+            </script>
         </div>
 
         <details class="pnl-card" style="padding:0;">
@@ -152,6 +191,17 @@
                         <button class="pnl-btn pnl-btn-danger pnl-btn-sm" onclick="return confirm('⚠️ حذف {{ p.name }}؟');">🗑 حذف</button>
                     </form>
                 </div>
+                {% if p.discovered_models %}
+                <form method="POST" action="{{ url_for('panel.ai_provider_update', name=p.name) }}" class="pnl-inline-form" style="margin-top:6px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="field" value="selected_model">
+                    <span class="pnl-muted" style="font-size:.72rem;">🧠 مدل‌های شناسایی‌شده:</span>
+                    <select name="value" dir="ltr" style="min-width:260px;">
+                        {% for mid in p.discovered_models %}<option value="{{ mid }}" {% if mid == p.selected_model %}selected{% endif %}>{{ mid }}</option>{% endfor %}
+                    </select>
+                    <button class="pnl-btn pnl-btn-outline pnl-btn-sm">✅ انتخاب مدل</button>
+                </form>
+                {% endif %}
                 <details class="pnl-details" style="margin-top:8px;">
                     <summary>✏️ ویرایش فیلد</summary>
                     <form method="POST" action="{{ url_for('panel.ai_provider_update', name=p.name) }}" class="pnl-inline-form" style="margin-top:6px;">

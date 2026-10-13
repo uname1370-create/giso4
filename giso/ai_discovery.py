@@ -28,7 +28,7 @@ DISCOVERY_SKIP_PROVIDERS = ("cloudflare",)
 
 # پروایدرهایی که کلاً رایگان/محدودشده هستند؛ وقتی /models قیمت ندهد،
 # مدل‌هایشان «رایگان» فرض می‌شود.
-KNOWN_FREE_PROVIDERS = ("openrouter", "groq", "mistral", "sambanova", "cloudflare")
+KNOWN_FREE_PROVIDERS = ("openrouter", "groq", "mistral", "cloudflare")
 
 # نقشهٔ راه الگوریتم: دقیقاً هر سرویس کجا و چطور بررسی شود و دنبال چه بگردد.
 # آدرس = {base}/models (base از تنظیمات همان پروایدر می‌آید) + کلید + پروکسی خودش.
@@ -36,7 +36,6 @@ PROVIDER_PLAYBOOK = {
     "openrouter": "GET /models با قیمت رسمی در پاسخ؛ فقط مدل‌های قیمت‌صفر یا ':free' — بینایی از فیلد image در input_modalities",
     "groq": "GET /models؛ همه رایگان‌اند (قیمت در پاسخ نیست) — بینایی با کلید (llama-4/llava)، متنی قوی 70b به بالا",
     "mistral": "GET /models؛ تیر رایگان همه مدل‌ها را دارد — بینایی: pixtral و mistral-small",
-    "sambanova": "GET /models؛ معمولاً ۴۰۲ یعنی کردیت تمام شده — اگر جواب داد، همه رایگان‌اند",
     "gemini": "از ورکر Cloudflare کاربر: {worker}/v1/models — مدل‌های جمینای همگی بینایی دارند",
     "cloudflare": "اندپوینت /models ندارد؛ مدل‌ها از رجیستری پایه مدیریت می‌شوند (کشف نمی‌شود)",
 }
@@ -256,8 +255,7 @@ async def discover_provider(name: str) -> dict:
     fetched = await ai_brain._fetch_remote_models(row)
     if not fetched or not fetched.get("ok"):
         err = _fa_fetch_error((fetched or {}).get("error", "خطا"))
-        hint = {"sambanova": " (این سرویس اخیراً عملاً اعتباری شده است)",
-                "gemini": " (اتصال باید از ورکر کلودفلر باشد)"}.get(str(name).lower(), "")
+        hint = {"gemini": " (اتصال باید از ورکر کلودفلر باشد)"}.get(str(name).lower(), "")
         report["error"] = err + hint
         return report
 

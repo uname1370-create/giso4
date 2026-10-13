@@ -355,6 +355,38 @@ def delete_ai_provider(name):
         conn.close()
 
 
+def set_provider_selected_model(name, model):
+    """مدل انتخابی یک پروایدر موجود را ذخیره می‌کند؛ ردیف ساخته نمی‌شود."""
+    conn = get_conn()
+    try:
+        with _lock, conn:
+            cur = conn.execute(
+                "UPDATE giso_ai_providers SET selected_model=? WHERE name=?",
+                (str(model or ""), name),
+            )
+        return cur.rowcount > 0
+    except Exception as e:
+        logger.error(f"set_provider_selected_model: {e}")
+        return False
+
+
+def first_discovered_model(provider_name):
+    """اولین مدل کشف‌شده را برمی‌گرداند: ابتدا Vision، بعد Text (مدل غیرفعال نادیده گرفته می‌شود)."""
+    row = get_ai_provider(provider_name)
+    if row is None:
+        return ""
+    for col in ("vision_models_json", "text_models_json"):
+        try:
+            items = json.loads(_col(row, col, "") or "[]")
+        except Exception:
+            items = []
+        for item in items if isinstance(items, list) else []:
+            mid = str((item.get("id") if isinstance(item, dict) else item) or "").strip()
+            if mid and not (isinstance(item, dict) and item.get("disabled")):
+                return mid
+    return ""
+
+
 def toggle_ai_provider(name):
     conn = get_conn()
     try:
@@ -1188,7 +1220,7 @@ REGISTRY_SEED_PROVIDERS = tuple(PROVIDERS_REGISTRY.keys())
 
 # پروایدرهای بازنشستهٔ پروژه (دستور کارفرما ۱۴۰۵-۰۶-۱۸: در پروژه جواب نمی‌دادند).
 # ردیف‌شان حذف نمی‌شود تا داده‌ای از بین نرود؛ فقط غیرفعال می‌مانند (الگوی LLM7).
-RETIRED_PROVIDERS = ("huggingface", "cerebras", "llm7")
+RETIRED_PROVIDERS = ("huggingface", "cerebras", "llm7", "sambanova")
 
 
 def _refresh_registry_sourced_models():
@@ -1204,7 +1236,7 @@ def _refresh_registry_sourced_models():
     """
     from giso.ai_models_registry import get_provider as _reg_provider
     # فقط پروایدرهای رایگانِ لیست تمیز تازه‌سازی می‌شوند؛ بقیه دست‌نخورده.
-    refresh_names = ("groq", "openrouter", "mistral", "sambanova", "cloudflare")
+    refresh_names = ("groq", "openrouter", "mistral", "cloudflare")
     try:
         for name in refresh_names:
             reg = _reg_provider(name) or {}

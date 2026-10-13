@@ -95,26 +95,6 @@ PROVIDERS = {
             {"id": "codestral-latest", "is_free": True, "context": 256000, "source": "hardcoded"},
         ],
     },
-    "sambanova": {
-        "name": "sambanova",
-        "display_name": "SambaNova",
-        "kind": "openai",
-        "base_url": "https://api.sambanova.ai/v1",
-        "api_root": "https://api.sambanova.ai/v1",
-        "timeout": 25,
-        "is_iranian": False,
-        "supports_vision": False,
-        "supports_text": True,
-        "supports_proxy": True,
-        # رایگان بدون کارت: ۶۰۰ درخواست/دقیقه — فقط متنی (بینایی ندارد)
-        "vision_models": [],
-        "text_models": [
-            {"id": "Meta-Llama-3.3-70B-Instruct", "is_free": True, "context": 128000, "source": "hardcoded"},
-            {"id": "Meta-Llama-3.1-8B-Instruct", "is_free": True, "context": 128000, "source": "hardcoded"},
-            {"id": "DeepSeek-R1-Distill-Llama-70B", "is_free": True, "context": 128000, "source": "hardcoded"},
-            {"id": "DeepSeek-R1", "is_free": True, "context": 128000, "source": "hardcoded"},
-        ],
-    },
     "cloudflare": {
         "name": "cloudflare",
         "display_name": "Cloudflare Workers AI",

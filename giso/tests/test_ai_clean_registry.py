@@ -15,15 +15,15 @@ def test_retired_providers_removed_from_registry():
     from giso.ai_models_registry import PROVIDERS
     assert "huggingface" not in PROVIDERS
     assert "cerebras" not in PROVIDERS
+    assert "sambanova" not in PROVIDERS
 
 
 def test_clean_registry_providers_exist():
     from giso.ai_models_registry import PROVIDERS, get_provider
-    for name in ("groq", "openrouter", "mistral", "sambanova", "cloudflare",
+    for name in ("groq", "openrouter", "mistral", "cloudflare",
                  "gemini", "gapgpt", "avalai"):
         assert name in PROVIDERS, f"پروایدر {name} از رجیستری پاک حذف شده"
     assert get_provider("mistral")["base_url"] == "https://api.mistral.ai/v1"
-    assert get_provider("sambanova")["base_url"] == "https://api.sambanova.ai/v1"
     assert get_provider("groq")["base_url"] == "https://api.groq.com/openai/v1"
 
 
@@ -82,8 +82,9 @@ def test_chat_failover_chain_free_first():
     assert "huggingface" not in DEFAULT_ACTIVE_PROVIDER_ORDER
     assert "cerebras" not in DEFAULT_ACTIVE_PROVIDER_ORDER
     assert DEFAULT_ACTIVE_PROVIDER_ORDER[0] == "groq"
-    for name in ("openrouter", "sambanova", "mistral"):
+    for name in ("openrouter", "mistral"):
         assert name in DEFAULT_ACTIVE_PROVIDER_ORDER
+    assert "sambanova" not in DEFAULT_ACTIVE_PROVIDER_ORDER
 
 
 def test_vision_priority_free_first():
@@ -100,4 +101,5 @@ def test_retired_providers_disabled_at_seed():
     assert "cerebras" in RETIRED_PROVIDERS
     assert "llm7" in RETIRED_PROVIDERS
     assert "mistral" in REGISTRY_SEED_PROVIDERS
-    assert "sambanova" in REGISTRY_SEED_PROVIDERS
+    assert "sambanova" not in REGISTRY_SEED_PROVIDERS
+    assert "sambanova" in RETIRED_PROVIDERS

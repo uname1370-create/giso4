@@ -798,6 +798,20 @@ def context():
                         row["models_last_updated_fa"] = _relative_time_fa(row["models_last_updated"])
                         row["models_source"] = str(_col(prov, "models_source", "") or "")
                         row["discovery_report"] = str(_col(prov, "discovery_report", "") or "")
+                        # اسم مدل‌های کشف‌شده (Vision + Text) برای انتخاب در کارت پروایدر
+                        try:
+                            _ids = []
+                            _raw_models = (
+                                list(_json.loads(_col(prov, "vision_models_json", "") or "[]"))
+                                + list(_json.loads(_col(prov, "text_models_json", "") or "[]"))
+                            )
+                            for _m in _raw_models:
+                                _mid = str((_m.get("id") if isinstance(_m, dict) else _m) or "").strip()
+                                if _mid and not (isinstance(_m, dict) and _m.get("disabled")) and _mid not in _ids:
+                                    _ids.append(_mid)
+                            row["discovered_models"] = _ids[:80]
+                        except Exception:
+                            row["discovered_models"] = []
                         if pname.lower() == "gemini":
                             row["effective_base_url"] = _effective_base_url("gemini", row["base_url"])
                             row["connects_via_worker"] = "workers.dev" in (row["effective_base_url"] or "").lower()
@@ -870,12 +884,19 @@ def context():
     return {"ai": data}
 
 
-def handle_custom_model_add():
-    """فرم ساده «مدل دلخواه»: فقط نام مدل، کلید API و آدرس بیس.
+def _first_discovered_model(provider_name):
+    """اولین مدل کشف‌شده (Vision اول) از منطق مشترک ai_brain."""
+    from giso.ai_brain import first_discovered_model
+    return first_discovered_model(provider_name)
 
-    بقیه تنظیمات ثابت است: نوع openai، تایم‌اوت ۲۰، بدون پروکسی، غیرایرانی.
-    نام پروایدر خودکار و یکتا ساخته می‌شود (custom-<دامنه>)، پس هیچ پروایدر
-    موجودی بازنویسی نمی‌شود. این مدل به اسلات‌های آینه گیسو اضافه نمی‌شود.
+
+def handle_custom_model_add():
+    """گزینه «مدل دلخواه»: نام پروایدر، کلید API و آدرس بیس.
+
+    بعد از ذخیره، مدل‌ها مستقیم از /models همان سرویس شناسایی می‌شوند و
+    اولین مدل پیداشده (Vision، سپس Text) به‌عنوان مدل انتخابی ثبت می‌شود.
+    نام تکراری یا رزرو‌شده هرگز رونویسی نمی‌شود. این سرویس به اسلات‌های
+    آینه گیسو اضافه نمی‌شود.
     """
     g = _require_super()
     if g:
@@ -883,53 +904,51 @@ def handle_custom_model_add():
     import re as _re
     from urllib.parse import urlparse
 
-    model_name = (request.form.get("model_name") or "").strip()
+    name = (request.form.get("provider_name") or "").strip().lower()
     api_key = (request.form.get("api_key") or "").strip()
     base_url = (request.form.get("base_url") or "").strip()
-    if not model_name or not api_key or not base_url:
-        flash("برای مدل دلخواه، نام مدل، کلید API و آدرس بیس هر سه لازم هستند.", "warning")
+    if not name or not api_key or not base_url:
+        flash("برای مدل دلخواه، نام پروایدر، کلید API و آدرس بیس هر سه لازم هستند.", "warning")
         return redirect(url_for("panel.ai"))
-    if len(model_name) > 200 or _re.search(r"\s", model_name):
-        flash("نام مدل نباید فاصله یا خط جدید داشته باشد و باید کمتر از ۲۰۰ نویسه باشد.", "warning")
+    if not _re.fullmatch(r"[a-z][a-z0-9_-]{1,39}", name):
+        flash("نام پروایدر باید ۲ تا ۴۰ نویسه، فقط حروف انگلیسی، عدد، «-» یا «_» باشد.", "warning")
+        return redirect(url_for("panel.ai"))
+    if _re.fullmatch(r"cf[1-3]?|cloudflare", name):
+        flash("نام‌های cf / cf1 / cf2 / cf3 برای Cloudflare رزرو هستند؛ از گزینه Cloudflare استفاده کنید.", "warning")
+        return redirect(url_for("panel.ai"))
+    from giso.ai_models_registry import get_provider as _reg_provider, normalize_provider_name as _normalize_pname
+    if _reg_provider(name) or _normalize_pname(name) != name:
+        flash("این نام متعلق به یک سرویس رجیسترشده است؛ نام دیگری بدهید.", "warning")
         return redirect(url_for("panel.ai"))
     if not _valid_base_url(base_url):
         flash("آدرس بیس باید با https:// شروع شود.", "warning")
         return redirect(url_for("panel.ai"))
     if (urlparse(base_url).hostname or "").lower() == "api.cloudflare.com":
-        flash("برای Cloudflare از «افزودن سرویس پیشرفته» (cf1 / cf2 / cf3 با Account ID) استفاده کنید.", "warning")
+        flash("برای Cloudflare از گزینه «Cloudflare» (cf / cf1 / cf2 / cf3 با Account ID) استفاده کنید.", "warning")
         return redirect(url_for("panel.ai"))
 
     from giso.ai_brain import (
         _validate_base_url, add_ai_provider, get_ai_provider,
-        save_provider_to_env, refresh_models,
+        save_provider_to_env, refresh_models, set_provider_selected_model,
     )
     try:
         _validate_base_url(base_url)
     except ValueError as exc:
         flash(str(exc), "warning")
         return redirect(url_for("panel.ai"))
-
-    host = (urlparse(base_url).hostname or "").lower()
-    slug = _re.sub(r"[^a-z0-9]+", "-", host).strip("-")[:40] or "model"
-    base_name = f"custom-{slug}"
-    name = base_name
-    suffix = 2
-    while get_ai_provider(name):
-        name = f"{base_name}-{suffix}"
-        suffix += 1
-        if suffix > 20:
-            flash("برای این دامنه بیش از ۲۰ مدل دلخواه ثبت شده است. یکی را حذف کنید.", "warning")
-            return redirect(url_for("panel.ai"))
+    if get_ai_provider(name):
+        flash(f"پروایدر «{name}» از قبل وجود دارد. برای جلوگیری از رونویسی، نام دیگری بدهید.", "warning")
+        return redirect(url_for("panel.ai"))
 
     try:
         ok = add_ai_provider(
             name=name, kind="openai", api_key=api_key, base_url=base_url,
-            api_root=base_url, timeout=20, is_iranian=False, selected_model=model_name,
-            enabled=True, use_proxy=False, replace=False, models_source="manual",
+            api_root=base_url, timeout=20, is_iranian=False, selected_model="",
+            enabled=True, use_proxy=False, replace=False, models_source="discovered",
             proxy_url="", proxy_type="",
         )
     except Exception as exc:
-        logger.error(f"custom model add: {type(exc).__name__}")
+        logger.error(f"custom provider add: {type(exc).__name__}")
         flash("ذخیرهٔ مدل دلخواه انجام نشد.", "danger")
         return redirect(url_for("panel.ai"))
     if not ok:
@@ -937,22 +956,26 @@ def handle_custom_model_add():
         return redirect(url_for("panel.ai"))
 
     try:
-        save_provider_to_env(name=name, api_key=api_key, base_url=base_url, model=model_name,
-                             enabled=True, proxy=False, iranian=False, timeout=20)
+        save_provider_to_env(name=name, api_key=api_key, base_url=base_url,
+                             model="", enabled=True, proxy=False, iranian=False, timeout=20)
     except Exception as exc:
-        logger.error(f"custom model env backup: {type(exc).__name__}")
-        flash("مدل در دیتابیس ذخیره شد، ولی نسخهٔ پشتیبان .env نوشته نشد.", "warning")
+        logger.error(f"custom provider env backup: {type(exc).__name__}")
+        flash("پروایدر در دیتابیس ذخیره شد، ولی نسخهٔ پشتیبان .env نوشته نشد.", "warning")
 
     try:
         res = refresh_models(name) or {}
-        if res.get("ok"):
-            flash(f"✅ مدل «{model_name}» با نام «{name}» ذخیره شد — "
-                  f"{res.get('vision_count', 0)} مدل Vision و {res.get('text_count', 0)} مدل Text شناسایی شد.",
-                  "success")
-        else:
-            flash(f"✅ مدل «{model_name}» با نام «{name}» ذخیره شد. شناسایی لیست مدل‌ها انجام نشد "
-                  f"({str(res.get('error') or '')[:80]}).", "success")
     except Exception as exc:
-        logger.error(f"custom model refresh: {type(exc).__name__}")
-        flash(f"✅ مدل «{model_name}» با نام «{name}» ذخیره شد.", "success")
+        logger.error(f"custom provider discovery: {type(exc).__name__}")
+        res = {"ok": False, "error": "خطای غیرمنتظره"}
+    if res.get("ok"):
+        picked = _first_discovered_model(name)
+        if picked:
+            set_provider_selected_model(name, picked)
+        flash(f"✅ پروایدر «{name}» ذخیره شد — {res.get('vision_count', 0)} مدل Vision و "
+              f"{res.get('text_count', 0)} مدل Text شناسایی شد"
+              + (f". مدل انتخابی: «{picked}» (هر وقت خواستی از فهرست عوضش کن)." if picked else "."),
+              "success")
+    else:
+        flash(f"✅ پروایدر «{name}» ذخیره شد، ولی شناسایی مدل‌ها انجام نشد "
+              f"({str(res.get('error') or '')[:80]}). بعداً با 🔄 دوباره امتحان کنید.", "warning")
     return redirect(url_for("panel.ai"))

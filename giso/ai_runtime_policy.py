@@ -33,7 +33,7 @@ DEFAULT_DISPLAY_NAME = "دستیار هوشمند گیسو"
 # بعد اوپن‌روتر/سامبانوا/میسترال؛ هوش مصنوعی‌های پولی ایرانی فقط پشتیبان آخر.
 # (HuggingFace و Cerebras حذف شدند؛ دستور کارفرما — در پروژه جواب نمی‌دادند.)
 DEFAULT_ACTIVE_PROVIDER_ORDER = [
-    "groq", "openrouter", "sambanova", "mistral",
+    "groq", "openrouter", "mistral",
     "cloudflare", "gemini", "gapgpt", "avalai",
 ]
 
