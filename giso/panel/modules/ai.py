@@ -895,6 +895,9 @@ def handle_custom_model_add():
     if not _valid_base_url(base_url):
         flash("آدرس بیس باید با https:// شروع شود.", "warning")
         return redirect(url_for("panel.ai"))
+    if (urlparse(base_url).hostname or "").lower() == "api.cloudflare.com":
+        flash("برای Cloudflare از «افزودن سرویس پیشرفته» (cf1 / cf2 / cf3 با Account ID) استفاده کنید.", "warning")
+        return redirect(url_for("panel.ai"))
 
     from giso.ai_brain import (
         _validate_base_url, add_ai_provider, get_ai_provider,

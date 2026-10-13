@@ -154,6 +154,34 @@ def test_simple_form_and_advanced_form_are_both_on_page():
     _login(client, SUPER_PHONE)
     html = client.get("/admin/ai").get_data(as_text=True)
     assert "افزودن مدل دلخواه (ساده)" in html
-    assert "افزودن سرویس هوش مصنوعی" in html
+    assert "افزودن سرویس پیشرفته" in html
     assert 'name="model_name"' in html
     assert "/admin/ai/custom-model/add" in html or "ai_custom_model_add" in html or "custom-model/add" in html
+
+
+def test_cloudflare_url_is_refused_in_simple_form():
+    app = create_app()
+    _ensure_user(app, SUPER_PHONE)
+    client = app.test_client()
+    _login(client, SUPER_PHONE)
+    _cleanup()
+    try:
+        cf = "https://api.cloudflare.com/client/v4/accounts/1234567890abcdef1234567890abcdef/ai/run"
+        r = _post(client, {"model_name": "m", "api_key": "FAKE-CF-KEY-0007", "base_url": cf, "csrf_token": CSRF})
+        assert r.status_code == 302
+        assert _row("custom-cloudflare") is None
+        assert _row("custom-api-cloudflare-com") is None
+    finally:
+        _cleanup()
+
+
+def test_advanced_form_is_collapsed_by_default_and_simple_form_is_open():
+    app = create_app()
+    _ensure_user(app, SUPER_PHONE)
+    client = app.test_client()
+    _login(client, SUPER_PHONE)
+    html = client.get("/admin/ai").get_data(as_text=True)
+    adv = html.index("افزودن سرویس پیشرفته")
+    assert '<details class="pnl-card" style="padding:0;">' in html
+    assert html.index("افزودن مدل دلخواه (ساده)") < html.index('<details class="pnl-card" style="padding:0;">')
+    assert "data-ai-provider-add-form" in html  # full form still exists inside the collapsed block

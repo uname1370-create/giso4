@@ -46,8 +46,9 @@
             </form>
         </div>
 
-        <div class="pnl-card">
-            <h3>➕ افزودن سرویس هوش مصنوعی</h3>
+        <details class="pnl-card" style="padding:0;">
+            <summary style="cursor:pointer;font-weight:bold;padding:14px 18px;">⚙️ افزودن سرویس پیشرفته (Cloudflare و تنظیمات خاص)</summary>
+            <div style="padding:0 18px 18px;">
             <form method="POST" action="{{ url_for('panel.ai_provider_add') }}" class="pnl-grid-form" data-ai-provider-add-form>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <select name="name" data-provider-name>
@@ -87,7 +88,8 @@
                 </details>
                 <button class="pnl-btn pnl-btn-gold">💾 ذخیره و شناسایی خودکار مدل‌ها</button>
             </form>
-        </div>
+            </div>
+        </details>
 
 
         {% if ai.get('providers') %}
