@@ -868,3 +868,88 @@ def context():
         logger.error(f"panel ai: {e}")
         data = {}
     return {"ai": data}
+
+
+def handle_custom_model_add():
+    """فرم ساده «مدل دلخواه»: فقط نام مدل، کلید API و آدرس بیس.
+
+    بقیه تنظیمات ثابت است: نوع openai، تایم‌اوت ۲۰، بدون پروکسی، غیرایرانی.
+    نام پروایدر خودکار و یکتا ساخته می‌شود (custom-<دامنه>)، پس هیچ پروایدر
+    موجودی بازنویسی نمی‌شود. این مدل به اسلات‌های آینه گیسو اضافه نمی‌شود.
+    """
+    g = _require_super()
+    if g:
+        return g
+    import re as _re
+    from urllib.parse import urlparse
+
+    model_name = (request.form.get("model_name") or "").strip()
+    api_key = (request.form.get("api_key") or "").strip()
+    base_url = (request.form.get("base_url") or "").strip()
+    if not model_name or not api_key or not base_url:
+        flash("برای مدل دلخواه، نام مدل، کلید API و آدرس بیس هر سه لازم هستند.", "warning")
+        return redirect(url_for("panel.ai"))
+    if len(model_name) > 200 or _re.search(r"\s", model_name):
+        flash("نام مدل نباید فاصله یا خط جدید داشته باشد و باید کمتر از ۲۰۰ نویسه باشد.", "warning")
+        return redirect(url_for("panel.ai"))
+    if not _valid_base_url(base_url):
+        flash("آدرس بیس باید با https:// شروع شود.", "warning")
+        return redirect(url_for("panel.ai"))
+
+    from giso.ai_brain import (
+        _validate_base_url, add_ai_provider, get_ai_provider,
+        save_provider_to_env, refresh_models,
+    )
+    try:
+        _validate_base_url(base_url)
+    except ValueError as exc:
+        flash(str(exc), "warning")
+        return redirect(url_for("panel.ai"))
+
+    host = (urlparse(base_url).hostname or "").lower()
+    slug = _re.sub(r"[^a-z0-9]+", "-", host).strip("-")[:40] or "model"
+    base_name = f"custom-{slug}"
+    name = base_name
+    suffix = 2
+    while get_ai_provider(name):
+        name = f"{base_name}-{suffix}"
+        suffix += 1
+        if suffix > 20:
+            flash("برای این دامنه بیش از ۲۰ مدل دلخواه ثبت شده است. یکی را حذف کنید.", "warning")
+            return redirect(url_for("panel.ai"))
+
+    try:
+        ok = add_ai_provider(
+            name=name, kind="openai", api_key=api_key, base_url=base_url,
+            api_root=base_url, timeout=20, is_iranian=False, selected_model=model_name,
+            enabled=True, use_proxy=False, replace=False, models_source="manual",
+            proxy_url="", proxy_type="",
+        )
+    except Exception as exc:
+        logger.error(f"custom model add: {type(exc).__name__}")
+        flash("ذخیرهٔ مدل دلخواه انجام نشد.", "danger")
+        return redirect(url_for("panel.ai"))
+    if not ok:
+        flash("ذخیرهٔ مدل دلخواه انجام نشد.", "danger")
+        return redirect(url_for("panel.ai"))
+
+    try:
+        save_provider_to_env(name=name, api_key=api_key, base_url=base_url, model=model_name,
+                             enabled=True, proxy=False, iranian=False, timeout=20)
+    except Exception as exc:
+        logger.error(f"custom model env backup: {type(exc).__name__}")
+        flash("مدل در دیتابیس ذخیره شد، ولی نسخهٔ پشتیبان .env نوشته نشد.", "warning")
+
+    try:
+        res = refresh_models(name) or {}
+        if res.get("ok"):
+            flash(f"✅ مدل «{model_name}» با نام «{name}» ذخیره شد — "
+                  f"{res.get('vision_count', 0)} مدل Vision و {res.get('text_count', 0)} مدل Text شناسایی شد.",
+                  "success")
+        else:
+            flash(f"✅ مدل «{model_name}» با نام «{name}» ذخیره شد. شناسایی لیست مدل‌ها انجام نشد "
+                  f"({str(res.get('error') or '')[:80]}).", "success")
+    except Exception as exc:
+        logger.error(f"custom model refresh: {type(exc).__name__}")
+        flash(f"✅ مدل «{model_name}» با نام «{name}» ذخیره شد.", "success")
+    return redirect(url_for("panel.ai"))

@@ -35,6 +35,18 @@
     <!-- ═══ تب ۱: پروایدرها ═══ -->
     <section class="pnl-pane show" id="pane-providers">
         <div class="pnl-card">
+            <h3>🧩 افزودن مدل دلخواه (ساده)</h3>
+            <p class="pnl-muted" style="line-height:1.9;">فقط سه مورد لازم است. نام پروایدر به‌صورت خودکار از دامنهٔ آدرس ساخته می‌شود. برای Cloudflare یا تنظیمات پیشرفته، فرم «افزودن سرویس» پایین را استفاده کنید.</p>
+            <form method="POST" action="{{ url_for('panel.ai_custom_model_add') }}" class="pnl-grid-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="model_name" placeholder="نام مدل* — مثلاً my-model-v1" dir="ltr" required>
+                <input type="password" name="api_key" placeholder="کلید API / Token* (الزامی)" dir="ltr" autocomplete="off" required>
+                <input type="text" name="base_url" placeholder="آدرس بیس* — مثلاً https://api.example.com/v1" dir="ltr" required>
+                <button class="pnl-btn pnl-btn-gold">💾 ذخیره مدل دلخواه</button>
+            </form>
+        </div>
+
+        <div class="pnl-card">
             <h3>➕ افزودن سرویس هوش مصنوعی</h3>
             <form method="POST" action="{{ url_for('panel.ai_provider_add') }}" class="pnl-grid-form" data-ai-provider-add-form>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

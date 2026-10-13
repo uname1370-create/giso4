@@ -1539,6 +1539,14 @@ def ai_credit_scope():
     return _ai.handle_credit_scope()
 
 
+@panel_bp.route("/ai/custom-model/add", methods=["POST"])
+@require_super
+def ai_custom_model_add():
+    if r := _guard():
+        return r
+    return _ai.handle_custom_model_add()
+
+
 @panel_bp.route("/ai/provider/add", methods=["POST"])
 @require_super
 def ai_provider_add():
