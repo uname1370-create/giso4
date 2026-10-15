@@ -62,7 +62,7 @@ Each change: Plan + Scope Lock (`giso-dev\references\scope-lock-template.md`), t
 **Start the app** (from `C:\Users\Sadeghy\Desktop\giso 3`):
 - Site only: `python giso\app.py` → `http://127.0.0.1:5001`
 - All services (dev): `python main.py`. Do not change its behaviour.
-- Use the project's Python environment with `requirements.txt`. The file `requirements-landmarks.txt` is currently missing from the repository (see section 5).
+- Use the project's Python environment. Install `requirements.txt` first. mediapipe is NOT in `requirements.txt`; eyebrow/lip trusted masks need `requirements-landmarks.txt`, which must be installed separately (see section 5).
 
 **Eyebrow route base:** `/analysis/mirror/eyebrow`
 - `GET/POST /eyebrow` → model and intensity selection
@@ -98,7 +98,7 @@ Each change: Plan + Scope Lock (`giso-dev\references\scope-lock-template.md`), t
 ## 5. Known baseline (do not treat as new regressions)
 
 - Full suite at `e913d67`: 45 failed, 789 passed, 4 skipped. Full suite at `aca0ce16` (run with `SECRET_KEY` set in the environment): 46 failed, 788 passed, 4 skipped. The extra failure is the landmarks test below. Failing files are listed in `GISO_GUIDE.md` §29.5.
-- Repository change at `aca0ce16`: `requirements-landmarks.txt` was deleted. `giso\tests\test_buti_ai_roi_inpainting.py::test_landmarks_requirements_never_pull_opencv_contrib` now fails with `FileNotFoundError`. Do not restore the file without user approval. Report it.
+- `requirements-landmarks.txt` was deleted at `aca0ce16` and restored by user request. Its own comment says `pip install -r requirements.txt -r requirements-landmarks.txt`, but that pulls `opencv-contrib-python` (dry-run verified), which the file warns against. Correct install: install the landmarks file without its mediapipe line, then `pip install --no-deps mediapipe==0.10.21`. Fix only with user approval. Report it.
 - Pre-existing failures in `test_ai_widget.py`, `test_bot_permission_fix.py`, and `test_buti_ai_eyebrow_inpainting_request.py` predate the AI rebuild.
 - Before reporting a regression, compare with the baseline failure list.
 
