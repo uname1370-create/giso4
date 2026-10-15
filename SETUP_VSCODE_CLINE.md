@@ -9,11 +9,11 @@
 
 ## بخش ۱: پیش‌نیاز
 
-1. **Python 3.11** (نسخه‌ای که پروژه با آن ساخته و تست شده). بررسی:
+1. **Python 3.12** (همان نسخه‌ای که سرور production با آن اجرا می‌شود — `deploy/UBUNTU_SETUP.md`). بررسی:
    ```powershell
-   py -3.11 --version
+   py -3.12 --version
    ```
-   اگر پیدا نشد، Python 3.11 (64-bit) را از python.org نصب کنید و گزینهٔ **Add python.exe to PATH** را تیک بزنید.
+   اگر پیدا نشد، Python 3.12 (64-bit) را از python.org نصب کنید و گزینهٔ **Add python.exe to PATH** را تیک بزنید.
 2. **VS Code** با افزونه‌های **Python** (Microsoft) و **Cline**.
 3. **کلید Gemini API** از Google AI Studio. این کلید را فقط در تنظیمات Cline وارد کنید، نه در هیچ فایلی.
 
@@ -26,7 +26,7 @@
 
 ```powershell
 cd "C:\Users\Sadeghy\Desktop\giso 3"
-py -3.11 -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 ```
 
@@ -111,8 +111,8 @@ Rules:
 - If a command fails, stop, show the full error, and wait for my instruction. Do not try alternative packages.
 
 Steps:
-1. Check that Python 3.11 is available: py -3.11 --version. If not, stop and report.
-2. If .venv does not exist, create it: py -3.11 -m venv .venv
+1. Check that Python 3.12 is available: py -3.12 --version. If not, stop and report.
+2. If .venv does not exist, create it: py -3.12 -m venv .venv
 3. .\.venv\Scripts\python.exe -m pip install --upgrade pip
 4. .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 5. .\.venv\Scripts\python.exe -m pip install "absl-py" "attrs>=19.1.0" "flatbuffers>=2.0" "matplotlib==3.8.4" "numpy<2" "opencv-python-headless==4.11.0.86" "protobuf>=4.25.3,<5"
@@ -130,7 +130,7 @@ Report to me in Persian: each step with PASS or FAIL, the installed versions of 
 
 | مشکل | راه‌حل |
 |---|---|
-| `py -3.11` پیدا نمی‌شود | Python 3.11 را نصب کنید؛ یا از `where python` مسیر درست را پیدا کنید |
+| `py -3.12` پیدا نمی‌شود | Python 3.12 را نصب کنید؛ یا از `where python` مسیر درست را پیدا کنید |
 | `Activate.ps1` اجرا نمی‌شود | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
 | `cv2` خطای libGL می‌دهد | `opencv-contrib-python` نصب شده است. `pip uninstall -y opencv-contrib-python` و سپس `pip install --force-reinstall "opencv-python-headless==4.11.0.86"` |
 | `RuntimeError: SECRET_KEY must be set` | متغیر `SECRET_KEY` را در همان ترمینال تنظیم کنید (بخش ۳) |

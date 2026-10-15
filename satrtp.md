@@ -15,7 +15,7 @@ All paths below are relative to this root unless they start with `C:\`.
 1. Code is the source of truth. Docs and graph are secondary; on conflict, read the code and report the divergence.
 2. Locked: `bot_edu\`, `web\`, `main.py`. Do not edit without explicit user instruction.
 3. `giso\bot.py`: local fix only (1–2 lines). No refactor, no split.
-4. Do not edit: `graphify-out\` (except by running `graphify update .`), `project_memory\`, `giso\data\` (`.env`, `giso.db`), the venv, `.git\`.
+4. Do not edit or delete: `graphify-out\` (except by running `graphify update .`), `project_memory\`, `giso\data\` (`.env`, `giso.db`, `backup\`, `recovery\`, `uploads\`), `bot_edu\data\`, the venv, `.git\`. These hold real keys and real data on the user's machine.
 5. Never write keys, tokens, passwords, or private photos into any file, log, or report. Never print values from `giso\data\.env`.
 6. No live AI calls unless the user asks. Tests use mocks. A local preview is never reported as a real AI result.
 7. No commit or push without user approval. Uncommitted changes do not appear on GitHub.
@@ -59,10 +59,13 @@ Each change: Plan + Scope Lock (`giso-dev\references\scope-lock-template.md`), t
 
 ## 4. Live review procedure
 
+**Environment:** Python **3.12** (same as the production server in `deploy\UBUNTU_SETUP.md`). Use `.\.venv\Scripts\python.exe` for every command, never bare `python`. mediapipe is NOT in `requirements.txt`; eyebrow/lip trusted masks need it installed separately (see section 5). Install `requirements.txt` first.
+
+**SECRET_KEY:** the app and the tests refuse to start without a `SECRET_KEY` environment variable (`giso\config.py`). Set it in the same terminal before running them, using a value the user chooses. Never write it to a file. Example (PowerShell): `$env:SECRET_KEY="<user-chosen-value>"`
+
 **Start the app** (from `C:\Users\Sadeghy\Desktop\giso 3`):
-- Site only: `python giso\app.py` → `http://127.0.0.1:5001`
-- All services (dev): `python main.py`. Do not change its behaviour.
-- Use the project's Python environment. Install `requirements.txt` first. mediapipe is NOT in `requirements.txt`; eyebrow/lip trusted masks need `requirements-landmarks.txt`, which must be installed separately (see section 5).
+- Site only: `.\.venv\Scripts\python.exe giso\app.py` → `http://127.0.0.1:5001`
+- All services (dev): `.\.venv\Scripts\python.exe main.py`. Do not change its behaviour.
 
 **Eyebrow route base:** `/analysis/mirror/eyebrow`
 - `GET/POST /eyebrow` → model and intensity selection
@@ -89,16 +92,22 @@ Each change: Plan + Scope Lock (`giso-dev\references\scope-lock-template.md`), t
 
 **Fix and verify:**
 1. Write or update a test that reproduces the issue (mock providers only).
-2. Make the minimal fix in the file that owns the behaviour.
-3. Run related tests, for example: `python -m pytest giso\tests -k "buti_ai or ai_" -q`. Also `test_admin_ai_panel.py`, `test_ai_panel_model_categories.py`, `test_ai_output_judge.py`, `test_ai_autofill_slots.py`.
-4. Run `python -m py_compile` on changed files.
-5. Check the diff: no unrelated lines, line endings preserved.
-6. Remove test artifacts after each run (git-ignored): `bot_edu\data\`, `giso\data\giso.db`, `giso\data\.env`, `giso\data\backup`, `giso\data\recovery`, `giso\data\uploads`, `.pytest_cache`. Do not delete any other data.
+2. **Run tests only on a COPY of the project, never in the real folder.** Some tests delete real backup files (`giso\data\backup`, files named `giso_auto_*` and `giso_backup_*`) and change rows in the real `giso.db` and `bot_edu\data\bot.db`. Create the copy once:
+   `robocopy "C:\Users\Sadeghy\Desktop\giso 3" "C:\Users\Sadeghy\Desktop\giso_test" /E /XD .venv`
+   (robocopy exit codes 0–7 mean success.)
+   Run tests from the copy, using the original venv:
+   `cd "C:\Users\Sadeghy\Desktop\giso_test"` then `"C:\Users\Sadeghy\Desktop\giso 3\.venv\Scripts\python.exe" -m pytest giso\tests -q -p no:cacheprovider`
+3. Related tests in the copy, for example `-k "buti_ai or ai_"`, plus `test_admin_ai_panel.py`, `test_ai_panel_model_categories.py`, `test_ai_output_judge.py`, `test_ai_autofill_slots.py`.
+4. Make the minimal fix in the real folder, in the file that owns the behaviour. Then re-run the same tests in the copy after copying the changed file over.
+5. Run `.\.venv\Scripts\python.exe -m py_compile` on changed files.
+6. Check the diff: no unrelated lines, line endings preserved.
+7. Never delete anything under `giso\data\` or `bot_edu\data\`. The copy folder may be deleted after use.
 
 ## 5. Known baseline (do not treat as new regressions)
 
-- Full suite at `e913d67`: 45 failed, 789 passed, 4 skipped. Full suite at `aca0ce16` (run with `SECRET_KEY` set in the environment): 46 failed, 788 passed, 4 skipped. The extra failure is the landmarks test below. Failing files are listed in `GISO_GUIDE.md` §29.5.
-- `requirements-landmarks.txt` was deleted at `aca0ce16` and restored by user request. Its own comment says `pip install -r requirements.txt -r requirements-landmarks.txt`, but that pulls `opencv-contrib-python` (dry-run verified), which the file warns against. Correct install: install the landmarks file without its mediapipe line, then `pip install --no-deps mediapipe==0.10.21`. Fix only with user approval. Report it.
+- Current baseline at `36cafce` (Python 3.11 sandbox run, `SECRET_KEY` set, `requirements-landmarks.txt` restored): **45 failed, 789 passed, 4 skipped**. The landmarks test passes. The 45 failing tests are the same as the earlier baseline. Failing files are listed in `GISO_GUIDE.md` §29.5.
+- A Python 3.12 run has not been done yet. Compare its result with this baseline before reporting.
+- `requirements-landmarks.txt` is restored. Its own comment says `pip install -r requirements.txt -r requirements-landmarks.txt`, but that pulls `opencv-contrib-python` (dry-run verified), which the file warns against. Correct install: install the landmarks support packages without the mediapipe line, then `.\.venv\Scripts\python.exe -m pip install --no-deps "mediapipe==0.10.21"`. Fixing the file itself needs user approval. Report it if it comes up.
 - Pre-existing failures in `test_ai_widget.py`, `test_bot_permission_fix.py`, and `test_buti_ai_eyebrow_inpainting_request.py` predate the AI rebuild.
 - Before reporting a regression, compare with the baseline failure list.
 
@@ -106,7 +115,7 @@ Each change: Plan + Scope Lock (`giso-dev\references\scope-lock-template.md`), t
 
 - Issues found (ID, scenario, file, symptom), grouped by eyebrow and lip.
 - Fixes applied (file, problem, fix).
-- Tests run and exact results.
+- Tests run (where, which Python version) and exact results.
 - Live checks performed and results. State clearly which steps were not run (for example, live AI).
 - Remaining issues and next steps.
 - Remind the user: uncommitted changes will not appear on GitHub; ask for approval before any commit or push.
