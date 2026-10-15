@@ -171,10 +171,16 @@ def _save_constrained_provider_output(
         validation = validate_masked_output(source_path, tmp_path, mask_path, service_key=service_key)
         if not _validation_ok(service_key, validation):
             raise ServiceImageGenerationError("خروجی AI در محدوده خدمت یا حفظ بیرون mask تأیید نشد.")
+        # داور خروجی (لب): فقط برای خدمت‌های دارای داور؛ رد فقط با تشخیص صریح تغییر ناخواسته
+        from giso.buti_ai.output_judge import judge_saved_file
+        judge = judge_saved_file(service_key, base, tmp_path)
+        if judge.get("checked") and judge.get("ok") is False:
+            raise ServiceImageGenerationError("داور خروجی AI تغییر ناخواسته خارج از ناحیهٔ خدمت را تشخیص داد.")
         os.replace(tmp_path, out_path)
         meta = {
             "saved": True,
             "readable": True,
+            "output_judge": judge,
             "final_filename": filename,
             "final_format": "WEBP",
             "final_size_bytes": int(os.path.getsize(out_path)),

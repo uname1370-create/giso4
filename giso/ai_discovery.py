@@ -26,10 +26,6 @@ logger = logging.getLogger(__name__)
 # پایه مدیریت می‌شود و کشف برایشان معنا ندارد.
 DISCOVERY_SKIP_PROVIDERS = ("cloudflare",)
 
-# پروایدرهایی که کلاً رایگان/محدودشده هستند؛ وقتی /models قیمت ندهد،
-# مدل‌هایشان «رایگان» فرض می‌شود.
-KNOWN_FREE_PROVIDERS = ("openrouter", "groq", "mistral", "cloudflare")
-
 # نقشهٔ راه الگوریتم: دقیقاً هر سرویس کجا و چطور بررسی شود و دنبال چه بگردد.
 # آدرس = {base}/models (base از تنظیمات همان پروایدر می‌آید) + کلید + پروکسی خودش.
 PROVIDER_PLAYBOOK = {
@@ -82,22 +78,16 @@ def _item_id(item) -> str:
         return ""
 
 
+def _price_info(item, provider_name: str) -> dict:
+    """وضعیت قیمت با شاهد (طبقه‌بند مشترک ai_models_registry)."""
+    from giso.ai_models_registry import classify_model_price
+    return classify_model_price(item, provider_name)
+
+
 def _item_is_free(item, provider_name: str) -> bool:
-    """رایگان؟ ۱) پسوند :free  ۲) قیمت صفر در پاسخ  ۳) پروایدر کلاً رایگان."""
-    mid = _item_id(item)
-    if mid.endswith(":free"):
-        return True
-    try:
-        pricing = item.get("pricing") or {}
-        p_in = pricing.get("prompt")
-        p_out = pricing.get("completion")
-        if p_in is not None and p_out is not None:
-            # قیمت رسماً در پاسخ هست → همین عدد تعیین‌کننده است (مورد اوپن‌روتر)
-            return float(p_in) == 0 and float(p_out) == 0
-    except Exception:
-        pass
-    # پاسخ اصلاً قیمت ندارد (گوک/میسترال/سامبانوا/کلودفلر) → تیر سرویس ملاک است
-    return str(provider_name or "").lower() in KNOWN_FREE_PROVIDERS
+    """رایگان فقط با شاهد صریح (پسوند :free، قیمت صفر، یا ادعای رجیستری)."""
+    from giso.ai_models_registry import PRICE_FREE
+    return _price_info(item, provider_name)["status"] == PRICE_FREE
 
 
 def _item_has_vision(item, mid: str) -> bool:
@@ -190,10 +180,13 @@ def smart_filter_models(provider_name: str, items: list) -> tuple:
         if any(k in low for k in _NON_CHAT_KEYWORDS):
             continue
         seen.add(low)
-        is_free = _item_is_free(item, pname)
+        from giso.ai_models_registry import PRICE_FREE
+        info = _price_info(item, pname)
+        is_free = info["status"] == PRICE_FREE
         ctx = _context_of(item)
         model = {"id": mid, "is_free": bool(is_free), "context": ctx,
-                 "source": "discovered"}
+                 "source": "discovered", "price_status": info["status"],
+                 "price_source": info["source"]}
         if _item_has_vision(item, mid):
             vision.append(model)
         else:
@@ -211,6 +204,31 @@ def smart_filter_models(provider_name: str, items: list) -> tuple:
     vision.sort(key=lambda m: -_strength_score(m["id"], m["is_free"], m["context"]))
     text.sort(key=lambda m: -_strength_score(m["id"], m["is_free"], m["context"]))
     return vision[:MAX_VISION_MODELS], text[:MAX_TEXT_MODELS]
+
+
+def unfiltered_chat_models(provider_name: str, items: list) -> tuple:
+    """مدل‌های چت‌پذیری که فیلتر هوشمند کنار گذاشته است، با برچسب قیمت.
+
+    فقط برای نمایش است و هرگز جای مدل رایگان انتخاب‌شده را نمی‌گیرد.
+    """
+    from giso.ai_models_registry import PRICE_FREE
+    vision, text, seen = [], [], set()
+    pname = str(provider_name or "").lower()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        mid = _item_id(item)
+        if not mid or mid.lower() in seen:
+            continue
+        low = mid.lower()
+        if any(k in low for k in _NON_CHAT_KEYWORDS):
+            continue
+        seen.add(low)
+        info = _price_info(item, pname)
+        model = {"id": mid, "is_free": info["status"] == PRICE_FREE, "context": _context_of(item),
+                 "source": "discovered", "price_status": info["status"], "price_source": info["source"]}
+        (vision if _item_has_vision(item, mid) else text).append(model)
+    return vision, text
 
 
 def _fa_fetch_error(err: str) -> str:
@@ -234,7 +252,7 @@ async def discover_provider(name: str) -> dict:
     from giso import ai_brain
     report = {"name": name, "ok": False, "skipped": False,
               "vision_count": 0, "text_count": 0, "new": 0,
-              "top": "", "error": ""}
+              "top": "", "error": "", "selected_missing": False}
     row = ai_brain.get_ai_provider(name)
     if row is None:
         report["error"] = "پروایدر پیدا نشد"
@@ -268,6 +286,10 @@ async def discover_provider(name: str) -> dict:
     if not vision and not text:
         report["error"] = "مدل مناسبی پیدا نشد — لیست فعلی حفظ شد"
         return report
+    # مدل‌های چت‌پذیر کنار گذاشته‌شده، با برچسب قیمت، به‌عنوان متن اضافه می‌شوند (نه رایگان)
+    shown_ids = {m["id"] for m in vision + text}
+    extra_v, extra_t = unfiltered_chat_models(name, items)
+    text = text + [m for m in extra_v + extra_t if m["id"] not in shown_ids]
 
     # ادغام با لیست قبلی: مدل‌های دستی/رجیستری معتبر حفظ می‌شوند
     old_vision = ai_brain._ai_jloads(ai_brain._col(row, "vision_models_json", ""), [])
@@ -284,8 +306,9 @@ async def discover_provider(name: str) -> dict:
 
     all_ids = [m["id"] for m in merged_v + merged_t if not m.get("disabled")]
     selected = str(row["selected_model"] or "")
-    if selected not in all_ids and all_ids:
-        # مدل انتخابی قبلی دیگر وجود ندارد → اولین مدل زنده جایگزینش شود
+    # انتخاب ادمین هرگز توسط کشف عوض نمی‌شود؛ اگر در فهرست زنده نیست فقط گزارش می‌شود
+    selected_missing = bool(selected) and selected not in all_ids
+    if not selected and all_ids:
         selected = all_ids[0]
 
     # گزارش کوتاه هر سرویس
@@ -296,6 +319,7 @@ async def discover_provider(name: str) -> dict:
         "text_count": len([m for m in merged_t if not m.get("disabled")]),
         "new": len(new_v) + len(new_t),
         "top": "، ".join(top_models),
+        "selected_missing": selected_missing,
     })
 
     try:

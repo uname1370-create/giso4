@@ -89,12 +89,15 @@ def test_paid_only_provider_not_left_empty():
 
 
 def test_groq_style_free_provider_and_vision_keyword():
+    """Groq: رایگانِ تأییدشده فقط از رجیستری می‌آید؛ مدل بی‌قیمت رایگان حساب نمی‌شود."""
     vision, text = smart_filter_models("groq", GROQ_ITEMS)
     v_ids = [m["id"] for m in vision]
     t_ids = [m["id"] for m in text]
-    assert "llama-4-scout-17b-16e-instruct" in v_ids
+    # مدل رایگانِ ثبت‌شده در رجیستری در فهرست هوشمند می‌ماند
     assert "llama-3.3-70b-versatile" in t_ids
-    assert all(m["is_free"] for m in vision + text)  # پروایدر کلاً رایگان
+    # llama-4-scout قیمتش نامشخص است: نباید رایگان نشان داده شود و در فهرست هوشمند هم نمی‌آید
+    assert "llama-4-scout-17b-16e-instruct" not in v_ids
+    assert all(m["is_free"] and m["price_status"] == "free" for m in vision + text)
 
 
 def test_caps_respected():

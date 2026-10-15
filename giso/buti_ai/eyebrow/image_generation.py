@@ -1484,6 +1484,12 @@ def _save_provider_output(image_value: str, timeout: int, source_path: str = "",
             raise ImageProviderError("فایل ذخیره‌شده خروجی AI قابل خواندن نبود") from exc
         if int(saved_w or 0) <= 0 or int(saved_h or 0) <= 0:
             raise ImageProviderError("ابعاد فایل ذخیره‌شده خروجی AI نامعتبر بود")
+        # داور خروجی (ابرو): فقط وقتی مدل صریحاً تغییر ناخواسته ببیند خروجی رد می‌شود
+        from giso.buti_ai.output_judge import judge_saved_file
+        judge = judge_saved_file("eyebrow", base_for_validation, tmp_path)
+        meta["output_judge"] = judge
+        if judge.get("checked") and judge.get("ok") is False:
+            raise ImageProviderError("داور خروجی AI تغییر ناخواسته خارج از ناحیهٔ ابرو را تشخیص داد")
         os.replace(tmp_path, out_path)
         tmp_path = ""
         meta.update({

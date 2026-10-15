@@ -85,6 +85,9 @@ def test_admin_ai_panel_read_only_view():
     assert 'data-cf-account' in html
     assert 'مدل‌های آینه گیسو' in html
     assert 'فقط آینه گیسو / Buti AI' in html
+    # چهار دسته در پنل دیده شوند
+    for heading in ('متن', 'تحلیل عکس', 'طراحی تصویر', 'ارزیابی خروجی'):
+        assert f'<h4 style="margin:0 0 6px;">{heading}</h4>' in html, heading
     assert 'این اسلات‌ها روی مشاور عمومی' in html
     print('PASS  نمای AI برای سوپرادمین کامل و برای ادمین مسدود است')
 
@@ -199,7 +202,7 @@ def test_superadmin_can_add_cf1_cf2_cf3_as_distinct_cloudflare_providers_from_we
             image_rows = ai_models.list_model_assignments(task_key)
             image_rows = [r for r in image_rows if r['provider_name'] in {'cf1', 'cf2', 'cf3'}]
             assert [(int(r['priority']), r['provider_name']) for r in image_rows] == [(1, 'cf1'), (2, 'cf2'), (3, 'cf3')]
-            assert all(r['model_name'] == '@cf/black-forest-labs/flux-2-klein-4b' for r in image_rows)
+            assert all(r['model_name'] == '@cf/runwayml/stable-diffusion-v1-5-inpainting' for r in image_rows)
     finally:
         _ab._ENV_PATH = _orig_env
         try:

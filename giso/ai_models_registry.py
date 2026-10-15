@@ -331,4 +331,54 @@ __all__ = [
     "get_text_models", "get_image_models", "get_all_providers",
     "get_free_providers", "get_best_vision_model", "get_best_text_model",
     "get_best_image_model", "normalize_provider_name", "legacy_registry",
+    "PRICE_FREE", "PRICE_PAID", "PRICE_UNKNOWN", "registry_free_model_ids", "classify_model_price",
 ]
+
+
+# ---------------------------------------------------------------------------
+# طبقه‌بندی قیمت مدل‌ها (مشترک بین کشف، ذخیره و پنل)
+# ---------------------------------------------------------------------------
+PRICE_FREE = "free"
+PRICE_PAID = "paid"
+PRICE_UNKNOWN = "unknown"
+
+
+def registry_free_model_ids(name: str) -> set:
+    """مدل‌هایی که رجیستری برای این پروایدر «رایگان» ادعا کرده (ادعای تأییدنشده)."""
+    ids = set()
+    try:
+        for getter in (get_vision_models, get_text_models):
+            for item in getter(name) or []:
+                if isinstance(item, dict) and item.get("is_free") and item.get("id"):
+                    ids.add(str(item["id"]))
+    except Exception:
+        pass
+    return ids
+
+
+def classify_model_price(item, provider_name: str = "") -> dict:
+    """قیمت یک مدل را از شواهد موجود طبقه‌بندی می‌کند.
+
+    ترتیب قوانین: پسوند :free → هر قیمت مثبت = پولی → هر دو قیمت صفر = رایگان
+    → ادعای رجیستری = رایگان تأییدنشده → در غیر این صورت نامشخص (هرگز رایگان نیست).
+    """
+    if isinstance(item, dict):
+        mid = str(item.get("id") or "").strip()
+        pricing = item.get("pricing") if isinstance(item.get("pricing"), dict) else {}
+    else:
+        mid = str(item or "").strip()
+        pricing = {}
+    if mid.endswith(":free"):
+        return {"status": PRICE_FREE, "source": "model_id", "verified": True}
+    raw = [pricing.get("prompt"), pricing.get("completion")]
+    try:
+        values = [float(v) for v in raw if v is not None]
+    except (TypeError, ValueError):
+        values = []
+    if any(v > 0 for v in values):
+        return {"status": PRICE_PAID, "source": "api_pricing", "verified": True}
+    if len(values) == 2 and all(v == 0 for v in values):
+        return {"status": PRICE_FREE, "source": "api_pricing", "verified": True}
+    if provider_name and mid and mid in registry_free_model_ids(provider_name):
+        return {"status": PRICE_FREE, "source": "registry", "verified": False}
+    return {"status": PRICE_UNKNOWN, "source": "none", "verified": False}

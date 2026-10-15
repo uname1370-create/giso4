@@ -892,18 +892,13 @@ def _is_vision_model_id(model_id):
     return False
 
 
-def _model_is_free(entry):
-    """تشخیص رایگان بودن: پسوند :free یا قیمت صفر (سبک OpenRouter)."""
+def _model_is_free(entry, provider_name=""):
+    """رایگان فقط با شاهد صریح؛ طبقه‌بندی مشترک در ai_models_registry."""
     try:
-        if str(entry.get("id", "")).endswith(":free"):
-            return True
-        pricing = entry.get("pricing") or {}
-        prompt_price = pricing.get("prompt")
-        if prompt_price is not None and float(prompt_price) == 0:
-            return True
+        from giso.ai_models_registry import PRICE_FREE, classify_model_price
+        return classify_model_price(entry, provider_name)["status"] == PRICE_FREE
     except Exception:
-        pass
-    return False
+        return False
 
 
 async def _fetch_remote_models(row):
@@ -930,8 +925,12 @@ async def _fetch_remote_models(row):
         return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:160]}"}
 
 
+# مدل‌های دستی/افزوده‌شده توسط ادمین تا وقتی ادمین تصمیم نگرفته، حذف یا غیرفعال نمی‌شوند.
+MANUAL_MODEL_SOURCES = ("manual", "manual_json", "custom_model")
+
+
 def _merge_discovered(existing, discovered_ids):
-    """مدل جدید ← افزودن با source=discovered؛ حذف‌شده ← پرچم disabled (بدون حذف فیزیکی)."""
+    """مدل جدید ← افزودن با source=discovered؛ حذف‌شده ← پرچم disabled (بدون حذف فیزیکی)، جز مدل‌های دستی."""
     merged, seen = [], set()
     for m in existing:
         if not isinstance(m, dict) or not m.get("id"):
@@ -939,6 +938,8 @@ def _merge_discovered(existing, discovered_ids):
         m = dict(m)
         if m["id"] in discovered_ids:
             m.pop("disabled", None)
+        elif str(m.get("source") or "") in MANUAL_MODEL_SOURCES:
+            pass  # دستی: نگه داشته می‌شود
         else:
             m["disabled"] = True
         seen.add(m["id"])
@@ -966,8 +967,11 @@ def refresh_models(provider_name):
         try:
             from giso.ai_models_registry import get_text_models, get_vision_models
             family = _registry_family_for_provider_name(provider_name)
-            vision = get_vision_models(family) or []
-            text = get_text_models(family) or []
+            # کپی: داده‌های رجیستری مشترک‌اند و نباید تغییر کنند
+            vision = [dict(x, price_status=("free" if x.get("is_free") else "unknown"), price_source="registry")
+                      for x in (get_vision_models(family) or []) if isinstance(x, dict)]
+            text = [dict(x, price_status=("free" if x.get("is_free") else "unknown"), price_source="registry")
+                    for x in (get_text_models(family) or []) if isinstance(x, dict)]
             ids = []
             for item in list(vision) + list(text):
                 mid = item.get("id") if isinstance(item, dict) else item
@@ -976,8 +980,9 @@ def refresh_models(provider_name):
                     ids.append(mid)
             if not ids:
                 return {"ok": False, "error": "مدل رجیستری Cloudflare پیدا نشد"}
+            # انتخاب ادمین هرگز توسط کشف تغییر نمی‌کند؛ فقط وقتی خالی است پر می‌شود
             selected = str(_col(row, "selected_model", "") or "").strip()
-            if selected not in ids:
+            if not selected:
                 selected = ids[0]
             now = _ai_now()
             with _lock, get_conn() as conn:
@@ -1001,10 +1006,11 @@ def refresh_models(provider_name):
         return {"ok": False, "error": (fetched or {}).get("error", "خطا در دریافت مدل‌ها")}
 
     vision_ids, text_ids = [], []
-    free_map = {}
+    price_map = {}
+    from giso.ai_models_registry import classify_model_price, PRICE_FREE
     for item in fetched["items"]:
         mid = item["id"]
-        free_map[mid] = _model_is_free(item)
+        price_map[mid] = classify_model_price(item, provider_name)
         if _is_vision_model_id(mid):
             vision_ids.append(mid)
         else:
@@ -1020,8 +1026,11 @@ def refresh_models(provider_name):
     merged_vision, new_vision = _merge_discovered(old_vision, vision_ids)
     merged_text, new_text = _merge_discovered(old_text, text_ids)
     for m in merged_vision + merged_text:
-        if m.get("id") in free_map:
-            m["is_free"] = free_map[m["id"]]
+        info = price_map.get(m.get("id"))
+        if info:
+            m["is_free"] = info["status"] == PRICE_FREE
+            m["price_status"] = info["status"]
+            m["price_source"] = info["source"]
 
     now = _ai_now()
     try:
@@ -1079,11 +1088,14 @@ def bulk_import_models(json_text):
         mid = str(item["id"]).strip()
         if mid in seen:
             continue
+        # ادعای ادمین است، نه شاهد قیمت: وضعیت «تأیید نشده» ثبت می‌شود
         entry = {
             "id": mid,
             "is_free": bool(item.get("is_free")),
             "context": item.get("context", 0),
             "source": "manual_json",
+            "price_status": "free" if item.get("is_free") else "unknown",
+            "price_source": "admin_claim",
         }
         mtype = str(item.get("type") or "").lower()
         if mtype == "vision":
@@ -1605,6 +1617,23 @@ async def ask_ai_vision(provider_name, image_path, prompt, model=None, max_token
     return await ask_ai(provider_name, messages, model=model, max_tokens=max_tokens,
                         sensitive_proxy=True, timeout_override=timeout_override)
 
+def _fast_provider_order(rows):
+    """ترتیب تلاش مسیر سریع = زنجیره failover که در پنل تنظیم می‌شود (منبع واحد با چت).
+
+    پروایدرهایی که در زنجیره نیستند به انتها می‌روند با ترتیب قبلی (خارجی قبل از ایرانی).
+    """
+    fallback = [r for r in rows if not r["is_iranian"]] + [r for r in rows if r["is_iranian"]]
+    try:
+        from giso.ai_runtime import get_failover_chain
+        chain = list(get_failover_chain() or [])
+    except Exception:
+        chain = []
+    if not chain:
+        return fallback
+    rank = {name: i for i, name in enumerate(chain)}
+    return sorted(fallback, key=lambda r: rank.get(r["name"], len(rank)))
+
+
 async def ask_ai_fast(messages, model=None, temperature=0.7, max_tokens=1200, category=""):
     """راه سریع متنی — فاز ۳: سقف ۱۵ ثانیه کل / ۴ ثانیه هر مدل + سلامت مشترک."""
     import time as _time
@@ -1621,11 +1650,9 @@ async def ask_ai_fast(messages, model=None, temperature=0.7, max_tokens=1200, ca
     rows = list_ai_providers(only_enabled=True)
     if not rows:
         return _ai_err("", "", "هیچ پروایدر فعالی وجود ندارد")
-    foreign = [r for r in rows if not r["is_iranian"]]
-    iranian = [r for r in rows if r["is_iranian"]]
     last_error = "همه پروایدرها خطا دادند"
     start = _time.time()
-    for row in foreign + iranian:
+    for row in _fast_provider_order(rows):
         pname = row["name"]
         use_model = model or row["selected_model"] or ""
         if not legacy:

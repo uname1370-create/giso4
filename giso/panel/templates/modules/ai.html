@@ -366,9 +366,35 @@
                     <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🛠 اصلاح مدل‌های ناسازگار طراحی عکس</button>
                 </form>
             </div>
+            {# چهار دسته: هر دسته گزینه‌های خودش را دارد؛ برچسب قیمت: رایگان / پولی / قیمت نامشخص #}
+            {% for cat in bm.get('categories', []) %}
+            <div class="pnl-card" style="margin:10px 0 14px;background:#fbfbfd;">
+                <h4 style="margin:0 0 6px;">{{ cat.label }}</h4>
+                <p class="pnl-muted" style="margin:0 0 8px;line-height:1.9;">{{ cat.help }}</p>
+                {% if cat.key == 'text' %}
+                <ul class="pnl-muted" style="margin:0 0 8px;line-height:1.9;">
+                    {% for item in cat.chain %}
+                    <li><code dir="ltr">{{ item.position }}. {{ item.name }}</code> — <code dir="ltr">{{ item.model or '—' }}</code>{% if not item.enabled %} — غیرفعال{% endif %}</li>
+                    {% else %}
+                    <li>هنوز پروایدری در زنجیره failover نیست.</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                <small class="pnl-muted">گزینه‌های این دسته: {{ cat.options|length }} مورد</small>
+                <datalist id="cat-{{ cat.key }}">
+                    {% for o in cat.options %}
+                    <option value="{{ o.value }}" label="{{ o.label }}"></option>
+                    {% endfor %}
+                </datalist>
+            </div>
+            {% endfor %}
             <datalist id="beautyMirrorModelList">
+                {% for o in bm.get('all_model_options', []) %}
+                <option value="{{ o.value }}" label="{{ o.label }}"></option>
+                {% else %}
                 {% for model in bm.get('model_options', []) %}
                 <option value="{{ model }}"></option>
+                {% endfor %}
                 {% endfor %}
             </datalist>
             <div class="pnl-grid-2" style="margin-top:12px;">
@@ -390,7 +416,7 @@
                         {% endfor %}
                     </select>
                     <label>نام مدل</label>
-                    <input type="text" name="model_name" value="{{ slot.model_name }}" list="beautyMirrorModelList" dir="ltr" placeholder="مثلاً @cf/runwayml/stable-diffusion-v1-5-inpainting" required>
+                    <input type="text" name="model_name" value="{{ slot.model_name }}" list="cat-{{ slot.category_key or 'image_generation' }}" dir="ltr" placeholder="مثلاً @cf/runwayml/stable-diffusion-v1-5-inpainting" required>
                     {% if slot.task_kind == 'image' %}
                     <label>نوع فراخوانی تصویر</label>
                     <select name="image_kind">

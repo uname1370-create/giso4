@@ -325,7 +325,7 @@ def call_ai_failover(messages: list, db_path: str | None = None,
             import asyncio
             from giso.ai_runtime import chat_with_failover
             res = asyncio.run(chat_with_failover(
-                messages, preferred_provider=DEFAULT_PREFERRED_PROVIDERS[0],
+                messages, preferred_provider=None,
                 temperature=temperature, max_tokens=max_tokens, role="user"))
             return {"ok": bool(res.get("ok")), "text": res.get("text") or "",
                     "engine": f"chat_with_failover:{res.get('provider')}",

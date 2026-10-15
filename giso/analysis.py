@@ -235,7 +235,18 @@ def pick_active_vision_model():
     """
     لیست پروایدرهای فعال و دارای مدل Vision را به ترتیب اولویت برمی‌گرداند.
     خروجی: لیست [{'provider_name': str, 'model_name': str}, ...]
+
+    اگر دستهٔ «تحلیل عکس» در پنل مدیریت هوش مصنوعی زنجیره‌ای تنظیم کرده باشد، همان
+    زنجیره برگردانده می‌شود؛ وگرنه رفتار قبلی (پروایدرهای فعال با مدل Vision) اجرا می‌شود.
     """
+    try:
+        from giso.buti_ai.ai_models import configured_vision_chain
+        configured = configured_vision_chain()
+    except Exception as e:
+        logger.debug(f"vision category chain unavailable: {e}")
+        configured = []
+    if configured:
+        return [{"provider_name": c["provider_name"], "model_name": c["model_name"]} for c in configured]
     try:
         rows = list_ai_providers(only_enabled=True)
     except Exception as e:

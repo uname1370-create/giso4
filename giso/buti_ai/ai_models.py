@@ -33,6 +33,8 @@ LEGACY_IMAGE_DESIGN_TASK_KEYS = (
 TASK_MIRROR_OUTPUT_VALIDATION = "mirror_output_validation"
 IMAGE_DESIGN_TASK_KEYS = (TASK_MIRROR_IMAGE_DESIGN,)
 VISION_TASK_KEYS = (TASK_EYEBROW_ANALYSIS, TASK_MIRROR_OUTPUT_VALIDATION)
+# فقط تحلیل عکس هنگام افزودن پروایدر خودکار پر می‌شود؛ داور خروجی دستی است تا هزینهٔ اضافهٔ ناخواسته نداشته باشد
+AUTO_FILL_VISION_TASK_KEYS = (TASK_EYEBROW_ANALYSIS,)
 CLOUDFLARE_INPAINTING_MODEL = "@cf/runwayml/stable-diffusion-v1-5-inpainting"
 CLOUDFLARE_FLUX_MODEL = "@cf/black-forest-labs/flux-2-klein-4b"
 DEFAULT_CLOUDFLARE_FINAL_IMAGE_MODEL = CLOUDFLARE_INPAINTING_MODEL
@@ -464,11 +466,11 @@ def provider_model_options() -> Dict[str, Any]:
 
 
 def panel_slots_context() -> Dict[str, Any]:
-    """ساخت داده ساده برای تب «مدل‌های آینه گیسو» در پنل."""
-    try:
-        repair_legacy_cloudflare_eyebrow_image_slots()
-    except Exception as exc:
-        logger.debug("legacy Cloudflare eyebrow slot repair for panel skipped: %s", exc)
+    """ساخت داده ساده برای تب «مدل‌های آینه گیسو» در پنل.
+
+    مسیر خواندنی است: تعمیر اسلات‌های قدیمی اینجا اجرا نمی‌شود؛ فقط دکمهٔ صریح
+    «اصلاح مدل‌های ناسازگار» در پنل آن را انجام می‌دهد.
+    """
     assignments = assignment_map()
     options = provider_model_options()
     slots: List[Dict[str, Any]] = []
@@ -502,14 +504,14 @@ def panel_slots_context() -> Dict[str, Any]:
     }
 
 
-def configured_vision_chain() -> List[Dict[str, str]]:
-    """زنجیره اختصاصی تحلیل عکس ابرو از مدیریت AI."""
+def configured_vision_chain(task_key: str = TASK_EYEBROW_ANALYSIS) -> List[Dict[str, str]]:
+    """زنجیره مدل‌های بینایی یک دسته از مدیریت AI (پیش‌فرض: دستهٔ تحلیل عکس)."""
     chain: List[Dict[str, str]] = []
     try:
         from giso.ai_brain import get_ai_provider
     except Exception:
         return chain
-    for row in list_model_assignments(TASK_EYEBROW_ANALYSIS, only_enabled=True):
+    for row in list_model_assignments(task_key or TASK_EYEBROW_ANALYSIS, only_enabled=True):
         provider_name = str(row.get("provider_name") or "").strip().lower()
         model_name = str(row.get("model_name") or "").strip()
         if not provider_name or not model_name:
@@ -696,10 +698,7 @@ def readiness_status() -> Dict[str, Any]:
             "warnings": [],
         }
 
-    try:
-        repair_legacy_cloudflare_eyebrow_image_slots()
-    except Exception as exc:
-        logger.debug("legacy Cloudflare eyebrow slot repair for readiness skipped: %s", exc)
+    # خواندنی: بدون تعمیر خودکار (تعمیر فقط از دکمهٔ صریح پنل)
 
     issues: List[str] = []
     warnings: List[str] = []
@@ -892,7 +891,7 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
     account_slot = _cloudflare_slot_priority(provider_name)
     analysis_priority = account_slot or 1
     analysis_overwrite = bool(overwrite)
-    for vision_task in VISION_TASK_KEYS:
+    for vision_task in AUTO_FILL_VISION_TASK_KEYS:
         priority = min(analysis_priority, int(TASK_DEFS.get(vision_task, {}).get("slots") or analysis_priority))
         if vision_model and (analysis_overwrite or _slot_is_empty(vision_task, priority)):
             ok, _message = save_model_assignment(

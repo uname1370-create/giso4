@@ -1384,16 +1384,16 @@ def test_auto_configure_cloudflare_populates_empty_beauty_mirror_slots(tmp_path,
     result = ai_models.auto_configure_for_provider("cf")
 
     assert result["ok"] is True
-    assert result["added"] == 4
+    # تحلیل عکس + دو اسلات تصویر مشترک؛ داور خروجی هنگام افزودن خودکار پر نمی‌شود (تصمیم ادمین)
+    assert result["added"] == 3
     rows = ai_models.list_model_assignments()
-    assert len(rows) == 4
+    assert len(rows) == 3
     analysis = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_ANALYSIS]
     validation = [r for r in rows if r["task_key"] == ai_models.TASK_MIRROR_OUTPUT_VALIDATION]
     images = [r for r in rows if r["task_key"] in ai_models.IMAGE_DESIGN_TASK_KEYS]
     assert analysis[0]["provider_name"] == "cloudflare"
-    assert validation[0]["provider_name"] == "cloudflare"
+    assert validation == []
     assert "vision" in analysis[0]["model_name"]
-    assert "vision" in validation[0]["model_name"]
     assert len(images) == len(ai_models.IMAGE_DESIGN_TASK_KEYS) * 2
     for task_key in ai_models.IMAGE_DESIGN_TASK_KEYS:
         task_images = [r for r in images if r["task_key"] == task_key]
@@ -1527,17 +1527,17 @@ def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, m
     r2 = ai_models.auto_configure_for_provider("cf2")
     r3 = ai_models.auto_configure_for_provider("cf3")
 
-    assert r1["added"] == 3  # analysis + validation + one shared image slot at priority 1
-    assert r2["added"] == 3  # analysis + validation + one shared image slot at priority 2
-    assert r3["added"] == 3  # analysis + validation + one shared image slot at priority 3
+    # analysis + one shared image slot؛ داور خروجی خودکار پر نمی‌شود (تصمیم ادمین)
+    assert r1["added"] == 2  # priority 1
+    assert r2["added"] == 2  # priority 2
+    assert r3["added"] == 2  # priority 3
     rows = ai_models.list_model_assignments()
     analysis = [r for r in rows if r["task_key"] == ai_models.TASK_EYEBROW_ANALYSIS]
     validation = [r for r in rows if r["task_key"] == ai_models.TASK_MIRROR_OUTPUT_VALIDATION]
     assert [int(r["priority"]) for r in analysis] == [1, 2, 3]
     assert [r["provider_name"] for r in analysis] == ["cf1", "cf2", "cf3"]
-    assert [int(r["priority"]) for r in validation] == [1, 2, 3]
-    assert [r["provider_name"] for r in validation] == ["cf1", "cf2", "cf3"]
-    assert all("vision" in r["model_name"] for r in analysis + validation)
+    assert validation == []
+    assert all("vision" in r["model_name"] for r in analysis)
     for task_key in ai_models.IMAGE_DESIGN_TASK_KEYS:
         images = [r for r in rows if r["task_key"] == task_key]
         assert [int(r["priority"]) for r in images] == [1, 2, 3]
@@ -1554,13 +1554,12 @@ def test_auto_configure_cf1_cf2_cf3_use_separate_cloudflare_accounts(tmp_path, m
     )
     assert ok is True
     over = ai_models.auto_configure_for_provider("cf2", overwrite=True)
-    assert over["added"] == 3
+    assert over["added"] == 2  # تحلیل عکس + تصویر مشترک؛ ارزیابی خروجی جزو جریان خودکار نیست
     analysis_rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_ANALYSIS)
     analysis_slot2 = [r for r in analysis_rows if int(r["priority"]) == 2][0]
     assert analysis_slot2["provider_name"] == "cf2"
     validation_rows = ai_models.list_model_assignments(ai_models.TASK_MIRROR_OUTPUT_VALIDATION)
-    validation_slot2 = [r for r in validation_rows if int(r["priority"]) == 2][0]
-    assert validation_slot2["provider_name"] == "cf2"
+    assert [r for r in validation_rows if int(r["priority"]) == 2] == []  # ارزیابی خروجی دست‌نخورده می‌ماند
     rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_IMAGE_DESIGN)
     slot2 = [r for r in rows if int(r["priority"]) == 2][0]
     assert slot2["provider_name"] == "cf2"

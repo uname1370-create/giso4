@@ -324,7 +324,8 @@ def handle_provider_add():
                 pass
             try:
                 from giso.buti_ai.ai_models import auto_configure_for_provider
-                auto_res = auto_configure_for_provider(name, overwrite=(name == "cloudflare" or cf_slot_name))
+                # خودکار فقط اسلات‌های خالی را پر می‌کند؛ اسلات تنظیم‌شدهٔ ادمین هرگز بازنویسی نمی‌شود
+                auto_res = auto_configure_for_provider(name, overwrite=False)
                 if auto_res.get("added"):
                     flash(f"🪞 {auto_res['added']} اسلات آینه گیسو خودکار تنظیم شد.", "success")
                 if is_cf_instance and cloudflare_image_model:
@@ -846,7 +847,8 @@ def context():
             data["registry_options"] = []
         try:
             from giso.buti_ai.ai_models import panel_slots_context
-            data["beauty_mirror"] = panel_slots_context()
+            from giso.panel.modules.ai_categories import build_category_view
+            data["beauty_mirror"] = build_category_view(panel_slots_context())
         except Exception as mirror_exc:
             logger.error(f"panel ai beauty mirror context: {mirror_exc}")
             data["beauty_mirror"] = {"slots": [], "providers": [], "model_options": []}
