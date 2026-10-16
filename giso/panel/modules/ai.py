@@ -637,6 +637,13 @@ def handle_provider_test(name):
     return redirect(url_for("panel.ai"))
 
 
+def _refresh_redirect():
+    """بعد از به‌روزرسانی فهرست: فقط اگر دکمه از تب مدل‌ها زده شده باشد به همان تب برمی‌گردد.
+    دکمهٔ تب «وضعیت و تست» همین handler را دارد و مسیر قبلی خودش را حفظ می‌کند."""
+    tab = (request.form.get("_back_tab") or "").strip()
+    return redirect(url_for("panel.ai") + ("#pane-models" if tab == "models" else ""))
+
+
 def handle_refresh_all_models():
     """دکمهٔ «بروزرسانی همهٔ هوش مصنوعی‌ها» (مأموریت 11):
     لیست مدل هر پروایدر را از /models خودش هوشمندانه به‌روز می‌کند و
@@ -646,7 +653,7 @@ def handle_refresh_all_models():
         res = _run_async(refresh_all_models_async())
     except Exception as e:
         flash(f"خطا در بروزرسانی هوشمند: {e}", "error")
-        return redirect(url_for("panel.ai"))
+        return _refresh_redirect()
     flash("بروزرسانی هوشمند همهٔ سرویس‌ها: " + str(res.get("summary") or ""), "info")
     # گزارش هر سرویس به‌صورت جدا — در کارت‌های همین صفحه نمایش داده می‌شود
     for r in (res.get("reports") or []):
@@ -659,7 +666,7 @@ def handle_refresh_all_models():
             flash(f"{nm}: رد شد — {r.get('error') or ''}", "info")
         else:
             flash(f"{nm}: خطا — {r.get('error') or ''} (لیست قبلی حفظ شد)", "error")
-    return redirect(url_for("panel.ai"))
+    return _refresh_redirect()
 
 
 def handle_test_all():
@@ -1039,7 +1046,7 @@ def handle_model_section_save(category):
         logger.error(f"model section save: {exc}")
         ok, message = False, "ذخیره انجام نشد."
     flash(message, "success" if ok else "danger")
-    return redirect(url_for("panel.ai") + "#model-section")
+    return redirect(url_for("panel.ai") + "#pane-models")
 
 
 def handle_model_section_test():
@@ -1054,7 +1061,7 @@ def handle_model_section_test():
     spec = MODEL_SECTION_CATEGORIES.get(category)
     if not spec or not provider_name or not model_name:
         flash("برای تست، اول یک مدل را در این دسته ذخیره کنید.", "warning")
-        return redirect(url_for("panel.ai") + "#model-section")
+        return redirect(url_for("panel.ai") + "#pane-models")
     res = _run_async(run_model_check(provider_name, model_name, spec["capability"])) or {}
     stage = str(res.get("stage") or "")
     if stage == "ok":
@@ -1073,4 +1080,4 @@ def handle_model_section_test():
     text = (f"تست «{model_name}» روی «{provider_name}»: {summary}. "
             f"{res.get('message') or 'نتیجه‌ای برنگشت.'}")
     flash(text, "success" if ok else ("warning" if stage in ("not_tested", "inconclusive") else "danger"))
-    return redirect(url_for("panel.ai") + "#model-section")
+    return redirect(url_for("panel.ai") + "#pane-models")

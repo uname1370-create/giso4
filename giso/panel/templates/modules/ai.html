@@ -20,6 +20,7 @@
     <div class="pnl-tabs-wrap">
         <div class="pnl-tabs" data-tabs>
             <span class="pnl-tab active" data-pane="providers">🧩 پروایدرها</span>
+            <span class="pnl-tab" data-pane="models">🧠 مدیریت مدل‌های هوش مصنوعی</span>
             <span class="pnl-tab" data-pane="status">📊 وضعیت و تست</span>
             <span class="pnl-tab" data-pane="behavior">🎭 رفتار و هویت</span>
             <span class="pnl-tab" data-pane="failover">🎯 زنجیره جایگزین</span>
@@ -84,88 +85,6 @@
         </div>
 
 
-        {# ═══ بخش «مدیریت و انتخاب مدل‌ها»: سه دسته، هر دسته سه اولویت (فقط داده‌های ذخیره‌شده خوانده می‌شوند) ═══ #}
-        {% set ms = ai.get('model_section', {}) %}
-        <div class="pnl-card" id="model-section" style="margin-top:16px;">
-            <h3>🧭 مدیریت و انتخاب مدل‌ها</h3>
-            <p class="pnl-muted" style="line-height:1.9;">
-                برای هر دسته تا سه مدل به ترتیب اولویت انتخاب کن. منوها فقط مدل‌های «تأییدشده» یا «احتمالی» همان دسته را نشان می‌دهند؛ مدل ناسازگار یا نامشخص در منو نمی‌آید. «احتمالی» یعنی هنوز تست واقعی نشده است.
-            </p>
-            <div class="pnl-btn-row" style="gap:8px;margin-bottom:10px;">
-                <form method="POST" action="{{ url_for('panel.ai_provider_refresh_all_models') }}" style="margin:0;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🔄 به‌روزرسانی فهرست مدل‌ها</button>
-                </form>
-                <small class="pnl-muted">فقط با کلیک شما از سرویس‌ها فهرست می‌گیرد؛ باز شدن این صفحه هیچ درخواست بیرونی نمی‌فرستد.</small>
-            </div>
-            {% for cat in ms.get('categories', []) %}
-            <div class="pnl-card" style="margin:10px 0;background:#fbfbfd;">
-                <h4 style="margin:0 0 6px;">{{ cat.label }}</h4>
-                <p class="pnl-muted" style="margin:0 0 8px;line-height:1.9;">{{ cat.help }}</p>
-                <small class="pnl-muted">گزینه‌های سازگار: {{ cat.option_count }} — تأییدشده: {{ cat.confirmed_count }}</small>
-                {% if cat.empty %}
-                <div class="pnl-empty" style="margin-top:8px;">
-                    <p>هیچ مدل سازگاری برای «{{ cat.label }}» پیدا نشد.</p>
-                    <p class="pnl-muted">یک پروایدر فعال با کلید معتبر اضافه کن و «به‌روزرسانی فهرست مدل‌ها» را بزن.</p>
-                </div>
-                {% endif %}
-                <form id="ms-form-{{ cat.key }}" method="POST" action="{{ url_for('panel.ai_model_section_save', category=cat.key) }}" style="margin:0;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                </form>
-                <div class="pnl-table-wrap" style="margin-top:8px;">
-                <table class="pnl-table">
-                    <tr><th>اولویت</th><th>مدل (پروایدر)</th><th>وضعیت قابلیت</th><th>آخرین تست</th><th>تست</th></tr>
-                    {% for slot in cat.slots %}
-                    <tr>
-                        <td>{{ slot.slot_label }}</td>
-                        <td>
-                            <select name="slot_{{ slot.priority }}" form="ms-form-{{ cat.key }}" dir="ltr" style="min-width:260px;">
-                                <option value="">— خالی —</option>
-                                {% for g in cat.option_groups %}
-                                <optgroup label="{{ g.provider }}">
-                                    {% for o in g.options %}
-                                    <option value="{{ o.value }}" {% if o.value == slot.value %}selected{% endif %}>{{ o.label }}</option>
-                                    {% endfor %}
-                                </optgroup>
-                                {% endfor %}
-                            </select>
-                        </td>
-                        <td>
-                            {% if slot.value %}
-                            <span class="pnl-badge {{ 'pnl-badge-ok' if slot.confirmed else 'pnl-badge-off' }}">{{ slot.status_label or 'نامشخص' }}</span>
-                            <div class="pnl-muted" style="font-size:.72rem;">منبع: {{ slot.source or 'نامشخص' }}</div>
-                            {% if not slot.enabled_provider %}<div style="color:#b45309;font-size:.72rem;">پروایدر غیرفعال است؛ این اسلات استفاده نمی‌شود.</div>{% endif %}
-                            {% if slot.price_label %}<div class="pnl-muted" style="font-size:.72rem;">هزینه: {{ slot.price_label }}</div>{% endif %}
-                            {% else %}<span class="pnl-muted">تنظیم نشده</span>{% endif %}
-                        </td>
-                        <td>
-                            {% if slot.last_result %}
-                            <div style="font-size:.78rem;">{{ slot.last_stage }} — {{ 'موفق' if slot.last_result == 'ok' else ('ناسازگار' if slot.last_result == 'incompatible' else ('تست نشده' if slot.last_result == 'not_tested' else 'ناموفق')) }}</div>
-                            <div class="pnl-muted" style="font-size:.72rem;">{{ slot.last_checked }}</div>
-                            {% if slot.last_note %}<div class="pnl-muted" style="font-size:.72rem;">{{ slot.last_note }}</div>{% endif %}
-                            {% else %}<span class="pnl-muted">هنوز تست نشده</span>{% endif %}
-                        </td>
-                        <td>
-                            {% if slot.value %}
-                            <form method="POST" action="{{ url_for('panel.ai_model_section_test') }}" style="margin:0;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="hidden" name="category" value="{{ cat.key }}">
-                                <input type="hidden" name="provider" value="{{ slot.provider }}">
-                                <input type="hidden" name="model" value="{{ slot.model }}">
-                                <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🧪 تست این مدل</button>
-                            </form>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </table>
-                </div>
-                <div class="pnl-btn-row" style="margin-top:8px;">
-                    <button form="ms-form-{{ cat.key }}" class="pnl-btn pnl-btn-gold pnl-btn-sm">💾 ذخیره اولویت‌های این دسته</button>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
 
         {% if ai.get('providers') %}
         <div class="pnl-card" style="margin-top:16px;">
@@ -259,6 +178,92 @@
             </div>
         </div>
         {% endif %}
+    </section>
+
+    <!-- ═══ تب: مدیریت مدل‌های هوش مصنوعی ═══ -->
+    <section class="pnl-pane" id="pane-models">
+        {# ═══ بخش «مدیریت و انتخاب مدل‌ها»: سه دسته، هر دسته سه اولویت (فقط داده‌های ذخیره‌شده خوانده می‌شوند) ═══ #}
+        {% set ms = ai.get('model_section', {}) %}
+        <div class="pnl-card" id="model-section" style="margin-top:16px;">
+            <h3>🧠 مدیریت مدل‌های هوش مصنوعی</h3>
+            <p class="pnl-muted" style="line-height:1.9;">
+                برای هر دسته تا سه مدل به ترتیب اولویت انتخاب کن. منوها فقط مدل‌های «تأییدشده» یا «احتمالی» همان دسته را نشان می‌دهند؛ مدل ناسازگار یا نامشخص در منو نمی‌آید. «احتمالی» یعنی هنوز تست واقعی نشده است.
+            </p>
+            <div class="pnl-btn-row" style="gap:8px;margin-bottom:10px;">
+                <form method="POST" action="{{ url_for('panel.ai_provider_refresh_all_models') }}" style="margin:0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🔄 به‌روزرسانی فهرست مدل‌ها</button>
+                </form>
+                <small class="pnl-muted">فقط با کلیک شما از سرویس‌ها فهرست می‌گیرد؛ باز شدن این صفحه هیچ درخواست بیرونی نمی‌فرستد.</small>
+            </div>
+            {% for cat in ms.get('categories', []) %}
+            <div class="pnl-card" style="margin:10px 0;background:#fbfbfd;">
+                <h4 style="margin:0 0 6px;">{{ cat.label }}</h4>
+                <p class="pnl-muted" style="margin:0 0 8px;line-height:1.9;">{{ cat.help }}</p>
+                <small class="pnl-muted">گزینه‌های سازگار: {{ cat.option_count }} — تأییدشده: {{ cat.confirmed_count }}</small>
+                {% if cat.empty %}
+                <div class="pnl-empty" style="margin-top:8px;">
+                    <p>هیچ مدل سازگاری برای «{{ cat.label }}» پیدا نشد.</p>
+                    <p class="pnl-muted">یک پروایدر فعال با کلید معتبر اضافه کن و «به‌روزرسانی فهرست مدل‌ها» را بزن.</p>
+                </div>
+                {% endif %}
+                <form id="ms-form-{{ cat.key }}" method="POST" action="{{ url_for('panel.ai_model_section_save', category=cat.key) }}" style="margin:0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                </form>
+                <div class="pnl-table-wrap" style="margin-top:8px;">
+                <table class="pnl-table">
+                    <tr><th>اولویت</th><th>مدل (پروایدر)</th><th>وضعیت قابلیت</th><th>آخرین تست</th><th>تست</th></tr>
+                    {% for slot in cat.slots %}
+                    <tr>
+                        <td>{{ slot.slot_label }}</td>
+                        <td>
+                            <select name="slot_{{ slot.priority }}" form="ms-form-{{ cat.key }}" dir="ltr" style="min-width:260px;">
+                                <option value="">— خالی —</option>
+                                {% for g in cat.option_groups %}
+                                <optgroup label="{{ g.provider }}">
+                                    {% for o in g.options %}
+                                    <option value="{{ o.value }}" {% if o.value == slot.value %}selected{% endif %}>{{ o.label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            {% if slot.value %}
+                            <span class="pnl-badge {{ 'pnl-badge-ok' if slot.confirmed else 'pnl-badge-off' }}">{{ slot.status_label or 'نامشخص' }}</span>
+                            <div class="pnl-muted" style="font-size:.72rem;">منبع: {{ slot.source or 'نامشخص' }}</div>
+                            {% if not slot.enabled_provider %}<div style="color:#b45309;font-size:.72rem;">پروایدر غیرفعال است؛ این اسلات استفاده نمی‌شود.</div>{% endif %}
+                            {% if slot.price_label %}<div class="pnl-muted" style="font-size:.72rem;">هزینه: {{ slot.price_label }}</div>{% endif %}
+                            {% else %}<span class="pnl-muted">تنظیم نشده</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if slot.last_result %}
+                            <div style="font-size:.78rem;">{{ slot.last_stage }} — {{ 'موفق' if slot.last_result == 'ok' else ('ناسازگار' if slot.last_result == 'incompatible' else ('تست نشده' if slot.last_result == 'not_tested' else 'ناموفق')) }}</div>
+                            <div class="pnl-muted" style="font-size:.72rem;">{{ slot.last_checked }}</div>
+                            {% if slot.last_note %}<div class="pnl-muted" style="font-size:.72rem;">{{ slot.last_note }}</div>{% endif %}
+                            {% else %}<span class="pnl-muted">هنوز تست نشده</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if slot.value %}
+                            <form method="POST" action="{{ url_for('panel.ai_model_section_test') }}" style="margin:0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="category" value="{{ cat.key }}">
+                                <input type="hidden" name="provider" value="{{ slot.provider }}">
+                                <input type="hidden" name="model" value="{{ slot.model }}">
+                                <button class="pnl-btn pnl-btn-outline pnl-btn-sm">🧪 تست این مدل</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                </div>
+                <div class="pnl-btn-row" style="margin-top:8px;">
+                    <button form="ms-form-{{ cat.key }}" class="pnl-btn pnl-btn-gold pnl-btn-sm">💾 ذخیره اولویت‌های این دسته</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
     </section>
 
     <!-- ═══ تب ۲: وضعیت و تست ═══ -->
