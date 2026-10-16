@@ -36,99 +36,52 @@
     <section class="pnl-pane show" id="pane-providers">
         <div class="pnl-card" data-add-chooser>
             <h3>➕ افزودن سرویس</h3>
-            <p class="pnl-muted" style="line-height:1.9;">یکی از دو گزینه را انتخاب کن:</p>
-            <div style="display:flex;flex-wrap:wrap;gap:14px;margin:8px 0 12px;">
-                <label class="pnl-check"><input type="radio" name="add_choice" value="cf" checked data-add-choice> ⚡ افزودن مدل Cloudflare (cf / cf1 / cf2 / cf3)</label>
-                <label class="pnl-check"><input type="radio" name="add_choice" value="custom" data-add-choice> 🧩 مدل دلخواه (هر سرویس سازگار با OpenAI)</label>
-            </div>
-
-            <form method="POST" action="{{ url_for('panel.ai_provider_add') }}" class="pnl-grid-form" data-add-panel="cf">
+            <p class="pnl-muted" style="line-height:1.9;">سرویس را از فهرست انتخاب کن؛ فیلدهای لازم همان‌جا نمایش داده می‌شوند. سرویس فقط بعد از تأیید واقعی اتصال فعال می‌شود.</p>
+            <form method="POST" action="{{ url_for('panel.ai_provider_add') }}" class="pnl-grid-form" data-ai-provider-add-form>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <select name="name" required>
-                    <option value="cf">cf — Cloudflare اصلی</option>
-                    <option value="cf1">cf1 — Cloudflare اکانت ۱</option>
-                    <option value="cf2">cf2 — Cloudflare اکانت ۲</option>
-                    <option value="cf3">cf3 — Cloudflare اکانت ۳</option>
+                <select name="provider" data-provider-choice required>
+                    <option value="">— انتخاب سرویس —</option>
+                    <option value="cloudflare">Cloudflare</option>
+                    {% for opt in ai.get('registry_options', []) %}{% if opt.name != 'cloudflare' %}<option value="{{ opt.name }}">{{ opt.display }}</option>{% endif %}{% endfor %}
+                    <option value="custom">🧩 سرویس دلخواه (سازگار با OpenAI)</option>
                 </select>
-                <input type="password" name="api_key" placeholder="API Token* (الزامی)" dir="ltr" autocomplete="off" required>
-                <input type="text" name="account_id" placeholder="Cloudflare Account ID* (الزامی)" dir="ltr" required>
-                <small class="pnl-muted" style="grid-column:1/-1;">آدرس اجرا خودکار ساخته می‌شود. مدل‌ها از رجیستری Cloudflare شناسایی می‌شوند. هر اکانت را با نام جدا (cf1، cf2، cf3) ثبت کن؛ ثبت دوباره همان نام، ردیف قبلی را جایگزین می‌کند.</small>
-                <button class="pnl-btn pnl-btn-gold">💾 ذخیره و شناسایی مدل‌ها</button>
+                <input type="text" name="display_name" data-field="display" maxlength="60" placeholder="نام نمایشی* (مثلاً Cloudflare اصلی)" disabled>
+                <input type="password" name="api_key" data-field="key" placeholder="API Key / API Token* (الزامی)" dir="ltr" autocomplete="off" disabled>
+                <input type="text" name="account_id" data-field="account" placeholder="Cloudflare Account ID* (الزامی)" dir="ltr" disabled>
+                <input type="text" name="base_url" data-field="base" placeholder="Base URL* — مثلاً https://api.example.com/v1" dir="ltr" disabled>
+                <small class="pnl-muted" data-help style="grid-column:1/-1;">یک سرویس را انتخاب کنید.</small>
+                <button type="submit" class="pnl-btn pnl-btn-gold" data-submit style="display:none;" disabled>💾 بررسی اتصال و افزودن سرویس</button>
             </form>
-
-            <form method="POST" action="{{ url_for('panel.ai_custom_model_add') }}" class="pnl-grid-form" data-add-panel="custom" style="display:none;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="text" name="provider_name" placeholder="نام پروایدر* — مثلاً my-provider (انگلیسی)" dir="ltr" pattern="[a-z][a-z0-9_\-]{1,39}" title="۲ تا ۴۰ نویسه: حروف انگلیسی کوچک، عدد، - یا _" required disabled>
-                <input type="password" name="api_key" placeholder="کلید API / Token* (الزامی)" dir="ltr" autocomplete="off" required disabled>
-                <input type="text" name="base_url" placeholder="آدرس بیس* — مثلاً https://api.example.com/v1" dir="ltr" required disabled>
-                <small class="pnl-muted" style="grid-column:1/-1;">مدل‌ها بعد از ذخیره، مستقیم از <code dir="ltr">/models</code> همان سرویس خوانده می‌شوند و اولین مدل پیدا‌شده به‌عنوان مدل انتخابی ثبت می‌شود. نام تکراری هرگز رونویسی نمی‌شود.</small>
-                <button class="pnl-btn pnl-btn-gold">💾 ذخیره و شناسایی خودکار مدل‌ها</button>
-            </form>
-
             <script>
             (function(){
-              var card=document.querySelector('[data-add-chooser]');
-              if(!card) return;
-              function show(choice){
-                card.querySelectorAll('[data-add-panel]').forEach(function(f){
-                  var on=f.getAttribute('data-add-panel')===choice;
-                  f.style.display=on?'':'none';
-                  f.querySelectorAll('input,select,button').forEach(function(el){ el.disabled=!on; });
-                });
+              var form=document.querySelector('[data-ai-provider-add-form]');
+              if(!form) return;
+              var choice=form.querySelector('[data-provider-choice]');
+              var btn=form.querySelector('[data-submit]');
+              var help=form.querySelector('[data-help]');
+              var f={
+                display:form.querySelector('[data-field="display"]'),
+                key:form.querySelector('[data-field="key"]'),
+                account:form.querySelector('[data-field="account"]'),
+                base:form.querySelector('[data-field="base"]')
+              };
+              function show(el,on){ el.style.display=on?'':'none'; el.disabled=!on; el.required=!!on; }
+              function apply(){
+                var v=choice.value, on=!!v, cf=(v==='cloudflare'), custom=(v==='custom');
+                show(f.display,on); show(f.key,on); show(f.account,cf); show(f.base,custom);
+                btn.disabled=!on; btn.style.display=on?'':'none';
+                btn.textContent = custom ? '🔁 تست اتصال و کشف مدل‌ها'
+                  : (cf ? '💾 بررسی اتصال و افزودن حساب' : '💾 بررسی اتصال و افزودن سرویس');
+                help.textContent = !on ? 'یک سرویس را انتخاب کنید.'
+                  : (cf ? 'هر حساب Cloudflare نام، Token و Account ID مستقل دارد؛ Base URL خودکار ساخته می‌شود.'
+                  : (custom ? 'Base URL باید https باشد. مدل‌ها بعد از تست واقعی از /models خوانده می‌شوند؛ اگر API سازگار نباشد، دلیل خطا نمایش داده می‌شود.'
+                  : 'تنظیمات اتصال (Base URL، نوع و مدل‌های پیش‌فرض) از رجیستری خوانده می‌شود.'));
               }
-              card.querySelectorAll('[data-add-choice]').forEach(function(r){
-                r.addEventListener('change',function(){ if(r.checked) show(r.value); });
-              });
-              var checked=card.querySelector('[data-add-choice]:checked');
-              show(checked?checked.value:'cf');
+              choice.addEventListener('change',apply);
+              apply();
             })();
             </script>
         </div>
-
-        <details class="pnl-card" style="padding:0;">
-            <summary style="cursor:pointer;font-weight:bold;padding:14px 18px;">⚙️ افزودن سرویس پیشرفته (Cloudflare و تنظیمات خاص)</summary>
-            <div style="padding:0 18px 18px;">
-            <form method="POST" action="{{ url_for('panel.ai_provider_add') }}" class="pnl-grid-form" data-ai-provider-add-form>
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <select name="name" data-provider-name>
-                    <option value="">— انتخاب پروایدر یا نام دلخواه —</option>
-                    <option value="cf">⚡ cf — Cloudflare اصلی (جایگزین/ویرایش همین رکورد)</option>
-                    <option value="cf1">⚡ cf1 — Cloudflare اکانت ۱</option>
-                    <option value="cf2">⚡ cf2 — Cloudflare اکانت ۲</option>
-                    <option value="cf3">⚡ cf3 — Cloudflare اکانت ۳</option>
-                    {% for opt in ai.get('registry_options', []) %}
-                    {% if opt.name != 'cloudflare' %}<option value="{{ opt.name }}">{{ opt.display }}</option>{% endif %}
-                    {% endfor %}
-                </select>
-                <input type="text" name="custom_name" data-hide-for-cf placeholder="نام دلخواه؛ مثلاً openai2 یا my-provider" dir="ltr">
-                <input type="text" name="api_key" data-cf-required placeholder="کلید API / Token* (الزامی)" dir="ltr" required>
-                <input type="text" name="account_id" data-cf-account placeholder="Cloudflare Account ID فقط برای cf/cf1/cf2/cf3" dir="ltr">
-                <input type="text" name="proxy_url" data-hide-for-cf placeholder="پروکسی SOCKS5 (اختیاری): socks5://... — خالی = مستقیم" dir="ltr">
-                <input type="text" name="selected_model" data-hide-for-cf placeholder="مدل دلخواه (اختیاری) — مثال: model-name" dir="ltr">
-                <div class="pnl-card" data-cf-help style="grid-column:1/-1;background:#f8fbff;border-color:#cfe4ff;display:none;">
-                    <b>⚡ افزودن سریع Cloudflare با cf1 / cf2 / cf3</b>
-                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">برای هر اکانت Cloudflare یک نام جدا انتخاب کن و فقط دو مقدار بده: <b>API Token</b> و <b>Account ID</b>. گیسو خودش این آدرس را می‌سازد:</p>
-                    <code dir="ltr" style="display:block;margin-top:6px;white-space:normal;">https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run</code>
-                    <p class="pnl-muted" style="margin:6px 0 0;line-height:1.9;">مدل پیش‌فرض طراحی عکس نهایی آینه گیسو: <code dir="ltr">@cf/runwayml/stable-diffusion-v1-5-inpainting</code> (Inpainting با mask)</p>
-                </div>
-                <small class="pnl-muted" style="grid-column:1/-1;">برای چند اکانت Cloudflare از <b>cf1</b>، <b>cf2</b>، <b>cf3</b> استفاده کن؛ هرکدام Token و Account ID خودش را می‌گیرد و به اسلات همان شماره در طراحی نهایی آینه گیسو وصل می‌شود.</small>
-                <details style="grid-column:1/-1;" data-hide-for-cf>
-                    <summary style="cursor:pointer;">⚙️ تنظیمات پیشرفته (اختیاری — خالی = از رجیستری)</summary>
-                    <div class="pnl-grid-form" style="margin-top:8px;">
-                        <input type="text" name="base_url" placeholder="آدرس پایه (خالی = از رجیستری)" dir="ltr">
-                        <select name="kind">
-                            <option value="">نوع API (خودکار)</option>
-                            <option value="openai">openai</option>
-                            <option value="cloudflare">cloudflare</option>
-                        </select>
-                        <input type="number" name="timeout" placeholder="تایم‌اوت ثانیه (خالی = پیش‌فرض)" min="5" max="120">
-                        <label class="pnl-check"><input type="checkbox" name="is_iranian" value="1"> سرویس ایرانی است (خودکار بر اساس نام)</label>
-                    </div>
-                </details>
-                <button class="pnl-btn pnl-btn-gold">💾 ذخیره و شناسایی خودکار مدل‌ها</button>
-            </form>
-            </div>
-        </details>
 
 
         {% if ai.get('providers') %}
@@ -138,7 +91,9 @@
             <div class="pnl-ai-provider">
                 <div class="pnl-ai-provider-head">
                     <div>
-                        <strong>{{ p.name }}</strong>
+                        {% if loop.first or ai.providers[loop.index0 - 1].family != p.family %}<div class="pnl-muted" style="font-weight:bold;margin-top:6px;">{{ 'گروه Cloudflare' if p.family == 'cloudflare' else ('خانوادهٔ ' ~ (p.family or p.name)) }}</div>{% endif %}
+                        <strong>{{ p.display_name or p.name }}</strong>
+                        <span class="pnl-muted" dir="ltr" style="font-size:.7rem;">[{{ p.name }}]</span>
                         <span class="pnl-muted">{{ p.bucket }} · <span dir="ltr">{{ p.selected_model or '—' }}</span></span>
                         <div class="pnl-muted" style="font-size:.72rem;margin-top:4px;">
                             API: {% if p.has_api_key %}<b style="color:#2f9e44">متصل</b>{% else %}<b style="color:#c0392b">بدون کلید</b>{% endif %}
@@ -159,6 +114,10 @@
                         </div>
                     </div>
                     <div>
+                        {% set vs = p.verify_status or '' %}
+                        {% if vs.startswith('ok') %}<span class="pnl-badge pnl-badge-ok">✅ اتصال تأیید شد</span>
+                        {% elif vs %}<span class="pnl-badge pnl-badge-off" title="{{ p.verify_error or '' }}">❌ تأیید نشد</span>
+                        {% else %}<span class="pnl-badge pnl-badge-info">⏳ تأیید نشده</span>{% endif %}
                         {% if p.enabled %}<span class="pnl-badge pnl-badge-ok">فعال</span>
                         {% else %}<span class="pnl-badge pnl-badge-off">غیرفعال</span>{% endif %}
                         {% if p.failover_index %}<span class="pnl-badge pnl-badge-info">failover #{{ p.failover_index }}</span>{% endif %}
@@ -191,17 +150,6 @@
                         <button class="pnl-btn pnl-btn-danger pnl-btn-sm" onclick="return confirm('⚠️ حذف {{ p.name }}؟');">🗑 حذف</button>
                     </form>
                 </div>
-                {% if p.discovered_models %}
-                <form method="POST" action="{{ url_for('panel.ai_provider_update', name=p.name) }}" class="pnl-inline-form" style="margin-top:6px;">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="field" value="selected_model">
-                    <span class="pnl-muted" style="font-size:.72rem;">🧠 مدل‌های شناسایی‌شده:</span>
-                    <select name="value" dir="ltr" style="min-width:260px;">
-                        {% for mid in p.discovered_models %}<option value="{{ mid }}" {% if mid == p.selected_model %}selected{% endif %}>{{ mid }}</option>{% endfor %}
-                    </select>
-                    <button class="pnl-btn pnl-btn-outline pnl-btn-sm">✅ انتخاب مدل</button>
-                </form>
-                {% endif %}
                 <details class="pnl-details" style="margin-top:8px;">
                     <summary>✏️ ویرایش فیلد</summary>
                     <form method="POST" action="{{ url_for('panel.ai_provider_update', name=p.name) }}" class="pnl-inline-form" style="margin-top:6px;">
@@ -572,31 +520,4 @@
     {% endif %}
 </div>
 
-<script>
-(function(){
-  function ready(fn){ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',fn); else fn(); }
-  ready(function(){
-    var form=document.querySelector('[data-ai-provider-add-form]');
-    if(!form) return;
-    var select=form.querySelector('[data-provider-name]');
-    var account=form.querySelector('[data-cf-account]');
-    var help=form.querySelector('[data-cf-help]');
-    var hideItems=Array.prototype.slice.call(form.querySelectorAll('[data-hide-for-cf]'));
-    function norm(v){ return String(v||'').trim().toLowerCase(); }
-    function apply(){
-      var value=norm(select && select.value);
-      var custom=norm(form.querySelector('[name="custom_name"]') && form.querySelector('[name="custom_name"]').value);
-      function isCfName(v){ return v==='cf'||v==='cloudflare'||/^cf[1-3]$/.test(v); }
-      var isCf=(isCfName(value)||isCfName(custom));
-      hideItems.forEach(function(el){ el.style.display=isCf?'none':''; });
-      if(help) help.style.display=isCf?'block':'none';
-      if(account){ account.required=!!isCf; account.placeholder=isCf?'Cloudflare Account ID*':'Cloudflare Account ID فقط برای cf/cf1/cf2/cf3'; }
-    }
-    if(select) select.addEventListener('change',apply);
-    var custom=form.querySelector('[name="custom_name"]');
-    if(custom) custom.addEventListener('input',apply);
-    apply();
-  });
-})();
-</script>
 {% endblock %}

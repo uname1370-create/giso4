@@ -8,6 +8,7 @@ import json
 import json as _json
 import logging
 import re
+import secrets
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -19,6 +20,8 @@ try:
     import httpx as _httpx
 except ImportError:
     _httpx = None
+
+from giso.ai_models_registry import PROVIDERS as _REGISTRY_PROVIDERS
 
 
 _GISO_DB_PATH = Path(__file__).resolve().parent / "data" / "giso.db"
@@ -88,6 +91,8 @@ def init_ai_tables(conn=None):
             ("models_source", "TEXT"),
             # گزارش آخرین کشف هوشمند مدل‌ها (دکمهٔ بروزرسانی همه) — مأموریت 11
             ("discovery_report", "TEXT"),
+            # نام نمایشی مستقل از شناسهٔ داخلی (چند نمونه از یک Provider)
+            ("display_name", "TEXT"),
         ):
             try:
                 c.execute(f"ALTER TABLE giso_ai_providers ADD COLUMN {col_name} {col_type}")
@@ -141,14 +146,33 @@ def _normalize_provider_input_name(name: str) -> str:
     return _normalize_pname(str(name or "").translate(_DIGIT_TRANSLATION))
 
 
+_INSTANCE_ID_RE = re.compile(r"([a-z][a-z0-9]*)-([0-9a-f]{6})")
+
+
+def provider_family_of(name: str) -> str:
+    """خانوادهٔ Provider (کلید رجیستری) از روی شناسهٔ داخلی.
+
+    cf / cf1..cf3 / cloudflare → cloudflare؛ شناسهٔ نمونهٔ جدید مثل
+    «groq-1a2b3c» یا «cloudflare-9f8e7d» → خانوادهٔ همان بخش اول؛
+    بقیه همان نام نرمال‌شده (سازگار با رفتار قبلی).
+    """
+    key = _normalize_provider_input_name(name)
+    if not key:
+        return ""
+    if key in {"cf", "cloudflare"} or re.fullmatch(r"cf[1-3]", key):
+        return "cloudflare"
+    m = _INSTANCE_ID_RE.fullmatch(key)
+    if m and (m.group(1) in _REGISTRY_PROVIDERS or m.group(1) == "custom"):
+        return m.group(1)
+    return key
+
+
 def _is_cloudflare_instance_name(name: str) -> bool:
-    name = str(name or "").strip().lower().translate(_DIGIT_TRANSLATION)
-    return name in {"cf", "cloudflare"} or re.fullmatch(r"cf[1-3]", name) is not None
+    return provider_family_of(name) == "cloudflare"
 
 
 def _registry_family_for_provider_name(name: str) -> str:
-    name = _normalize_provider_input_name(name)
-    return "cloudflare" if _is_cloudflare_instance_name(name) else name
+    return provider_family_of(name)
 
 
 def _get_proxy_for_provider(row, sensitive=False):
@@ -159,7 +183,7 @@ def _get_proxy_for_provider(row, sensitive=False):
             return custom
         name = str(row["name"] or "").strip().lower()
         # Gemini با Base URL (ورکر/سفارشی) مثل AvalAI/Groq مستقیم می‌رود؛ SOCKS بایپاس می‌شود.
-        if name == "gemini" and _effective_base_url(name, row["base_url"]):
+        if provider_family_of(name) == "gemini" and _effective_base_url(name, row["base_url"]):
             return None
         if not row["use_proxy"]:
             return None
@@ -256,7 +280,7 @@ def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
                     proxy_url="", proxy_type=""):
     # نرمال‌سازی نام: «hugging face» ← «huggingface»، «cloudflare workers ai» ← «cloudflare»؛ cf۱/cf١ ← cf1
     name = _normalize_provider_input_name(name)
-    if str(name or "").lower() == "gemini":
+    if provider_family_of(name) == "gemini":
         use_proxy = False
         base_url = _normalize_gemini_base_url(base_url)
         if not api_root or _is_google_gemini_host(api_root):
@@ -319,6 +343,94 @@ def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
     except Exception as e:
         logger.error(f"add_ai_provider: {e}")
         return False
+
+
+def _unused_instance_name(conn, family: str) -> str:
+    """شناسهٔ داخلی تازه و یکتا برای یک نمونهٔ Provider (مثل cloudflare-1a2b3c)."""
+    tombstones = _provider_tombstone_names()
+    for _ in range(50):
+        candidate = f"{family}-{secrets.token_hex(3)}"
+        if candidate in tombstones:
+            continue
+        if conn.execute("SELECT 1 FROM giso_ai_providers WHERE name=?", (candidate,)).fetchone() is None:
+            return candidate
+    raise RuntimeError("ساخت شناسهٔ یکتا برای Provider ممکن نشد.")
+
+
+def create_provider_instance(family, display_name, api_key, base_url, *, kind,
+                             timeout=20, is_iranian=False, vision_models=None,
+                             text_models=None, models_source="registry"):
+    """افزودن یک نمونهٔ Provider با شناسهٔ داخلی یکتا.
+
+    - هرگز ردیفی که کلید دارد یا تأیید شده است بازنویسی نمی‌شود.
+    - اگر ردیف خالیِ seed‌شدهٔ رجیستری با همان نام خانواده (مثل «groq») وجود داشته
+      باشد، همان ردیف خالی پر می‌شود؛ وگرنه شناسهٔ تازه ساخته می‌شود.
+    - ردیف با enabled=0 ساخته می‌شود تا تأیید اتصال انجام شود.
+    """
+    fam = provider_family_of(family)
+    if kind == "cloudflare":
+        base_url = normalize_cloudflare_api_root(base_url, "", require_account=False) or base_url
+    vision_list = list(vision_models or [])
+    text_list = list(text_models or [])
+    ids = []
+    for item in vision_list + text_list:
+        mid = str((item.get("id") if isinstance(item, dict) else item) or "").strip()
+        if mid and mid not in ids:
+            ids.append(mid)
+    vision_json = json.dumps(vision_list, ensure_ascii=False)
+    text_json = json.dumps(text_list, ensure_ascii=False)
+    models_json = json.dumps(ids, ensure_ascii=False)
+    selected = ids[0] if ids else ""
+    conn = get_conn()
+    try:
+        with _lock, conn:
+            seeded = None
+            if fam in _REGISTRY_PROVIDERS:
+                seeded = conn.execute(
+                    "SELECT api_key, last_status FROM giso_ai_providers WHERE name=?", (fam,)).fetchone()
+            adopt = bool(seeded is not None
+                         and not str(seeded["api_key"] or "").strip()
+                         and str(seeded["last_status"] or "") != "ok")
+            name = fam if adopt else _unused_instance_name(conn, fam)
+            if adopt:
+                conn.execute(
+                    """UPDATE giso_ai_providers SET display_name=?, kind=?, enabled=0, api_key=?,
+                       base_url=?, api_root=?, timeout=?, fallback_json=?, models_json=?,
+                       selected_model=?, is_iranian=?, vision_models_json=?, text_models_json=?,
+                       models_source=?, last_status='', last_error='', last_checked_at=''
+                       WHERE name=?""",
+                    (display_name, kind, api_key, base_url, base_url, int(timeout), models_json,
+                     models_json, selected, 1 if is_iranian else 0, vision_json, text_json,
+                     models_source, name))
+            else:
+                conn.execute(
+                    """INSERT INTO giso_ai_providers
+                       (name, display_name, kind, enabled, api_key, base_url, api_root, timeout,
+                        headers_json, fallback_json, models_json, selected_model, is_iranian,
+                        use_proxy, proxy_url, proxy_type, vision_models_json, text_models_json,
+                        models_source)
+                       VALUES (?,?,?,0,?,?,?,?,'{}',?,?,?,?,0,'','',?,?,?)""",
+                    (name, display_name, kind, api_key, base_url, base_url, int(timeout),
+                     models_json, models_json, selected, 1 if is_iranian else 0,
+                     vision_json, text_json, models_source))
+        return name
+    finally:
+        conn.close()
+
+
+def finalize_provider_instance(name, verified, selected_model=""):
+    """نتیجهٔ تأیید اتصال را ثبت می‌کند: فقط در صورت موفقیت فعال و مدل تأییدشده ذخیره می‌شود."""
+    sel = str(selected_model or "").strip()
+    conn = get_conn()
+    try:
+        with _lock, conn:
+            cur = conn.execute(
+                "UPDATE giso_ai_providers SET enabled=?, "
+                "selected_model=CASE WHEN ?<>'' THEN ? ELSE selected_model END WHERE name=?",
+                (1 if verified else 0, sel, sel, name))
+        return cur.rowcount > 0
+    finally:
+        conn.close()
 
 
 def delete_ai_provider(name):
@@ -408,7 +520,7 @@ def toggle_use_proxy(name):
         if row is None:
             return None
         # Gemini از ورکر کلودفلر می‌رود؛ SOCKS روی googleapis از ایران کار نمی‌کند.
-        if str(name or "").lower() == "gemini":
+        if provider_family_of(name) == "gemini":
             with _lock, conn:
                 conn.execute("UPDATE giso_ai_providers SET use_proxy=0 WHERE name=?", (name,))
             return False
@@ -537,7 +649,7 @@ def _gemini_openai_base() -> str:
 def _effective_base_url(provider_name, row_base) -> str:
     """Base URL مؤثر: Gemini هرگز به googleapis مستقیم نمی‌رود (ورکر پیش‌فرض)."""
     base = (row_base or "").strip().rstrip("/")
-    if str(provider_name or "").lower() != "gemini":
+    if provider_family_of(provider_name) != "gemini":
         return base
     env_root = _gemini_env_root()
     if env_root and not _is_google_gemini_host(env_root):
@@ -567,7 +679,7 @@ def update_ai_provider_field(name, field, value):
     col = _AI_EDITABLE.get(field)
     if not col:
         return False
-    if str(name or "").lower() == "gemini" and field in ("base_url", "api_root"):
+    if provider_family_of(name) == "gemini" and field in ("base_url", "api_root"):
         value = _normalize_gemini_base_url(value)
     conn = get_conn()
     try:
@@ -586,7 +698,8 @@ def save_ai_check_result(name, status, error, models, selected):
             conn.execute(
                 """UPDATE giso_ai_providers
                    SET last_status=?, last_error=?, last_checked_at=?,
-                       models_json=?, selected_model=?
+                       models_json=?, selected_model=CASE WHEN TRIM(COALESCE(selected_model, ''))=''
+                       THEN ? ELSE selected_model END
                    WHERE name=?""",
                 (status, error, now, json.dumps(models, ensure_ascii=False), selected, name)
             )
@@ -728,6 +841,8 @@ async def _ai_check_openai(row):
                 data = resp.json()
                 models = [m["id"] for m in data.get("data", [])
                           if isinstance(m, dict) and m.get("id")]
+            else:
+                error = f"/models HTTP {resp.status_code} (API سازگار با OpenAI نیست یا کلید اشتباه است)"
         except Exception as exc:
             error = str(exc)
 
@@ -968,9 +1083,9 @@ def refresh_models(provider_name):
             from giso.ai_models_registry import get_text_models, get_vision_models
             family = _registry_family_for_provider_name(provider_name)
             # کپی: داده‌های رجیستری مشترک‌اند و نباید تغییر کنند
-            vision = [dict(x, price_status=("free" if x.get("is_free") else "unknown"), price_source="registry")
+            vision = [dict(x, price_status="unknown", price_source="registry_claim")
                       for x in (get_vision_models(family) or []) if isinstance(x, dict)]
-            text = [dict(x, price_status=("free" if x.get("is_free") else "unknown"), price_source="registry")
+            text = [dict(x, price_status="unknown", price_source="registry_claim")
                     for x in (get_text_models(family) or []) if isinstance(x, dict)]
             ids = []
             for item in list(vision) + list(text):

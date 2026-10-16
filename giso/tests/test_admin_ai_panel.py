@@ -79,10 +79,10 @@ def test_admin_ai_panel_read_only_view():
     assert 'اسم نمایشی مشاور هوشمند' in html
     for provider_name in ('groq', 'openrouter', 'mistral', 'cloudflare', 'gemini', 'gapgpt', 'avalai'):
         assert f'<strong>{provider_name}</strong>' in html, f'{provider_name} باید در کارت‌های Provider دیده شود'
-    assert 'cf1 — Cloudflare اکانت ۱' in html
-    assert 'cf2 — Cloudflare اکانت ۲' in html
+    assert 'cf1 — Cloudflare اکانت ۱' not in html  # گزینه‌های cf1..cf3 حذف شده‌اند
+    assert 'value="cloudflare"' in html
     assert '@cf/black-forest-labs/flux-2-klein-4b' in html
-    assert 'data-cf-account' in html
+    assert 'data-field="account"' in html
     assert 'مدل‌های آینه گیسو' in html
     assert 'فقط آینه گیسو / Buti AI' in html
     # چهار دسته در پنل دیده شوند
@@ -116,11 +116,43 @@ def test_superadmin_ai_panel_can_update_display_name_from_web():
 
 
 
-def test_superadmin_can_add_ai_provider_from_web():
-    """رگرسیون: handle_provider_add به‌دلیل باگ تورفتگی None برمی‌گرداند → 500."""
-    import re as _re
+def _fake_check_ok(selected):
+    async def _check(row):
+        return {"status": "ok", "error": "", "models": [selected], "selected": selected}
+    return _check
+
+
+def _fake_models_ok():
+    async def _fetch(row):
+        return {"ok": True, "items": [{"id": "fake-vision-model"}]}
+    return _fetch
+
+
+def _panel_state_guard():
+    """وضعیت جدول‌های Provider/تخصیص و مسیر .env را برای تست نگه می‌دارد و بعد بازمی‌گرداند."""
     import tempfile as _tf
     from pathlib import Path as _P
+    import giso.ai_brain as _ab
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import ai_db_snapshot as _snap
+
+    class _G:
+        def __enter__(self):
+            self.state = _snap.snapshot()
+            self.orig_env = _ab._ENV_PATH
+            _ab._ENV_PATH = _P(_tf.mkdtemp()) / ".env"
+            return self
+
+        def __exit__(self, *exc):
+            _ab._ENV_PATH = self.orig_env
+            _snap.restore(self.state)
+            return False
+    return _G()
+
+
+def test_superadmin_can_add_registry_service_from_web():
+    """فرم واحد: سرویس رجیستری + نام نمایشی + API Key؛ تنظیمات از رجیستری و تأیید واقعی اتصال."""
+    from unittest import mock
     import giso.ai_brain as _ab
     app = create_app()
     client = app.test_client()
@@ -130,85 +162,61 @@ def test_superadmin_can_add_ai_provider_from_web():
         db.session.commit()
     _login_and_verify(client, phone=SUPER_PHONE)
     html = client.get('/admin/ai').get_data(as_text=True)
-    m2 = _re.search(r'name="csrf_token" value="([^"]+)"', html)
-    _tmp_env = _P(_tf.mkdtemp()) / ".env"
-    _orig_env = _ab._ENV_PATH
-    _ab._ENV_PATH = _tmp_env
-    try:
-        r = client.post('/admin/ai/provider/add', data={
-            'csrf_token': m2.group(1) if m2 else '', 'name': 'gemini-regress', 'kind': 'openai',
-            'api_key': 'FAKE_KEY_FOR_TEST',
-            'base_url': 'https://generativelanguage.googleapis.com/v1beta/openai',
-            'selected_model': 'gemini-2.0-flash', 'timeout': '20'})
-        assert r.status_code == 302, f"provider add باید 302 شود، شد {r.status_code}"
-        from giso.ai_runtime import list_provider_options
-        grouped = list_provider_options() or {}
-        names = [str(p2.get('name')) for rows in grouped.values() for p2 in (rows or [])]
-        assert 'gemini-regress' in names, f"پروایدر ثبت نشد: {names}"
-        print('PASS  سوپرادمین از پنل می‌تواند پروایدر AI اضافه کند (رگرسیون ۵۰۰)')
-    finally:
-        _ab._ENV_PATH = _orig_env
-        try:
-            _tmp_env.unlink()
-        except Exception:
-            pass
-
-
-
-
-def test_superadmin_can_add_cf1_cf2_cf3_as_distinct_cloudflare_providers_from_web():
-    import re as _re
-    import tempfile as _tf
-    from pathlib import Path as _P
-    import giso.ai_brain as _ab
-    from giso.ai_brain import cloudflare_account_id_from_url, get_ai_provider
-    from giso.buti_ai import ai_models
-
-    app = create_app()
-    client = app.test_client()
-    _cleanup(app)
-    with app.app_context():
-        db.session.add(User(phone=SUPER_PHONE, password_hash="hash", name="سوپر وب"))
-        db.session.commit()
-    _login_and_verify(client, phone=SUPER_PHONE)
-    html = client.get('/admin/ai').get_data(as_text=True)
-    token = _re.search(r'name="csrf_token" value="([^"]+)"', html).group(1)
-    _tmp_env = _P(_tf.mkdtemp()) / ".env"
-    _orig_env = _ab._ENV_PATH
-    _ab._ENV_PATH = _tmp_env
-    try:
-        for slot in (1, 2, 3):
+    token = re.search(r'name="csrf_token" value="([^"]+)"', html).group(1)
+    with _panel_state_guard():
+        with mock.patch.object(_ab, "_ai_check_openai", _fake_check_ok("llama-fake-text")), \
+                mock.patch.object(_ab, "_fetch_remote_models", _fake_models_ok()):
             r = client.post('/admin/ai/provider/add', data={
-                'csrf_token': token,
-                'name': f'cf{slot}',
-                'api_key': f'FAKE_CF_TOKEN_{slot}',
-                'account_id': f'acct-{slot}',
-            })
-            assert r.status_code == 302
+                'csrf_token': token, 'provider': 'groq',
+                'display_name': 'گروه تست آینه', 'api_key': 'FAKE_GROQ_KEY_FOR_TEST'})
+        assert r.status_code == 302, f"provider add باید 302 شود، شد {r.status_code}"
+        rows = [row for row in _ab.list_ai_providers() if row["display_name"] == "گروه تست آینه"]
+        assert len(rows) == 1, len(rows)
+        row = rows[0]
+        assert row["kind"] == "openai"
+        assert row["base_url"] == "https://api.groq.com/openai/v1"  # از رجیستری
+        assert row["api_key"] == "FAKE_GROQ_KEY_FOR_TEST"
+        assert int(row["enabled"]) == 1 and row["last_status"] == "ok"
+        assert row["selected_model"] == "llama-fake-text"  # مدلی که واقعاً جواب داد
+    print("PASS  سرویس رجیستری با نام نمایشی و تأیید واقعی ثبت شد")
 
-        rows = [get_ai_provider(f'cf{i}') for i in (1, 2, 3)]
-        assert all(rows), rows
-        assert get_ai_provider('cf۱')['name'] == 'cf1'
-        assert [r['kind'] for r in rows] == ['cloudflare', 'cloudflare', 'cloudflare']
-        assert [cloudflare_account_id_from_url(r['base_url']) for r in rows] == ['acct-1', 'acct-2', 'acct-3']
-        assert '@cf/meta/llama-3.2-11b-vision-instruct' in rows[0]['fallback_json']
 
-        analysis_rows = ai_models.list_model_assignments(ai_models.TASK_EYEBROW_ANALYSIS)
-        analysis_rows = [r for r in analysis_rows if r['provider_name'] in {'cf1', 'cf2', 'cf3'}]
-        assert [(int(r['priority']), r['provider_name']) for r in analysis_rows] == [(1, 'cf1'), (2, 'cf2'), (3, 'cf3')]
-        assert all('@cf/meta/llama-3.2-11b-vision-instruct' == r['model_name'] for r in analysis_rows)
-
-        for task_key in ai_models.IMAGE_DESIGN_TASK_KEYS:
-            image_rows = ai_models.list_model_assignments(task_key)
-            image_rows = [r for r in image_rows if r['provider_name'] in {'cf1', 'cf2', 'cf3'}]
-            assert [(int(r['priority']), r['provider_name']) for r in image_rows] == [(1, 'cf1'), (2, 'cf2'), (3, 'cf3')]
-            assert all(r['model_name'] == '@cf/runwayml/stable-diffusion-v1-5-inpainting' for r in image_rows)
-    finally:
-        _ab._ENV_PATH = _orig_env
-        try:
-            _tmp_env.unlink()
-        except Exception:
-            pass
+def test_superadmin_can_add_two_cloudflare_accounts_from_web():
+    """دو حساب Cloudflare با نام نمایشی متفاوت؛ حساب دوم حساب اول را بازنویسی نمی‌کند."""
+    from unittest import mock
+    import giso.ai_brain as _ab
+    from giso.ai_brain import cloudflare_account_id_from_url
+    app = create_app()
+    client = app.test_client()
+    _cleanup(app)
+    with app.app_context():
+        db.session.add(User(phone=SUPER_PHONE, password_hash="hash", name="سوپر وب"))
+        db.session.commit()
+    _login_and_verify(client, phone=SUPER_PHONE)
+    html = client.get('/admin/ai').get_data(as_text=True)
+    token = re.search(r'name="csrf_token" value="([^"]+)"', html).group(1)
+    with _panel_state_guard():
+        with mock.patch.object(_ab, "_ai_check_cloudflare",
+                               _fake_check_ok("@cf/meta/llama-3.3-70b-instruct-fp8-fast")):
+            for display, key, account in (("Cloudflare اصلی", "FAKE_CF_TOKEN_A", "acctaaaa0001"),
+                                          ("Cloudflare دوم", "FAKE_CF_TOKEN_B", "acctbbbb0002")):
+                r = client.post('/admin/ai/provider/add', data={
+                    'csrf_token': token, 'provider': 'cloudflare', 'display_name': display,
+                    'api_key': key, 'account_id': account})
+                assert r.status_code == 302
+        cf_rows = [row for row in _ab.list_ai_providers()
+                   if str(row["kind"] or "").lower() == "cloudflare"
+                   and str(row["display_name"] or "") in ("Cloudflare اصلی", "Cloudflare دوم")]
+        assert len(cf_rows) == 2, len(cf_rows)
+        names = [row["name"] for row in cf_rows]
+        assert len(set(names)) == 2 and not set(names) & {"cf", "cf1", "cf2", "cf3"}
+        by_display = {row["display_name"]: row for row in cf_rows}
+        first, second = by_display["Cloudflare اصلی"], by_display["Cloudflare دوم"]
+        assert first["api_key"] == "FAKE_CF_TOKEN_A" and second["api_key"] == "FAKE_CF_TOKEN_B"
+        assert cloudflare_account_id_from_url(first["base_url"]) == "acctaaaa0001"
+        assert cloudflare_account_id_from_url(second["base_url"]) == "acctbbbb0002"
+        assert all(int(row["enabled"]) == 1 and row["last_status"] == "ok" for row in cf_rows)
+    print("PASS  دو حساب Cloudflare مستقل ثبت شدند و حساب اول دست‌نخورده ماند")
 
 
 def _run():

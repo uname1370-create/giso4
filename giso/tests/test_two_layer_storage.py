@@ -126,7 +126,10 @@ def test_save_provider_to_env():
     import giso.ai_brain as _ab
     from pathlib import Path as _Path
     tmp_env = _Path(os.path.join(BASE_DIR, "giso", "data", ".env.test_tmp"))
-    shutil.copy2(str(_ENV_PATH), str(tmp_env))
+    if os.path.exists(str(_ENV_PATH)):
+        shutil.copy2(str(_ENV_PATH), str(tmp_env))
+    else:  # checkout تازه .env واقعی ندارد؛ از همان محتوای ساختگی تست استفاده می‌شود
+        tmp_env.write_text(DUMMY_ENV, encoding="utf-8")
     orig_path = _ab._ENV_PATH
     _ab._ENV_PATH = tmp_env
     try:

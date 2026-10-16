@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
-"""گزینه‌های «افزودن سرویس» در پنل AI سایت.
+"""فرم واحد «افزودن سرویس» در پنل AI سایت — مسیر سرویس دلخواه و قراردادهای کلی.
 
-۱) Cloudflare: نام (cf / cf1 / cf2 / cf3)، کلید API و Account ID.
-۲) مدل دلخواه: نام پروایدر، کلید API و آدرس بیس؛ مدل‌ها بعد از ذخیره
-   خودکار از /models شناسایی و اولین مدل پیداشده انتخاب می‌شود.
+- سرویس دلخواه: نام نمایشی، API Key و Base URL؛ «تست اتصال و کشف مدل‌ها».
+- تأیید اتصال فقط با نتیجهٔ ok ثبت می‌شود؛ شکست هرگز موفقیت ثبت نمی‌کند.
+- کشف مدل‌ها هرگز selected_model را تغییر نمی‌دهد.
+- هر ثبت یک نمونهٔ مستقل است و نمونه‌های قبلی بازنویسی نمی‌شوند.
 
-شناسایی /models با مرز شبکه جایگزین شده است؛ هیچ درخواست واقعی ارسال نمی‌شود.
+هیچ درخواست شبکهٔ واقعی ارسال نمی‌شود: تست اتصال و /models با مرز شبکه جایگزین شده‌اند.
 """
 import os
+import re
 import sys
 import time
+import tempfile
+from pathlib import Path
+from unittest import mock
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if BASE_DIR not in sys.path:
@@ -19,12 +24,14 @@ from giso.app import create_app  # noqa: E402
 from giso.models import db, User  # noqa: E402
 from giso.base import normalize_phone  # noqa: E402
 from giso import ai_brain  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import ai_db_snapshot as _snap  # noqa: E402
 
 SUPER_PHONE = normalize_phone("09156012931")
-ADMIN_PHONE = normalize_phone("09124445566")
 CSRF = "fixed-test-csrf-token"
 BASE = "https://api.mtest-alpha.example/v1"
-NAMES = ("mtest-alpha", "mtest-beta", "mtest-host-check", "mtest-missing")
+BASE2 = "https://api.mtest-beta.example/v1"
+TEST_DISPLAYS = ("مدل تست الفا", "مدل تست بتا", "مدل تست تکراری")
 
 
 def _ensure_user(app, phone):
@@ -42,24 +49,35 @@ def _login(client, phone):
         s["admin_panel_verified_until"] = int(time.time()) + 1800
 
 
-def _post(client, path, data):
+def _post(client, path, data, follow=False):
     data = dict(data)
     data["csrf_token"] = CSRF
-    return client.post(path, data=data, headers={"X-GISO-CSRF": CSRF}, follow_redirects=False)
+    return client.post(path, data=data, headers={"X-GISO-CSRF": CSRF}, follow_redirects=follow)
 
 
-def _custom(client, data):
-    return _post(client, "/admin/ai/custom-model/add", data)
+def _add(client, data, follow=False):
+    return _post(client, "/admin/ai/provider/add", data, follow=follow)
 
 
-def _row(name):
-    return ai_brain.get_ai_provider(name)
+def _rows_by_display(display):
+    return [r for r in ai_brain.list_ai_providers() if str(r["display_name"] or "") == display]
+
+
+_STATE = None
 
 
 def _cleanup():
-    for name in NAMES:
-        if _row(name):
-            ai_brain.delete_ai_provider(name)
+    """جدول‌های Provider و تخصیص را به وضعیت قبل از تست برمی‌گرداند."""
+    global _STATE
+    if _STATE is not None:
+        _snap.restore(_STATE)
+        _STATE = None
+
+
+def _fake_check(status="ok", selected="llava-vision-two", models=(), error=""):
+    async def _check(row):
+        return {"status": status, "error": error, "models": list(models), "selected": selected}
+    return _check
 
 
 def _fake_fetch(items=None, ok=True, error=""):
@@ -70,153 +88,185 @@ def _fake_fetch(items=None, ok=True, error=""):
     return _fetch
 
 
-def _setup(monkeypatch, phone=SUPER_PHONE):
+def _setup():
+    global _STATE
     app = create_app()
-    _ensure_user(app, phone)
+    _ensure_user(app, SUPER_PHONE)
+    _STATE = _snap.snapshot()
     client = app.test_client()
-    _login(client, phone)
-    _cleanup()
-    return client
+    _login(client, SUPER_PHONE)
+    return app, client
 
 
-# ── گزینه مدل دلخواه ─────────────────────────────────────────
+def _env_guard():
+    """بازنویسی .env واقعی را در تست متوقف می‌کند."""
+    tmp = Path(tempfile.mkdtemp()) / ".env"
+    orig = ai_brain._ENV_PATH
+    ai_brain._ENV_PATH = tmp
+    return orig
 
-def test_custom_provider_saved_and_discovered_models_picked(monkeypatch):
-    client = _setup(monkeypatch)
-    monkeypatch.setattr(ai_brain, "_fetch_remote_models", _fake_fetch(
-        items=[{"id": "plain-text-one"}, {"id": "llava-vision-two"}]))
+
+def test_custom_verified_discovers_models_and_keeps_selected_from_check():
+    app, client = _setup()
+    orig_env = _env_guard()
     try:
-        r = _custom(client, {"provider_name": "mtest-alpha", "api_key": "FAKE-ALPHA-KEY-0001", "base_url": BASE})
+        with mock.patch.object(ai_brain, "_ai_check_openai",
+                               _fake_check("ok", "llava-vision-two",
+                                           ["plain-text-one", "llava-vision-two"])), \
+                mock.patch.object(ai_brain, "_fetch_remote_models",
+                                  _fake_fetch(items=[{"id": "plain-text-one"}, {"id": "llava-vision-two"}])):
+            r = _add(client, {"provider": "custom", "display_name": "مدل تست الفا",
+                              "api_key": "FAKE-ALPHA-KEY-0010", "base_url": BASE})
         assert r.status_code == 302
-        row = _row("mtest-alpha")
-        assert row is not None
+        rows = _rows_by_display("مدل تست الفا")
+        assert len(rows) == 1
+        row = rows[0]
         assert row["kind"] == "openai"
         assert row["base_url"] == BASE
-        assert row["api_key"] == "FAKE-ALPHA-KEY-0001"
-        assert int(row["enabled"]) == 1
-        assert row["models_source"] == "discovered"
-        assert row["selected_model"] == "llava-vision-two"  # Vision اول
+        assert int(row["enabled"]) == 1 and row["last_status"] == "ok"
+        assert row["selected_model"] == "llava-vision-two"  # از تست واقعی، نه از کشف
         assert "llava-vision-two" in row["vision_models_json"]
         assert "plain-text-one" in row["text_models_json"]
+        print("PASS  سرویس دلخواه موفق: کشف مدل و selected از تست واقعی")
     finally:
+        ai_brain._ENV_PATH = orig_env
         _cleanup()
 
 
-def test_discovery_failure_still_saves_and_warns(monkeypatch):
-    client = _setup(monkeypatch)
-    monkeypatch.setattr(ai_brain, "_fetch_remote_models", _fake_fetch(ok=False, error="HTTP 404"))
+def test_custom_failed_check_is_saved_disabled_and_never_reported_as_success():
+    app, client = _setup()
+    orig_env = _env_guard()
     try:
-        r = _custom(client, {"provider_name": "mtest-beta", "api_key": "FAKE-BETA-KEY-0002", "base_url": BASE})
-        assert r.status_code == 302
-        row = _row("mtest-beta")
-        assert row is not None
-        assert row["selected_model"] == ""
-        with client.session_transaction() as s:
-            flashes = " ".join(m for _, m in s.get("_flashes", []))
-        assert "شناسایی مدل‌ها انجام نشد" in flashes
+        with mock.patch.object(ai_brain, "_ai_check_openai",
+                               _fake_check("error", "", [], "/models HTTP 404 (API سازگار با OpenAI نیست)")):
+            r = _add(client, {"provider": "custom", "display_name": "مدل تست الفا",
+                              "api_key": "FAKE-ALPHA-KEY-0010", "base_url": BASE}, follow=True)
+        html = r.get_data(as_text=True)
+        rows = _rows_by_display("مدل تست الفا")
+        assert len(rows) == 1
+        assert int(rows[0]["enabled"]) == 0
+        assert rows[0]["last_status"] == "error"
+        assert "تأیید نشد" in html and "HTTP 404" in html
+        assert "متصل و تأیید شد" not in html
+        print("PASS  شکست تست اتصال: ذخیره با وضعیت غیرفعال و بدون پیام موفقیت")
     finally:
+        ai_brain._ENV_PATH = orig_env
         _cleanup()
 
 
-def test_existing_name_is_never_overwritten(monkeypatch):
-    client = _setup(monkeypatch)
-    monkeypatch.setattr(ai_brain, "_fetch_remote_models", _fake_fetch(items=[{"id": "plain-text-one"}]))
+def test_two_custom_instances_with_same_display_name_do_not_overwrite():
+    app, client = _setup()
+    orig_env = _env_guard()
     try:
-        _custom(client, {"provider_name": "mtest-alpha", "api_key": "FAKE-FIRST-KEY-0003", "base_url": BASE})
-        _custom(client, {"provider_name": "mtest-alpha", "api_key": "FAKE-SECOND-KEY-0004",
-                         "base_url": "https://api.other-host.example/v1"})
-        row = _row("mtest-alpha")
-        assert row["api_key"] == "FAKE-FIRST-KEY-0003"
-        assert row["base_url"] == BASE
+        with mock.patch.object(ai_brain, "_ai_check_openai", _fake_check("ok", "m-one", ["m-one"])), \
+                mock.patch.object(ai_brain, "_fetch_remote_models", _fake_fetch(items=[{"id": "m-one"}])):
+            _add(client, {"provider": "custom", "display_name": "مدل تست الفا",
+                          "api_key": "FAKE-KEY-FIRST", "base_url": BASE})
+        first = _rows_by_display("مدل تست الفا")[0]
+        with mock.patch.object(ai_brain, "_ai_check_openai", _fake_check("ok", "m-two", ["m-two"])), \
+                mock.patch.object(ai_brain, "_fetch_remote_models", _fake_fetch(items=[{"id": "m-two"}])):
+            _add(client, {"provider": "custom", "display_name": "مدل تست تکراری",
+                          "api_key": "FAKE-KEY-SECOND", "base_url": BASE2})
+        rows = _rows_by_display("مدل تست تکراری")
+        assert len(rows) == 1 and rows[0]["name"] != first["name"]
+        first_after = ai_brain.get_ai_provider(first["name"])
+        assert first_after["api_key"] == "FAKE-KEY-FIRST"
+        assert first_after["base_url"] == BASE
+        assert first_after["selected_model"] == "m-one"
+        assert rows[0]["api_key"] == "FAKE-KEY-SECOND" and rows[0]["base_url"] == BASE2
+        print("PASS  دو نمونهٔ سرویس دلخواه مستقل هستند")
     finally:
+        ai_brain._ENV_PATH = orig_env
         _cleanup()
 
 
-def test_reserved_and_registry_names_are_rejected(monkeypatch):
-    client = _setup(monkeypatch)
+def test_custom_invalid_input_creates_no_row():
+    app, client = _setup()
+    orig_env = _env_guard()
     try:
-        for reserved in ("cf", "cf1", "cloudflare", "groq", "gemini", "Bad Name!"):
-            before = _row(reserved)
-            before_key = before["api_key"] if before else None
-            key = f"FAKE-RESERVED-{reserved}-0005"
-            r = _custom(client, {"provider_name": reserved, "api_key": key, "base_url": BASE})
+        cases = (
+            {"provider": "custom", "display_name": "مدل تست الفا", "api_key": "K", "base_url": ""},
+            {"provider": "custom", "display_name": "مدل تست الفا", "api_key": "K", "base_url": "http://plain.example/v1"},
+            {"provider": "custom", "display_name": "مدل تست الفا", "api_key": "K",
+             "base_url": "https://api.cloudflare.com/client/v4/accounts/abc/ai/v1"},
+            {"provider": "custom", "display_name": "", "api_key": "K", "base_url": BASE},
+            {"provider": "cloudflare", "display_name": "مدل تست الفا", "api_key": "K", "account_id": ""},
+        )
+        for data in cases:
+            r = _add(client, data)
             assert r.status_code == 302
-            after = _row(reserved)
-            assert (after["api_key"] if after else None) == before_key
-            assert after is None or key not in str(after["api_key"])
+            assert _rows_by_display("مدل تست الفا") == [], data
+        print("PASS  ورودی‌های نامعتبر هیچ ردیفی نمی‌سازند")
     finally:
+        ai_brain._ENV_PATH = orig_env
         _cleanup()
 
 
-def test_plain_http_and_cloudflare_host_are_rejected(monkeypatch):
-    client = _setup(monkeypatch)
+def test_anonymous_cannot_add_provider():
+    app, _client = _setup()
+    anon = app.test_client()
+    with anon.session_transaction() as s:
+        s["giso_csrf_token"] = CSRF  # CSRF معتبر است؛ فقط نبود ورود باعث رد می‌شود
+    orig_env = _env_guard()
     try:
-        _custom(client, {"provider_name": "mtest-missing", "api_key": "FAKE-HTTP-KEY-0006",
-                         "base_url": "http://api.mtest-missing.example/v1"})
-        assert _row("mtest-missing") is None
-        cf = "https://api.cloudflare.com/client/v4/accounts/1234567890abcdef1234567890abcdef/ai/run"
-        _custom(client, {"provider_name": "mtest-host-check", "api_key": "FAKE-CF-HOST-0007", "base_url": cf})
-        assert _row("mtest-host-check") is None
+        with mock.patch.object(ai_brain, "_ai_check_openai", _fake_check("ok", "m", ["m"])):
+            r = anon.post("/admin/ai/provider/add", data={
+                "csrf_token": CSRF, "provider": "custom", "display_name": "مدل تست الفا",
+                "api_key": "K", "base_url": BASE}, headers={"X-GISO-CSRF": CSRF})
+        assert r.status_code in (302, 401, 403)
+        assert _rows_by_display("مدل تست الفا") == []
+        print("PASS  کاربر غیرمجاز نمی‌تواند سرویس اضافه کند")
     finally:
+        ai_brain._ENV_PATH = orig_env
         _cleanup()
 
 
-def test_missing_fields_are_rejected(monkeypatch):
-    client = _setup(monkeypatch)
+def test_page_has_single_add_form_with_registry_choices_only():
+    app, client = _setup()
     try:
-        _custom(client, {"provider_name": "mtest-missing", "api_key": "", "base_url": BASE})
-        _custom(client, {"provider_name": "", "api_key": "FAKE-MISS-KEY-0008", "base_url": BASE})
-        _custom(client, {"provider_name": "mtest-missing", "api_key": "FAKE-MISS-KEY-0008", "base_url": ""})
-        assert _row("mtest-missing") is None
-    finally:
-        _cleanup()
-
-
-def test_non_super_admin_cannot_add(monkeypatch):
-    client = _setup(monkeypatch, phone=ADMIN_PHONE)
-    try:
-        r = _custom(client, {"provider_name": "mtest-alpha", "api_key": "FAKE-ADMIN-KEY-0009", "base_url": BASE})
-        assert r.status_code == 302
-        assert _row("mtest-alpha") is None
-    finally:
-        _cleanup()
-
-
-# ── صفحه ───────────────────────────────────────────────────────
-
-def test_page_has_two_options_and_no_old_three_field_card(monkeypatch):
-    client = _setup(monkeypatch)
-    html = client.get("/admin/ai").get_data(as_text=True)
-    assert "data-add-chooser" in html
-    assert 'value="cf"' in html and 'value="custom"' in html
-    assert "افزودن مدل Cloudflare" in html
-    assert "مدل دلخواه (هر سرویس سازگار با OpenAI)" in html
-    assert 'name="provider_name"' in html
-    assert "نام مدل* — مثلاً my-model-v1" not in html  # فرم قدیمی سه‌فیلدی حذف شده
-    assert "افزودن سرویس پیشرفته" in html  # فرم پیشرفته باقی مانده
-
-
-def test_cloudflare_option_posts_to_provider_add_with_account_field(monkeypatch):
-    client = _setup(monkeypatch)
-    html = client.get("/admin/ai").get_data(as_text=True)
-    cf_start = html.index('data-add-panel="cf"')
-    cf_block = html[html.rindex("<form", 0, cf_start):html.index("</form>", cf_start)]
-    assert 'name="account_id"' in cf_block
-    assert 'name="api_key"' in cf_block
-    assert '<option value="cf1">' in cf_block
-    import re
-    action = re.search(r'action="([^"]+)"', cf_block).group(1)
-    assert "provider" in action and "custom-model" not in action
-
-
-def test_provider_card_lists_discovered_models(monkeypatch):
-    client = _setup(monkeypatch)
-    monkeypatch.setattr(ai_brain, "_fetch_remote_models", _fake_fetch(
-        items=[{"id": "plain-text-one"}, {"id": "llava-vision-two"}]))
-    try:
-        _custom(client, {"provider_name": "mtest-alpha", "api_key": "FAKE-ALPHA-KEY-0010", "base_url": BASE})
         html = client.get("/admin/ai").get_data(as_text=True)
-        assert '<option value="llava-vision-two" selected>' in html
-        assert '<option value="plain-text-one"' in html
     finally:
         _cleanup()
+    assert html.count("data-ai-provider-add-form>") == 1  # یک فرم واحد؛ JS هم این صفت را جستجو می‌کند
+    start = html.index('data-provider-choice')
+    select_html = html[start:html.index("</select>", start)]
+    values = set(re.findall(r'<option value="([^"]*)"', select_html)) - {""}
+    expected = {"cloudflare", "custom", "groq", "openrouter", "mistral", "gemini", "gapgpt", "avalai"}
+    assert values == expected, values
+    assert "value=\"cf\"" not in select_html and "value=\"cf1\"" not in html
+    assert "سرویس دلخواه" in select_html
+    for label in ("بررسی اتصال و افزودن حساب", "بررسی اتصال و افزودن سرویس", "تست اتصال و کشف مدل‌ها"):
+        assert label in html, label
+    assert 'name="account_id"' in html and 'name="base_url"' in html
+    print("PASS  فرم واحد: فقط گزینه‌های رجیستری و سرویس دلخواه")
+
+
+def test_cloudflare_without_account_id_is_rejected():
+    app, client = _setup()
+    orig_env = _env_guard()
+    try:
+        _add(client, {"provider": "cloudflare", "display_name": "مدل تست الفا", "api_key": "FAKE-CF-TOKEN"})
+        assert _rows_by_display("مدل تست الفا") == []
+        print("PASS  Cloudflare بدون Account ID ثبت نمی‌شود")
+    finally:
+        ai_brain._ENV_PATH = orig_env
+        _cleanup()
+
+
+def _run():
+    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
+    passed = 0
+    for t in tests:
+        try:
+            t()
+            passed += 1
+        except AssertionError as e:
+            print(f"FAIL  {t.__name__}: {e}")
+        except Exception as e:
+            print(f"ERROR {t.__name__}: {type(e).__name__}: {e}")
+    print(f"\n{passed}/{len(tests)} passed")
+    return passed == len(tests)
+
+
+if __name__ == "__main__":
+    sys.exit(0 if _run() else 1)

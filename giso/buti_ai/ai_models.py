@@ -124,7 +124,14 @@ def _normalize_provider_digits(provider_name: str) -> str:
 
 def _is_cloudflare_provider_name(provider_name: str) -> bool:
     name = _normalize_provider_digits(provider_name)
-    return name == "cloudflare" or re.fullmatch(r"cf[1-3]", name) is not None
+    if name == "cloudflare" or re.fullmatch(r"cf[1-3]", name) is not None:
+        return True
+    # نمونه‌های جدید Cloudflare (مثل cloudflare-1a2b3c) از روی خانوادهٔ شناسه تشخیص داده می‌شوند.
+    try:
+        from giso.ai_brain import provider_family_of
+        return provider_family_of(name) == "cloudflare"
+    except Exception:
+        return False
 
 
 def _cloudflare_slot_priority(provider_name: str) -> int:
@@ -138,7 +145,13 @@ def _cloudflare_slot_priority(provider_name: str) -> int:
 
 
 def _registry_family_for_provider(provider_name: str) -> str:
-    return "cloudflare" if _is_cloudflare_provider_name(provider_name) else _normalize_provider_digits(provider_name)
+    if _is_cloudflare_provider_name(provider_name):
+        return "cloudflare"
+    try:
+        from giso.ai_brain import provider_family_of
+        return provider_family_of(provider_name)
+    except Exception:
+        return _normalize_provider_digits(provider_name)
 
 
 def _cloudflare_image_kind_for_model(model_name: str, image_kind: str = "") -> str:
@@ -883,7 +896,8 @@ def auto_configure_for_provider(provider_name: str, overwrite: bool = False) -> 
         return {"ok": False, "added": 0, "items": [], "error": str(exc)[:160]}
 
     provider_name = _normalize_provider_digits(provider_name)
-    provider_name = provider_name if _is_cloudflare_provider_name(provider_name) else normalize_provider_name(provider_name)
+    # «cf» نام قدیمی است و باید به کلید «cloudflare» نگاشت شود؛ نمونه‌های جدید نام خودشان را نگه می‌دارند.
+    provider_name = provider_name if (_is_cloudflare_provider_name(provider_name) and provider_name != "cf") else normalize_provider_name(provider_name)
     registry_family = _registry_family_for_provider(provider_name)
     added: List[Dict[str, Any]] = []
 

@@ -150,7 +150,8 @@ def get_provider_is_free(provider_name: str) -> bool:
     """آیا پروایدر رایگان است؟ (برای تصمیم بک‌آف 429)"""
     try:
         from giso.ai_models_registry import get_provider
-        reg = get_provider(provider_name)
+        from giso.ai_brain import provider_family_of
+        reg = get_provider(provider_family_of(provider_name))
         if not reg:
             return True  # ناشناخته را رایگان فرض کن
         # اگر ایرانی است، معمولاً پولی است

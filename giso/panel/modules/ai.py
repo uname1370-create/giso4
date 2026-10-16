@@ -207,153 +207,151 @@ def _provider_activation_error(provider):
     if kind == "cloudflare":
         root = str(provider["api_root"] or provider["base_url"] or "").strip()
         if not root or "{account_id}" in root:
-            return "برای Cloudflare، ابتدا از فرم افزودن cf/cf1/cf2/cf3 یک Account ID معتبر ثبت کنید."
+            return "برای Cloudflare، یک Account ID معتبر لازم است."
     elif not str(provider["base_url"] or "").strip():
         return "برای فعال‌سازی، ابتدا Base URL را ثبت کنید."
     return ""
 
 
-def handle_provider_add():
-    """فاز ۲: فقط «نام سرویس + کلید API» الزامی است؛ بقیه خودکار از رجیستری."""
-    g = _require_super()
-    if g:
-        return g
-    name = (request.form.get("name") or "").strip().lower()
-    if not name:  # گزینه «نام دلخواه» از منو → فیلد متنی
-        name = (request.form.get("custom_name") or "").strip().lower()
+_LEGACY_CF_SLOT_NAMES = {"cf", "cf1", "cf2", "cf3"}
+_DISPLAY_NAME_MAX = 60
+
+
+def _create_provider_from_form(choice):
+    """منطق مشترک فرم واحد «افزودن سرویس».
+
+    choice: «cloudflare» | کلید یکی از سرویس‌های رجیستری | «custom».
+    هر ثبت، یک نمونهٔ مستقل با شناسهٔ داخلی یکتا می‌سازد و فقط با تأیید واقعی
+    اتصال (check_ai_provider) فعال می‌شود؛ هرگز موفقیت را حدس نمی‌زند.
+    """
+    from urllib.parse import urlparse
+    from giso.ai_brain import (
+        create_provider_instance, finalize_provider_instance, check_ai_provider,
+        refresh_models, normalize_cloudflare_account_id, normalize_cloudflare_api_root,
+        cloudflare_account_id_from_url, list_ai_providers, save_provider_to_env,
+        _validate_base_url, _normalize_gemini_base_url,
+    )
+    from giso.ai_models_registry import get_provider as _reg_provider
+
+    display_name = (request.form.get("display_name") or request.form.get("provider_name") or "").strip()
     api_key = (request.form.get("api_key") or "").strip()
-    if not name or not api_key:
-        flash("نام سرویس و کلید API الزامی هستند.", "warning")
+    if not display_name or not api_key:
+        flash("نام سرویس و کلید API (یا Token) الزامی هستند.", "warning")
+        return redirect(url_for("panel.ai"))
+    if len(display_name) > _DISPLAY_NAME_MAX:
+        flash(f"نام سرویس حداکثر {_DISPLAY_NAME_MAX} نویسه باشد.", "warning")
+        return redirect(url_for("panel.ai"))
+    if choice in _LEGACY_CF_SLOT_NAMES:
+        flash("نام‌های cf / cf1 / cf2 / cf3 دیگر در فرم استفاده نمی‌شوند؛ گزینهٔ Cloudflare را انتخاب کنید.", "warning")
         return redirect(url_for("panel.ai"))
 
-    from giso.ai_models_registry import get_provider as _reg_provider, normalize_provider_name as _normalize_pname
-    import json as _json
-    import re as _re
-    raw_name = _normalize_pname(name)
-    cf_slot_name = _re.fullmatch(r"cf[1-3]", raw_name or "") is not None
-    is_cf_instance = raw_name == "cf" or raw_name == "cloudflare" or cf_slot_name
-    provider_family = "cloudflare" if is_cf_instance else _normalize_pname(raw_name)
-    name = raw_name if cf_slot_name else provider_family
-    registry_data = _reg_provider(provider_family)
-
-    if registry_data:
-        base_url = (request.form.get("base_url") or "").strip() or registry_data["base_url"]
-        kind = (request.form.get("kind") or "").strip().lower() or registry_data["kind"]
-        try:
-            timeout = max(5, min(120, int(request.form.get("timeout") or registry_data["timeout"])))
-        except (TypeError, ValueError):
-            timeout = registry_data["timeout"]
-        is_iranian = registry_data["is_iranian"]
-        vision_models = registry_data.get("vision_models", [])
-        text_models = registry_data.get("text_models", [])
-        from giso.ai_models_registry import get_best_vision_model, get_best_text_model
-        model = (request.form.get("selected_model") or "").strip() \
-            or get_best_vision_model(provider_family) or get_best_text_model(provider_family) or ""
-        models_source = "registry"
-    else:
-        base_url = (request.form.get("base_url") or "").strip()
-        if not base_url:
-            flash("برای سرویس ناشناخته، آدرس پایه (Base URL) الزامی است.", "warning")
+    if choice == "cloudflare":
+        account_id = normalize_cloudflare_account_id(request.form.get("account_id") or "")
+        if not account_id:
+            flash("برای Cloudflare، Account ID الزامی است.", "warning")
             return redirect(url_for("panel.ai"))
-        kind = (request.form.get("kind") or "").strip().lower() or "openai"
-        if kind not in ("openai", "cloudflare"):
-            kind = "openai"
         try:
-            timeout = max(5, min(120, int(request.form.get("timeout") or 20)))
-        except (TypeError, ValueError):
-            timeout = 20
-        is_iranian = request.form.get("is_iranian") == "1"
-        vision_models = []
-        text_models = []
-        model = (request.form.get("selected_model") or "").strip()
-        models_source = "manual"
-
-    if name == "gemini":
-        from giso.ai_brain import _normalize_gemini_base_url
-        base_url = _normalize_gemini_base_url(base_url)
-    cloudflare_image_model = ""
-    if is_cf_instance:
-        try:
-            from giso.ai_brain import normalize_cloudflare_api_root
-            from giso.ai_models_registry import get_best_text_model, get_best_vision_model, get_image_models
-            base_url = normalize_cloudflare_api_root(
-                base_url, request.form.get("account_id", ""), require_account=True
-            )
-            kind = "cloudflare"
-            model = get_best_vision_model("cloudflare") or get_best_text_model("cloudflare") or model
-            image_models = get_image_models("cloudflare") or []
-            if image_models:
-                cloudflare_image_model = str(image_models[0].get("id") if isinstance(image_models[0], dict) else image_models[0])
+            base_url = normalize_cloudflare_api_root("", account_id, require_account=True)
         except ValueError as cf_error:
             flash(str(cf_error), "warning")
             return redirect(url_for("panel.ai"))
-    if base_url and not _valid_base_url(base_url):
-        flash("Base URL نامعتبر است (باید با http:// یا https:// شروع شود).", "warning")
-        return redirect(url_for("panel.ai"))
-
-    use_proxy = request.form.get("use_proxy") == "1"
-    if name == "gemini":
-        use_proxy = False
-    proxy_url = (request.form.get("proxy_url") or "").strip()
-    if is_cf_instance:
-        use_proxy = False
-        proxy_url = ""
-    proxy_type = _proxy_type_of(proxy_url)
-    if proxy_url and not proxy_type:
-        flash("آدرس پروکسی باید با socks5:// یا http:// شروع شود.", "warning")
-        return redirect(url_for("panel.ai"))
+        for row in list_ai_providers():
+            same_kind = str(row["kind"] or "").strip().lower() == "cloudflare"
+            if same_kind and cloudflare_account_id_from_url(row["api_root"] or row["base_url"] or "") == account_id:
+                flash("این Account ID قبلاً به یک حساب Cloudflare وصل شده است.", "warning")
+                return redirect(url_for("panel.ai"))
+        reg = _reg_provider("cloudflare") or {}
+        family, kind, models_source = "cloudflare", "cloudflare", "registry"
+        timeout, is_iranian = int(reg.get("timeout", 25) or 25), False
+        vision, text = reg.get("vision_models", []), reg.get("text_models", [])
+    elif choice == "custom":
+        base_url = (request.form.get("base_url") or "").strip()
+        if not base_url:
+            flash("برای سرویس دلخواه، Base URL الزامی است.", "warning")
+            return redirect(url_for("panel.ai"))
+        if not _valid_base_url(base_url):
+            flash("Base URL نامعتبر است (باید با https:// شروع شود).", "warning")
+            return redirect(url_for("panel.ai"))
+        try:
+            _validate_base_url(base_url)
+        except ValueError as url_error:
+            flash(str(url_error), "warning")
+            return redirect(url_for("panel.ai"))
+        if (urlparse(base_url).hostname or "").lower() == "api.cloudflare.com":
+            flash("برای Cloudflare از گزینهٔ Cloudflare استفاده کنید.", "warning")
+            return redirect(url_for("panel.ai"))
+        family, kind, models_source = "custom", "openai", "discovered"
+        timeout, is_iranian = 20, False
+        vision, text = [], []
+    else:
+        reg = _reg_provider(choice)
+        if not reg or reg.get("name") != choice:
+            flash("سرویس انتخاب‌شده در رجیستری وجود ندارد.", "warning")
+            return redirect(url_for("panel.ai"))
+        family, models_source = choice, "registry"
+        base_url = reg.get("base_url", "")
+        if family == "gemini":
+            base_url = _normalize_gemini_base_url(base_url)
+        kind = reg.get("kind", "openai")
+        timeout = int(reg.get("timeout", 20) or 20)
+        is_iranian = bool(reg.get("is_iranian", False))
+        vision, text = reg.get("vision_models", []), reg.get("text_models", [])
 
     try:
-        from giso.ai_brain import add_ai_provider, save_provider_to_env
-        ok = add_ai_provider(
-            name=name, kind=kind, api_key=api_key, base_url=base_url,
-            api_root=base_url, timeout=timeout, is_iranian=is_iranian,
-            selected_model=model, enabled=True, use_proxy=use_proxy, replace=True,
-            vision_models_json=_json.dumps(vision_models, ensure_ascii=False),
-            text_models_json=_json.dumps(text_models, ensure_ascii=False),
+        name = create_provider_instance(
+            family, display_name, api_key, base_url, kind=kind, timeout=timeout,
+            is_iranian=is_iranian, vision_models=vision, text_models=text,
             models_source=models_source,
-            proxy_url=proxy_url, proxy_type=proxy_type,
         )
-        if ok:
+    except Exception as exc:
+        logger.error(f"provider instance create: {type(exc).__name__}")
+        flash("ذخیرهٔ سرویس انجام نشد.", "danger")
+        return redirect(url_for("panel.ai"))
+
+    # تأیید واقعی اتصال: فقط نتیجهٔ ok موفقیت است.
+    try:
+        res = _run_async(check_ai_provider(name)) or {}
+    except Exception as exc:
+        logger.error(f"provider instance check: {type(exc).__name__}")
+        res = {"status": "error", "error": "خطای غیرمنتظره در تست اتصال", "selected": ""}
+    verified = str(res.get("status") or "").startswith("ok")
+    finalize_provider_instance(name, verified, res.get("selected") or "")
+
+    if verified:
+        if kind == "openai":
             try:
-                save_provider_to_env(name=name, api_key=api_key, base_url=base_url,
-                                     model=model, enabled=True, proxy=use_proxy,
-                                     iranian=is_iranian, timeout=timeout,
-                                     proxy_url=proxy_url or None, proxy_type=proxy_type or None)
-            except Exception:
-                pass
-            try:
-                from giso.buti_ai.ai_models import auto_configure_for_provider
-                # خودکار فقط اسلات‌های خالی را پر می‌کند؛ اسلات تنظیم‌شدهٔ ادمین هرگز بازنویسی نمی‌شود
-                auto_res = auto_configure_for_provider(name, overwrite=False)
-                if auto_res.get("added"):
-                    flash(f"🪞 {auto_res['added']} اسلات آینه گیسو خودکار تنظیم شد.", "success")
-                if is_cf_instance and cloudflare_image_model:
-                    flash(
-                        f"⚡ {name} آماده شد؛ آدرس run خودکار ساخته شد و مدل طراحی عکس آینه گیسو «{cloudflare_image_model}» است.",
-                        "success",
-                    )
-            except Exception as auto_exc:
-                logger.debug(f"beauty mirror auto config after provider add: {auto_exc}")
-            # شناسایی خودکار مدل‌های زنده از /models (بدون شکست در صورت خطا)
-            try:
-                from giso.ai_brain import refresh_models
-                res = refresh_models(name)
-                if res.get("ok"):
-                    flash(f"✅ سرویس «{name}» اضافه شد — {res['vision_count']} مدل Vision + "
-                          f"{res['text_count']} مدل Text شناسایی شد.", "success")
-                else:
-                    flash(f"✅ سرویس «{name}» اضافه شد. برای شناسایی مدل‌ها روی دکمه 🔄 کلیک کنید. "
-                          f"({str(res.get('error') or '')[:80]})", "success")
-            except Exception as re_:
-                logger.error(f"panel ai refresh after add: {re_}")
-                flash(f"✅ سرویس «{name}» اضافه شد. برای شناسایی مدل‌ها روی دکمه 🔄 کلیک کنید.", "success")
-        else:
-            flash("خطا در افزودن پروایدر.", "danger")
-    except Exception as e:
-        logger.error(f"panel ai provider add: {e}")
-        flash(f"خطا: {str(e)[:100]}", "danger")
+                refresh_models(name)  # فهرست Vision/Text از /models همان سرویس
+            except Exception as refresh_exc:
+                logger.debug(f"provider refresh after verify: {type(refresh_exc).__name__}")
+        try:
+            from giso.buti_ai.ai_models import auto_configure_for_provider
+            auto_configure_for_provider(name, overwrite=False)  # فقط اسلات‌های خالی
+        except Exception as auto_exc:
+            logger.debug(f"beauty mirror auto config after provider add: {type(auto_exc).__name__}")
+        try:
+            save_provider_to_env(name=name, api_key=api_key, base_url=base_url,
+                                 model=res.get("selected") or "", enabled=True, proxy=False,
+                                 iranian=is_iranian, timeout=timeout)
+        except Exception as env_exc:
+            logger.warning(f"provider env backup: {type(env_exc).__name__}")
+        flash(f"✅ «{display_name}» متصل و تأیید شد. مدل تأییدشده: {res.get('selected') or '—'}", "success")
+    else:
+        err = str(res.get("error") or "").strip()[:120] or "پاسخی دریافت نشد"
+        flash(f"⚠️ «{display_name}» ذخیره شد، اما اتصال تأیید نشد و سرویس غیرفعال است. "
+              f"دلیل: {err}. بعد از رفع مشکل با «🔁 تست سلامت» دوباره بررسی کنید.", "warning")
     return redirect(url_for("panel.ai"))
+
+
+def handle_provider_add():
+    """فرم واحد «افزودن سرویس» (Cloudflare، سرویس‌های رجیستری یا سرویس دلخواه)."""
+    g = _require_super()
+    if g:
+        return g
+    choice = (request.form.get("provider") or request.form.get("name") or "").strip().lower()
+    if not choice:
+        flash("یک سرویس را از فهرست انتخاب کنید.", "warning")
+        return redirect(url_for("panel.ai"))
+    return _create_provider_from_form(choice)
 
 
 def handle_provider_toggle(name):
@@ -775,9 +773,14 @@ def context():
                 row["bucket"] = bucket
                 row["failover_index"] = (chain.index(pname) + 1) if pname in chain else 0
                 try:
-                    from giso.ai_brain import get_ai_provider, _effective_base_url, _col
+                    from giso.ai_brain import get_ai_provider, _effective_base_url, _col, provider_family_of
+                    row["family"] = provider_family_of(pname)
                     prov = get_ai_provider(pname)
                     if prov:
+                        row["display_name"] = str(_col(prov, "display_name", "") or "")
+                        row["verify_status"] = str(_col(prov, "last_status", "") or "")
+                        row["verify_error"] = str(_col(prov, "last_error", "") or "")
+                        row["is_cloudflare"] = str(prov["kind"] or "").strip().lower() == "cloudflare"
                         row["base_url"] = str(prov["base_url"] or "")
                         row["api_root"] = str(prov["api_root"] or "")
                         row["use_proxy"] = bool(prov["use_proxy"])
@@ -813,10 +816,10 @@ def context():
                             row["discovered_models"] = _ids[:80]
                         except Exception:
                             row["discovered_models"] = []
-                        if pname.lower() == "gemini":
+                        if row.get("family") == "gemini":
                             row["effective_base_url"] = _effective_base_url("gemini", row["base_url"])
                             row["connects_via_worker"] = "workers.dev" in (row["effective_base_url"] or "").lower()
-                        if pname.lower() == "cloudflare":
+                        if row.get("is_cloudflare"):
                             try:
                                 from giso.ai_brain import cloudflare_account_id_from_url
                                 from giso.ai_models_registry import get_image_models
@@ -831,6 +834,8 @@ def context():
                 except Exception:
                     pass
                 rows.append(row)
+        # حساب‌های هر خانواده (مثلاً چند Cloudflare) کنار هم نمایش داده شوند؛ ترتیب داخل گروه حفظ می‌شود.
+        rows.sort(key=lambda r: str(r.get("family") or r.get("name") or ""))
         data["providers"] = rows
         data["failover_chain"] = chain
         # فاز ۲: گزینه‌های فرم افزودن از رجیستری مرکزی
@@ -893,91 +898,8 @@ def _first_discovered_model(provider_name):
 
 
 def handle_custom_model_add():
-    """گزینه «مدل دلخواه»: نام پروایدر، کلید API و آدرس بیس.
-
-    بعد از ذخیره، مدل‌ها مستقیم از /models همان سرویس شناسایی می‌شوند و
-    اولین مدل پیداشده (Vision، سپس Text) به‌عنوان مدل انتخابی ثبت می‌شود.
-    نام تکراری یا رزرو‌شده هرگز رونویسی نمی‌شود. این سرویس به اسلات‌های
-    آینه گیسو اضافه نمی‌شود.
-    """
+    """مسیر قدیمی فرم «مدل دلخواه»؛ اکنون همان منطق فرم واحد با گزینهٔ custom."""
     g = _require_super()
     if g:
         return g
-    import re as _re
-    from urllib.parse import urlparse
-
-    name = (request.form.get("provider_name") or "").strip().lower()
-    api_key = (request.form.get("api_key") or "").strip()
-    base_url = (request.form.get("base_url") or "").strip()
-    if not name or not api_key or not base_url:
-        flash("برای مدل دلخواه، نام پروایدر، کلید API و آدرس بیس هر سه لازم هستند.", "warning")
-        return redirect(url_for("panel.ai"))
-    if not _re.fullmatch(r"[a-z][a-z0-9_-]{1,39}", name):
-        flash("نام پروایدر باید ۲ تا ۴۰ نویسه، فقط حروف انگلیسی، عدد، «-» یا «_» باشد.", "warning")
-        return redirect(url_for("panel.ai"))
-    if _re.fullmatch(r"cf[1-3]?|cloudflare", name):
-        flash("نام‌های cf / cf1 / cf2 / cf3 برای Cloudflare رزرو هستند؛ از گزینه Cloudflare استفاده کنید.", "warning")
-        return redirect(url_for("panel.ai"))
-    from giso.ai_models_registry import get_provider as _reg_provider, normalize_provider_name as _normalize_pname
-    if _reg_provider(name) or _normalize_pname(name) != name:
-        flash("این نام متعلق به یک سرویس رجیسترشده است؛ نام دیگری بدهید.", "warning")
-        return redirect(url_for("panel.ai"))
-    if not _valid_base_url(base_url):
-        flash("آدرس بیس باید با https:// شروع شود.", "warning")
-        return redirect(url_for("panel.ai"))
-    if (urlparse(base_url).hostname or "").lower() == "api.cloudflare.com":
-        flash("برای Cloudflare از گزینه «Cloudflare» (cf / cf1 / cf2 / cf3 با Account ID) استفاده کنید.", "warning")
-        return redirect(url_for("panel.ai"))
-
-    from giso.ai_brain import (
-        _validate_base_url, add_ai_provider, get_ai_provider,
-        save_provider_to_env, refresh_models, set_provider_selected_model,
-    )
-    try:
-        _validate_base_url(base_url)
-    except ValueError as exc:
-        flash(str(exc), "warning")
-        return redirect(url_for("panel.ai"))
-    if get_ai_provider(name):
-        flash(f"پروایدر «{name}» از قبل وجود دارد. برای جلوگیری از رونویسی، نام دیگری بدهید.", "warning")
-        return redirect(url_for("panel.ai"))
-
-    try:
-        ok = add_ai_provider(
-            name=name, kind="openai", api_key=api_key, base_url=base_url,
-            api_root=base_url, timeout=20, is_iranian=False, selected_model="",
-            enabled=True, use_proxy=False, replace=False, models_source="discovered",
-            proxy_url="", proxy_type="",
-        )
-    except Exception as exc:
-        logger.error(f"custom provider add: {type(exc).__name__}")
-        flash("ذخیرهٔ مدل دلخواه انجام نشد.", "danger")
-        return redirect(url_for("panel.ai"))
-    if not ok:
-        flash("ذخیرهٔ مدل دلخواه انجام نشد.", "danger")
-        return redirect(url_for("panel.ai"))
-
-    try:
-        save_provider_to_env(name=name, api_key=api_key, base_url=base_url,
-                             model="", enabled=True, proxy=False, iranian=False, timeout=20)
-    except Exception as exc:
-        logger.error(f"custom provider env backup: {type(exc).__name__}")
-        flash("پروایدر در دیتابیس ذخیره شد، ولی نسخهٔ پشتیبان .env نوشته نشد.", "warning")
-
-    try:
-        res = refresh_models(name) or {}
-    except Exception as exc:
-        logger.error(f"custom provider discovery: {type(exc).__name__}")
-        res = {"ok": False, "error": "خطای غیرمنتظره"}
-    if res.get("ok"):
-        picked = _first_discovered_model(name)
-        if picked:
-            set_provider_selected_model(name, picked)
-        flash(f"✅ پروایدر «{name}» ذخیره شد — {res.get('vision_count', 0)} مدل Vision و "
-              f"{res.get('text_count', 0)} مدل Text شناسایی شد"
-              + (f". مدل انتخابی: «{picked}» (هر وقت خواستی از فهرست عوضش کن)." if picked else "."),
-              "success")
-    else:
-        flash(f"✅ پروایدر «{name}» ذخیره شد، ولی شناسایی مدل‌ها انجام نشد "
-              f"({str(res.get('error') or '')[:80]}). بعداً با 🔄 دوباره امتحان کنید.", "warning")
-    return redirect(url_for("panel.ai"))
+    return _create_provider_from_form("custom")
