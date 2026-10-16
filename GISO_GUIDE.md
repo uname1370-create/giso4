@@ -1549,4 +1549,8 @@ Graphify در این snapshot بیشترین اتصال را برای این ن�
 - تست‌ها دیتابیس مشترک دارند. برای نتیجهٔ پایدار، کپی بدون `giso/data/giso.db*` و `bot_edu/data/bot.db*` اجرا شود.
 
 ### ۳۰.۶ گراف
-- `graphify update .` (طبق §28.14) هنوز اجرا نشده: ابزار `graphify` در محیط فعلی نصب نیست.
+- `graphify update .` (طبق §28.14 و §29.6) **اجرا شد** با `graphify` نسخهٔ `0.9.69` (`graphifyy` روی `/tmp/venv_graph`)، بدون LLM.
+- **نتیجه:** ۱۰۳۱۷ node · ۲۹۹۶۵ edge · ۳۸۵ community (قبلی: ۱۰۰۰۳ / ۲۸۸۱۹ / ۳۳۸). ساخته‌شده از commit `be0dd80`.
+- **کش:** فایل‌های جدید `graphify-out/cache/ast/v0.9.69-s4/` همراه نقشه commit شدند.
+- **پوشهٔ پشتیبان:** `graphify-out/2026-10-16/` (حدود ۱۶ MB) در commit قرار نگرفت.
+- **یادداشت:** ۲۲۳ community با hub تغییر نام داد؛ برچسب‌گذاری با `graphify label` (LLM) اجرا نشده است.
