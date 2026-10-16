@@ -104,9 +104,9 @@ def test_main_reviews_button():
         async def run():
             funcs = await get_test_handlers()
             ht = funcs["handle_text"]
-            kb, _ = await _send(ht, SUPER_BID, "/start")
+            kb, _ = await _send(ht, SUPER_BID, "🛠 مدیریت")
             flat = [b.text for row in kb.keyboard for b in row]
-            assert "⭐ نظرات" in flat, "دکمه «⭐ نظرات» در منوی اصلی ادمین نیست"
+            assert "⭐ نظرات" in flat, "دکمه «⭐ نظرات» در زیرمنوی مدیریت ادمین نیست"
         asyncio.run(run())
         print("PASS  تست ۳: منوی اصلی «⭐ نظرات» دست‌نخورده است")
     finally:

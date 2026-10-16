@@ -255,14 +255,6 @@ def context():
     latest_nail = mirror_nail[0] if mirror_nail else None
     latest_lip = mirror_lip[0] if mirror_lip else None
 
-    # Recommendation (old)
-    try:
-        from giso.recommendation_service import get_recommendation_for_user
-
-        recommendation = get_recommendation_for_user(getattr(current_user, "phone", ""), max_items=6)
-    except Exception:
-        recommendation = {"recommendations": [], "match_source": "general"}
-
     # Counts for tabs
     counts = {
         "overview": len(rows) + len(mirror_decorated),
@@ -284,8 +276,6 @@ def context():
         "archived_analyses": archived,
         "latest_hair": latest_hair,
         "latest_skin": latest_skin,
-        "analysis_products": recommendation.get("recommendations", []),
-        "products_personalized": recommendation.get("match_source") != "general",
         # Mirror new
         "mirror_rows": mirror_rows_raw,
         "mirror_decorated": mirror_decorated,

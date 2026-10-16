@@ -78,12 +78,15 @@ def test_new_analysis_starts_immediately_with_unreviewed_previous():
 
 
 def test_submit_review_route_removed():
-    """روت /analysis/submit-review حذف شده و 404 می‌دهد."""
+    """روت /analysis/submit-review در url_map ثبت نیست."""
+    from werkzeug.exceptions import NotFound
     app = create_app()
-    client = app.test_client()
-    resp = client.post("/analysis/submit-review", data={})
-    assert resp.status_code == 404, f"expected 404, got {resp.status_code}"
-    print("PASS  روت /analysis/submit-review حذف شده (404)")
+    try:
+        app.url_map.bind("localhost").match("/analysis/submit-review", method="POST")
+    except NotFound:
+        print("PASS  روت /analysis/submit-review حذف شده است")
+        return
+    raise AssertionError("route /analysis/submit-review هنوز ثبت شده است")
 
 
 def test_plan_page_renders_without_review_section():

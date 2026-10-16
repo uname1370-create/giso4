@@ -1511,3 +1511,42 @@ Graphify در این snapshot بیشترین اتصال را برای این ن�
 2. برچسب‌گذاری communityهای گراف با LLM (نیاز به کلید Gemini).
 3. تأیید تقسیم `app.py` و `analysis.py` (تغییر ساختار؛ خارج از فیکس موضعی).
 4. تصمیم دربارهٔ حذف‌های بعدی روی ریموت، در صورت ادامه.
+
+## §30. ممیزی ۱۶ اکتبر ۲۰۲۶: هاب «سالن زیبایی من»، منوی یکتا و اصلاحات
+
+### ۳۰.۱ سالن زیبایی من (پنل کاربر)
+- صفحهٔ هاب: `/dashboard/beauty` با پنج تب در `BEAUTY_TABS` (`panel_user/permissions.py`): `centers`، `reservations`، `chats`، `analyses`، `manage`.
+- پارامتر تب: `beauty_tab`. تب نامعتبر به `centers` برمی‌گردد. هر تب فقط داده‌ی خودش را می‌سازد (`_BEAUTY_TAB_BUILDERS` در `panel_user/routes.py`).
+- تب «مدیریت سالن من»: اگر مرکز دارید، خلاصه و لینک‌های پنل کامل مرکز را نشان می‌دهد؛ وگرنه دعوت به ثبت سالن.
+- منوی کاربر فقط از `permissions.build_user_menu()` ساخته می‌شود. آیتم یکتای `beauty` جای چهار آیتم قبلی (سالن‌ها، نوبت‌ها، گفتگوها، آنالیزها) و «مدیریت سالن» را گرفته است.
+- صفحه‌های مستقل قبلی باقی‌اند (`/beauty-centers`، `/dashboard/my-reservations`، `/dashboard/center-conversations`، `/dashboard/analyses`) و همان partialهای هاب را include می‌کنند.
+- Partialها:
+  - `beauty_centers/_list_content.html`، `beauty_centers/_reservations_content.html`
+  - `user_modules/_center_chats_content.html`، `user_modules/_analyses_content.html`، `user_modules/_analyses_head.html`، `user_modules/_analyses_scripts.html`
+  - `user_modules/_beauty_manage_content.html`
+- صفحهٔ `owner_dashboard` (`/dashboard/beauty-center`) هنوز مستقل است؛ تب‌های هفت‌گانه‌اش داخل هاب تو در تو نشده‌اند.
+
+### ۳۰.۲ بات
+- زیرمنوی آنالیز: دکمهٔ «🛒 محصولات پیشنهادی من» (`analysis_products`) برگشت.
+- نظرات: دکمهٔ «⭐ نظرات» در زیرمنوی «🛠 مدیریت» ادمین است (نه منوی اصلی).
+
+### ۳۰.۳ اصلاحات سمت AI
+- حذف کاربر از پنل ادمین (اکشن `execute_pending_action`): قبلاً وقتی کاربر ردیف فرزند مثل مأموریت کیف پول داشت با خطای `FOREIGN KEY` شکست می‌خورد. حالا همان فهرست `_ERASE_FK_CHILD_TABLES` که حذف کاربر سایت استفاده می‌کند، پیش از حذف اجرا می‌شود.
+- `test_admin_ai_panel`: اجرای مجزا روی `bot.db` تازه با `init_giso_tables()` قبل از پاک‌سازی.
+
+### ۳۰.۴ تصمیم‌ها و وضعیت
+- **محصولات پیشنهادی در صفحهٔ آنالیز سایت:** محاسبهٔ بی‌استفادهٔ `get_recommendation_for_user` از context صفحهٔ آنالیز حذف شد (در خط پایه هم نمایش داده نمی‌شد و یک کوئری هر بار اضافه می‌کرد). محصولات فقط از بات نمایش داده می‌شوند.
+- **نظرات:** حذف از سایت حفظ شد؛ روت `/analysis/submit-review` در `url_map` ثبت نیست (`test_review_removal` همین را بررسی می‌کند). تست دکمهٔ بات به زیرمنوی مدیریت منتقل شد.
+- **`requirements-landmarks.txt` (ابرو و لب):** روی سرور باید نصب شود، طبق دستور داخل همان فایل (`mediapipe==0.10.21` با `--no-deps`) و سپس `pip show mediapipe` برای تأیید. بدون آن، ماسک ابرو تناسبی می‌شود و inpainting واقعی آن را نمی‌پذیرد؛ این رفتار عمدی است. این نصب روی سرور باید توسط مدیر سرور انجام شود.
+
+### ۳۰.۵ نتیجهٔ تست‌ها (روی کپی با دیتابیس تازه)
+- کل مجموعه (کپی تازه): ۹۰۹ قبول، ۲۷ رد، ۴ رد شده. خط پایه `8a22cd6`: ۸۸۱ قبول، ۴۵ رد.
+- هیچ شکست جدیدی نسبت به خط پایه نیست؛ ۱۸ مورد خط پایه درست شد.
+- رد باقی‌مانده:
+  - ابرو (۴): نیاز به `mediapipe` روی محیط تست.
+  - سالن زیبایی (۱۰): تست‌های قدیمی متن/ساختار صفحات مرکز (stage7، stage8، stage10، stage12، stage13، stage14، phase4 owner UI).
+  - بات، فروشگاه، پنل و متفرقه (۱۳): `test_bot_permission_fix` (۴)، `test_button_collision::test_hair_sale_report_new_name`، `test_marketplace_buyer_photo_ui`، `test_panel_authz_hair_shop`، `test_panel_phase5` (۲)، `test_panel_phase52`، `test_phase2_maintenance_admin_entry::test_env_documents_distinct_paths`، `test_shop_buy_phase`، `test_shop_phase_b`.
+- تست‌ها دیتابیس مشترک دارند. برای نتیجهٔ پایدار، کپی بدون `giso/data/giso.db*` و `bot_edu/data/bot.db*` اجرا شود.
+
+### ۳۰.۶ گراف
+- `graphify update .` (طبق §28.14) هنوز اجرا نشده: ابزار `graphify` در محیط فعلی نصب نیست.
