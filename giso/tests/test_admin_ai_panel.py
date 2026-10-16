@@ -21,7 +21,7 @@ from giso.models import db, User  # noqa: E402
 from giso.base import normalize_phone  # noqa: E402
 from giso.config import SUPERADMIN_BALE_ID  # noqa: E402
 from giso.ai_runtime import get_setting, set_display_name  # noqa: E402
-from bot_edu.giso_admin import add_giso_admin  # noqa: E402
+from bot_edu.giso_admin import add_giso_admin, init_giso_tables  # noqa: E402
 
 ADMIN_PHONE = normalize_phone("09124445555")
 ADMIN_BALE_ID = "77889900"
@@ -34,6 +34,7 @@ def _cleanup(app):
             User.query.filter_by(phone=phone).delete(synchronize_session=False)
         db.session.commit()
     bot_db = os.path.join(BASE_DIR, "bot_edu", "data", "bot.db")
+    init_giso_tables()  # tables must exist before cleanup (isolated run on fresh bot.db)
     conn = sqlite3.connect(bot_db)
     try:
         conn.execute("DELETE FROM giso_admins WHERE phone=? OR bale_id=?", (ADMIN_PHONE, ADMIN_BALE_ID))
