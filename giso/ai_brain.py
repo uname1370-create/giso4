@@ -281,12 +281,46 @@ def _stored_selected_model(name) -> str:
     return str(_col(row, "selected_model", "") or "").strip() if row is not None else ""
 
 
+def _merge_fallback_order(stored_raw, fresh_ids):
+    """ترتیب fallback ذخیره‌شدهٔ مدیر را نگه می‌دارد.
+
+    ابتدا مدل‌های قبلی که هنوز در فهرست تازه هستند (به همان ترتیب)، سپس مدل‌های تازهٔ جدید.
+    مدل‌های حذف‌شده از فهرست تازه بیرون می‌روند. اگر ترتیب قبلی خالی باشد، فهرست تازه می‌آید.
+    """
+    fresh: list = []
+    for mid in fresh_ids or []:
+        mid = str(mid or "").strip()
+        if mid and mid not in fresh:
+            fresh.append(mid)
+    fresh_set = set(fresh)
+    stored = _ai_jloads(stored_raw, [])
+    if not isinstance(stored, list):
+        stored = []
+    out: list = []
+    for item in stored:
+        mid = item.get("id") if isinstance(item, dict) else item
+        mid = str(mid or "").strip()
+        if mid and mid in fresh_set and mid not in out:
+            out.append(mid)
+    for mid in fresh:
+        if mid not in out:
+            out.append(mid)
+    return out
+
+
 def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
-                    timeout=20, headers_json="{}", fallback_json="[]",
-                    models_json="[]", selected_model="",
-                    is_iranian=False, enabled=True, use_proxy=False, replace=False,
+                    timeout=None, headers_json=None, fallback_json=None,
+                    models_json=None, selected_model="",
+                    is_iranian=None, enabled=None, use_proxy=None, replace=False,
                     vision_models_json="", text_models_json="", models_source="",
                     proxy_url="", proxy_type=""):
+    """افزودن/جایگزینی ردیف پروایدر.
+
+    مقدار `None` یعنی «ارسال نشده». برای ردیف جدید (یا replace=False) پیش‌فرض رجیستری
+    گذاشته می‌شود. برای ردیف موجود با replace=True، فیلدهای ارسال‌نشده همان مقدار
+    ذخیره‌شده را نگه می‌دارند (انتخاب مدل، ترتیب fallback، فهرست مدل‌ها، فعال بودن،
+    timeout، هدر، پروکسی و ایرانی بودن). کلید/آدرس/نوع همچنان با ورودی جایگزین می‌شوند.
+    """
     # نرمال‌سازی نام: «hugging face» ← «huggingface»، «cloudflare workers ai» ← «cloudflare»؛ cf۱/cf١ ← cf1
     name = _normalize_provider_input_name(name)
     if provider_family_of(name) == "gemini":
@@ -301,19 +335,41 @@ def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
     conn = get_conn()
     # پیش‌فرض رایگان: اگر ادمین مدلی نداد، رجیستری پر می‌کند (مورد ۸ دستور start/1.md)
     reg_models, reg_selected = default_models_for_provider(name)
+    reg_entry = PROVIDERS_REGISTRY.get(_registry_family_for_provider_name(name), {}) or {}
+    # ردیف موجود فقط با replace=True: فیلدهای ارسال‌نشده مقدار ذخیره‌شده را نگه می‌دارند
+    existing = get_ai_provider(name) if replace else None
+
+    def _stored_or(column, default):
+        return _col(existing, column, default) if existing is not None else default
+
     if not str(selected_model or "").strip():
         # انتخاب ذخیره‌شدهٔ مدیر با replace=True هم حفظ می‌شود؛ پیش‌فرض رجیستری فقط وقتی جایگزین می‌شود که خالی است
         selected_model = _stored_selected_model(name) or reg_selected
-    try:
-        if not json.loads(models_json or "[]"):
-            models_json = json.dumps(reg_models, ensure_ascii=False)
-    except Exception:
-        pass
-    try:
-        if not json.loads(fallback_json or "[]"):
-            fallback_json = json.dumps(reg_models, ensure_ascii=False)
-    except Exception:
-        pass
+    if timeout is None:
+        timeout = _stored_or("timeout", reg_entry.get("timeout", 20))
+    if headers_json is None:
+        headers_json = _stored_or("headers_json", "{}")
+    if is_iranian is None:
+        is_iranian = bool(_stored_or("is_iranian", reg_entry.get("is_iranian", False)))
+    if use_proxy is None:
+        use_proxy = bool(_stored_or("use_proxy", False))
+    if enabled is None:
+        enabled = bool(_stored_or("enabled", True))
+
+    def _resolve_model_list(raw, column):
+        # اولویت: فهرست صریح غیرخالی > فهرست ذخیره‌شدهٔ غیرخالی > رجیستری
+        for candidate in (raw, _stored_or(column, "[]")):
+            if not candidate:
+                continue
+            try:
+                if json.loads(candidate):
+                    return candidate
+            except Exception:
+                continue
+        return json.dumps(reg_models, ensure_ascii=False)
+
+    fallback_json = _resolve_model_list(fallback_json, "fallback_json")
+    models_json = _resolve_model_list(models_json, "models_json")
     _cols_vals = """INSERT INTO giso_ai_providers
                 (name, kind, enabled, api_key, base_url, api_root,
                  timeout, headers_json, fallback_json, models_json, selected_model,
@@ -1134,7 +1190,7 @@ def refresh_models(provider_name):
                     (json.dumps(vision, ensure_ascii=False),
                      json.dumps(text, ensure_ascii=False),
                      json.dumps(ids, ensure_ascii=False),
-                     json.dumps(ids, ensure_ascii=False),
+                     json.dumps(_merge_fallback_order(_col(row, "fallback_json", "[]"), ids), ensure_ascii=False),
                      selected, now, provider_name)
                 )
             return {"ok": True, "vision_count": len(vision), "text_count": len(text), "new": [], "removed": [], "updated_at": now}
@@ -1407,7 +1463,7 @@ def _refresh_registry_sourced_models():
             try:
                 with _lock, get_conn() as conn:
                     row = conn.execute(
-                        "SELECT models_source, selected_model FROM giso_ai_providers "
+                        "SELECT models_source, selected_model, fallback_json FROM giso_ai_providers "
                         "WHERE name=?", (name,)).fetchone()
                     if row is None:
                         continue
@@ -1431,7 +1487,7 @@ def _refresh_registry_sourced_models():
                              models_source='registry'
                            WHERE name=?""",
                         (_json.dumps(all_ids, ensure_ascii=False),
-                         _json.dumps(all_ids, ensure_ascii=False),
+                         _json.dumps(_merge_fallback_order(row["fallback_json"], all_ids), ensure_ascii=False),
                          new_selected,
                          _json.dumps(vision, ensure_ascii=False),
                          _json.dumps(text, ensure_ascii=False),

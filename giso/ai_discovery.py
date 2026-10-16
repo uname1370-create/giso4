@@ -350,7 +350,7 @@ async def discover_provider(name: str) -> dict:
                 (json.dumps(merged_v, ensure_ascii=False),
                  json.dumps(merged_t, ensure_ascii=False),
                  json.dumps(all_ids, ensure_ascii=False),
-                 json.dumps(all_ids, ensure_ascii=False),
+                 json.dumps(ai_brain._merge_fallback_order(row["fallback_json"], all_ids), ensure_ascii=False),
                  selected, _now_fa(),
                  f"🕘 {_now_fa()} — {report['vision_count']} بینایی + "
                  f"{report['text_count']} متنی ({report['new']} جدید)",

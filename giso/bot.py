@@ -1703,8 +1703,7 @@ async def _run_async(token=None, test_mode=False):
 
             ok = add_ai_provider(
                 name=name, kind=kind, api_key=api_key, base_url=base_url,
-                api_root=api_root, timeout=timeout, is_iranian=is_iranian,
-                use_proxy=use_proxy, enabled=True, replace=True
+                api_root=api_root, replace=True
             )
             if not ok:
                 await msg.reply_text(f"❌ ذخیرهٔ پروایدر «{name}» ناموفق بود.", reply_markup=_admin_ai_kb())
@@ -1766,8 +1765,7 @@ async def _run_async(token=None, test_mode=False):
             timeout = reg.get("timeout", 25)
             ok = add_ai_provider(
                 name="cloudflare", kind=kind, api_key=api_key, base_url=api_root,
-                api_root=api_root, timeout=timeout, is_iranian=False,
-                use_proxy=False, enabled=True, replace=True
+                api_root=api_root, replace=True
             )
             if not ok:
                 await msg.reply_text("❌ ذخیرهٔ Cloudflare ناموفق بود.", reply_markup=_admin_ai_kb())
@@ -1818,8 +1816,7 @@ async def _run_async(token=None, test_mode=False):
 
             ok = add_ai_provider(
                 name=name, kind="openai", api_key=api_key, base_url=base_url,
-                api_root=base_url, timeout=20, is_iranian=False,
-                use_proxy=False, enabled=True, replace=True
+                api_root=base_url, replace=True
             )
             if not ok:
                 await msg.reply_text(f"❌ ذخیرهٔ پروایدر «{name}» ناموفق بود.", reply_markup=_admin_ai_kb())

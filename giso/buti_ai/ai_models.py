@@ -734,8 +734,26 @@ def configured_vision_chain(task_key: str = TASK_EYEBROW_ANALYSIS) -> List[Dict[
         provider = get_ai_provider(provider_name)
         if not provider or not _row_get(provider, "enabled", 0):
             continue
+        if _slot_is_explicitly_incompatible(provider_name, model_name, task_key or TASK_EYEBROW_ANALYSIS):
+            # مدل صراحتاً ناسازگار با این کاربرد اجرا نمی‌شود؛ unknown/probable دست‌نخورده می‌ماند
+            logger.info("model slot skipped (incompatible): provider=%s model=%s task=%s",
+                        provider_name, model_name, task_key)
+            continue
         chain.append({"provider_name": provider_name, "model_name": model_name})
     return chain
+
+
+def _slot_is_explicitly_incompatible(provider_name: str, model_name: str, task_key: str) -> bool:
+    """True فقط وقتی وضعیت قابلیت مدل برای همین کاربرد «ناسازگار» باشد (خطا در بررسی = False)."""
+    capability = TASK_CAPABILITY.get(normalize_task_key(task_key) or task_key)
+    if not capability:
+        return False
+    try:
+        from giso.ai_discovery import STATUS_INCOMPATIBLE, model_capability_for_provider
+        info = model_capability_for_provider(provider_name, model_name, capability) or {}
+    except Exception:
+        return False
+    return info.get("status") == STATUS_INCOMPATIBLE
 
 
 def _cloudflare_run_root(row: Any) -> str:
