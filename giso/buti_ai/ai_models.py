@@ -68,6 +68,30 @@ TASK_DEFS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# کاربرد متنی (مشاور/چت). جدا از TASK_DEFS تا تب آینهٔ گیسو تغییر نکند؛
+# فقط بخش «مدیریت و انتخاب مدل‌ها» و مسیر چت متنی از آن می‌خوانند.
+TASK_TEXT_CHAT = "text_chat"
+TEXT_TASK_DEFS: Dict[str, Dict[str, Any]] = {
+    TASK_TEXT_CHAT: {
+        "label": "متن — مشاور و چت",
+        "short_label": "متن",
+        "kind": "text",
+        "slots": 3,
+        "help": "مدل متنی برای مشاور و چت‌ها به ترتیب اولویت. اگر مدل اول خطای قابل بازیابی بدهد، مدل بعدی امتحان می‌شود.",
+    },
+}
+# سه دستهٔ بخش «مدیریت و انتخاب مدل‌ها» → کاربرد ذخیره‌سازی و قابلیت لازم
+MODEL_SECTION_CATEGORIES = {
+    "text": {"task_key": TASK_TEXT_CHAT, "capability": "text", "label": "متن"},
+    "image_analysis": {"task_key": TASK_EYEBROW_ANALYSIS, "capability": "vision", "label": "تحلیل عکس"},
+    "image_generation": {"task_key": TASK_MIRROR_IMAGE_DESIGN, "capability": "image_gen", "label": "ساخت/ویرایش تصویر"},
+}
+
+
+def _task_meta(task_key: str) -> Dict[str, Any]:
+    return TASK_DEFS.get(task_key) or TEXT_TASK_DEFS.get(task_key) or {}
+
+
 SERVICE_IMAGE_TASK_MAP = {
     "eyebrow": TASK_MIRROR_IMAGE_DESIGN,
     "nail": TASK_MIRROR_IMAGE_DESIGN,
@@ -295,7 +319,7 @@ def normalize_task_key(task_key: str) -> str:
     key = str(task_key or "").strip().lower()
     if key in LEGACY_IMAGE_DESIGN_TASK_KEYS:
         return TASK_MIRROR_IMAGE_DESIGN
-    return key if key in TASK_DEFS else ""
+    return key if (key in TASK_DEFS or key in TEXT_TASK_DEFS) else ""
 
 
 def _normal_priority(priority: Any, task_key: str) -> int:
@@ -303,13 +327,13 @@ def _normal_priority(priority: Any, task_key: str) -> int:
         value = int(priority or 1)
     except (TypeError, ValueError):
         value = 1
-    slots = int(TASK_DEFS.get(task_key, {}).get("slots") or 1)
+    slots = int(_task_meta(task_key).get("slots") or 1)
     return max(1, min(max(1, slots), value))
 
 
 def save_model_assignment(task_key: str, priority: Any, provider_name: str, model_name: str,
                           enabled: bool = True, image_kind: str = "",
-                          endpoint_override: str = "") -> tuple[bool, str]:
+                          endpoint_override: str = "", validate: bool = False) -> tuple[bool, str]:
     """ذخیره یک اسلات مدل برای آینه گیسو.
 
     ذخیره بر اساس `(task_key, priority)` است؛ یعنی اسلات ۱ مدل اصلی و
@@ -328,6 +352,11 @@ def save_model_assignment(task_key: str, priority: Any, provider_name: str, mode
 
     if not provider_name or not model_name:
         return False, "نام پروایدر و نام مدل الزامی است."
+    if enabled and validate:
+        # اعتبارسنجی سمت سرور برای ذخیرهٔ دستی از پنل (ذخیرهٔ خودکار/داخلی بدون این قاعده می‌ماند)
+        problem = validate_slot_selection(task_key, provider_name, model_name, image_kind, endpoint_override)
+        if problem:
+            return False, problem
 
     now = _now()
     init_buti_ai_model_assignments()
@@ -517,6 +546,179 @@ def panel_slots_context() -> Dict[str, Any]:
     }
 
 
+def configured_text_chain() -> List[Dict[str, str]]:
+    """زنجیرهٔ مدل‌های متنی (فقط اسلات‌های فعال و پروایدرهای فعال، به ترتیب اولویت)."""
+    return configured_vision_chain(TASK_TEXT_CHAT)
+
+
+def clear_model_assignment(task_key: str, priority: Any) -> tuple[bool, str]:
+    """خالی کردن یک اسلات؛ فقط همان (کاربرد، اولویت) حذف می‌شود."""
+    task_key = normalize_task_key(task_key)
+    if not task_key:
+        return False, "نوع کاربرد مدل نامعتبر است."
+    priority = _normal_priority(priority, task_key)
+    init_buti_ai_model_assignments()
+    try:
+        with get_giso_db_conn() as conn:
+            conn.execute("DELETE FROM buti_ai_model_assignments WHERE task_key=? AND priority=?",
+                         (task_key, priority))
+            conn.commit()
+        return True, "اسلات خالی شد."
+    except Exception as exc:
+        logger.error("clear_model_assignment failed: %s", exc)
+        return False, "خالی کردن اسلات انجام نشد."
+
+
+def save_model_section(category: str, selections: List[Optional[tuple]]) -> tuple[bool, str]:
+    """ذخیرهٔ سه اسلات یک دسته؛ اعتبارسنجی کامل قبل از هر نوشتن (همه یا هیچ).
+
+    selections: فهرست حداکثر سه عضوی به ترتیب اولویت؛ هر عضو (provider, model) یا None.
+    مدل فقط وقتی پذیرفته می‌شود که برای قابلیت همان دسته «تأییدشده» یا «احتمالی» باشد،
+    پروایدرش فعال باشد و در یک دسته تکراری نباشد.
+    """
+    from giso.ai_brain import get_ai_provider
+    from giso.ai_discovery import COMPATIBLE_STATUSES, STATUS_LABELS_FA, model_capability_for_provider
+
+    spec = MODEL_SECTION_CATEGORIES.get(category)
+    if not spec:
+        return False, "دسته نامعتبر است."
+    task_key, capability = spec["task_key"], spec["capability"]
+    slots = int(_task_meta(task_key).get("slots") or 1)
+    errors: List[str] = []
+    seen: set = set()
+    plan: List[tuple] = []
+    previous = {row.get("priority"): row for row in list_model_assignments(task_key)}
+    for idx in range(1, slots + 1):
+        sel = selections[idx - 1] if idx - 1 < len(selections) else None
+        if not sel:
+            plan.append((idx, None))
+            continue
+        provider_name, model_name = str(sel[0] or "").strip().lower(), str(sel[1] or "").strip()
+        if not provider_name or not model_name:
+            errors.append(f"اسلات {idx}: پروایدر یا مدل خالی است.")
+            continue
+        if (provider_name, model_name) in seen:
+            errors.append(f"اسلات {idx}: «{model_name}» قبلاً در همین دسته انتخاب شده است.")
+            continue
+        seen.add((provider_name, model_name))
+        prev = previous.get(idx) or {}
+        same = (prev.get("provider_name") == provider_name and prev.get("model_name") == model_name)
+        problem = validate_slot_selection(
+            task_key, provider_name, model_name,
+            image_kind=(prev.get("image_kind") or "") if same else "",
+            endpoint_override=(prev.get("endpoint_override") or "") if same else "",
+        )
+        if problem:
+            errors.append(f"اسلات {idx}: {problem}")
+            continue
+        plan.append((idx, (provider_name, model_name)))
+    if errors:
+        return False, " | ".join(errors)
+
+    previous = {row.get("priority"): row for row in list_model_assignments(task_key)}
+    for idx, sel in plan:
+        if sel is None:
+            clear_model_assignment(task_key, idx)
+            continue
+        provider_name, model_name = sel
+        prev = previous.get(idx) or {}
+        same = (prev.get("provider_name") == provider_name and prev.get("model_name") == model_name)
+        save_model_assignment(
+            task_key, idx, provider_name, model_name, enabled=True,
+            image_kind=(prev.get("image_kind") or "") if same else "",
+            endpoint_override=(prev.get("endpoint_override") or "") if same else "",
+        )
+    return True, f"تنظیم دستهٔ «{spec['label']}» ذخیره شد."
+
+
+# ───────── سیاست مرکزی انتخاب مدل ─────────
+# همهٔ مسیرهای واقعی (متن، تحلیل عکس، تولید تصویر، داور) زنجیرهٔ ذخیره‌شدهٔ همین بخش را
+# می‌خوانند. تنها تصمیم «خطای قابل بازیابی» و «اعتبار یک اسلات» در این فایل است.
+TASK_CAPABILITY = {
+    TASK_TEXT_CHAT: "text",
+    TASK_EYEBROW_ANALYSIS: "vision",
+    TASK_MIRROR_OUTPUT_VALIDATION: "vision",
+    TASK_MIRROR_IMAGE_DESIGN: "image_gen",
+}
+
+_CHAIN_STOP_PATTERN = re.compile(r"HTTP (400|401|402|403|422)\b")
+_CHAIN_STOP_TEXT = ("api key", "کلید", "پروایدر غیرفعال", "مدلی انتخاب نشده", "base url",
+                    "api root", "{account_id}", "httpx نصب نیست")
+
+
+def is_recoverable_chain_error(error_text: Any) -> bool:
+    """فقط خطای قابل بازیابی به مدل بعدی زنجیره می‌رود.
+
+    مجوز/کلید (401/403)، درخواست نامعتبر (400/422)، سهمیه/پرداخت (402) و پیکربندی ناقص
+    زنجیره را متوقف می‌کنند تا تلاش بی‌هدف و حلقه‌ای رخ ندهد.
+    timeout، 429، 5xx، 404 و خطاهای ناشناخته قابل بازیابی‌اند.
+    """
+    text = str(error_text or "")
+    if _CHAIN_STOP_PATTERN.search(text):
+        return False
+    low = text.lower()
+    if any(token in low for token in _CHAIN_STOP_TEXT):
+        return False
+    return True
+
+
+def image_slot_problem(provider_name: str, provider_row: Any, model_name: str,
+                       image_kind: str = "", endpoint_override: str = "") -> str:
+    """دلیلی که یک اسلات تصویر قابل اجرا نیست، یا "" اگر قابل اجراست.
+
+    همان قواعد `configured_image_provider_dicts` است تا ذخیره و اجرا یکسان قضاوت کنند.
+    """
+    if provider_row is None:
+        return "پروایدر پیدا نشد"
+    if not str(_row_get(provider_row, "api_key", "") or "").strip():
+        return "کلید API ثبت نشده است"
+    kind = str(image_kind or "").strip().lower()
+    provider_kind = str(_row_get(provider_row, "kind", "") or "").strip().lower()
+    if provider_kind == "cloudflare" or _is_cloudflare_provider_name(provider_name):
+        if not _cloudflare_run_root(provider_row):
+            return "آدرس Cloudflare کامل نیست (شناسهٔ حساب لازم است)"
+        effective = _cloudflare_image_kind_for_model(model_name, kind)
+        if not _is_supported_cloudflare_final_model(model_name, effective):
+            return "این مدل Cloudflare برای ساخت/ویرایش عکس پشتیبانی نمی‌شود"
+        return ""
+    if not _openai_image_endpoint(provider_row, endpoint_override):
+        return "endpoint تصویر ساخته نشد"
+    return ""
+
+
+def validate_slot_selection(task_key: str, provider_name: str, model_name: str,
+                            image_kind: str = "", endpoint_override: str = "") -> str:
+    """اعتبارسنجی یک انتخاب اسلات با همان قواعدی که مصرف‌کننده‌ها اجرا می‌کنند.
+
+    خروجی: "" اگر پذیرفته است؛ وگرنه دلیل فارسی. کلید API در پیام نمی‌آید.
+    """
+    from giso.ai_brain import get_ai_provider
+    from giso.ai_discovery import COMPATIBLE_STATUSES, STATUS_LABELS_FA, model_capability_for_provider
+
+    task = normalize_task_key(task_key) or str(task_key or "")
+    capability = TASK_CAPABILITY.get(task)
+    if not capability:
+        return "نوع کاربرد مدل نامعتبر است."
+    provider_name = str(provider_name or "").strip().lower()
+    model_name = str(model_name or "").strip()
+    if not provider_name or not model_name:
+        return "نام پروایدر و نام مدل الزامی است."
+    row = get_ai_provider(provider_name)
+    if row is None:
+        return f"پروایدر «{provider_name}» پیدا نشد."
+    if not _row_get(row, "enabled", 0):
+        return f"پروایدر «{provider_name}» غیرفعال است."
+    info = model_capability_for_provider(provider_name, model_name, capability)
+    if info["status"] not in COMPATIBLE_STATUSES:
+        label = STATUS_LABELS_FA.get(info["status"], info["status"])
+        return f"«{model_name}» برای این دسته پذیرفته نشد (وضعیت: {label})."
+    if capability == "image_gen":
+        problem = image_slot_problem(provider_name, row, model_name, image_kind, endpoint_override)
+        if problem:
+            return f"«{model_name}»: {problem}."
+    return ""
+
+
 def configured_vision_chain(task_key: str = TASK_EYEBROW_ANALYSIS) -> List[Dict[str, str]]:
     """زنجیره مدل‌های بینایی یک دسته از مدیریت AI (پیش‌فرض: دستهٔ تحلیل عکس)."""
     chain: List[Dict[str, str]] = []
@@ -636,16 +838,16 @@ def image_task_for_service(service_key: str = "eyebrow") -> str:
 
 
 def configured_image_provider_dicts(limit: int = 3, task_key: str = "", service_key: str = "eyebrow") -> List[Dict[str, Any]]:
-    """providerهای تصویرسازی آینه گیسو از مدیریت AI، بدون لاگ‌کردن کلیدها."""
+    """providerهای تصویرسازی آینه گیسو از مدیریت AI، بدون لاگ‌کردن کلیدها.
+
+    این تابع هیچ ردیفی را تغییر نمی‌دهد. تعمیر تنظیمات قدیمی فقط از عملیات صریح پنل
+    (`repair_legacy_cloudflare_eyebrow_image_slots`) اجرا می‌شود. اسلاتی که قابل اجرا نیست
+    با دلیل در لاگ ثبت و کنار گذاشته می‌شود.
+    """
     try:
         from giso.ai_brain import get_ai_provider
     except Exception:
         return []
-
-    try:
-        repair_legacy_cloudflare_eyebrow_image_slots()
-    except Exception as exc:
-        logger.debug("legacy Cloudflare eyebrow slot repair skipped: %s", exc)
 
     providers: List[Dict[str, Any]] = []
     image_task_key = normalize_task_key(task_key) or image_task_for_service(service_key)
@@ -654,31 +856,34 @@ def configured_image_provider_dicts(limit: int = 3, task_key: str = "", service_
             break
         provider_name = str(row.get("provider_name") or "").strip().lower()
         model_name = str(row.get("model_name") or "").strip()
+        try:
+            priority = int(row.get("priority") or 1)
+        except (TypeError, ValueError):
+            priority = 1
         if not provider_name or not model_name:
             continue
         provider = get_ai_provider(provider_name)
         if not provider or not _row_get(provider, "enabled", 0):
+            logger.info("image slot skipped: priority=%s provider=%s reason=provider_inactive", priority, provider_name)
+            continue
+        image_kind = str(row.get("image_kind") or "").strip().lower()
+        endpoint_override = row.get("endpoint_override", "")
+        problem = image_slot_problem(provider_name, provider, model_name, image_kind, endpoint_override)
+        if problem:
+            logger.info("image slot skipped: priority=%s provider=%s model=%s reason=%s",
+                        priority, provider_name, model_name, problem)
             continue
         api_key = str(_row_get(provider, "api_key", "") or "").strip()
-        if not api_key:
-            continue
         provider_kind = str(_row_get(provider, "kind", "") or "").strip().lower()
-        image_kind = str(row.get("image_kind") or "").strip().lower()
-        endpoint = ""
         if provider_kind == "cloudflare" or _is_cloudflare_provider_name(provider_name):
             root = _cloudflare_run_root(provider)
-            if not root:
-                continue
             image_kind = _cloudflare_image_kind_for_model(model_name, image_kind)
-            if not _is_supported_cloudflare_final_model(model_name, image_kind):
-                continue
             endpoint = root.rstrip("/") + "/" + model_name
         else:
-            endpoint = _openai_image_endpoint(provider, row.get("endpoint_override", ""))
+            endpoint = _openai_image_endpoint(provider, endpoint_override)
             image_kind = image_kind or "openai_image_edit"
         if not endpoint:
             continue
-        priority = int(row.get("priority") or 1)
         providers.append({
             "id": f"ai_mirror_{provider_name}_{priority}",
             "label": f"مدیریت AI: {provider_name} #{priority}",
@@ -1006,6 +1211,12 @@ __all__ = [
     "auto_configure_defaults",
     "repair_legacy_cloudflare_eyebrow_image_slots",
     "configured_vision_chain",
+    "configured_text_chain",
+    "TASK_TEXT_CHAT",
+    "TEXT_TASK_DEFS",
+    "MODEL_SECTION_CATEGORIES",
+    "clear_model_assignment",
+    "save_model_section",
     "image_task_for_service",
     "configured_image_provider_dicts",
 ]

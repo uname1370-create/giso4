@@ -1555,6 +1555,22 @@ def ai_provider_add():
     return _ai.handle_provider_add()
 
 
+@panel_bp.route("/ai/model-section/<category>/save", methods=["POST"])
+@require_super
+def ai_model_section_save(category):
+    if r := _guard():
+        return r
+    return _ai.handle_model_section_save(category)
+
+
+@panel_bp.route("/ai/model-section/test", methods=["POST"])
+@require_super
+def ai_model_section_test():
+    if r := _guard():
+        return r
+    return _ai.handle_model_section_test()
+
+
 @panel_bp.route("/ai/provider/<path:name>/toggle", methods=["POST"])
 @require_super
 def ai_provider_toggle(name):

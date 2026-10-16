@@ -85,36 +85,16 @@ def _image_size(path: str) -> Tuple[int, int]:
 
 
 def _call_vision_json(image_path: str, prompt: str, max_tokens: int = 800) -> Dict[str, Any]:
+    """تحلیل عکس این خدمت: همان زنجیرهٔ مرکزی «تحلیل عکس» (یک اجرا، بدون تکرار).
+
+    بدون زنجیرهٔ ذخیره‌شده، خطای صریح `no_vision_chain` برمی‌گردد (بدون مسیر قدیمی).
+    """
     try:
-        from giso.async_compat import run_async_safe
-        from giso.ai_brain import ask_ai_vision
-        from giso.analysis import _is_ai_refusal, _parse_ai_json
         from giso.buti_ai.ai_models import configured_vision_chain
-        chain = configured_vision_chain()
-        if not chain:
+        from giso.analysis import call_vision_with_fallback
+        if not configured_vision_chain():
             return {"ok": False, "error": "no_vision_chain"}
-        errors = []
-        for item in chain:
-            provider = item.get("provider_name") or ""
-            model = item.get("model_name") or ""
-            if not provider or not model:
-                continue
-            try:
-                result = run_async_safe(ask_ai_vision(provider, image_path, prompt, model=model, max_tokens=max_tokens))
-            except Exception as exc:
-                result = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
-            if result and result.get("ok"):
-                text = result.get("text", "") or ""
-                if _is_ai_refusal(text):
-                    errors.append(f"{provider}/{model}: refused")
-                    continue
-                parsed = _parse_ai_json(text)
-                if parsed is not None:
-                    return {"ok": True, "provider": provider, "model": model, "data": parsed, "text": text}
-                errors.append(f"{provider}/{model}: json")
-            else:
-                errors.append(f"{provider}/{model}: {(result or {}).get('error', 'error')}")
-        return {"ok": False, "error": "; ".join(errors[-3:]) or "vision_failed"}
+        return call_vision_with_fallback([image_path], prompt, max_tokens=max_tokens)
     except Exception as exc:
         return {"ok": False, "error": f"{type(exc).__name__}: {str(exc)[:120]}"}
 

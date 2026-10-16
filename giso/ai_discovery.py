@@ -303,13 +303,25 @@ async def discover_provider(name: str) -> dict:
     for m in merged_v + merged_t:
         if m.get("id") in score_map and not m.get("disabled"):
             m.update({k: v for k, v in score_map[m["id"]].items() if k != "id"})
+    # شاهد قابلیت رسمی API (فقط فیلدهای صریح) کنار هر مدل؛ حدس از نام انجام نمی‌شود
+    from giso.ai_models_registry import official_capability_hints
+    caps_map = {}
+    for it in items:
+        if isinstance(it, dict) and it.get("id"):
+            hints = official_capability_hints(it)
+            if hints:
+                caps_map[it["id"]] = hints
+    for m in merged_v + merged_t:
+        if m.get("id") in caps_map:
+            m["caps"] = caps_map[m["id"]]
+        else:
+            m.pop("caps", None)
 
     all_ids = [m["id"] for m in merged_v + merged_t if not m.get("disabled")]
     selected = str(row["selected_model"] or "")
-    # انتخاب ادمین هرگز توسط کشف عوض نمی‌شود؛ اگر در فهرست زنده نیست فقط گزارش می‌شود
+    # انتخاب ادمین هرگز توسط کشف عوض یا پر نمی‌شود؛ خالی بودن و ناموجود بودن فقط گزارش می‌شود
     selected_missing = bool(selected) and selected not in all_ids
-    if not selected and all_ids:
-        selected = all_ids[0]
+    selected_empty = not selected
 
     # گزارش کوتاه هر سرویس
     top_models = [m["id"] for m in (vision + text)[:2]]
@@ -320,6 +332,7 @@ async def discover_provider(name: str) -> dict:
         "new": len(new_v) + len(new_t),
         "top": "، ".join(top_models),
         "selected_missing": selected_missing,
+        "selected_empty": selected_empty,
     })
 
     try:
@@ -382,3 +395,378 @@ __all__ = [
     "refresh_all_models", "refresh_all_models_async",
     "MAX_VISION_MODELS", "MAX_TEXT_MODELS",
 ]
+
+
+# ---------------------------------------------------------------------------
+# بخش «مدیریت و انتخاب مدل‌ها»: وضعیت قابلیت هر مدل و تست واقعی آن.
+#
+# سطح‌های شاهد (از قوی به ضعیف):
+#   ۱. تست واقعی موفق روی همان قابلیت            → تأییدشده
+#   ۲. فیلد صریح قابلیت در خود API               → تأییدشده (یا ناسازگار اگر False)
+#   ۳. ثبت در فهرست همان قابلیت (نام/رجیستری)     → احتمالی؛ نیازمند تست
+#   ۴. هیچ شاهدی                                   → نامشخص (هرگز «آماده» نیست)
+# رایگان بودن جداگانه و فقط با شاهد معتبر از ai_models_registry می‌آید.
+# ---------------------------------------------------------------------------
+CAP_TEXT = "text"
+CAP_VISION = "vision"
+CAP_IMAGE_GEN = "image_gen"
+CAPABILITIES = (CAP_TEXT, CAP_VISION, CAP_IMAGE_GEN)
+
+STATUS_CONFIRMED = "confirmed"
+STATUS_PROBABLE = "probable"
+STATUS_INCOMPATIBLE = "incompatible"
+STATUS_UNKNOWN = "unknown"
+COMPATIBLE_STATUSES = (STATUS_CONFIRMED, STATUS_PROBABLE)
+STATUS_LABELS_FA = {
+    STATUS_CONFIRMED: "تأییدشده",
+    STATUS_PROBABLE: "احتمالی — نیازمند تست",
+    STATUS_INCOMPATIBLE: "ناسازگار",
+    STATUS_UNKNOWN: "نامشخص",
+}
+
+CHECK_OK = "ok"
+CHECK_FAILED = "failed"
+CHECK_INCOMPATIBLE = "incompatible"
+CHECK_NOT_TESTED = "not_tested"
+CHECK_INCONCLUSIVE = "inconclusive"
+
+STAGE_AUTH = "auth"
+STAGE_TIMEOUT = "timeout"
+STAGE_NETWORK = "network"
+STAGE_TRANSIENT = "transient"
+STAGE_MODEL_MISSING = "model_missing"
+STAGE_MODEL_RUN = "model_run"
+STAGE_INCOMPATIBLE = "incompatible"
+STAGE_INCONCLUSIVE = "inconclusive"
+# مراحلی که اتصال/احراز پروایدر را شکست‌خورده نشان می‌دهند؛ provider_connection = «اتصال برقرار بود»
+PROVIDER_CONNECTION_STAGES = (STAGE_AUTH, STAGE_TIMEOUT, STAGE_NETWORK)
+_NETWORK_TOKENS = ("connecterror", "connection", "tls", "ssl", "eof occurred", "name or service",
+                   "resolve", "unreachable", "reset by peer", "remoteprotocol", "remotedisconnected",
+                   "network")
+_MODALITY_REJECT_RE = re.compile(
+    r"(does not|doesn't|do not|not|no)\s+(support|accept|allow)\w*[^.]{0,40}(image|vision|multimodal)"
+    r"|(image|vision|multimodal)[^.]{0,30}(not supported|unsupported|not allowed)", re.IGNORECASE)
+
+_PROBE_PROMPT = "Reply with the single word OK."
+_SECRET_PATTERNS = (
+    re.compile(r"(?i)bearer\s+[A-Za-z0-9._\-]+"),
+    re.compile(r"sk-[A-Za-z0-9_\-]{8,}"),
+)
+
+
+def ensure_checks_table(conn) -> None:
+    """جدول نتیجهٔ تست واقعی هر (پروایدر، مدل، قابلیت) — افزایشی و بی‌خطر."""
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS giso_ai_model_checks (
+            provider_name TEXT NOT NULL,
+            model_id TEXT NOT NULL,
+            capability TEXT NOT NULL,
+            result TEXT NOT NULL DEFAULT '',
+            stage TEXT NOT NULL DEFAULT '',
+            detail TEXT NOT NULL DEFAULT '',
+            checked_at TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY (provider_name, model_id, capability)
+        )"""
+    )
+
+
+def _load_checks(provider_name: str) -> dict:
+    from giso import ai_brain
+    out: dict = {}
+    try:
+        with ai_brain.get_conn() as conn:
+            ensure_checks_table(conn)
+            rows = conn.execute(
+                "SELECT model_id, capability, result, stage, detail, checked_at "
+                "FROM giso_ai_model_checks WHERE provider_name=?",
+                (provider_name,),
+            ).fetchall()
+        for r in rows:
+            out[(r[0], r[1])] = {"result": r[2], "stage": r[3], "detail": r[4], "checked_at": r[5]}
+    except Exception as exc:
+        logger.error("load model checks (%s): %s", provider_name, exc)
+    return out
+
+
+def _save_check(provider_name: str, model_id: str, capability: str, result: str,
+                stage: str, detail: str) -> None:
+    from giso import ai_brain
+    try:
+        with ai_brain.get_conn() as conn:
+            ensure_checks_table(conn)
+            conn.execute(
+                """INSERT INTO giso_ai_model_checks
+                   (provider_name, model_id, capability, result, stage, detail, checked_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(provider_name, model_id, capability) DO UPDATE SET
+                     result=excluded.result, stage=excluded.stage,
+                     detail=excluded.detail, checked_at=excluded.checked_at""",
+                (provider_name, model_id, capability, result, stage, detail[:300],
+                 _now_fa()),
+            )
+    except Exception as exc:
+        logger.error("save model check (%s/%s): %s", provider_name, model_id, exc)
+
+
+def _entries_by_id(raw) -> dict:
+    out: dict = {}
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw or "[]")
+        except Exception:
+            raw = []
+    for item in raw if isinstance(raw, list) else []:
+        if isinstance(item, dict) and item.get("id") and not item.get("disabled"):
+            out[str(item["id"]).strip()] = item
+        elif isinstance(item, str) and item.strip():
+            out[item.strip()] = {"id": item.strip()}
+    return out
+
+
+def _provider_catalog(provider_name: str) -> dict:
+    """فهرست مدل‌های ذخیره‌شدهٔ یک پروایدر از دیتابیس (بدون هیچ درخواست بیرونی)."""
+    from giso import ai_brain
+    row = ai_brain.get_ai_provider(provider_name)
+    if row is None:
+        return {}
+    return {
+        "row": row,
+        "vision": _entries_by_id(ai_brain._col(row, "vision_models_json", "")),
+        "text": _entries_by_id(ai_brain._col(row, "text_models_json", "")),
+    }
+
+
+def resolve_model_capability(model_id: str, capability: str, *, catalog: dict, checks: dict) -> dict:
+    """وضعیت یک قابلیت برای یک مدل بر اساس شاهدهای بالا؛ هرگز از نام به‌تنهایی «تأیید» نمی‌کند."""
+    from giso import ai_brain
+    entry_v = catalog.get("vision", {}).get(model_id)
+    entry_t = catalog.get("text", {}).get(model_id)
+    in_vision = entry_v is not None
+    in_text = entry_t is not None
+    caps: dict = {}
+    for entry in (entry_v, entry_t):
+        if entry and isinstance(entry.get("caps"), dict):
+            for key, value in entry["caps"].items():
+                caps.setdefault(key, value)
+    check = checks.get((model_id, capability)) or {}
+    # نتیجهٔ ناموفق یا نامشخص فقط یادداشت می‌شود؛ هرگز مدل را ناسازگار نمی‌کند
+    last_result = check.get("result")
+    last_note = ""
+    if last_result in (CHECK_FAILED, CHECK_INCONCLUSIVE):
+        label = "ناموفق" if last_result == CHECK_FAILED else "بدون نتیجهٔ قطعی"
+        last_note = f"آخرین تست {label} ({check.get('checked_at')}): {check.get('detail') or ''}"
+
+    if check.get("result") == CHECK_OK:
+        status, source = STATUS_CONFIRMED, f"تست واقعی موفق ({check.get('checked_at')})"
+    elif check.get("result") == CHECK_INCOMPATIBLE:
+        status, source = STATUS_INCOMPATIBLE, f"تست واقعی: این قابلیت پشتیبانی نمی‌شود ({check.get('checked_at')})"
+    elif isinstance(caps.get(capability), bool) and caps[capability]:
+        status, source = STATUS_CONFIRMED, "فراداده رسمی API"
+    elif isinstance(caps.get(capability), bool):
+        status, source = STATUS_INCOMPATIBLE, "فراداده رسمی API این قابلیت را ندارد"
+    elif capability == CAP_VISION and in_vision:
+        status, source = STATUS_PROBABLE, "در فهرست بینایی پروایدر (نیازمند تست)"
+    elif capability == CAP_TEXT and in_text:
+        status, source = STATUS_PROBABLE, "در فهرست متنی پروایدر (نیازمند تست)"
+    elif capability == CAP_IMAGE_GEN and (in_vision or in_text) and ai_brain._ai_is_image_generation_model(model_id):
+        status, source = STATUS_PROBABLE, "نام مدل تصویری است (نیازمند تست)"
+    else:
+        status, source = STATUS_UNKNOWN, "شاهدی برای این قابلیت ثبت نشده"
+
+    entry = entry_v or entry_t or {}
+    return {
+        "capability": capability,
+        "status": status,
+        "status_label": STATUS_LABELS_FA[status],
+        "source": source,
+        "last_result": check.get("result", ""),
+        "last_stage": check.get("stage", ""),
+        "last_checked": check.get("checked_at", ""),
+        "last_note": last_note,
+        "price_status": str(entry.get("price_status") or ""),
+    }
+
+
+def model_capability_for_provider(provider_name: str, model_id: str, capability: str) -> dict:
+    catalog = _provider_catalog(provider_name)
+    return resolve_model_capability(
+        model_id, capability, catalog=catalog, checks=_load_checks(provider_name)
+    )
+
+
+def compatible_model_options(capability: str) -> list:
+    """مدل‌های سازگار (تأییدشده یا احتمالی) از پروایدرهای فعال، برای منوی هر دسته."""
+    from giso import ai_brain
+    out: list = []
+    try:
+        rows = ai_brain.list_ai_providers() or []
+    except Exception:
+        rows = []
+    for row in rows:
+        name = str(ai_brain._col(row, "name", "") or "").strip().lower()
+        if not name or not ai_brain._col(row, "enabled", 0):
+            continue
+        catalog = _provider_catalog(name)
+        if not catalog:
+            continue
+        checks = _load_checks(name)
+        ids = list(catalog["vision"].keys()) + [m for m in catalog["text"].keys() if m not in catalog["vision"]]
+        for model_id in ids:
+            info = resolve_model_capability(model_id, capability, catalog=catalog, checks=checks)
+            if info["status"] in COMPATIBLE_STATUSES:
+                out.append({"provider": name, "model": model_id, **info})
+    out.sort(key=lambda o: (o["provider"], o["status"] != STATUS_CONFIRMED, o["model"]))
+    return out
+
+
+def redact_secrets(text, secrets=()) -> str:
+    """کلید و توکن‌ها را از متن خطا پاک می‌کند تا هرگز در پیام یا لاگ عمومی نرسند."""
+    out = str(text or "")
+    for secret in secrets:
+        if secret and len(str(secret)) >= 6:
+            out = out.replace(str(secret), "[پنهان]")
+    for pattern in _SECRET_PATTERNS:
+        out = pattern.sub("[پنهان]", out)
+    return out[:300]
+
+
+def _probe_png_path() -> str:
+    """یک PNG کوچک ۳۲×۳۲ برای تست قابلیت بینایی (بدون وابستگی به کتابخانهٔ تصویر)."""
+    import os
+    import struct
+    import tempfile
+    import zlib
+
+    width = height = 32
+    raw = b"".join(b"\x00" + b"\xff\x80\x00" * width for _ in range(height))
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+    png = (b"\x89PNG\r\n\x1a\n"
+           + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+           + chunk(b"IDAT", zlib.compress(raw))
+           + chunk(b"IEND", b""))
+    fd, path = tempfile.mkstemp(suffix=".png", prefix="giso_probe_")
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(png)
+    return path
+
+
+def _classify_check_error(error: str, capability: str) -> tuple:
+    """(نتیجه، مرحله، توضیح فارسی) برای خطای یک تست واقعی.
+
+    مرحله‌ها:
+      auth          کلید/دسترسی (401/403) — مشکل اتصال/حساب، نه مدل
+      timeout       زمان پاسخ تمام شد — موقت، مدل ناسازگار نیست
+      network       اتصال شبکه/TLS — موقت، مدل ناسازگار نیست
+      transient     429 یا 5xx — موقت، مدل ناسازگار نیست
+      model_missing 404 — مدل روی این پروایدر نیست (ناموفق، نه ناسازگار قطعی)
+      incompatible  فقط پذیرش صریح نشدن ورودی تصویر توسط مدل
+      model_run     سایر خطاهای درخواست (ناموفق)
+      inconclusive  خطای ناشناخته — نتیجه نامشخص، نه ناسازگاری
+    فقط «incompatible» نتیجهٔ ناسازگاری است؛ بقیه هرگز مدل را ناسازگار نشان نمی‌دهند.
+    """
+    text = str(error or "")
+    low = text.lower()
+    code_match = re.search(r"HTTP (\d{3})", text)
+    code = int(code_match.group(1)) if code_match else 0
+    if code in (401, 403) or "api key" in low or "کلید" in text:
+        return CHECK_FAILED, STAGE_AUTH, "احراز هویت ناموفق: کلید یا دسترسی معتبر نیست."
+    if "timeout" in low or "timed out" in low:
+        return CHECK_FAILED, STAGE_TIMEOUT, "زمان پاسخ‌گویی تمام شد (timeout). خطای موقت است."
+    if any(token in low for token in _NETWORK_TOKENS):
+        return CHECK_FAILED, STAGE_NETWORK, "اتصال شبکه‌ای یا TLS به پروایدر برقرار نشد. خطای موقت است."
+    if code == 404:
+        return CHECK_FAILED, STAGE_MODEL_MISSING, "این مدل روی این پروایدر پیدا نشد."
+    if code == 429:
+        return CHECK_FAILED, STAGE_TRANSIENT, "محدودیت نرخ درخواست (429). خطای موقت؛ ناسازگاری تشخیص داده نشد."
+    if code >= 500:
+        return CHECK_FAILED, STAGE_TRANSIENT, "سرویس پروایدر موقتاً خطا داد (5xx). خطای موقت؛ ناسازگاری تشخیص داده نشد."
+    if capability == CAP_VISION and code in (400, 422) and _MODALITY_REJECT_RE.search(text):
+        return CHECK_INCOMPATIBLE, STAGE_INCOMPATIBLE, "این مدل ورودی تصویر را صریحاً نمی‌پذیرد."
+    if code:
+        return CHECK_FAILED, STAGE_MODEL_RUN, f"اجرای مدل ناموفق بود (HTTP {code})."
+    return CHECK_INCONCLUSIVE, STAGE_INCONCLUSIVE, "نتیجه نامشخص: خطای ناشناخته؛ ناسازگاری تشخیص داده نشد."
+
+
+async def run_model_check(provider_name: str, model_id: str, capability: str) -> dict:
+    """تست واقعی یک مدل با همان مسیر فراخوانی مصرف‌کننده‌ها.
+
+    موفق فقط وقتی است که پاسخ معتبر از همان مدل درخواستی برسد.
+    پاسخ از مدل دیگر یا پاسخ خالی «نامشخص» است (نه ناسازگار).
+    تولید تصویر هزینه‌بر است و اجرا نمی‌شود؛ نتیجه‌اش «تست نشده» ثبت می‌شود.
+    """
+    from giso import ai_brain
+    provider_name = str(provider_name or "").strip().lower()
+    model_id = str(model_id or "").strip()
+    result = {"provider": provider_name, "model": model_id, "capability": capability,
+              "ok": False, "stage": "config", "result": CHECK_FAILED, "message": "",
+              "provider_connection": False}
+    if capability not in CAPABILITIES:
+        result["message"] = "نوع قابلیت نامعتبر است."
+        return result
+    row = ai_brain.get_ai_provider(provider_name)
+    if row is None:
+        result["message"] = "پروایدر پیدا نشد."
+        return result
+    if not ai_brain._col(row, "enabled", 0):
+        result["message"] = "پروایدر غیرفعال است؛ ابتدا آن را فعال کنید."
+        return result
+    api_key = str(ai_brain._col(row, "api_key", "") or "").strip()
+    if not api_key:
+        result["message"] = "کلید API برای این پروایدر ثبت نشده است."
+        return result
+
+    if capability == CAP_IMAGE_GEN:
+        detail = "تست تولید تصویر انجام نشد: تولید تصویر هزینه‌بر است و در این بخش اجرا نمی‌شود."
+        _save_check(provider_name, model_id, capability, CHECK_NOT_TESTED, "not_tested", detail)
+        result.update({"stage": "not_tested", "result": CHECK_NOT_TESTED, "message": detail})
+        return result
+
+    probe_path = None
+    try:
+        if capability == CAP_TEXT:
+            reply = await ai_brain.ask_ai(
+                provider_name, [{"role": "user", "content": _PROBE_PROMPT}],
+                model=model_id, temperature=0.0, max_tokens=8,
+            )
+        else:
+            probe_path = _probe_png_path()
+            reply = await ai_brain.ask_ai_vision(
+                provider_name, probe_path, _PROBE_PROMPT, model=model_id, max_tokens=8,
+            )
+    except Exception as exc:  # خطای غیرمنتظره: بدون پیام خام
+        reply = {"ok": False, "error": f"{type(exc).__name__}"}
+    finally:
+        if probe_path:
+            try:
+                import os
+                os.remove(probe_path)
+            except OSError:
+                pass
+
+    reply = reply or {}
+    answered_model = str(reply.get("model") or "")
+    text_ok = bool(str(reply.get("text") or "").strip())
+    if reply.get("ok") and text_ok and answered_model == model_id:
+        detail = "پاسخ معتبر از همین مدل دریافت شد."
+        _save_check(provider_name, model_id, capability, CHECK_OK, "ok", detail)
+        result.update({"ok": True, "stage": "ok", "result": CHECK_OK, "message": detail,
+                       "provider_connection": True})
+        return result
+
+    if reply.get("ok") and answered_model and answered_model != model_id:
+        result_kind, stage = CHECK_INCONCLUSIVE, STAGE_INCONCLUSIVE
+        explanation = f"پاسخ از مدل دیگری ({answered_model}) آمد؛ این مدل تست نشد."
+    elif reply.get("ok"):
+        result_kind, stage = CHECK_INCONCLUSIVE, STAGE_INCONCLUSIVE
+        explanation = "پاسخ خالی برگشت؛ نتیجه نامشخص است."
+    else:
+        raw_error = redact_secrets(reply.get("error") or "", secrets=(api_key,))
+        result_kind, stage, explanation = _classify_check_error(raw_error, capability)
+        explanation = f"{explanation} ({raw_error})" if raw_error else explanation
+    _save_check(provider_name, model_id, capability, result_kind, stage, explanation)
+    result.update({"stage": stage, "result": result_kind, "message": explanation,
+                   "provider_connection": stage not in PROVIDER_CONNECTION_STAGES})
+    return result

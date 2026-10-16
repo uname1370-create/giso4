@@ -105,6 +105,9 @@ def judge_output(service_key: str, before, after) -> Dict[str, Any]:
                 res = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
             if not (res and res.get("ok")):
                 result["errors"].append(f"{provider}/{model}: {(res or {}).get('error', 'error')}"[:160])
+                from giso.buti_ai.ai_models import is_recoverable_chain_error as _recoverable
+                if not _recoverable(str((res or {}).get("error") or "")):
+                    break  # خطای غیرقابل بازیابی: مدل بعدی اجرا نمی‌شود
                 continue
             text = res.get("text") or ""
             if _is_ai_refusal(text):

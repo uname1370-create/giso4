@@ -382,3 +382,37 @@ def classify_model_price(item, provider_name: str = "") -> dict:
     if provider_name and mid and mid in registry_free_model_ids(provider_name):
         return {"status": PRICE_FREE, "source": "registry", "verified": False}
     return {"status": PRICE_UNKNOWN, "source": "none", "verified": False}
+
+
+# ---------------------------------------------------------------------------
+# شاهد سطح ۱: قابلیت‌هایی که خود API در فهرست مدل‌ها صریحاً اعلام می‌کند.
+# فقط فیلد معتبر و صریح را می‌خواند؛ هرگز از روی نام مدل حدس نمی‌زند.
+CAPABILITY_HINT_SOURCE = "api_metadata"
+
+
+def official_capability_hints(item) -> dict:
+    """قابلیت‌های اعلام‌شده در یک آیتم /models؛ دیکشنری خالی یعنی API چیزی نگفته است.
+
+    کلیدها: vision (ورودی تصویر)، text (خروجی متن)، image_gen (خروجی تصویر).
+    مقادیر فقط True/False صریح‌اند.
+    """
+    if not isinstance(item, dict):
+        return {}
+    hints: dict = {}
+    arch = item.get("architecture")
+    if isinstance(arch, dict):
+        inp = arch.get("input_modalities")
+        if isinstance(inp, list) and inp:
+            hints["vision"] = "image" in inp
+        out = arch.get("output_modalities")
+        if isinstance(out, list) and out:
+            hints["text"] = "text" in out
+            hints["image_gen"] = "image" in out
+    caps = item.get("capabilities")
+    if isinstance(caps, dict) and isinstance(caps.get("vision"), bool):
+        hints.setdefault("vision", caps["vision"])
+    if not hints:
+        return {}
+    hints = {k: bool(v) for k, v in hints.items()}
+    hints["source"] = CAPABILITY_HINT_SOURCE
+    return hints

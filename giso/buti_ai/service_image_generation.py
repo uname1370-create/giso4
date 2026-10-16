@@ -586,6 +586,7 @@ def generate_final_design(service_key: str, module: Any, candidate: Dict[str, An
             mask_error = str(exc)[:220]
             attempts.append({"ok": False, "stage": "mask", "error": mask_error})
 
+    from giso.buti_ai.ai_models import is_recoverable_chain_error
     for provider in (providers if mask_ready_for_real_ai else []):
         started = time.monotonic()
         try:
@@ -621,6 +622,8 @@ def generate_final_design(service_key: str, module: Any, candidate: Dict[str, An
         except Exception as exc:
             ms = int((time.monotonic() - started) * 1000)
             attempts.append(shared_image._attempt(provider, False, ms, shared_image._friendly_provider_error(exc)))
+            if not is_recoverable_chain_error(str(exc)):
+                break  # خطای غیرقابل بازیابی: بقیهٔ زنجیره اجرا نمی‌شود؛ به راهنمای غیرAI می‌رویم
 
     fallback = module.generate_guided_design(candidate)
     fallback["attempts"] = attempts

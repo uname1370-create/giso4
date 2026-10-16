@@ -64,7 +64,9 @@ def test_cloudflare_vision_uses_workers_ai_image_payload_and_skips_flux(tmp_path
 
     monkeypatch.setattr(brain, "_make_client", lambda timeout, proxy=None: FakeClient())
 
-    result = brain.run_async_sync(brain.ask_ai_vision("cf۱", str(image_path), "فقط JSON بده", max_tokens=77))
+    # مدل تحلیل همان مدل زنجیرهٔ ذخیره‌شده است؛ مدل تولید تصویر (flux) هرگز برای بینایی استفاده نمی‌شود
+    llama = "@cf/meta/llama-3.2-11b-vision-instruct"
+    result = brain.run_async_sync(brain.ask_ai_vision("cf۱", str(image_path), "فقط JSON بده", model=llama, max_tokens=77))
 
     assert result["ok"] is True
     assert result["model"] == "@cf/meta/llama-3.2-11b-vision-instruct"

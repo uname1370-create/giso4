@@ -974,16 +974,18 @@ def _prepend_runtime_system_message(messages: list[dict[str, Any]], role: str,
     system_msg = {"role": "system", "content": "\n".join([x for x in policy_rules if x]).strip()}
     return [system_msg] + list(messages or [])
 
-async def _ask_single_provider(provider_name: str, messages: list[dict[str, Any]], temperature: float = 0.7, max_tokens: int = 1200, timeout_override: int | None = None) -> dict[str, Any]:
+async def _ask_single_provider(provider_name: str, messages: list[dict[str, Any]], temperature: float = 0.7, max_tokens: int = 1200, timeout_override: int | None = None, model_name: str | None = None) -> dict[str, Any]:
     from giso.ai_brain import ask_ai, get_ai_provider
     row = get_ai_provider(provider_name)
     if row is None or not bool(row["enabled"]):
         return {"ok": False, "reason": "provider_inactive", "error": PROVIDER_ERROR_MESSAGE, "provider": provider_name, "model": ""}
+    # model_name (از بخش «مدیریت و انتخاب مدل‌ها») فقط برای همین تلاش؛ selected_model تغییر نمی‌کند
+    chosen_model = (model_name or row["selected_model"] or "") or None
     try:
         result = await ask_ai(
             provider_name,
             messages,
-            model=(row["selected_model"] or "") or None,
+            model=chosen_model,
             temperature=temperature,
             max_tokens=max_tokens,
             timeout_override=timeout_override,
@@ -1026,6 +1028,12 @@ async def chat_with_failover(messages: list[dict[str, Any]], preferred_provider:
         ai_health = None
 
     _ensure_runtime_ready()
+    # اولویت با مدل‌های تنظیم‌شدهٔ بخش «متن» است؛ فقط اگر چیزی تنظیم نشده باشد مسیر قدیمی اجرا می‌شود
+    from giso.buti_ai.ai_models import configured_text_chain
+    text_chain = configured_text_chain()
+    if text_chain:
+        return await _chat_with_text_model_chain(text_chain, messages, temperature, max_tokens, role)
+
     chain = _build_provider_attempt_chain(preferred_provider)
     if not chain:
         return {"ok": False, "reason": "no_provider", "text": PROVIDER_ERROR_MESSAGE, "error": PROVIDER_ERROR_MESSAGE, "provider_errors": []}
@@ -1079,6 +1087,82 @@ async def chat_with_failover(messages: list[dict[str, Any]], preferred_provider:
         "reason": "provider_error",
         "text": PROVIDER_ERROR_MESSAGE,
         "error": PROVIDER_ERROR_MESSAGE,
+        "provider_errors": errors,
+    }
+
+
+def _chain_error_is_recoverable(error_text: str) -> bool:
+    """فقط خطاهای قابل بازیابی به مدل بعدی می‌روند؛ قاعده در ai_models (سیاست مرکزی) است."""
+    from giso.buti_ai.ai_models import is_recoverable_chain_error
+    return is_recoverable_chain_error(error_text)
+
+
+async def _chat_with_text_model_chain(chain: list[dict[str, str]], messages: list[dict[str, Any]],
+                                      temperature: float, max_tokens: int, role: str,
+                                      total_timeout: int | None = None,
+                                      per_model_timeout: int | None = None) -> dict[str, Any]:
+    """زنجیرهٔ مدل‌های متنی: هر (پروایدر، مدل) حداکثر یک‌بار، به ترتیب اولویت.
+
+    حلقهٔ نامحدود یا تکرار وجود ندارد؛ هر تلاش لاگ می‌شود و اگر همه شکست بخورند، خطای واقعی
+    (بدون کلید) در پاسخ برمی‌گردد.
+    """
+    import time as _time
+    from giso.ai_config import CHAT_TOTAL_TIMEOUT_SECONDS, CHAT_PER_MODEL_TIMEOUT_SECONDS
+    total_budget = float(total_timeout or CHAT_TOTAL_TIMEOUT_SECONDS)
+    per_model = per_model_timeout or CHAT_PER_MODEL_TIMEOUT_SECONDS
+    try:
+        from giso import ai_health
+    except Exception:
+        ai_health = None
+
+    start = _time.time()
+    errors: list[dict[str, Any]] = []
+    last_error = ""
+    for position, item in enumerate(chain, start=1):
+        if _time.time() - start > total_budget:
+            logger.info("[AI_ATTEMPT] engine=text_chain result=budget_exceeded elapsed=%.1fs",
+                        _time.time() - start)
+            break
+        provider_name = item["provider_name"]
+        model_name = item["model_name"]
+        attempt_start = _time.time()
+        result = await _ask_single_provider(provider_name, messages, temperature=temperature,
+                                            max_tokens=max_tokens,
+                                            timeout_override=per_model,
+                                            model_name=model_name)
+        duration = _time.time() - attempt_start
+        if result.get("ok"):
+            _clear_provider_cooldown(provider_name)
+            if ai_health is not None:
+                ai_health.mark_success(provider_name, model_name)
+            logger.info("[AI_ATTEMPT] engine=text_chain provider=%s model=%s position=%d result=success duration=%.1fs",
+                        provider_name, model_name, position, duration)
+            result["fallback_used"] = position > 1
+            result["provider_errors"] = errors
+            result["text"] = _sanitize_ai_reply(result.get("text", ""), role=role)
+            return result
+
+        reason = result.get("reason") or "provider_error"
+        err_text = str(result.get("error") or PROVIDER_ERROR_MESSAGE)
+        recoverable = _chain_error_is_recoverable(err_text)
+        last_error = err_text
+        if ai_health is not None and reason in ("provider_error", "empty_answer"):
+            try:
+                etype = ai_health.classify_error_text(err_text) if reason == "provider_error" else "unknown"
+                ai_health.mark_failure(provider_name, model_name, etype, err_text)
+            except Exception:
+                pass
+        logger.info("[AI_ATTEMPT] engine=text_chain provider=%s model=%s position=%d result=%s recoverable=%s duration=%.1fs",
+                    provider_name, model_name, position, reason, recoverable, duration)
+        errors.append({"provider": provider_name, "model": model_name, "reason": reason,
+                       "error": err_text, "recoverable": recoverable})
+        if not recoverable:
+            break
+    return {
+        "ok": False,
+        "reason": "provider_error",
+        "text": PROVIDER_ERROR_MESSAGE,
+        "error": last_error or PROVIDER_ERROR_MESSAGE,
         "provider_errors": errors,
     }
 

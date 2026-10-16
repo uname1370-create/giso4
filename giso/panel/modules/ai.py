@@ -132,6 +132,7 @@ def handle_config():
                 enabled=request.form.get("enabled") == "1",
                 image_kind=request.form.get("image_kind", ""),
                 endpoint_override=request.form.get("endpoint_override", ""),
+                validate=True,
             )
         elif action == "seed_beauty_mirror_models":
             from giso.buti_ai.ai_models import auto_configure_defaults
@@ -857,6 +858,11 @@ def context():
         except Exception as mirror_exc:
             logger.error(f"panel ai beauty mirror context: {mirror_exc}")
             data["beauty_mirror"] = {"slots": [], "providers": [], "model_options": []}
+        try:
+            data["model_section"] = build_model_section()
+        except Exception as section_exc:
+            logger.error(f"panel ai model section context: {section_exc}")
+            data["model_section"] = {"categories": [], "providers": []}
         data["policies"] = {
             "user": get_role_policy("user"),
             "admin": get_role_policy("admin"),
@@ -903,3 +909,168 @@ def handle_custom_model_add():
     if g:
         return g
     return _create_provider_from_form("custom")
+
+
+# ---------------------------------------------------------------------------
+# تب «پروایدرها» — بخش «مدیریت و انتخاب مدل‌ها» (سه دسته، سه اولویت هر دسته)
+# باز شدن صفحه هیچ درخواست بیرونی و هیچ تغییر وضعیتی ندارد؛ فقط داده‌های ذخیره‌شده خوانده می‌شوند.
+# ---------------------------------------------------------------------------
+_MODEL_SECTION_LABELS = {
+    "text": ("متن", "مدل متنی برای مشاور و چت‌ها. اسلات‌ها به ترتیب اولویت‌اند؛ اگر مدل اول خطای قابل بازیابی بدهد (timeout، محدودیت نرخ، خطای موقت)، مدل بعدی امتحان می‌شود. خطای مجوز یا درخواست نامعتبر زنجیره را متوقف می‌کند."),
+    "image_analysis": ("تحلیل عکس", "مدل بینایی برای تحلیل عکس ورودی (ابرو، ناخن، لب، رنگ مو). فقط مدل‌هایی نمایش داده می‌شوند که ورودی تصویر آن‌ها تأیید یا احتمالی است؛ مدل صرفاً متنی اینجا نمی‌آید."),
+    "image_generation": ("ساخت/ویرایش تصویر", "مدل تولید یا ویرایش تصویر. تولید تصویر هزینه‌بر است؛ تست آن اجرا نمی‌شود و فقط وجود مدل در فهرست بررسی می‌شود."),
+}
+_STAGE_LABELS = {"auth": "احراز هویت پروایدر", "timeout": "زمان‌پاسخ (timeout)", "network": "اتصال شبکه‌ای",
+                 "transient": "خطای موقت پروایدر", "model_missing": "مدل پیدا نشد", "model_run": "اجرای مدل",
+                 "incompatible": "ناسازگار (ورودی تصویر)", "inconclusive": "نتیجه نامشخص", "ok": "اتصال و اجرای مدل",
+                 "not_tested": "تست نشده", "config": "پیکربندی", "connection": "اتصال پروایدر"}
+
+
+def _slot_value(provider_name: str, model_name: str) -> str:
+    return f"{provider_name}|{model_name}" if provider_name and model_name else ""
+
+
+def build_model_section() -> dict:
+    from giso.buti_ai.ai_models import MODEL_SECTION_CATEGORIES, list_model_assignments
+    from giso.ai_discovery import (
+        COMPATIBLE_STATUSES, STATUS_LABELS_FA, STATUS_CONFIRMED, compatible_model_options,
+        model_capability_for_provider,
+    )
+    from giso.ai_brain import list_ai_providers, _col
+    from giso.panel.modules.ai_categories import price_label
+
+    providers = []
+    try:
+        for row in list_ai_providers() or []:
+            providers.append({
+                "name": str(_col(row, "name", "") or "").strip().lower(),
+                "enabled": bool(_col(row, "enabled", 0)),
+                "has_key": bool(str(_col(row, "api_key", "") or "").strip()),
+                "models_updated": str(_col(row, "models_last_updated", "") or ""),
+                "models_source": str(_col(row, "models_source", "") or ""),
+            })
+    except Exception as exc:
+        logger.error(f"model section providers: {exc}")
+
+    categories = []
+    for key, spec in MODEL_SECTION_CATEGORIES.items():
+        label, help_text = _MODEL_SECTION_LABELS[key]
+        capability = spec["capability"]
+        options = compatible_model_options(capability)
+        for opt in options:
+            opt["value"] = _slot_value(opt["provider"], opt["model"])
+        assigned = {int(r.get("priority") or 1): r for r in list_model_assignments(spec["task_key"])}
+        slots = []
+        for prio in (1, 2, 3):
+            row = assigned.get(prio) or {}
+            pname = str(row.get("provider_name") or "").strip().lower()
+            mname = str(row.get("model_name") or "").strip()
+            info = model_capability_for_provider(pname, mname, capability) if pname and mname else {}
+            status = info.get("status", "")
+            slots.append({
+                "priority": prio,
+                "slot_label": "مدل اصلی" if prio == 1 else f"Fallback {prio - 1}",
+                "value": _slot_value(pname, mname),
+                "provider": pname,
+                "model": mname,
+                "enabled_provider": next((p["enabled"] for p in providers if p["name"] == pname), False),
+                "status": status,
+                "status_label": STATUS_LABELS_FA.get(status, "") if status else "",
+                "compatible": status in COMPATIBLE_STATUSES,
+                "source": info.get("source", ""),
+                "price_label": price_label(info.get("price_status", "")) if info else "",
+                "last_result": info.get("last_result", ""),
+                "last_stage": _STAGE_LABELS.get(info.get("last_stage", ""), ""),
+                "last_checked": info.get("last_checked", ""),
+                "last_note": info.get("last_note", ""),
+                "confirmed": status == STATUS_CONFIRMED,
+            })
+        # مدل ذخیره‌شده که دیگر سازگار نیست باید در منو دیده شود (با وضعیت واقعی‌اش)
+        option_values = {o["value"] for o in options}
+        for slot in slots:
+            if slot["value"] and slot["value"] not in option_values:
+                options.append({
+                    "provider": slot["provider"], "model": slot["model"],
+                    "status": slot["status"], "status_label": slot["status_label"],
+                    "price_status": "", "value": slot["value"],
+                })
+                option_values.add(slot["value"])
+        groups: dict = {}
+        for opt in options:
+            value = _slot_value(opt["provider"], opt["model"])
+            item = {
+                "value": value,
+                "label": f"{opt['model']} — {opt.get('status_label') or STATUS_LABELS_FA.get(opt.get('status', ''), '')}"
+                         + (f" — {price_label(opt['price_status'])}" if opt.get("price_status") else ""),
+            }
+            groups.setdefault(opt["provider"], []).append(item)
+        for slot in slots:
+            slot["in_options"] = slot["value"] in option_values
+        categories.append({
+            "key": key,
+            "label": label,
+            "help": help_text,
+            "capability": capability,
+            "slots": slots,
+            "option_groups": [{"provider": p, "options": items} for p, items in sorted(groups.items())],
+            "option_count": len(options),
+            "confirmed_count": sum(1 for o in options if o.get("status") == STATUS_CONFIRMED),
+            "empty": not options,
+        })
+    return {"categories": categories, "providers": providers}
+
+
+def handle_model_section_save(category):
+    g = _require_super()
+    if g:
+        return g
+    from giso.buti_ai.ai_models import save_model_section
+    selections = []
+    for idx in (1, 2, 3):
+        raw = (request.form.get(f"slot_{idx}") or "").strip()
+        if not raw:
+            selections.append(None)
+            continue
+        provider_name, _, model_name = raw.partition("|")
+        selections.append((provider_name.strip(), model_name.strip()))
+    try:
+        ok, message = save_model_section(category, selections)
+    except Exception as exc:
+        logger.error(f"model section save: {exc}")
+        ok, message = False, "ذخیره انجام نشد."
+    flash(message, "success" if ok else "danger")
+    return redirect(url_for("panel.ai") + "#model-section")
+
+
+def handle_model_section_test():
+    g = _require_super()
+    if g:
+        return g
+    from giso.buti_ai.ai_models import MODEL_SECTION_CATEGORIES
+    from giso.ai_discovery import run_model_check
+    category = (request.form.get("category") or "").strip()
+    provider_name = (request.form.get("provider") or "").strip().lower()
+    model_name = (request.form.get("model") or "").strip()
+    spec = MODEL_SECTION_CATEGORIES.get(category)
+    if not spec or not provider_name or not model_name:
+        flash("برای تست، اول یک مدل را در این دسته ذخیره کنید.", "warning")
+        return redirect(url_for("panel.ai") + "#model-section")
+    res = _run_async(run_model_check(provider_name, model_name, spec["capability"])) or {}
+    stage = str(res.get("stage") or "")
+    if stage == "ok":
+        summary = "اتصال پروایدر ✅ | اجرای مدل ✅"
+    elif stage in ("auth", "timeout", "network", "connection"):
+        summary = "اتصال پروایدر ❌ | اجرای مدل: انجام نشد"
+    elif stage == "inconclusive":
+        summary = "نتیجه نامشخص | مدل ناسازگار شناخته نشد"
+    elif stage == "not_tested":
+        summary = "اتصال پروایدر: بررسی نشد | تست تولید تصویر انجام نشد"
+    elif stage == "config":
+        summary = "پیکربندی ناقص"
+    else:
+        summary = "اتصال پروایدر ✅ | اجرای مدل ❌"
+    ok = bool(res.get("ok"))
+    text = (f"تست «{model_name}» روی «{provider_name}»: {summary}. "
+            f"{res.get('message') or 'نتیجه‌ای برنگشت.'}")
+    flash(text, "success" if ok else ("warning" if stage in ("not_tested", "inconclusive") else "danger"))
+    return redirect(url_for("panel.ai") + "#model-section")

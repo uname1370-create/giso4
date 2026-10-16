@@ -1522,18 +1522,34 @@ def generic_service_consultant_chat(service_slug):
         if not user_message:
             return {"ok": False, "error": "پیام خالی است."}, 400
         # Use ai_brain chat with context
-        from giso.ai_brain import chat_with_managed_ai as _chat_managed
         # Build prompt with context
         system_prompt = context.get("prompt") or ""
         full_prompt = f"{system_prompt}\n\nکاربر: {user_message}\nمشاور:"
         try:
-            reply = str(_chat_managed([{'role':'user','content':full_prompt}], actor_key='beauty_mirror') or {}).strip() or f"برای {context.get('service_label')} با مدل {context.get('style_label')}: {context.get('short_reason')}"
+            reply = _consultant_managed_text(full_prompt) or f"برای {context.get('service_label')} با مدل {context.get('style_label')}: {context.get('short_reason')}"
         except Exception:
             # Fallback to simple echo with context
             reply = f"برای {context.get('service_label')} با مدل {context.get('style_label')}: {context.get('short_reason')} – {user_message} – لطفاً برای اجرای دقیق به متخصص مراجعه کن."
         return {"ok": True, "reply": reply, "context": context}
     except Exception as exc:
         return {"ok": False, "error": f"خطای مشاور: {str(exc)[:200]}"}, 500
+
+
+def _consultant_managed_text(prompt: str) -> str:
+    """پاسخ متنی مشاور آینه از زنجیرهٔ مرکزی مدیریت AI.
+
+    `chat_with_managed_ai` تابع async است و dict برمی‌گرداند؛ با run_async_safe اجرا و فقط
+    فیلد text در صورت ok بودن استفاده می‌شود. در خطا رشتهٔ خالی برمی‌گردد تا caller
+    پاسخ جایگزین مبتنی بر context را بدهد؛ خطای واقعی در لاگ ثبت می‌شود.
+    """
+    from giso.ai_runtime import chat_with_managed_ai
+    from giso.async_compat import run_async_safe
+    res = run_async_safe(chat_with_managed_ai(
+        [{"role": "user", "content": prompt}], actor_key="beauty_mirror")) or {}
+    if not res.get("ok"):
+        logger.warning("consultant managed chat failed: %s", str(res.get("error") or "")[:200])
+        return ""
+    return str(res.get("text") or "").strip()
 
 
 @buti_ai_bp.route("/eyebrow/consultant", methods=["POST"])
@@ -1551,11 +1567,10 @@ def eyebrow_consultant_chat():
         user_message = str(user_message).strip()[:800]
         if not user_message:
             return {"ok": False, "error": "پیام خالی است."}, 400
-        from giso.ai_brain import chat_with_managed_ai as _chat_managed
         system_prompt = context.get("prompt") or ""
         full_prompt = f"{system_prompt}\n\nکاربر: {user_message}\nمشاور:"
         try:
-            reply = str(_chat_managed([{'role':'user','content':full_prompt}], actor_key='beauty_mirror') or {}).strip() or f"برای ابرو با مدل {context.get('style_label')}: {context.get('short_reason')}"
+            reply = _consultant_managed_text(full_prompt) or f"برای ابرو با مدل {context.get('style_label')}: {context.get('short_reason')}"
         except Exception:
             reply = f"برای ابرو با مدل {context.get('style_label')}: {context.get('short_reason')} – {user_message}"
         return {"ok": True, "reply": reply, "context": context}

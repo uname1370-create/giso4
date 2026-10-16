@@ -437,6 +437,9 @@ def hair_validate_photo_fast():
                             ai_health.mark_failure(pname, mname, ai_health.classify_error_text(err), err)
                         logger.info("[AI_ATTEMPT] engine=hair_fast_validate provider=%s model=%s result=error duration=%.1fs error=%s",
                                     pname, mname, dur, err)
+                        from giso.buti_ai.ai_models import is_recoverable_chain_error as _recoverable
+                        if not _recoverable(err):
+                            break  # خطای مجوز/درخواست: مدل بعدی اجرا نمی‌شود
                     except Exception as exc:
                         logger.info("[AI_ATTEMPT] engine=hair_fast_validate provider=%s model=%s result=exception duration=%.1fs error=%s",
                                     pname, mname, _t.time() - t0, str(exc)[:160])

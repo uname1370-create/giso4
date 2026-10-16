@@ -272,6 +272,15 @@ def default_models_for_provider(name):
     return models, (vision[0] if vision else (text[0] if text else ""))
 
 
+def _stored_selected_model(name) -> str:
+    """مدل انتخابی ذخیره‌شدهٔ یک ردیف موجود (یا «» اگر ردیفی نیست یا خالی است)."""
+    try:
+        row = get_ai_provider(_normalize_provider_input_name(name))
+    except Exception:
+        return ""
+    return str(_col(row, "selected_model", "") or "").strip() if row is not None else ""
+
+
 def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
                     timeout=20, headers_json="{}", fallback_json="[]",
                     models_json="[]", selected_model="",
@@ -293,7 +302,8 @@ def add_ai_provider(name, kind="openai", api_key="", base_url="", api_root="",
     # پیش‌فرض رایگان: اگر ادمین مدلی نداد، رجیستری پر می‌کند (مورد ۸ دستور start/1.md)
     reg_models, reg_selected = default_models_for_provider(name)
     if not str(selected_model or "").strip():
-        selected_model = reg_selected
+        # انتخاب ذخیره‌شدهٔ مدیر با replace=True هم حفظ می‌شود؛ پیش‌فرض رجیستری فقط وقتی جایگزین می‌شود که خالی است
+        selected_model = _stored_selected_model(name) or reg_selected
     try:
         if not json.loads(models_json or "[]"):
             models_json = json.dumps(reg_models, ensure_ascii=False)
@@ -698,10 +708,9 @@ def save_ai_check_result(name, status, error, models, selected):
             conn.execute(
                 """UPDATE giso_ai_providers
                    SET last_status=?, last_error=?, last_checked_at=?,
-                       models_json=?, selected_model=CASE WHEN TRIM(COALESCE(selected_model, ''))=''
-                       THEN ? ELSE selected_model END
+                       models_json=?
                    WHERE name=?""",
-                (status, error, now, json.dumps(models, ensure_ascii=False), selected, name)
+                (status, error, now, json.dumps(models, ensure_ascii=False), name)
             )
             conn.execute(
                 """INSERT INTO giso_ai_checks_log (provider_name, status, error_text, checked_at)
@@ -846,14 +855,18 @@ async def _ai_check_openai(row):
         except Exception as exc:
             error = str(exc)
 
-        candidates = []
-        if models:
-            pref = ai_pick_preferred_model(models, fallback)
-            if pref:
-                candidates.append(pref)
-        for m in fallback + models:
-            if m not in candidates:
-                candidates.append(m)
+        # آزمایش فقط روی مدل انتخابی مدیر انجام می‌شود؛ اگر انتخابی نیست، فهرست پیش‌فرض امتحان
+        # می‌شود ولی نتیجه هرگز به‌عنوان انتخاب ذخیره نمی‌شود (فقط گزارش).
+        chosen = str(row["selected_model"] or "").strip()
+        candidates = [chosen] if chosen else []
+        if not candidates:
+            if models:
+                pref = ai_pick_preferred_model(models, fallback)
+                if pref:
+                    candidates.append(pref)
+            for m in fallback + models:
+                if m not in candidates:
+                    candidates.append(m)
 
         for model in candidates[:6]:
             try:
@@ -908,6 +921,7 @@ async def _ai_check_cloudflare(row):
             target.append(value)
 
     candidates = []
+    # catalog: فهرست مدل‌های شناخته‌شده (برای ذخیره)؛ tested: مدل‌های آزمایش
     _add_candidate(candidates, _col(row, "selected_model", ""))
     for column in ("fallback_json", "vision_models_json", "text_models_json", "models_json"):
         for item in _ai_jloads(_col(row, column, "[]"), []):
@@ -918,11 +932,22 @@ async def _ai_check_cloudflare(row):
     if not candidates:
         return {"status": "error", "error": "مدل متن/بینایی برای تست Cloudflare پیدا نشد", "models": [], "selected": ""}
 
+    catalog = list(candidates)
+    chosen = str(_col(row, "selected_model", "") or "").strip()
+    if chosen:
+        tested = []
+        _add_candidate(tested, chosen)
+        if not tested:
+            return {"status": "error", "error": "مدل انتخابی برای تست متن/بینایی مناسب نیست",
+                    "models": catalog, "selected": ""}
+    else:
+        tested = list(catalog)
+
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    models, selected, status, error = [], "", "error", ""
+    models, selected, status, error = catalog, "", "error", ""
 
     async with _make_client(timeout, proxy) as client:
-        for model in candidates[:8]:
+        for model in tested[:8]:
             try:
                 resp = await client.post(
                     f"{api_root}/{model}", headers=headers,
@@ -934,7 +959,7 @@ async def _ai_check_cloudflare(row):
                         errors = raw.get("errors") or []
                         error = str(errors[:1] or raw)[:200]
                         continue
-                    selected, models, status, error = model, candidates, "ok", ""
+                    selected, models, status, error = model, catalog, "ok", ""
                     break
                 error = f"HTTP {resp.status_code}: {resp.text[:180]}"
             except Exception as exc:
@@ -1096,9 +1121,8 @@ def refresh_models(provider_name):
             if not ids:
                 return {"ok": False, "error": "مدل رجیستری Cloudflare پیدا نشد"}
             # انتخاب ادمین هرگز توسط کشف تغییر نمی‌کند؛ فقط وقتی خالی است پر می‌شود
+            # انتخاب ادمین هرگز توسط کشف تغییر نمی‌کند و خالی بودنش هم پر نمی‌شود
             selected = str(_col(row, "selected_model", "") or "").strip()
-            if not selected:
-                selected = ids[0]
             now = _ai_now()
             with _lock, get_conn() as conn:
                 conn.execute(
@@ -1146,6 +1170,19 @@ def refresh_models(provider_name):
             m["is_free"] = info["status"] == PRICE_FREE
             m["price_status"] = info["status"]
             m["price_source"] = info["source"]
+
+    # شاهد قابلیت رسمی API (اگر فیلد صریح داشت) کنار هر مدل ذخیره می‌شود
+    from giso.ai_models_registry import official_capability_hints
+    caps_map = {}
+    for item in fetched["items"]:
+        hints = official_capability_hints(item)
+        if hints:
+            caps_map[item["id"]] = hints
+    for m in merged_vision + merged_text:
+        if m.get("id") in caps_map:
+            m["caps"] = caps_map[m["id"]]
+        else:
+            m.pop("caps", None)
 
     now = _ai_now()
     try:
@@ -1322,9 +1359,7 @@ def _backfill_registry_models(name):
             if not _load_list(row["fallback_json"]):
                 updates.append("fallback_json=?")
                 params.append(_json.dumps(all_ids, ensure_ascii=False))
-            if not str(row["selected_model"] or "").strip() and all_ids:
-                updates.append("selected_model=?")
-                params.append(all_ids[0])
+            # selected_model هرگز در این مسیر پر یا تغییر نمی‌شود (خالی بماند و گزارش شود)
             if not _load_list(row["vision_models_json"]) and vision:
                 updates.append("vision_models_json=?")
                 params.append(_json.dumps(vision, ensure_ascii=False))
@@ -1357,7 +1392,7 @@ def _refresh_registry_sourced_models():
     وارد نکرده) با لیست تمیز رجیستری تازه‌سازی می‌شوند تا مدل‌های مردهٔ قدیمی
     (مثل gemma-3-27b اوپن‌روتر) از زنجیره بیرون بیفتند. ردیف‌های با منبع
     «دستی» یا «کشف از API» هرگز لمس نمی‌شوند. مدل انتخابی کاربر فقط وقتی
-    تغییر می‌کند که مدل فعلی دیگر در لیست جدید وجود نداشته باشد (مرده باشد).
+    هرگز تغییر نمی‌کند؛ اگر در لیست جدید نباشد فقط در لاگ گزارش می‌شود.
     فقط پروایدرهای لیست تمیز تازه‌سازی می‌شوند؛ پروایدرهای ایرانی و جمینای
     کارفرما (gapgpt، avalai، gemini) با تنظیمات شخصی دست‌نخورده می‌مانند.
     """
@@ -1385,7 +1420,10 @@ def _refresh_registry_sourced_models():
                     if not all_ids:
                         continue
                     selected = str(row["selected_model"] or "")
-                    new_selected = selected if selected in all_ids else all_ids[0]
+                    # انتخاب مدیر هرگز جایگزین نمی‌شود؛ ناموجود بودن فقط گزارش می‌شود
+                    new_selected = selected
+                    if selected and selected not in all_ids:
+                        logger.warning("selected model not in registry list: provider=%s model=%s", name, selected)
                     conn.execute(
                         """UPDATE giso_ai_providers SET
                              models_json=?, fallback_json=?, selected_model=?,
@@ -1564,34 +1602,17 @@ def _ai_is_likely_vision_model(model_name: str) -> bool:
 
 
 def _cloudflare_vision_candidates(row, requested_model=""):
-    """زنجیره امن مدل‌های Vision کلودفلر؛ مدل‌های تصویرساز مثل FLUX حذف می‌شوند."""
-    candidates = []
+    """فقط یک مدل: همان مدلی که مدیریت مرکزی (زنجیرهٔ ذخیره‌شده) داده است.
 
-    def add(value, trusted_vision=False):
-        mid = _ai_model_id(value)
-        if not mid or mid in candidates or _ai_is_image_generation_model(mid):
-            return
-        if trusted_vision or _ai_is_likely_vision_model(mid):
-            candidates.append(mid)
-
-    # اگر caller مدل مشخص داده، یعنی از زنجیره vision مدیریت AI آمده؛ فقط image-gen را حذف کن.
-    add(requested_model, trusted_vision=bool(str(requested_model or "").strip()))
-    for item in _ai_jloads(_col(row, "vision_models_json", "[]"), []):
-        add(item, trusted_vision=True)
-    try:
-        from giso.ai_models_registry import get_vision_models
-        for item in get_vision_models(_registry_family_for_provider_name(_col(row, "name", ""))) or []:
-            add(item, trusted_vision=True)
-    except Exception:
-        pass
-    add(_col(row, "selected_model", ""), trusted_vision=False)
-    for column in ("fallback_json", "models_json", "text_models_json"):
-        for item in _ai_jloads(_col(row, column, "[]"), []):
-            add(item, trusted_vision=False)
-    if not candidates:
-        for item in default_models_for_provider(_col(row, "name", ""))[0]:
-            add(item, trusted_vision=False)
-    return candidates
+    اگر caller مدلی نداده باشد، انتخاب ادمین (selected_model) استفاده می‌شود. هیچ مدل دیگری
+    (فهرست رجیستری، fallback، فهرست کشف‌شده یا پیش‌فرض) بی‌صدا امتحان نمی‌شود.
+    مدل تولید تصویر هرگز برای بینایی استفاده نمی‌شود.
+    """
+    chosen = str(requested_model or "").strip() or str(_col(row, "selected_model", "") or "").strip()
+    mid = _ai_model_id(chosen)
+    if not mid or _ai_is_image_generation_model(mid):
+        return []
+    return [mid]
 
 
 def _cloudflare_vision_payloads(prompt: str, image_data_uri: str, image_base64: str, max_tokens: int):
@@ -1655,7 +1676,7 @@ async def _ask_ai_cloudflare_vision(provider_name, row, image_data_uri, image_ba
     last_model = candidates[0]
     last_error = "Cloudflare Vision پاسخ معتبر نداد"
     async with _make_client(timeout, proxy) as client:
-        for use_model in candidates[:4]:
+        for use_model in candidates:
             last_model = use_model
             for fmt, payload in payloads:
                 try:
@@ -1761,6 +1782,17 @@ async def ask_ai_fast(messages, model=None, temperature=0.7, max_tokens=1200, ca
             from giso import ai_health as health
         except Exception:
             health = None
+
+    # مدل‌های متنی از زنجیرهٔ مرکزی بخش «متن» می‌آیند؛ اگر تنظیم شده، همان زنجیره با بودجهٔ سریع.
+    if not model:
+        from giso.buti_ai.ai_models import configured_text_chain
+        text_chain = configured_text_chain()
+        if text_chain:
+            from giso.ai_runtime import _chat_with_text_model_chain
+            return await _chat_with_text_model_chain(
+                text_chain, messages, temperature, max_tokens, "user",
+                total_timeout=FAST_TOTAL_TIMEOUT_SECONDS,
+                per_model_timeout=FAST_PER_MODEL_TIMEOUT_SECONDS)
 
     rows = list_ai_providers(only_enabled=True)
     if not rows:

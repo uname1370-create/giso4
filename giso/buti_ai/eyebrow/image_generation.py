@@ -367,9 +367,13 @@ def configured_image_providers(env: Optional[Dict[str, str]] = None, service_key
     در اجرای واقعی (`env is None`) اول تنظیمات پنل «مدیریت AI» خوانده می‌شود.
     در تست‌ها/فراخوانی‌های env-محور، رفتار قدیمی ثابت می‌ماند.
     """
-    providers: List[ImageProviderConfig] = []
     if env is None:
-        providers.extend(_ai_management_providers(service_key=service_key or "eyebrow"))
+        managed = _ai_management_providers(service_key=service_key or "eyebrow")
+        if managed:
+            # سیاست مرکزی: اگر مدیریت AI اسلات قابل‌اجرا دارد، منابع محیطی ترتیب آن را دور نمی‌زنند.
+            return managed
+    # فقط وقتی مدیریت AI هیچ اسلات قابل‌اجرایی ندارد، منابع محیطی (سازگاری قدیمی) استفاده می‌شوند.
+    providers: List[ImageProviderConfig] = []
     providers.extend(_cloudflare_providers(env))
     providers.extend(_numbered_model_providers(env))
     providers.extend(_json_configured_providers(env))
@@ -1626,6 +1630,7 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
         if provider.kind in CLOUDFLARE_INPAINTING_KINDS:
             provider_sequence.append(provider)
 
+    from giso.buti_ai.ai_models import is_recoverable_chain_error
     for provider in provider_sequence:
         started = time.monotonic()
         _beauty_log(
@@ -1730,6 +1735,10 @@ def generate_final_design(candidate: Dict[str, Any], env: Optional[Dict[str, str
                 ms,
                 safe_error[:160],
             )
+            if not is_recoverable_chain_error(str(exc)):
+                # خطای مجوز/درخواست نامعتبر/سهمیه: بقیهٔ زنجیره و تلاش مجدد اجرا نمی‌شود
+                logger.info("Buti AI image chain stopped (non-recoverable) provider=%s", provider.id)
+                break
 
     # اصلاح: اگر همه CFها شکست خوردند، به جای AI FAILED یک پیش‌نمایش راهنمای پایتونی نشان بده
     # تا کاربر عکس الکی نبیند و فلو قطع نشود. این پیش‌نمایش غیر AI است ولی واقعی و قابل دیدن است

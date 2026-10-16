@@ -394,6 +394,23 @@ def _is_ai_refusal(text):
 
     return False
 
+def _redacted_for_provider(text, provider_name):
+    """خطای خام بدون کلید پروایدر (اگر ثبت شده باشد) و بدون الگوهای توکن رایج."""
+    if not text:
+        return ""
+    from giso.ai_discovery import redact_secrets
+    from giso import ai_brain
+    secrets = []
+    try:
+        row = ai_brain.get_ai_provider(provider_name) if provider_name else None
+        key = str(ai_brain._col(row, "api_key", "") or "").strip() if row is not None else ""
+        if key:
+            secrets.append(key)
+    except Exception:
+        pass
+    return redact_secrets(text, secrets=tuple(secrets))
+
+
 def _smart_error_message(error_types):
     """پیام مناسب کاربر بر اساس نوع خطاها."""
     if not error_types:
@@ -427,6 +444,9 @@ def call_vision_with_fallback(image_paths, prompt, max_retries_per_model=2, max_
     if not image_paths:
         return {"ok": False, "error": "هیچ عکسی برای تحلیل وجود ندارد"}
 
+    from giso import ai_brain as _ai_brain
+    from giso.ai_discovery import redact_secrets
+    from giso.buti_ai.ai_models import is_recoverable_chain_error
     try:
         from giso import ai_health
     except Exception:
@@ -453,6 +473,8 @@ def call_vision_with_fallback(image_paths, prompt, max_retries_per_model=2, max_
 
     start = _time.time()
     error_types = []
+    last_raw = ""
+    last_provider = ""
     for item in providers:
         pname = item["provider_name"]
         model = item["model_name"]
@@ -464,7 +486,7 @@ def call_vision_with_fallback(image_paths, prompt, max_retries_per_model=2, max_
         result = None
         try:
             from giso.async_compat import run_async_safe
-            result = run_async_safe(ask_ai_vision(
+            result = run_async_safe(_ai_brain.ask_ai_vision(
                 pname, image_paths[0], prompt, model=model, max_tokens=max_tokens,
                 timeout_override=VISION_PER_MODEL_TIMEOUT_SECONDS))
         except Exception as exc:
@@ -505,6 +527,13 @@ def call_vision_with_fallback(image_paths, prompt, max_retries_per_model=2, max_
         logger.info("[AI_ATTEMPT] engine=vision provider=%s model=%s result=%s duration=%.1fs",
                     pname, model, etype, duration)
         _log_ai_failure(pname, model, str(raw)[:200])
+        last_raw = str(raw)[:200]
+        last_provider = pname
+        if not is_recoverable_chain_error(raw):
+            # خطای مجوز/درخواست نامعتبر: مدل‌های بعدی زنجیره اجرا نمی‌شوند
+            logger.info("[AI_ATTEMPT] engine=vision provider=%s model=%s result=stop_non_recoverable", pname, model)
+            error_types.append("general")
+            break
         if etype == "429":
             is_free = ai_health.get_provider_is_free(pname) if ai_health is not None else True
             backoff = BACKOFF_429_FREE_PROVIDER_SECONDS if is_free else BACKOFF_429_PAID_PROVIDER_SECONDS
@@ -518,7 +547,8 @@ def call_vision_with_fallback(image_paths, prompt, max_retries_per_model=2, max_
         else:
             error_types.append("general")
 
-    return {"ok": False, "error": _smart_error_message(error_types)}
+    return {"ok": False, "error": _smart_error_message(error_types),
+            "last_error": _redacted_for_provider(last_raw, last_provider)}
 
 
 def _legacy_call_vision_with_fallback(image_paths, prompt, max_retries_per_model=2, max_tokens=1500):
