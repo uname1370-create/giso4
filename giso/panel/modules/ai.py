@@ -76,31 +76,6 @@ def handle_config():
             message = "وضعیت مشاور هوشمند ذخیره شد." if ok else "خطا در ذخیره وضعیت مشاور هوشمند."
         elif action == "set_display_name":
             ok, message = set_display_name(request.form.get("display_name", ""))
-        elif action == "set_active_provider":
-            ok, message = set_active_provider(request.form.get("provider_name", ""))
-        elif action == "promote_failover":
-            provider_name = (request.form.get("provider_name") or "").strip()
-            chain = [p for p in get_failover_chain() if p != provider_name]
-            if provider_name:
-                chain.insert(0, provider_name)
-            ok, message = set_failover_chain(chain)
-        elif action == "reset_failover":
-            grouped = list_provider_options() or {}
-            all_names = [x.get('name') for x in (grouped.get('iranian') or []) + (grouped.get('foreign') or []) if x.get('name')]
-            ok, message = set_failover_chain(all_names)
-        elif action == "save_role_policy":
-            role_name = (request.form.get("role_name") or "user").strip().lower()
-            try:
-                access_level = int(request.form.get("access_level", 0) or 0)
-            except (TypeError, ValueError):
-                access_level = 0
-            try:
-                daily_limit = int(request.form.get("daily_limit", 0) or 0)
-            except (TypeError, ValueError):
-                daily_limit = 0
-            sections = request.form.getlist("sections")
-            ok, message = set_role_policy(role_name, access_level=access_level,
-                                          sections=sections, daily_limit=daily_limit)
         elif action == "save_role_capabilities":
             role_name = (request.form.get("role_name") or "user").strip().lower()
             ok, message = set_role_capabilities(role_name, request.form.get("capabilities_text", ""))
@@ -122,35 +97,29 @@ def handle_config():
             scope=str(request.form.get("scope","spend") or "spend").strip().lower()
             set_giso_config("ai_user_credit_scope", scope if scope in ("spend","cash") else "spend")
             ok=True;message="تنظیمات اعتبار هوش مصنوعی ذخیره شد."
-        elif action == "save_beauty_mirror_model":
-            from giso.buti_ai.ai_models import save_model_assignment
-            ok, message = save_model_assignment(
-                request.form.get("task_key", ""),
-                request.form.get("priority", "1"),
-                request.form.get("provider_name", ""),
-                request.form.get("model_name", ""),
-                enabled=request.form.get("enabled") == "1",
-                image_kind=request.form.get("image_kind", ""),
-                endpoint_override=request.form.get("endpoint_override", ""),
-                validate=True,
-            )
-        elif action == "seed_beauty_mirror_models":
+        elif action == "seed_model_slots":
             from giso.buti_ai.ai_models import auto_configure_defaults
             res = auto_configure_defaults(overwrite=False)
             ok = bool(res.get("ok"))
             added = int(res.get("added") or 0)
-            message = f"{added} اسلات خالی آینه گیسو به‌صورت خودکار تنظیم شد." if ok else "تنظیم خودکار مدل‌های آینه گیسو انجام نشد."
-        elif action == "repair_beauty_mirror_image_models":
+            message = f"{added} اسلات خالی مدل به‌صورت خودکار تنظیم شد." if ok else "تنظیم خودکار مدل‌ها انجام نشد."
+        elif action == "repair_image_model_slots":
             from giso.buti_ai.ai_models import repair_legacy_cloudflare_eyebrow_image_slots
             res = repair_legacy_cloudflare_eyebrow_image_slots()
             ok = bool(res.get("ok"))
             changed = int(res.get("changed") or 0)
-            message = f"{changed} اسلات زنجیرهٔ مشترک طراحی تصویر آینه بررسی/اصلاح شد." if ok else "اصلاح زنجیرهٔ طراحی تصویر آینه انجام نشد."
+            message = f"{changed} اسلات زنجیرهٔ طراحی تصویر بررسی/اصلاح شد." if ok else "اصلاح زنجیرهٔ طراحی تصویر انجام نشد."
     except Exception as e:
         ok = False
         message = f"خطا در اجرای تغییر: {e}"
     flash(message, "success" if ok else "danger")
-    return redirect(url_for("panel.ai"))
+    anchors = {
+        "set_chat_enabled": "#pane-widget",
+        "set_display_name": "#pane-widget",
+        "seed_model_slots": "#pane-models",
+        "repair_image_model_slots": "#pane-models",
+    }
+    return redirect(url_for("panel.ai") + anchors.get(action, ""))
 
 
 def handle_credit_adjust():
@@ -669,95 +638,6 @@ def handle_refresh_all_models():
     return _refresh_redirect()
 
 
-def handle_test_all():
-    g = _require_super()
-    if g:
-        return g
-    try:
-        from giso.ai_brain import check_all_ai_providers
-        results = _run_async(check_all_ai_providers()) or []
-        if not results:
-            flash("هیچ پروایدری ثبت نشده است.", "warning")
-            return redirect(url_for("panel.ai"))
-        ok_count = sum(1 for r in results if str(r.get("status") or "").startswith("ok"))
-        lines = [f"تست {len(results)} پروایدر: {ok_count} سالم ✅"]
-        for r in results[:10]:
-            s = str(r.get("status") or "error")
-            lines.append(f"• {r.get('name')}: {'✅' if s.startswith('ok') else '❌'} {str(r.get('error') or '')[:80]}")
-        flash(" | ".join(lines), "success" if ok_count == len(results) else "warning")
-    except Exception as e:
-        logger.error(f"panel ai test all: {e}")
-        flash(f"خطا در تست: {str(e)[:100]}", "danger")
-    return redirect(url_for("panel.ai"))
-
-
-def handle_chat_test():
-    g = _require_super()
-    if g:
-        return g
-    prompt = (request.form.get("prompt") or "").strip()
-    if not prompt:
-        flash("متن تست خالی است.", "warning")
-        return redirect(url_for("panel.ai"))
-    try:
-        from giso.ai_brain import ask_ai_fast
-        res = _run_async(ask_ai_fast([{"role": "user", "content": prompt}])) or {}
-        if res.get("ok"):
-            answer = (res.get("text") or "").strip() or "(پاسخ خالی)"
-            flash(f"✅ پاسخ از «{res.get('provider') or '—'}»: {answer[:300]}", "success")
-        else:
-            flash(f"❌ تست گفتگو ناموفق: {str(res.get('error') or 'خطا')[:200]}", "danger")
-    except Exception as e:
-        logger.error(f"panel ai chat test: {e}")
-        flash(f"خطا: {str(e)[:120]}", "danger")
-    return redirect(url_for("panel.ai"))
-
-
-def handle_pending_execute(pending_id):
-    g = _require_super()
-    if g:
-        return g
-    try:
-        from giso.ai_runtime import execute_pending_action
-        from flask_login import current_user
-        result = execute_pending_action(int(pending_id), str(getattr(current_user, "id", "") or "panel"))
-        flash(str(result.get("text") or "—"), "success" if not result.get("error") else "danger")
-    except Exception as e:
-        logger.error(f"panel ai pending execute: {e}")
-        flash(f"خطا: {str(e)[:100]}", "danger")
-    return redirect(url_for("panel.ai"))
-
-
-def handle_pending_cancel(pending_id):
-    g = _require_super()
-    if g:
-        return g
-    try:
-        from giso.ai_runtime import cancel_pending_action
-        from flask_login import current_user
-        result = cancel_pending_action(int(pending_id), str(getattr(current_user, "id", "") or "panel"))
-        flash(str(result.get("text") or "—"), "success" if not result.get("error") else "danger")
-    except Exception as e:
-        logger.error(f"panel ai pending cancel: {e}")
-        flash(f"خطا: {str(e)[:100]}", "danger")
-    return redirect(url_for("panel.ai"))
-
-
-def handle_rollback(log_id):
-    g = _require_super()
-    if g:
-        return g
-    try:
-        from giso.ai_runtime import rollback_action_log
-        from flask_login import current_user
-        result = rollback_action_log(int(log_id), str(getattr(current_user, "id", "") or "panel"))
-        flash(str(result.get("text") or "—"), "success" if not result.get("error") else "danger")
-    except Exception as e:
-        logger.error(f"panel ai rollback: {e}")
-        flash(f"خطا: {str(e)[:100]}", "danger")
-    return redirect(url_for("panel.ai"))
-
-
 # ───────────────────── context ─────────────────────
 
 def context():
@@ -859,13 +739,6 @@ def context():
         except Exception:
             data["registry_options"] = []
         try:
-            from giso.buti_ai.ai_models import panel_slots_context
-            from giso.panel.modules.ai_categories import build_category_view
-            data["beauty_mirror"] = build_category_view(panel_slots_context())
-        except Exception as mirror_exc:
-            logger.error(f"panel ai beauty mirror context: {mirror_exc}")
-            data["beauty_mirror"] = {"slots": [], "providers": [], "model_options": []}
-        try:
             data["model_section"] = build_model_section()
         except Exception as section_exc:
             logger.error(f"panel ai model section context: {section_exc}")
@@ -925,8 +798,18 @@ def handle_custom_model_add():
 _MODEL_SECTION_LABELS = {
     "text": ("متن", "مدل متنی برای مشاور و چت‌ها. اسلات‌ها به ترتیب اولویت‌اند؛ اگر مدل اول خطای قابل بازیابی بدهد (timeout، محدودیت نرخ، خطای موقت)، مدل بعدی امتحان می‌شود. خطای مجوز یا درخواست نامعتبر زنجیره را متوقف می‌کند."),
     "image_analysis": ("تحلیل عکس", "مدل بینایی برای تحلیل عکس ورودی (ابرو، ناخن، لب، رنگ مو). فقط مدل‌هایی نمایش داده می‌شوند که ورودی تصویر آن‌ها تأیید یا احتمالی است؛ مدل صرفاً متنی اینجا نمی‌آید."),
-    "image_generation": ("ساخت/ویرایش تصویر", "مدل تولید یا ویرایش تصویر. تولید تصویر هزینه‌بر است؛ تست آن اجرا نمی‌شود و فقط وجود مدل در فهرست بررسی می‌شود."),
+    "image_generation": ("ساخت/ویرایش تصویر", "مدل تولید یا ویرایش تصویر. این زنجیره یک‌بار تنظیم می‌شود و برای ابرو، ناخن، لب و رنگ مو مشترک است. تولید تصویر هزینه‌بر است؛ تست آن اجرا نمی‌شود و فقط وجود مدل در فهرست بررسی می‌شود."),
+    "output_evaluation": ("ارزیابی خروجی", "مدل بینایی برای داور خروجی ابرو و لب: بررسی می‌کند جز ناحیهٔ هدف چیزی تغییر نکرده باشد. اگر مدلی تنظیم نشود، بررسی AI انجام نمی‌شود و فقط بررسی پیکسلی اجرا می‌شود. ناخن و رنگ مو فقط پیکسلی بررسی می‌شوند."),
 }
+# نوع فراخوانی تصویر؛ «خودکار» یعنی بر اساس مدل تعیین شود (همان منطق مصرف‌کننده)
+_IMAGE_KIND_CHOICES = [
+    ("", "خودکار (بر اساس مدل)"),
+    ("cloudflare", "Cloudflare FLUX عکس‌ورودی"),
+    ("cloudflare_inpainting", "Cloudflare Inpainting با mask"),
+    ("openai_image_edit", "سرویس سازگار با OpenAI image edit"),
+    ("multipart", "پیشرفته: multipart سفارشی"),
+    ("json_image", "پیشرفته: JSON image سفارشی"),
+]
 _STAGE_LABELS = {"auth": "احراز هویت پروایدر", "timeout": "زمان‌پاسخ (timeout)", "network": "اتصال شبکه‌ای",
                  "transient": "خطای موقت پروایدر", "model_missing": "مدل پیدا نشد", "model_run": "اجرای مدل",
                  "incompatible": "ناسازگار (ورودی تصویر)", "inconclusive": "نتیجه نامشخص", "ok": "اتصال و اجرای مدل",
@@ -938,7 +821,7 @@ def _slot_value(provider_name: str, model_name: str) -> str:
 
 
 def build_model_section() -> dict:
-    from giso.buti_ai.ai_models import MODEL_SECTION_CATEGORIES, list_model_assignments
+    from giso.buti_ai.ai_models import MODEL_SECTION_CATEGORIES, list_model_assignments, readiness_status
     from giso.ai_discovery import (
         COMPATIBLE_STATUSES, STATUS_LABELS_FA, STATUS_CONFIRMED, compatible_model_options,
         model_capability_for_provider,
@@ -980,6 +863,9 @@ def build_model_section() -> dict:
                 "value": _slot_value(pname, mname),
                 "provider": pname,
                 "model": mname,
+                "enabled": bool(row.get("enabled", 1)) if row else True,
+                "image_kind": str(row.get("image_kind") or ""),
+                "endpoint_override": str(row.get("endpoint_override") or ""),
                 "enabled_provider": next((p["enabled"] for p in providers if p["name"] == pname), False),
                 "status": status,
                 "status_label": STATUS_LABELS_FA.get(status, "") if status else "",
@@ -1024,24 +910,40 @@ def build_model_section() -> dict:
             "confirmed_count": sum(1 for o in options if o.get("status") == STATUS_CONFIRMED),
             "empty": not options,
         })
-    return {"categories": categories, "providers": providers}
+    try:
+        readiness = readiness_status()
+    except Exception as exc:
+        logger.error(f"model section readiness: {exc}")
+        readiness = {"ready": False, "issues": ["وضعیت آمادگی خوانده نشد."], "warnings": []}
+    return {
+        "categories": categories,
+        "providers": providers,
+        "readiness": readiness,
+        "image_kind_choices": _IMAGE_KIND_CHOICES,
+    }
 
 
 def handle_model_section_save(category):
     g = _require_super()
     if g:
         return g
-    from giso.buti_ai.ai_models import save_model_section
-    selections = []
+    from giso.buti_ai.ai_models import MODEL_SECTION_CATEGORIES, save_model_section
+    has_image_options = (MODEL_SECTION_CATEGORIES.get(category) or {}).get("capability") == "image_gen"
+    selections, extras = [], []
     for idx in (1, 2, 3):
         raw = (request.form.get(f"slot_{idx}") or "").strip()
+        extra = {"enabled": request.form.get(f"enabled_{idx}") == "1"}
+        if has_image_options:
+            extra["image_kind"] = (request.form.get(f"image_kind_{idx}") or "").strip()
+            extra["endpoint_override"] = (request.form.get(f"endpoint_{idx}") or "").strip()
+        extras.append(extra)
         if not raw:
             selections.append(None)
             continue
         provider_name, _, model_name = raw.partition("|")
         selections.append((provider_name.strip(), model_name.strip()))
     try:
-        ok, message = save_model_section(category, selections)
+        ok, message = save_model_section(category, selections, extras)
     except Exception as exc:
         logger.error(f"model section save: {exc}")
         ok, message = False, "ذخیره انجام نشد."

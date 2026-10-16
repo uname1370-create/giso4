@@ -2144,24 +2144,6 @@ def create_app():
                 message = "وضعیت مشاور هوشمند ذخیره شد." if ok else "خطا در ذخیره وضعیت مشاور هوشمند."
             elif action == "set_display_name":
                 ok, message = set_display_name(request.form.get("display_name", ""))
-            elif action == "set_active_provider":
-                ok, message = set_active_provider(request.form.get("provider_name", ""))
-            elif action == "promote_failover":
-                provider_name = (request.form.get("provider_name") or "").strip()
-                chain = [p for p in get_failover_chain() if p != provider_name]
-                if provider_name:
-                    chain.insert(0, provider_name)
-                ok, message = set_failover_chain(chain)
-            elif action == "reset_failover":
-                grouped = list_provider_options() or {}
-                all_names = [x.get('name') for x in (grouped.get('iranian') or []) + (grouped.get('foreign') or []) if x.get('name')]
-                ok, message = set_failover_chain(all_names)
-            elif action == "save_role_policy":
-                role_name = (request.form.get("role_name") or "user").strip().lower()
-                access_level = int(request.form.get("access_level", 0) or 0)
-                daily_limit = int(request.form.get("daily_limit", 0) or 0)
-                sections = request.form.getlist("sections")
-                ok, message = set_role_policy(role_name, access_level=access_level, sections=sections, daily_limit=daily_limit)
             elif action == "save_role_capabilities":
                 role_name = (request.form.get("role_name") or "user").strip().lower()
                 ok, message = set_role_capabilities(role_name, request.form.get("capabilities_text", ""))

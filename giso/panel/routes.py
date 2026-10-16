@@ -1611,22 +1611,6 @@ def ai_provider_test(name):
     return _ai.handle_provider_test(name)
 
 
-@panel_bp.route("/ai/test-all", methods=["POST"])
-@require_super
-def ai_test_all():
-    if r := _guard():
-        return r
-    return _ai.handle_test_all()
-
-
-@panel_bp.route("/ai/chat-test", methods=["POST"])
-@require_super
-def ai_chat_test():
-    if r := _guard():
-        return r
-    return _ai.handle_chat_test()
-
-
 @panel_bp.route("/ai/provider/<path:name>/refresh-models", methods=["POST"])
 @require_super
 def ai_provider_refresh_models(name):
@@ -1650,27 +1634,3 @@ def ai_bulk_import_json():
     if r := _guard():
         return r
     return _ai.handle_bulk_import()
-
-
-@panel_bp.route("/ai/pending/<int:pending_id>/execute", methods=["POST"])
-@require_super
-def ai_pending_execute(pending_id):
-    if r := _guard():
-        return r
-    return _ai.handle_pending_execute(pending_id)
-
-
-@panel_bp.route("/ai/pending/<int:pending_id>/cancel", methods=["POST"])
-@require_super
-def ai_pending_cancel(pending_id):
-    if r := _guard():
-        return r
-    return _ai.handle_pending_cancel(pending_id)
-
-
-@panel_bp.route("/ai/log/<int:log_id>/rollback", methods=["POST"])
-@require_super
-def ai_log_rollback(log_id):
-    if r := _guard():
-        return r
-    return _ai.handle_rollback(log_id)

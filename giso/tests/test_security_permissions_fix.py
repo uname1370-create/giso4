@@ -284,7 +284,7 @@ def test_J_sensitive_routes_have_require_super():
     src = open(os.path.join(BASE_DIR, "giso", "panel", "routes.py"), encoding="utf-8").read()
     assert "def require_super(" in src, "R5: دکوراتور require_super باید تعریف شده باشد"
     for fn in ("backup_now", "restart_bot", "ai_provider_delete",
-               "notification_settings", "ai_log_rollback"):
+               "notification_settings"):
         idx = src.find(f"def {fn}(")
         assert idx > 0, f"route {fn} یافت نشد"
         assert "@require_super" in src[max(0, idx - 200):idx], \

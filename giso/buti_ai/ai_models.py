@@ -80,11 +80,12 @@ TEXT_TASK_DEFS: Dict[str, Dict[str, Any]] = {
         "help": "مدل متنی برای مشاور و چت‌ها به ترتیب اولویت. اگر مدل اول خطای قابل بازیابی بدهد، مدل بعدی امتحان می‌شود.",
     },
 }
-# سه دستهٔ بخش «مدیریت و انتخاب مدل‌ها» → کاربرد ذخیره‌سازی و قابلیت لازم
+# چهار دستهٔ بخش «مدیریت و انتخاب مدل‌ها» → کاربرد ذخیره‌سازی و قابلیت لازم
 MODEL_SECTION_CATEGORIES = {
     "text": {"task_key": TASK_TEXT_CHAT, "capability": "text", "label": "متن"},
     "image_analysis": {"task_key": TASK_EYEBROW_ANALYSIS, "capability": "vision", "label": "تحلیل عکس"},
     "image_generation": {"task_key": TASK_MIRROR_IMAGE_DESIGN, "capability": "image_gen", "label": "ساخت/ویرایش تصویر"},
+    "output_evaluation": {"task_key": TASK_MIRROR_OUTPUT_VALIDATION, "capability": "vision", "label": "ارزیابی خروجی"},
 }
 
 
@@ -609,20 +610,21 @@ def clear_model_assignment(task_key: str, priority: Any) -> tuple[bool, str]:
         return False, "خالی کردن اسلات انجام نشد."
 
 
-def save_model_section(category: str, selections: List[Optional[tuple]]) -> tuple[bool, str]:
+def save_model_section(category: str, selections: List[Optional[tuple]],
+                       extras: Optional[List[Optional[Dict[str, Any]]]] = None) -> tuple[bool, str]:
     """ذخیرهٔ سه اسلات یک دسته؛ اعتبارسنجی کامل قبل از هر نوشتن (همه یا هیچ).
 
     selections: فهرست حداکثر سه عضوی به ترتیب اولویت؛ هر عضو (provider, model) یا None.
-    مدل فقط وقتی پذیرفته می‌شود که برای قابلیت همان دسته «تأییدشده» یا «احتمالی» باشد،
-    پروایدرش فعال باشد و در یک دسته تکراری نباشد.
+    extras (اختیاری، موازی selections): برای هر اسلات dict با کلیدهای enabled،
+    image_kind و endpoint_override. نبودن یک کلید یعنی تنظیم قبلی همان مدل حفظ شود.
+    مدل فقط وقتی پذیرفته می‌شود که برای قابلیت همان دسته «تأییدشده» یا «احتمالی» باشد
+    و اگر اسلات فعال است، پروایدرش فعال و در یک دسته تکراری نباشد.
+    اسلات غیرفعال ذخیره می‌شود ولی مصرف نمی‌شود و اعتبارسنجی آن انجام نمی‌شود.
     """
-    from giso.ai_brain import get_ai_provider
-    from giso.ai_discovery import COMPATIBLE_STATUSES, STATUS_LABELS_FA, model_capability_for_provider
-
     spec = MODEL_SECTION_CATEGORIES.get(category)
     if not spec:
         return False, "دسته نامعتبر است."
-    task_key, capability = spec["task_key"], spec["capability"]
+    task_key = spec["task_key"]
     slots = int(_task_meta(task_key).get("slots") or 1)
     errors: List[str] = []
     seen: set = set()
@@ -630,6 +632,7 @@ def save_model_section(category: str, selections: List[Optional[tuple]]) -> tupl
     previous = {row.get("priority"): row for row in list_model_assignments(task_key)}
     for idx in range(1, slots + 1):
         sel = selections[idx - 1] if idx - 1 < len(selections) else None
+        extra = (extras[idx - 1] if extras and idx - 1 < len(extras) else None) or {}
         if not sel:
             plan.append((idx, None))
             continue
@@ -643,30 +646,31 @@ def save_model_section(category: str, selections: List[Optional[tuple]]) -> tupl
         seen.add((provider_name, model_name))
         prev = previous.get(idx) or {}
         same = (prev.get("provider_name") == provider_name and prev.get("model_name") == model_name)
-        problem = validate_slot_selection(
-            task_key, provider_name, model_name,
-            image_kind=(prev.get("image_kind") or "") if same else "",
-            endpoint_override=(prev.get("endpoint_override") or "") if same else "",
-        )
-        if problem:
-            errors.append(f"اسلات {idx}: {problem}")
-            continue
-        plan.append((idx, (provider_name, model_name)))
+        enabled = bool(extra.get("enabled", True))
+        if "image_kind" in extra or "endpoint_override" in extra:
+            image_kind = str(extra.get("image_kind") or "").strip().lower()
+            endpoint = str(extra.get("endpoint_override") or "").strip()
+        else:
+            image_kind = (prev.get("image_kind") or "") if same else ""
+            endpoint = (prev.get("endpoint_override") or "") if same else ""
+        if enabled:
+            problem = validate_slot_selection(task_key, provider_name, model_name,
+                                              image_kind=image_kind, endpoint_override=endpoint)
+            if problem:
+                errors.append(f"اسلات {idx}: {problem}")
+                continue
+        plan.append((idx, (provider_name, model_name, enabled, image_kind, endpoint)))
     if errors:
         return False, " | ".join(errors)
 
-    previous = {row.get("priority"): row for row in list_model_assignments(task_key)}
     for idx, sel in plan:
         if sel is None:
             clear_model_assignment(task_key, idx)
             continue
-        provider_name, model_name = sel
-        prev = previous.get(idx) or {}
-        same = (prev.get("provider_name") == provider_name and prev.get("model_name") == model_name)
+        provider_name, model_name, enabled, image_kind, endpoint = sel
         save_model_assignment(
-            task_key, idx, provider_name, model_name, enabled=True,
-            image_kind=(prev.get("image_kind") or "") if same else "",
-            endpoint_override=(prev.get("endpoint_override") or "") if same else "",
+            task_key, idx, provider_name, model_name, enabled=enabled,
+            image_kind=image_kind, endpoint_override=endpoint,
         )
     return True, f"تنظیم دستهٔ «{spec['label']}» ذخیره شد."
 

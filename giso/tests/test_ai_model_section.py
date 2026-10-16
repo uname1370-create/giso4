@@ -349,12 +349,12 @@ def test_slot_count_of_mirror_tab_is_unchanged(temp_db):
                               bam.TASK_MIRROR_OUTPUT_VALIDATION}
 
 
-def test_panel_section_builds_three_categories_with_compatible_options(temp_db):
+def test_panel_section_builds_four_categories_with_compatible_options(temp_db):
     from giso.panel.modules import ai as panel_ai
     _add_provider("groq", vision=[{"id": "vis-x"}], text=[{"id": "llama-a"}])
     section = panel_ai.build_model_section()
     names = [c["key"] for c in section["categories"]]
-    assert names == ["text", "image_analysis", "image_generation"]
+    assert names == ["text", "image_analysis", "image_generation", "output_evaluation"]
     text_cat = section["categories"][0]
     values = [o["value"] for g in text_cat["option_groups"] for o in g["options"]]
     assert "groq|llama-a" in values and "groq|vis-x" not in values
@@ -528,3 +528,96 @@ def test_central_image_slots_win_over_env_sources(monkeypatch):
     monkeypatch.setattr(ig, "_json_configured_providers", lambda env: [])
     monkeypatch.setattr(ig, "_provider_order", lambda providers, env: providers)
     assert ig.configured_image_providers(None) == [sentinel]
+
+
+# ---------------------------------------------------------------- ۱۱. انتقال از تب آینه گیسو
+def test_output_evaluation_saves_vision_model_and_rejects_text_only(temp_db):
+    _add_provider("groq", vision=[{"id": "vis-x"}], text=[{"id": "llama-a"}])
+    ok, msg = bam.save_model_section("output_evaluation", [("groq", "vis-x"), None, None])
+    assert ok, msg
+    assert [r["model_name"] for r in bam.list_model_assignments(bam.TASK_MIRROR_OUTPUT_VALIDATION)] == ["vis-x"]
+    ok, _ = bam.save_model_section("output_evaluation", [("groq", "llama-a"), None, None])
+    assert ok is False
+    # ردّ شدن نباید اسلات قبلی داور را پاک کند
+    assert [r["model_name"] for r in bam.list_model_assignments(bam.TASK_MIRROR_OUTPUT_VALIDATION)] == ["vis-x"]
+
+
+def test_disabled_slot_is_stored_but_not_used_and_not_validated(temp_db):
+    _add_provider("groq", text=[{"id": "a"}, {"id": "b"}])
+    ok, msg = bam.save_model_section(
+        "text", [("groq", "a"), ("groq", "not-a-real-model"), None],
+        [{"enabled": True}, {"enabled": False}, None],
+    )
+    assert ok, msg
+    rows = {r["priority"]: r for r in bam.list_model_assignments(bam.TASK_TEXT_CHAT)}
+    assert rows[1]["enabled"] == 1 and rows[2]["enabled"] == 0
+    active = [r["model_name"] for r in bam.list_model_assignments(bam.TASK_TEXT_CHAT, only_enabled=True)]
+    assert active == ["a"]
+
+
+def test_enabled_slot_with_bad_model_is_still_rejected(temp_db):
+    _add_provider("groq", text=[{"id": "a"}])
+    ok, msg = bam.save_model_section("text", [("groq", "missing"), None, None], [{"enabled": True}])
+    assert ok is False and "اسلات 1" in msg
+
+
+def test_image_slot_stores_kind_and_endpoint_from_models_tab(temp_db, monkeypatch):
+    monkeypatch.setattr(bam, "validate_slot_selection", lambda *a, **k: "")
+    ok, msg = bam.save_model_section(
+        "image_generation", [("myimg", "custom-edit-v1"), None, None],
+        [{"enabled": True, "image_kind": "openai_image_edit",
+          "endpoint_override": "https://img.example.invalid/v1/images/edits"}, None, None],
+    )
+    assert ok, msg
+    row = bam.list_model_assignments(bam.TASK_MIRROR_IMAGE_DESIGN)[0]
+    assert row["image_kind"] == "openai_image_edit"
+    assert row["endpoint_override"] == "https://img.example.invalid/v1/images/edits"
+    assert row["enabled"] == 1
+
+
+def test_without_extras_same_model_keeps_previous_image_settings(temp_db, monkeypatch):
+    monkeypatch.setattr(bam, "validate_slot_selection", lambda *a, **k: "")
+    bam.save_model_section("image_generation", [("myimg", "m1"), None, None],
+                           [{"enabled": True, "image_kind": "multipart", "endpoint_override": "https://e.invalid/x"}, None, None])
+    ok, _ = bam.save_model_section("image_generation", [("myimg", "m1"), None, None])
+    assert ok
+    row = bam.list_model_assignments(bam.TASK_MIRROR_IMAGE_DESIGN)[0]
+    assert row["image_kind"] == "multipart" and row["endpoint_override"] == "https://e.invalid/x"
+
+
+def test_handler_parses_enabled_and_image_fields_per_slot(monkeypatch):
+    """فرم بخش مدل‌ها: فعال بودن و فیلدهای تصویر فقط برای دستهٔ طراحی تصویر به ذخیره می‌رسند."""
+    from flask import Flask
+    from giso.panel.modules import ai as panel_ai
+    from giso.buti_ai import ai_models as models_mod
+
+    captured = {}
+
+    def _fake_save(category, selections, extras=None):
+        captured.update(category=category, selections=selections, extras=extras)
+        return True, "ok"
+
+    monkeypatch.setattr(panel_ai, "_require_super", lambda: None)
+    monkeypatch.setattr(models_mod, "save_model_section", _fake_save)
+    monkeypatch.setattr(panel_ai, "flash", lambda *a, **k: None)
+    monkeypatch.setattr(panel_ai, "url_for", lambda endpoint, **kw: "/admin/ai")
+    app = Flask("handler_parse_test")
+    form = {
+        "slot_1": "groq|vis-x", "enabled_1": "1",
+        "slot_2": "", "enabled_2": "",
+        "slot_3": "", "image_kind_3": "multipart", "endpoint_3": "https://e.invalid/x",
+    }
+    with app.test_request_context("/admin/ai/model-section/image_generation/save", method="POST", data=form):
+        panel_ai.handle_model_section_save("image_generation")
+    assert captured["category"] == "image_generation"
+    assert captured["selections"] == [("groq", "vis-x"), None, None]
+    assert captured["extras"][0] == {"enabled": True, "image_kind": "", "endpoint_override": ""}
+    assert captured["extras"][1] == {"enabled": False, "image_kind": "", "endpoint_override": ""}
+    assert captured["extras"][2]["image_kind"] == "multipart"
+    assert captured["extras"][2]["endpoint_override"] == "https://e.invalid/x"
+
+    # دستهٔ متن فیلد تصویر ندارد؛ extras نباید کلید تصویر داشته باشد
+    with app.test_request_context("/admin/ai/model-section/text/save", method="POST",
+                                  data={"slot_1": "groq|llama-a", "enabled_1": "1"}):
+        panel_ai.handle_model_section_save("text")
+    assert captured["extras"][0] == {"enabled": True}
