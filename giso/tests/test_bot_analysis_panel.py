@@ -169,10 +169,11 @@ async def _run_callbacks(aid):
     assert kwargs["reply_markup"] is not None
     btn_labels = [b.text for row in kwargs["reply_markup"].inline_keyboard for b in row]
     assert "📋 آنالیزهای من" in btn_labels
-    assert "✅ چک‌لیست پیشرفت من" in btn_labels
-    assert "💬 گفتگو با مشاور" in btn_labels
     assert "🛒 محصولات پیشنهادی من" in btn_labels
-    assert "🌐 تحلیل جدید در سایت" in btn_labels
+    assert "📚 برنامه آنالیز من" in btn_labels
+    assert "💬 گفتگوهای مشاوره" in btn_labels
+    assert "✨ همراه هوشمند" in btn_labels
+    assert "🌐 آنالیز جدید در سایت" in btn_labels
     print("PASS  زیرمنوی آنالیز با ۴ گزینه + چک‌لیست + لینک سایت")
 
     # ۳) analysis_list

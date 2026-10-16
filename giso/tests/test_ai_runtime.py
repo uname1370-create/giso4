@@ -206,7 +206,10 @@ def test_failover_chain_roundtrip():
 def test_failover_cooldown_skips_recently_failed_provider():
     _reset_runtime_tables()
     _setup_provider()
-    ai_runtime_module._PROVIDER_FAIL_COOLDOWNS.clear()
+    from giso import ai_health  # کولداون مشترک سلامت پروایدر (جدول giso_ai_health)
+    with get_giso_db_conn() as conn:
+        conn.execute("DELETE FROM giso_ai_health WHERE provider IN (?,?)", (TEST_PROVIDER, TEST_PROVIDER_2))
+        conn.commit()
     ok, _ = set_failover_chain([TEST_PROVIDER, TEST_PROVIDER_2])
     assert ok is True
     attempts = []
@@ -226,6 +229,7 @@ def test_failover_cooldown_skips_recently_failed_provider():
         ))
         assert first["ok"] is True
         assert attempts[:2] == [TEST_PROVIDER, TEST_PROVIDER_2]
+        assert ai_health.is_in_cooldown(TEST_PROVIDER) is True
         attempts.clear()
         second = asyncio.run(chat_with_failover(
             [{"role": "user", "content": "سلام دوباره"}],
@@ -428,6 +432,8 @@ def test_superadmin_ai_setting_actions_and_user_delete():
     assert r2['ok'] is True
     assert get_setting('chat_display_name') == 'گیسو یار'
 
+    add_ai_provider(name='groq', kind='openai', api_key='dummy-key', base_url='https://example.com/v1',
+                    api_root='', timeout=20, enabled=True, use_proxy=False, replace=True)
     p3 = process_superadmin_request(1191639507, '+989156012931', 'AI فعال را روی groq بگذار')
     assert p3['handled'] is True and p3['mode'] == 'pending'
     r3 = execute_pending_action(p3['pending_id'], 1191639507)

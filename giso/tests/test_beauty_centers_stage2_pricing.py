@@ -31,7 +31,7 @@ def test_price_levels_and_normalization():
 def test_forms_and_filter_have_optional_starting_price():
     register = (ROOT/"giso/beauty_centers/templates/beauty_centers/register.html").read_text(encoding="utf-8")
     owner = (ROOT/"giso/beauty_centers/templates/beauty_centers/owner_dashboard.html").read_text(encoding="utf-8")
-    listing = (ROOT/"giso/beauty_centers/templates/beauty_centers/list.html").read_text(encoding="utf-8")
+    listing = (ROOT/"giso/beauty_centers/templates/beauty_centers/list.html").read_text(encoding="utf-8") + (ROOT / "giso/beauty_centers/templates/beauty_centers/_list_content.html").read_text(encoding="utf-8")
     for source in (register, owner):
         assert 'name="price_level"' in source
         assert 'name="starting_price"' in source

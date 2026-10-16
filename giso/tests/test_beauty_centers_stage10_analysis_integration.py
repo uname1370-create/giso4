@@ -31,7 +31,7 @@ def test_recommendations_use_owned_analysis_and_only_published_real_centers():
 
 def test_analysis_context_survives_directory_filters_and_renders_related_first():
     route = (ROOT / "giso/beauty_centers/routes.py").read_text(encoding="utf-8")
-    page = (ROOT / "giso/beauty_centers/templates/beauty_centers/list.html").read_text(encoding="utf-8")
+    page = (ROOT / "giso/beauty_centers/templates/beauty_centers/list.html").read_text(encoding="utf-8") + (ROOT / "giso/beauty_centers/templates/beauty_centers/_list_content.html").read_text(encoding="utf-8")
     assert 'analysis_id = request.args.get("analysis_id", type=int) or 0' in route
     assert "recommended_centers(analysis_id, _user_id()" in route
     assert 'type="hidden" name="analysis_id" value="{{ analysis_id }}"' in page

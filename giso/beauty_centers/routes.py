@@ -130,17 +130,17 @@ def _center_hours_for_display(center_id: int, *, fill_defaults: bool = False) ->
 
 
 def _owner_panel_context() -> dict:
-    from giso.panel_user.permissions import USER_MODULES, current_user_role
+    from giso.panel_user.permissions import USER_MODULE_GROUPS, MODULES_META, build_user_menu, current_user_role
     if current_user_role() in ("admin", "super"):
         return {"redirect_admin": True}
     from giso.panel.modules.notifications import list_user_notifications, user_unread_count
     from giso.wallet import get_wallet_balances
     phone = getattr(current_user, "phone", "") or ""
-    menu = list(USER_MODULES) + [("beauty_center", "مرکز زیبایی من", "🏥")]
+    label, icon = MODULES_META["beauty"]
     return {
-        "user": current_user, "menu": menu, "user_module_groups": {},
-        "current_module": "beauty_center", "current_module_label": "مرکز زیبایی من",
-        "current_module_icon": "🏥", "user_notifications": list_user_notifications(phone, limit=5),
+        "user": current_user, "menu": build_user_menu(), "user_module_groups": USER_MODULE_GROUPS,
+        "current_module": "beauty", "current_module_label": label,
+        "current_module_icon": icon, "user_notifications": list_user_notifications(phone, limit=5),
         "user_notification_unread": user_unread_count(phone),
         "header_wallet_usable": get_wallet_balances(_user_id()).get("usable", 0),
         "header_wallet_cash": get_wallet_balances(_user_id()).get("cash", 0),
@@ -171,6 +171,11 @@ def _owner_profile_defaults() -> dict:
 
 @beauty_centers_bp.route("/beauty-centers")
 def list_centers():
+    return render_template("beauty_centers/list.html", **browse_context())
+
+
+def browse_context(browse_action=None):
+    """زمینه‌ی فهرست مراکز؛ هم صفحه‌ی عمومی و هم تب «سالن‌ها» در پنل کاربر از آن استفاده می‌کنند."""
     try: _run_expiry_checks_throttled()
     except Exception: pass
     query = (request.args.get("q") or "").strip()
@@ -207,8 +212,8 @@ def list_centers():
         price_benchmarks = get_service_price_benchmarks(city, limit=8) if city else {}
     except Exception:
         price_benchmarks = {}
-    return render_template(
-        "beauty_centers/list.html", centers=centers, featured=featured, related=related,
+    return dict(
+        browse_action=browse_action, centers=centers, featured=featured, related=related,
         query=query, city=city, category=category, center_type=center_type, service=service,
         price_level=price_level, analysis_id=analysis_id, price_levels=PRICE_LEVELS,
         cities=cities, center_categories=CENTER_CATEGORIES, center_types=CENTER_TYPES,

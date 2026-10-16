@@ -2244,6 +2244,7 @@ async def _run_async(token=None, test_mode=False):
             keyboard.append([
                 InlineKeyboardButton("✅ چک‌لیست پیشرفت من", callback_data="analysis_checklist")
             ])
+        keyboard.append([InlineKeyboardButton("🛒 محصولات پیشنهادی من", callback_data="analysis_products")])
         keyboard.extend([
             [InlineKeyboardButton("📚 برنامه آنالیز من", url=f"{_get_giso_site_url()}/dashboard/analyses")],
             [InlineKeyboardButton("💬 گفتگوهای مشاوره", url=f"{_get_giso_site_url()}/dashboard/chats")],

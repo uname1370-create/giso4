@@ -5,7 +5,7 @@ from pathlib import Path
 from giso.bot import _admin_kb, _user_kb
 from giso.panel import authz
 from giso.panel.permissions import MODULES_META, module_allowed, visible_modules
-from giso.panel_user.permissions import USER_MODULES
+from giso.panel_user.permissions import USER_MODULES, USER_MODULE_GROUPS
 
 ROOT = Path(__file__).resolve().parents[2]
 REGULAR_ID = 777001
@@ -19,9 +19,10 @@ def _reply_labels(markup):
 def test_normal_user_site_and_bot_roots_are_exact():
     assert USER_MODULES == [
         ("overview", "پیشخوان (خلاصه من)", "🏠"),
+        ("beauty", "سالن زیبایی من", "💅"),
         ("hair_sale", "مدیریت مو", "💇‍♀️"),
         ("orders", "خریدهای من از فروشگاه", "🛍️"),
-        ("analyses", "آنالیزها و برنامه من", "🔬"),
+        ("marketplace", "بازارچه مو", "🏪"),
         ("wallet", "کیف پول و اعتبار", "💰"),
         ("chats", "پیام‌ها و پشتیبانی", "💬"),
         ("profile", "پروفایل", "👤"),
@@ -47,7 +48,7 @@ def test_normal_user_site_and_bot_roots_are_exact():
     sidebar = client.get("/dashboard/").get_data(as_text=True)
     for child in ("فروش مو به گیسو", "بازارچه مو", "خریدار مو"):
         assert child in sidebar
-    for grp in ("اصلی", "خدمات", "پشتیبانی", "حساب کاربری"):
+    for grp in USER_MODULE_GROUPS:
         assert ('pu-nav-group">%s</div>' % grp) in sidebar
     assert "pu-nav-tree" not in sidebar
     assert "<details" not in sidebar

@@ -1,0 +1,4 @@
+{% if tab == 'consultant' and (latest_hair or latest_skin) %}
+<script src="{{ url_for('static', filename='js/consultant.js') }}?v=2"></script>
+<script>initConsultant({{ (latest_hair or latest_skin).row.id }});</script>
+{% endif %}

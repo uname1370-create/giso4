@@ -851,7 +851,6 @@ def create_app():
             "model": model_name,
             "fallback_used": bool(result.get("fallback_used")) or fallback_mode,
             "ai_credit": credit_line,
-            "ai_credit": credit_state,
             "notice_text": brief.get("notice_text", ""),
             "summary": context.get("summary", ""),
             "actions": [],

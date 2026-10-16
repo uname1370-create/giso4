@@ -13,6 +13,8 @@ import os
 import sys
 from unittest.mock import patch
 
+import pytest
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
@@ -40,6 +42,29 @@ def _cleanup(app):
         pass
 
 
+@pytest.fixture(autouse=True)
+def _widget_tests_without_credit_gate(monkeypatch):
+    """مکانیزم ویجت را می‌سنجیم؛ گیت اعتبار همراه هوشمند فقط در تست سیاست (پایین‌تر) فعال است."""
+    import giso.ai_credits as ai_credits
+    original = ai_credits.credit_settings
+    monkeypatch.setattr(ai_credits, "credit_settings", lambda: {**original(), "enabled": False})
+
+
+def test_guest_chat_is_gated_by_login_when_credit_is_on(monkeypatch):
+    """سیاست فعلی: با گیت اعتبار روشن، مهمان پاسخ نمی‌گیرد و پیام ورود برمی‌گردد (402)."""
+    import giso.ai_credits as ai_credits
+    original = ai_credits.credit_settings
+    monkeypatch.setattr(ai_credits, "credit_settings", lambda: {**original(), "enabled": True})
+    set_widget_enabled(True)  # وضعیت ویجت در DB می‌ماند؛ این تست نباید به ترتیب اجرا وابسته باشد
+    app = create_app()
+    client = app.test_client()
+    _cleanup(app)
+    token = client.get('/api/ai-widget/init?page=/').get_json()['csrf_token']
+    r = client.post('/api/ai-widget/chat', json={'message': 'سلام', 'page': '/'}, headers={'X-AI-Widget-CSRF': token})
+    assert r.status_code == 402
+    assert 'وارد حساب' in r.get_json()['error']
+
+
 def _login(client, phone):
     with client.session_transaction() as s:
         s['_user_id'] = phone
@@ -60,8 +85,8 @@ def test_widget_init_guest():
     assert data['role'] == 'guest'
     assert data['position'] == 'left-bottom'
     assert 'سلام' in data['welcome']
-    assert data['actions'] and any(a['url'] == '/register' for a in data['actions'])
-    assert isinstance(data.get('starter_prompts'), list) and data['starter_prompts']
+    # چیپ‌های پیشنهاد از UI حذف شده‌اند (تصمیم محصول): actions همیشه فهرست خالی است
+    assert data['actions'] == []
     assert data.get('input_placeholder')
     print('PASS  init ویجت برای مهمان کار می‌کند')
 
@@ -80,8 +105,6 @@ def test_widget_init_user_and_super():
     data = r.get_json()
     assert data['role'] == 'user'
     assert 'آنالیز' in data['summary'] or 'سابقه' in data['summary'] or data['summary']
-    assert isinstance(data.get('suggestions'), list)
-    assert isinstance(data.get('starter_prompts'), list)
     assert isinstance(data.get('actions'), list)
     assert data.get('page_title')
 
@@ -119,8 +142,7 @@ def test_widget_chat_history_and_csrf():
     assert data['ok'] is True
     assert 'سلام از سمت ویجت' in data['response']
     assert len(data['history']) >= 2
-    assert 'suggestions' in data and isinstance(data['suggestions'], list)
-    assert 'actions' in data and isinstance(data['actions'], list)
+    assert 'actions' in data and data['actions'] == []
 
     r3 = client.post('/api/ai-widget/chat', json={'message': 'سلام', 'page': '/'})
     assert r3.status_code == 403
@@ -145,7 +167,6 @@ def test_widget_chat_fallback_on_provider_error():
     assert data['fallback_used'] is True
     assert data['provider'] == 'runtime-fallback'
     assert data['response']
-    assert isinstance(data.get('starter_prompts'), list)
     print('PASS  در خطای provider، ویجت با پاسخ fallback متوقف نمی‌شود')
 
 

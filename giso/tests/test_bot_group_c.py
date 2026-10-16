@@ -34,6 +34,7 @@ from giso.bot import (
 PHONE = "09190001122"
 USER_BID = 888001
 ADMIN_BID = 888002
+SUPER_BID = 1191639507  # پنل آنالیز ربات فقط برای سوپرادمین است
 SUPPORT_BID = 888003
 
 
@@ -76,6 +77,9 @@ def _setup_db():
         _upsert_giso_user(ADMIN_BID, phone=normalize_phone("09120000005"),
                           first_name="ادمین", contact_shared=True,
                           is_admin=True, pending_request=False)
+        _upsert_giso_user(SUPER_BID, phone=normalize_phone("09156012931"),
+                          first_name="سوپر", contact_shared=True,
+                          is_admin=True, pending_request=False)
 
         with get_giso_db_conn() as conn:
             conn.execute(
@@ -105,7 +109,7 @@ def _cleanup(app):
         pass
     try:
         with get_giso_db_conn() as conn:
-            for bid in (USER_BID, ADMIN_BID, SUPPORT_BID):
+            for bid in (USER_BID, ADMIN_BID, SUPER_BID, SUPPORT_BID):
                 conn.execute("DELETE FROM giso_users WHERE bale_id=?", (str(bid),))
             conn.execute("DELETE FROM giso_support_tickets")
             conn.execute("DELETE FROM consultant_requests")
@@ -239,6 +243,9 @@ async def _run_chat_callback():
 
     # adm_ana_chats_all
     cb, _ = await make_cb("adm_ana_chats_all", ADMIN_BID)
+    txt, _ = cb.edit_message_text.call_args
+    assert "دسترسی ندارید" in txt[0]  # ادمین عادی: دسترسی ندارد
+    cb, _ = await make_cb("adm_ana_chats_all", SUPER_BID)
     txt, kwargs = cb.edit_message_text.call_args
     assert "خلاصه گفتگوهای مشاور" in txt[0]
     assert "سارا" in txt[0]
@@ -248,7 +255,7 @@ async def _run_chat_callback():
     assert "🗓 ماه" in labels
     assert "📚 همه" in labels
     # امروز
-    cb2, _ = await make_cb("adm_ana_chats_today", ADMIN_BID)
+    cb2, _ = await make_cb("adm_ana_chats_today", SUPER_BID)
     txt2, _ = cb2.edit_message_text.call_args
     assert "فیلتر: امروز" in txt2[0]
     print("PASS  callback خلاصه گفتگوها با فیلتر")

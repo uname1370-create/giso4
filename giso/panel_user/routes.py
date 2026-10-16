@@ -12,7 +12,8 @@ from flask import render_template, redirect, url_for, flash, current_app, reques
 from flask_login import login_required, current_user
 
 from giso.panel_user import panel_user_bp
-from giso.panel_user.permissions import USER_MODULES, USER_MODULE_GROUPS, MODULES_META, current_user_role
+from giso.panel_user.permissions import (USER_MODULES, USER_MODULE_GROUPS, MODULES_META, BEAUTY_TABS,
+                                         build_user_menu, current_user_role)
 from giso.panel_user.modules import (
     overview as _ov, profile as _pf, orders as _od, hair_sale as _hs,
     analyses as _an, chats as _ch, wallet as _wl, notifies as _nt, reviews as _rv,
@@ -60,24 +61,8 @@ def _guard_before_context_build():
 
 
 def _menu_for_current_user():
-    """منوی گروه‌بندی‌شدهٔ کاربر (اصلی/خدمات/پشتیبانی/حساب) — §۷ سناریو."""
-    from giso.panel_user.permissions import MODULES_META, USER_MODULE_GROUPS
-    has_center = False
-    try:
-        from giso.beauty_centers.services import get_owner_center
-        has_center = bool(get_owner_center(int(getattr(current_user, "id", 0) or 0)))
-    except Exception:
-        has_center = False
-    menu = []
-    for group, mods in USER_MODULE_GROUPS.items():
-        menu.append(("__group", group, ""))
-        for m in mods:
-            if m == "beauty_center" and not has_center:
-                continue
-            label, icon = MODULES_META.get(m, (m, "•"))
-            menu.append((m, label, icon))
-    return menu
-
+    """منوی گروه‌بندی‌شدهٔ کاربر از یک منبع (permissions.build_user_menu)."""
+    return build_user_menu()
 
 def _render(module, template_module=None, **ctx):
     g = _guard()
@@ -105,7 +90,7 @@ def _render(module, template_module=None, **ctx):
         from giso.beauty_centers.services import user_center_unread_count
         center_unread = user_center_unread_count(int(getattr(current_user, "id", 0) or 0))
         if center_unread:
-            menu_badges["center_chats"] = center_unread
+            menu_badges["beauty"] = center_unread
     except Exception:
         pass
     try:
@@ -301,15 +286,61 @@ def conversations():
 
 @panel_user_bp.route("/center-conversations")
 def center_chats():
-    """پرسش‌وپاسخ مستقل کاربر با مراکز زیبایی."""
+    """پرسش‌وپاسخ مستقل کاربر با مراکز زیبایی (صفحه‌ی مستقل؛ همان محتوای تب «گفتگوهای مراکز»)."""
+    return _render("center_chats", template_module="center_chats", **_center_chats_context())
+
+
+def _center_chats_context():
     from giso.beauty_centers.services import user_center_conversations
     rows = user_center_conversations(int(getattr(current_user, "id", 0) or 0))
-    return _render(
-        "center_chats", template_module="center_chats",
-        center_conversations=rows,
-        center_unread=sum(int(row.get("unread") or 0) for row in rows),
-    )
+    return {
+        "center_conversations": rows,
+        "center_unread": sum(int(row.get("unread") or 0) for row in rows),
+    }
 
+
+def _beauty_centers_context():
+    from giso.beauty_centers.routes import browse_context
+    return browse_context(browse_action=url_for("panel_user.beauty"))
+
+
+def _beauty_reservations_context():
+    from giso.beauty_centers.reservations.routes import reservations_context
+    return reservations_context()
+
+
+def _beauty_analyses_context():
+    return _an.context() or {}
+
+
+def _beauty_manage_context():
+    from giso.beauty_centers.services import get_owner_center, owner_conversation_unread_count, STATUS_FA
+    uid = int(getattr(current_user, "id", 0) or 0)
+    center = get_owner_center(uid)
+    return {
+        "center": center,
+        "center_unread": owner_conversation_unread_count(uid) if center else 0,
+        "status_label": STATUS_FA.get(str((center or {}).get("status") or ""), (center or {}).get("status") or ""),
+    }
+
+
+_BEAUTY_TAB_BUILDERS = {
+    "centers": _beauty_centers_context,
+    "reservations": _beauty_reservations_context,
+    "chats": _center_chats_context,
+    "analyses": _beauty_analyses_context,
+    "manage": _beauty_manage_context,
+}
+
+
+@panel_user_bp.route("/beauty")
+def beauty():
+    """«سالن زیبایی من»: همه‌ی بخش‌ها روی یک صفحه با تب؛ فقط داده‌ی تب فعال ساخته می‌شود."""
+    tab = (request.args.get("beauty_tab") or "centers").strip()
+    if tab not in _BEAUTY_TAB_BUILDERS:
+        tab = "centers"
+    return _render("beauty", template_module="beauty_hub", beauty_tab=tab, beauty_tabs=BEAUTY_TABS,
+                   **_BEAUTY_TAB_BUILDERS[tab]())
 
 @panel_user_bp.route("/chats/support", methods=["POST"])
 def support_ticket_create():

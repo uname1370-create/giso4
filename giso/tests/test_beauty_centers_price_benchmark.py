@@ -128,7 +128,7 @@ def test_overview_limit_keeps_available_keys_and_blank_city_or_key_fails_closed(
 
 
 def test_templates_keep_price_benchmark_separate_from_owner_price_and_require_same_city():
-    listing = (ROOT / "giso/beauty_centers/templates/beauty_centers/list.html").read_text(encoding="utf-8")
+    listing = (ROOT / "giso/beauty_centers/templates/beauty_centers/list.html").read_text(encoding="utf-8") + (ROOT / "giso/beauty_centers/templates/beauty_centers/_list_content.html").read_text(encoding="utf-8")
     detail = (ROOT / "giso/beauty_centers/templates/beauty_centers/detail.html").read_text(encoding="utf-8")
     assert "برای مقایسهٔ منصفانه، شهر را در فیلترهای زیر انتخاب کنید" in listing
     assert "provider_count" in listing and "calculated_at" in listing

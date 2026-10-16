@@ -3437,6 +3437,13 @@ def execute_pending_action(pending_id: int, actor_id: int | str, actor_key: str 
                     conn.execute("DELETE FROM product_requests WHERE user_id=? OR phone=?", (site_user_id, phone))
                     conn.execute("DELETE FROM reviews WHERE user_id=? OR phone=?", (site_user_id, phone))
                     conn.execute("DELETE FROM consultant_requests WHERE user_id=? OR phone=?", (site_user_id, phone))
+                    # جدول‌های فرزندِ کلید خارجی (مثل مأموریت‌های کیف پول) پیش از حذف کاربر پاک شوند
+                    from giso.base import _ERASE_FK_CHILD_TABLES
+                    for _table, _col in _ERASE_FK_CHILD_TABLES:
+                        try:
+                            conn.execute(f"DELETE FROM {_table} WHERE {_col}=?", (site_user_id,))
+                        except Exception:  # جدول در نسخه‌ی قدیمی‌تر وجود ندارد
+                            pass
                 if snapshot.get("consultant_requests"):
                     ids = [int(r.get("id") or 0) for r in snapshot.get("consultant_requests") if int(r.get("id") or 0)]
                     if ids:

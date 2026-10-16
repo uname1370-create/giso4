@@ -27,6 +27,6 @@ def test_analysis_hub_tabs_metrics_and_safe_archive():
 
 
 def test_analysis_template_has_no_redundant_history_tab():
-    source=open("giso/panel_user/templates/user_modules/analyses.html",encoding="utf-8").read()
-    assert "وضعیت کلی من" in source and "آنالیز مو" in source and "آنالیز پوست" in source and "گفتگو با مشاور" in source
+    source=open("giso/panel_user/templates/user_modules/analyses.html",encoding="utf-8").read()+open("giso/panel_user/templates/user_modules/_analyses_content.html",encoding="utf-8").read()
+    assert "آخرین آنالیز مو" in source and "آنالیز مو" in source and "آنالیز پوست" in source and "گفتگو با مشاور" in source
     assert "تاریخچه کامل" not in source

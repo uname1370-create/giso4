@@ -18,11 +18,7 @@ logger = logging.getLogger("giso_panel_user_permissions")
 # Owner → مدیریت سالن زیبایی جدا از زیبایی من (مالک همزمان Customer است)
 USER_MODULES = [
     ("overview", "پیشخوان (خلاصه من)", "🏠"),
-    ("beauty_centers_list", "سالن‌های زیبایی", "🏥"),
-    ("reservations", "نوبت‌های من", "📅"),
-    ("center_chats", "گفتگوهای من", "💌"),
-    ("analyses", "آنالیزهای من", "🔬"),
-    ("beauty_center", "مدیریت سالن زیبایی", "🏢"),
+    ("beauty", "سالن زیبایی من", "💅"),
     ("hair_sale", "مدیریت مو", "💇‍♀️"),
     ("orders", "خریدهای من از فروشگاه", "🛍️"),
     ("marketplace", "بازارچه مو", "🏪"),
@@ -31,12 +27,20 @@ USER_MODULES = [
     ("profile", "پروفایل", "👤"),
 ]
 
+# تب‌های صفحه‌ی «سالن زیبایی من» (همه روی یک صفحه؛ هر تب فقط داده‌ی خودش را می‌سازد)
+BEAUTY_TABS = [
+    ("centers", "سالن‌های زیبایی", "🏥"),
+    ("reservations", "نوبت‌های من", "📅"),
+    ("chats", "گفتگوهای مراکز", "💌"),
+    ("analyses", "آنالیزهای من", "🔬"),
+    ("manage", "مدیریت سالن من", "🏢"),
+]
+
 # گروه‌بندی منو بر اساس سفر کاربر (سناریوی Master Guide §۷ + FINBUTI)
 # FINBUTI final menu: پیشخوان → زیبایی من [سالن‌ها/نوبت‌ها/گفتگوها/آنالیزها] → مدیریت سالن (فقط مالک) → فروش مو → خریدها → کیف پول → پیام‌ها → پروفایل
 USER_MODULE_GROUPS = {
     "اصلی": ["overview"],
-    "زیبایی من": ["beauty_centers_list", "reservations", "center_chats", "analyses"],
-    "مدیریت سالن زیبایی": ["beauty_center"],
+    "سالن زیبایی": ["beauty"],
     "فروش مو": ["hair_sale", "marketplace", "buyer_request"],
     "خریدها": ["orders"],
     "کیف پول و اعتبار": ["wallet"],
@@ -48,6 +52,7 @@ MODULES_META = {
     **{m: (label, icon) for m, label, icon in USER_MODULES},
     "marketplace": ("بازارچه مو", "🏪"),
     "buyer_request": ("خریدار مو", "🧑‍💼"),
+    "beauty": ("سالن زیبایی من", "💅"),
     "beauty_center": ("مدیریت سالن زیبایی", "🏢"),
     "beauty_centers_list": ("سالن‌های زیبایی", "🏥"),
     "shop": ("فروشگاه من", "🛒"),
@@ -99,4 +104,16 @@ def current_user_role():
         return "guest"
 
 
-__all__ = ["USER_MODULES", "USER_MODULE_GROUPS", "MODULES_META", "is_admin_user", "current_user_role"]
+def build_user_menu():
+    """منوی سایدبار پنل کاربر (گروه‌بندی‌شده). همه‌ی صفحات کاربر از همین تابع استفاده می‌کنند."""
+    menu = []
+    for group, mods in USER_MODULE_GROUPS.items():
+        menu.append(("__group", group, ""))
+        for m in mods:
+            label, icon = MODULES_META.get(m, (m, "•"))
+            menu.append((m, label, icon))
+    return menu
+
+
+__all__ = ["USER_MODULES", "USER_MODULE_GROUPS", "MODULES_META", "BEAUTY_TABS", "build_user_menu",
+           "is_admin_user", "current_user_role"]

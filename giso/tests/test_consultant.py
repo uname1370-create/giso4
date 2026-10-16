@@ -62,9 +62,14 @@ def _make_user_and_analysis(app):
     return aid
 
 
+CSRF_HEADERS = {"X-GISO-CSRF": "test-csrf-token"}  # هر POST به API باید توکن CSRF داشته باشد (security_gate)
+
+
 def _login(app, client):
+    from giso.security import _TOKEN_KEY
     with client.session_transaction() as s:
         s["_user_id"] = normalize_phone(PHONE)
+        s[_TOKEN_KEY] = CSRF_HEADERS["X-GISO-CSRF"]
 
 
 # ── ۱) پرامپت‌ها ─────────────────────────────────────────────
@@ -155,7 +160,7 @@ def test_consultant_chat_api_flow():
         return {"ok": True, "text": fake_response, "provider": "llm7", "model": "gpt-4o-mini"}
     with patch("giso.analysis.chat_with_managed_ai", side_effect=_fake_chat):
         r = client.post("/api/consultant-chat/message",
-                        json={"analysis_id": aid, "message": "سلام"})
+                        json={"analysis_id": aid, "message": "سلام"}, headers=CSRF_HEADERS)
     assert r.status_code == 200, r.status_code
     data = r.get_json()
     assert data["ok"] is True
@@ -170,7 +175,7 @@ def test_consultant_chat_api_flow():
 
     # امتیازدهی
     r = client.post("/api/consultant-chat/rate",
-                    json={"analysis_id": aid, "rating": 5})
+                    json={"analysis_id": aid, "rating": 5}, headers=CSRF_HEADERS)
     assert r.status_code == 200, r.status_code
     assert r.get_json()["ok"] is True
     with app.app_context():
@@ -180,7 +185,7 @@ def test_consultant_chat_api_flow():
 
     # امتیاز نامعتبر
     r = client.post("/api/consultant-chat/rate",
-                    json={"analysis_id": aid, "rating": 9})
+                    json={"analysis_id": aid, "rating": 9}, headers=CSRF_HEADERS)
     assert r.status_code == 400
     print("PASS  API چت: تاریخچه ذخیره، پاسخ AI، امتیازدهی و اعتبارسنجی")
 
@@ -194,7 +199,7 @@ def test_consultant_chat_validation():
 
     # پیام خالی
     r = client.post("/api/consultant-chat/message",
-                    json={"analysis_id": aid, "message": "   "})
+                    json={"analysis_id": aid, "message": "   "}, headers=CSRF_HEADERS)
     assert r.status_code == 400, r.status_code
     print("PASS  API چت: پیام خالی رد می‌شود")
 

@@ -274,14 +274,18 @@ _CANCELLABLE_STATUSES = ("pending", "confirmed")
 @login_required
 def my_reservations():
     """HTML page of the logged-in user's reservations (was a JSON endpoint)."""
+    return render_template("beauty_centers/my_reservations.html", **reservations_context())
+
+
+def reservations_context():
+    """زمینه‌ی نوبت‌های کاربر؛ صفحه‌ی مستقل و تب «نوبت‌های من» در سالن زیبایی من از آن استفاده می‌کنند."""
     rows = rsv.get_user_reservations(getattr(current_user, "id", 0))
     for row in rows:
         status = str(row.get("status") or "")
         row["status_css"] = _MYRES_BADGE_CSS.get(status, "is-pending")
         row["can_cancel"] = status in _CANCELLABLE_STATUSES
         row["weekday"] = rsv._date_weekday_label(row.get("reservation_date"))
-    return render_template(
-        "beauty_centers/my_reservations.html", reservations=rows)
+    return {"reservations": rows}
 
 
 @reservations_bp.post("/dashboard/reservations/<int:reservation_id>/cancel")

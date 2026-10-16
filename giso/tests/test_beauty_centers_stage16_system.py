@@ -61,7 +61,7 @@ def test_feature_remains_modular_with_only_explicit_core_hooks():
 def test_legal_boundary_is_present_across_public_price_chat_and_ai_surfaces():
     assert "ارائه خدمات، تعیین قیمت، پرداخت، کیفیت، نتیجه کار یا اختلاف" in DISCLAIMER
     templates = MODULE / "templates/beauty_centers"
-    list_page = (templates / "list.html").read_text(encoding="utf-8")
+    list_page = (templates / "list.html").read_text(encoding="utf-8") + (templates / "_list_content.html").read_text(encoding="utf-8")
     detail = (templates / "detail.html").read_text(encoding="utf-8")
     chat = (templates / "chat.html").read_text(encoding="utf-8")
     card = (templates / "_card.html").read_text(encoding="utf-8")

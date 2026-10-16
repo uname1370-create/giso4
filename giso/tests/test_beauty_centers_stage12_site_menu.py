@@ -31,11 +31,11 @@ def test_owner_sidebar_is_conditional_and_pre_registration_cta_stays_in_profile(
     routes = (ROOT / "giso/panel_user/routes.py").read_text(encoding="utf-8")
     sidebar = (ROOT / "giso/panel_user/templates/partials/user_sidebar.html").read_text(encoding="utf-8")
     profile = (ROOT / "giso/panel_user/templates/user_modules/profile.html").read_text(encoding="utf-8")
-    # قرارداد جدید §۷: مرکز زیبایی فقط برای صاحبان، داخل گروه «خدمات»
+    # قرارداد جدید §۷: مدیریت مرکز فقط در تب «مدیریت سالن من» هاب سالن زیبایی
     assert "get_owner_center" in routes
     perms = (ROOT / "giso/panel_user/permissions.py").read_text(encoding="utf-8")
-    assert '"خدمات"' in perms and '"beauty_center"' in perms
-    assert "m == 'beauty_center'" in sidebar
+    assert '"سالن زیبایی"' in perms and '"beauty"' in perms
+    assert "beauty_center" not in sidebar
     assert "ثبت رایگان مرکز زیبایی" in profile
     assert "if beauty_center" in profile
 

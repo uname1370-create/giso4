@@ -1,0 +1,32 @@
+{% if request.args.get('tab') == 'consultant' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/consultant.css') }}?v=2">
+{% endif %}
+<style>
+/* FINBUTI — Beauty Ecosystem / Mirror History — Luxury Minimal */
+.pu-analysis-hub { --lux-rose:#c85873; --lux-gold:#c9962e; --lux-line:#f3dcdc; --lux-radius:18px; }
+.pu-analysis-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 20px; }
+.pu-analysis-tabs a { padding:8px 14px; border:1px solid var(--lux-line); border-radius:99px; background:#fff; color:#352d2f; font-size:.82rem; font-weight:700; text-decoration:none; transition:all .15s ease; }
+.pu-analysis-tabs a.active { background:linear-gradient(135deg,var(--lux-rose),#a8425c); color:#fff; border-color:var(--lux-rose); box-shadow:0 8px 20px rgba(200,88,115,.18); }
+.pu-analysis-tabs a em { margin-right:6px; padding:2px 7px; border-radius:99px; background:rgba(0,0,0,.08); font-style:normal; font-size:.7rem; }
+.pu-analysis-tabs a.active em { background:rgba(255,255,255,.22); }
+.mirror-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:18px; }
+.mirror-card { border:1px solid var(--lux-line); border-radius:var(--lux-radius); background:#fff; box-shadow:0 12px 28px rgba(91,52,59,.07); overflow:hidden; display:flex; flex-direction:column; transition:transform .22s ease, box-shadow .22s ease; }
+.mirror-card:hover { transform:translateY(-4px); box-shadow:0 20px 40px rgba(200,88,115,.14); }
+.mirror-card-media { position:relative; display:grid; grid-template-columns:1fr 1fr; gap:2px; background:#f7ece8; aspect-ratio: 2/1; overflow:hidden; }
+.mirror-card-media img { width:100%; height:100%; object-fit:cover; display:block; }
+.mirror-card-media .mirror-fallback { grid-column:1/-1; display:grid; place-items:center; padding:20px; color:#76696c; background:#f7ece8; }
+.mirror-card-body { padding:14px 16px; display:grid; gap:8px; flex:1; }
+.mirror-card-body h3 { margin:0; font-size:1rem; line-height:1.6; }
+.mirror-card-meta { display:flex; flex-wrap:wrap; gap:6px; }
+.mirror-chip { padding:4px 10px; border-radius:99px; background:#fff1f3; border:1px solid #f0cdd4; color:#8f3850; font-size:.68rem; font-weight:800; }
+.mirror-chip.is-ai { background:#e9f7ef; border-color:#b9e2c8; color:#1c7a45; }
+.mirror-chip.is-fallback { background:#fff6db; border-color:#ecd9a4; color:#8a6d1b; }
+.mirror-card-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.mirror-card-actions .pu-btn { flex:1; justify-content:center; min-width:120px; }
+.pu-analysis-overview { display:grid; gap:18px; }
+.pu-overview-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+.pu-overview-card { padding:16px; border:1px solid var(--lux-line); border-radius:16px; background:#fff; }
+.pu-overview-card strong { display:block; font-size:1.4rem; color:var(--lux-rose); }
+.pu-overview-card span { color:#76696c; font-size:.78rem; }
+@media(max-width:640px){ .mirror-grid{grid-template-columns:1fr;} .pu-analysis-tabs a{flex:1 1 auto; text-align:center;} }
+</style>

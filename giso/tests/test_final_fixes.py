@@ -59,6 +59,10 @@ def _setup():
         _upsert_giso_user(ADMIN_BID, phone=normalize_phone("09120000008"),
                           first_name="ادمین", contact_shared=True,
                           is_admin=True, pending_request=False)
+        # مشاهده گفتگوی کامل مشاور در ربات فقط برای سوپرادمین است (هم‌راستا با سایت)
+        _upsert_giso_user(SUPER_BID, phone=normalize_phone("09156012931"),
+                          first_name="سوپر", contact_shared=True,
+                          is_admin=True, pending_request=False)
         _upsert_giso_user(USER_BID, phone=normalize_phone(PHONE),
                           first_name="الهام", contact_shared=True,
                           is_admin=False, pending_request=False)
@@ -77,7 +81,7 @@ def _cleanup(app):
         pass
     try:
         with get_giso_db_conn() as conn:
-            for bid in (ADMIN_BID, USER_BID):
+            for bid in (ADMIN_BID, USER_BID, SUPER_BID):
                 conn.execute("DELETE FROM giso_users WHERE bale_id=?", (str(bid),))
             conn.execute("DELETE FROM giso_admin_permissions WHERE admin_bale_id=?", (str(ADMIN_BID),))
             conn.commit()
@@ -136,10 +140,10 @@ async def _run_chat_view():
     cb.data = f"adm_chat_view_{aid}"
     cb.edit_message_text = AsyncMock()
     cb.answer = AsyncMock()
-    cb.from_user.id = ADMIN_BID
+    cb.from_user.id = SUPER_BID
     update = MagicMock()
     update.callback_query = cb
-    update.effective_user.id = ADMIN_BID
+    update.effective_user.id = SUPER_BID
     context = MagicMock()
     context.bot.send_message = AsyncMock()
     context.user_data = {}

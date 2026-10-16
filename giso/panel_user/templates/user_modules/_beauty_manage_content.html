@@ -1,0 +1,23 @@
+<section class="bh-manage">
+  {% if center %}
+  <header class="bh-manage-head">
+    <span class="bc-kicker">مرکز شما</span>
+    <h2>{{ center.name }}</h2>
+    <p>وضعیت: {{ status_label }} · شهر: {{ center.city or '—' }}</p>
+  </header>
+  <div class="bh-actions">
+    <a class="bh-btn" href="{{ url_for('beauty_centers.owner_dashboard') }}">ورود به پنل کامل مرکز</a>
+    <a class="bh-btn" href="{{ url_for('beauty_centers.owner_dashboard', tab='services') }}">خدمات و قیمت‌ها</a>
+    <a class="bh-btn" href="{{ url_for('beauty_centers.owner_dashboard', tab='reservations') }}">نوبت‌های مرکز</a>
+    <a class="bh-btn" href="{{ url_for('beauty_centers.owner_dashboard', tab='messages') }}">پیام‌های مشتریان{% if center_unread %} ({{ center_unread }}){% endif %}</a>
+    <a class="bh-btn" href="{{ url_for('beauty_centers.owner_dashboard', tab='analytics') }}">آمار مرکز</a>
+  </div>
+  {% else %}
+  <header class="bh-manage-head">
+    <span class="bc-kicker">مدیریت سالن</span>
+    <h2>هنوز سالنی ثبت نکرده‌اید</h2>
+    <p>اگر مرکز زیبایی دارید، آن را ثبت کنید تا از همین صفحه مدیریتش کنید.</p>
+  </header>
+  <a class="bh-btn" href="{{ url_for('beauty_centers.register_center') }}">ثبت سالن زیبایی</a>
+  {% endif %}
+</section>

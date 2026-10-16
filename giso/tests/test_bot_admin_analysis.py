@@ -65,6 +65,10 @@ def _setup_db():
         _upsert_giso_user(USER_BID, phone=normalize_phone("09350000003"),
                           first_name="کاربر", contact_shared=True,
                           is_admin=False, pending_request=False)
+        # پنل آنالیز ربات فقط برای سوپرادمین است (هم‌راستا با سایت)
+        _upsert_giso_user(SUPER_BID, phone=normalize_phone("09156012931"),
+                          first_name="سوپر", contact_shared=True,
+                          is_admin=True, pending_request=False)
         # درخواست مشاوره جدید
         try:
             with get_giso_db_conn() as conn:
@@ -92,7 +96,7 @@ def _cleanup(app):
         pass
     try:
         with get_giso_db_conn() as conn:
-            for bid in (ADMIN_BID, USER_BID):
+            for bid in (ADMIN_BID, USER_BID, SUPER_BID):
                 conn.execute("DELETE FROM giso_users WHERE bale_id=?", (str(bid),))
             conn.execute("DELETE FROM consultant_requests WHERE customer_name='مریم'")
             conn.commit()
@@ -147,8 +151,13 @@ async def _run_callbacks():
         await handle_callback(update, context)
         return cb
 
-    # ۲) adm_ana_menu (ادمین) → منو با badge جدید
+    # ۱) ادمین عادی به پنل آنالیز دسترسی ندارد
     cb = await make_cb("adm_ana_menu", ADMIN_BID)
+    txt, _ = cb.edit_message_text.call_args
+    assert "دسترسی ندارید" in txt[0]
+
+    # ۲) adm_ana_menu (سوپرادمین) → منو با badge جدید
+    cb = await make_cb("adm_ana_menu", SUPER_BID)
     txt, kwargs = cb.edit_message_text.call_args
     assert "مدیریت آنالیز" in txt[0]
     assert "آمار سریع" in txt[0]
@@ -156,13 +165,12 @@ async def _run_callbacks():
     assert "📊 آمار کامل" in labels
     assert "📋 لیست ۱۰ تحلیل آخر" in labels
     assert any("درخواست‌های مشاوره" in l and "(" in l for l in labels)  # badge
-    assert "⏱ تنظیمات محدودیت زمانی" not in labels
     urls = [b.url for row in kwargs["reply_markup"].inline_keyboard for b in row if b.url]
     assert any("admin/analyses" in u for u in urls)
     print("PASS  منوی مدیریت آنالیز + آمار سریع + badge + لینک سایت")
 
     # ۳) adm_ana_stats
-    cb = await make_cb("adm_ana_stats", ADMIN_BID)
+    cb = await make_cb("adm_ana_stats", SUPER_BID)
     txt, kwargs = cb.edit_message_text.call_args
     assert "آمار کامل آنالیز گیسو" in txt[0]
     assert "کل تحلیل" in txt[0]
@@ -170,7 +178,7 @@ async def _run_callbacks():
     print("PASS  آمار کامل")
 
     # ۴) adm_ana_list
-    cb = await make_cb("adm_ana_list", ADMIN_BID)
+    cb = await make_cb("adm_ana_list", SUPER_BID)
     txt, kwargs = cb.edit_message_text.call_args
     assert "تحلیل آخر" in txt[0]
     assert "مریم" in txt[0]
@@ -180,7 +188,7 @@ async def _run_callbacks():
     print("PASS  لیست ۱۰ تحلیل آخر با اطلاعات کاربر")
 
     # ۵) adm_ana_consultants → هر درخواست کلیک‌پذیر (cons_view_)
-    cb = await make_cb("adm_ana_consultants", ADMIN_BID)
+    cb = await make_cb("adm_ana_consultants", SUPER_BID)
     txt, kwargs = cb.edit_message_text.call_args
     assert "درخواست‌های مشاوره" in txt[0]
     labels = [b.text for row in kwargs["reply_markup"].inline_keyboard for b in row]
@@ -190,9 +198,9 @@ async def _run_callbacks():
     print("PASS  درخواست‌های مشاوره کلیک‌پذیر")
 
     # ۶) adm_ana_products (بدون درخواست → پیام خالی)
-    cb = await make_cb("adm_ana_products", ADMIN_BID)
+    cb = await make_cb("adm_ana_products", SUPER_BID)
     txt, kwargs = cb.edit_message_text.call_args
-    assert "محصول درخواستی" in txt[0]
+    assert ("محصول درخواستی" in txt[0]) or ("محصولات درخواستی" in txt[0])  # خالی یا با درخواست
     labels = [b.text for row in kwargs["reply_markup"].inline_keyboard for b in row]
     assert "🔙 بازگشت" in labels
     print("PASS  محصولات درخواستی")
@@ -200,7 +208,7 @@ async def _run_callbacks():
     # ۷) محدودیت زمانی فقط برای سوپرادمین
     cb = await make_cb("adm_ana_ratelimit", ADMIN_BID)
     txt, _ = cb.edit_message_text.call_args
-    assert "فقط برای سوپرادمین" in txt[0]
+    assert "دسترسی ندارید" in txt[0]
 
     cb = await make_cb("adm_ana_menu", SUPER_BID)
     _, kwargs = cb.edit_message_text.call_args

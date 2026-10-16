@@ -1,0 +1,37 @@
+{% extends "user_layout.html" %}
+{% block title %}سالن زیبایی من - گیسو{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('beauty_centers.static', filename='beauty_centers.css') }}?v=15">
+<style>
+.bh-page{display:flex;flex-direction:column;gap:14px}
+.bh-head h1{margin:0 0 4px;font-size:22px}
+.bh-head p{margin:0;opacity:.8;font-size:14px}
+.bh-tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid rgba(0,0,0,.08);padding-bottom:8px}
+.bh-tab{padding:8px 14px;border-radius:999px;text-decoration:none;color:inherit;background:rgba(0,0,0,.04);font-size:14px}
+.bh-tab.is-active{background:#c85873;color:#fff}
+.bh-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.bh-btn{padding:8px 14px;border-radius:10px;background:#c85873;color:#fff;text-decoration:none;font-size:14px}
+</style>
+{% if beauty_tab == 'analyses' %}{% include "user_modules/_analyses_head.html" %}{% endif %}
+{% endblock %}
+{% block content %}
+<div class="pu-page bh-page">
+  <header class="bh-head"><h1>سالن زیبایی من</h1><p>سالن‌ها، نوبت‌ها، گفتگوها، آنالیزها و مدیریت سالن شما در یک صفحه.</p></header>
+  <nav class="bh-tabs" role="tablist" aria-label="بخش‌های سالن زیبایی">
+    {% for key, label, icon in beauty_tabs %}
+    <a role="tab" class="bh-tab{{ ' is-active' if key == beauty_tab else '' }}" aria-selected="{{ 'true' if key == beauty_tab else 'false' }}" href="{{ url_for('panel_user.beauty', beauty_tab=key) }}">{{ icon }} {{ label }}</a>
+    {% endfor %}
+  </nav>
+  <section class="bh-panel" role="tabpanel">
+    {% if beauty_tab == 'centers' %}{% include "beauty_centers/_list_content.html" %}
+    {% elif beauty_tab == 'reservations' %}{% include "beauty_centers/_reservations_content.html" %}
+    {% elif beauty_tab == 'chats' %}{% include "user_modules/_center_chats_content.html" %}
+    {% elif beauty_tab == 'analyses' %}{% include "user_modules/_analyses_content.html" %}
+    {% else %}{% include "user_modules/_beauty_manage_content.html" %}{% endif %}
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}{{ super() }}
+{% if beauty_tab == 'analyses' %}{% include "user_modules/_analyses_scripts.html" %}{% endif %}
+{% if beauty_tab == 'centers' %}<script src="{{ url_for('beauty_centers.static', filename='beauty_centers.js') }}?v=4" defer></script>{% endif %}
+{% endblock %}

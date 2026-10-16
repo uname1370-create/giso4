@@ -162,7 +162,7 @@ def test_booking_form_start_is_deduplicated_in_session_and_owner_is_excluded(mon
 
 
 def test_public_and_owner_templates_explain_dynamic_and_non_unique_metrics():
-    public = (ROOT / "giso/beauty_centers/templates/beauty_centers/list.html").read_text(encoding="utf-8")
+    public = (ROOT / "giso/beauty_centers/templates/beauty_centers/list.html").read_text(encoding="utf-8") + (ROOT / "giso/beauty_centers/templates/beauty_centers/_list_content.html").read_text(encoding="utf-8")
     owner = (ROOT / "giso/beauty_centers/templates/beauty_centers/owner_dashboard.html").read_text(encoding="utf-8")
     assert "for item in service_demand" in public
     assert "تعداد افراد یکتا" in public
