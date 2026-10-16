@@ -1009,6 +1009,18 @@ async def _ask_single_provider(provider_name: str, messages: list[dict[str, Any]
     result["model"] = result.get("model") or (row["selected_model"] or "")
     return result
 
+NO_ALLOWED_MODEL_ERROR = "هیچ مدل متنی فعال و مجازی در بخش «متن» مدیریت مرکزی تنظیم نشده است."
+
+
+def no_allowed_model_result() -> dict[str, Any]:
+    """خطای شفاف وقتی سیاست متن مدیر تنظیم شده ولی هیچ مدل قابل‌اجرا ندارد.
+
+    در این حالت مسیر legacy اجرا نمی‌شود تا مدل خاموش یا خارج از تنظیم مدیر اجرا نشود.
+    """
+    return {"ok": False, "reason": "no_allowed_model", "text": PROVIDER_ERROR_MESSAGE,
+            "error": NO_ALLOWED_MODEL_ERROR, "provider_errors": []}
+
+
 async def chat_with_failover(messages: list[dict[str, Any]], preferred_provider: str | None = None,
                              temperature: float = 0.7, max_tokens: int = 1200,
                              role: str = "user") -> dict[str, Any]:
@@ -1033,6 +1045,11 @@ async def chat_with_failover(messages: list[dict[str, Any]], preferred_provider:
     text_chain = configured_text_chain()
     if text_chain:
         return await _chat_with_text_model_chain(text_chain, messages, temperature, max_tokens, role)
+
+    # مدیر بخش «متن» را تنظیم کرده ولی هیچ اسلات قابل‌اجرا ندارد: مسیر legacy نباید مدل او را دور بزند
+    from giso.buti_ai.ai_models import TASK_TEXT_CHAT, central_policy_configured
+    if central_policy_configured(TASK_TEXT_CHAT):
+        return no_allowed_model_result()
 
     chain = _build_provider_attempt_chain(preferred_provider)
     if not chain:

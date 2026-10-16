@@ -551,6 +551,46 @@ def configured_text_chain() -> List[Dict[str, str]]:
     return configured_vision_chain(TASK_TEXT_CHAT)
 
 
+def central_policy_configured(task_key: str = TASK_EYEBROW_ANALYSIS) -> bool:
+    """True اگر مدیر برای این کاربرد حداقل یک اسلات ذخیره کرده است (فعال یا خاموش).
+
+    وقتی True است، مسیر legacy جایگزین تنظیم مدیر نمی‌شود. خطای خواندن DB = True (fail-closed).
+    """
+    key = normalize_task_key(task_key) or task_key
+    try:
+        init_buti_ai_model_assignments()
+        with get_giso_db_conn() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM buti_ai_model_assignments WHERE task_key=? LIMIT 1", (key,)
+            ).fetchone()
+        return row is not None
+    except Exception as exc:
+        logger.error("central policy check failed (fail-closed): %s", exc)
+        return True
+
+
+def incompatible_models_for_provider(provider_name: str, model_names: List[str],
+                                     task_key: str = TASK_EYEBROW_ANALYSIS) -> set:
+    """مدل‌هایی از این پروایدر که شاهد صریح ناسازگاری برای همین کاربرد دارند.
+
+    کاتالوگ و نتایج تست هر پروایدر فقط یک‌بار خوانده می‌شوند (هزینهٔ DB ثابت).
+    خطا برگرداندن exception است؛ فراخواننده باید آن را fail-closed مدیریت کند.
+    """
+    capability = TASK_CAPABILITY.get(normalize_task_key(task_key) or task_key)
+    if not capability or not model_names:
+        return set()
+    from giso.ai_discovery import (STATUS_INCOMPATIBLE, _load_checks, _provider_catalog,
+                                   resolve_model_capability)
+    catalog = _provider_catalog(provider_name)
+    checks = _load_checks(provider_name)
+    out = set()
+    for model in model_names:
+        info = resolve_model_capability(model, capability, catalog=catalog, checks=checks) or {}
+        if info.get("status") == STATUS_INCOMPATIBLE:
+            out.add(model)
+    return out
+
+
 def clear_model_assignment(task_key: str, priority: Any) -> tuple[bool, str]:
     """خالی کردن یک اسلات؛ فقط همان (کاربرد، اولویت) حذف می‌شود."""
     task_key = normalize_task_key(task_key)

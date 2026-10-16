@@ -194,13 +194,35 @@ def _get_proxy_for_provider(row, sensitive=False):
         return None
 
 
+_SHARED_SSL_CONTEXT = None
+
+
+def _shared_ssl_context():
+    """SSL context را یک‌بار می‌سازد و دوباره استفاده می‌کند.
+
+    ساختن هر کلاینت httpx به‌تنهایی حدود ۲۵ms CPU می‌گیرد (سنجش محلی). context به event loop
+    وابسته نیست و همان trust store پیش‌فرض httpx را دارد؛ اعتبارسنجی گواهی خاموش نمی‌شود.
+    """
+    global _SHARED_SSL_CONTEXT
+    if _SHARED_SSL_CONTEXT is None:
+        try:
+            _SHARED_SSL_CONTEXT = _httpx.create_ssl_context()
+        except Exception:
+            return None
+    return _SHARED_SSL_CONTEXT
+
+
 def _make_client(timeout, proxy=None):
+    kwargs = {"timeout": timeout}
+    verify = _shared_ssl_context()
+    if verify is not None:
+        kwargs["verify"] = verify
     if proxy:
         try:
-            return _httpx.AsyncClient(proxy=proxy, timeout=timeout)
+            return _httpx.AsyncClient(proxy=proxy, **kwargs)
         except TypeError:
-            return _httpx.AsyncClient(proxies=proxy, timeout=timeout)
-    return _httpx.AsyncClient(timeout=timeout)
+            return _httpx.AsyncClient(proxies=proxy, **kwargs)
+    return _httpx.AsyncClient(**kwargs)
 
 
 def _record_gemini_proxy_result(provider_name, proxy, ok, status=0):
@@ -1849,6 +1871,11 @@ async def ask_ai_fast(messages, model=None, temperature=0.7, max_tokens=1200, ca
                 text_chain, messages, temperature, max_tokens, "user",
                 total_timeout=FAST_TOTAL_TIMEOUT_SECONDS,
                 per_model_timeout=FAST_PER_MODEL_TIMEOUT_SECONDS)
+        # مدیر بخش «متن» را تنظیم کرده ولی هیچ اسلات قابل‌اجرا ندارد: اسکن legacy مدل او را اجرا نمی‌کند
+        from giso.buti_ai.ai_models import TASK_TEXT_CHAT, central_policy_configured
+        if central_policy_configured(TASK_TEXT_CHAT):
+            from giso.ai_runtime import no_allowed_model_result
+            return no_allowed_model_result()
 
     rows = list_ai_providers(only_enabled=True)
     if not rows:

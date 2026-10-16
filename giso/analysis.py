@@ -231,22 +231,39 @@ def _provider_active(row):
         return False
     return True
 
+def _legacy_blocked_models(provider_name, model_names):
+    """نامزدهای بینایی این پروایدر که شاهد ناسازگاری صریح دارند. خطا = همه مسدود (fail-closed)."""
+    try:
+        from giso.buti_ai.ai_models import TASK_EYEBROW_ANALYSIS, incompatible_models_for_provider
+        return incompatible_models_for_provider(provider_name, model_names, TASK_EYEBROW_ANALYSIS)
+    except Exception as e:
+        logger.error(f"model compatibility check unavailable, legacy models blocked: {e}")
+        return set(model_names)
+
+
 def pick_active_vision_model():
     """
     لیست پروایدرهای فعال و دارای مدل Vision را به ترتیب اولویت برمی‌گرداند.
     خروجی: لیست [{'provider_name': str, 'model_name': str}, ...]
 
     اگر دستهٔ «تحلیل عکس» در پنل مدیریت هوش مصنوعی زنجیره‌ای تنظیم کرده باشد، همان
-    زنجیره برگردانده می‌شود؛ وگرنه رفتار قبلی (پروایدرهای فعال با مدل Vision) اجرا می‌شود.
+    زنجیره برگردانده می‌شود. اگر تنظیم دارد ولی هیچ اسلات قابل‌اجرا ندارد، فهرست خالی
+    برمی‌گردد (اسکن legacy تنظیم مدیر را دور نمی‌زند). فقط وقتی هیچ تنظیمی نیست، رفتار
+    قبلی (پروایدرهای فعال با مدل Vision) اجرا می‌شود.
     """
     try:
-        from giso.buti_ai.ai_models import configured_vision_chain
+        from giso.buti_ai.ai_models import TASK_EYEBROW_ANALYSIS, central_policy_configured, configured_vision_chain
         configured = configured_vision_chain()
+        policy_configured = central_policy_configured(TASK_EYEBROW_ANALYSIS)
     except Exception as e:
-        logger.debug(f"vision category chain unavailable: {e}")
-        configured = []
+        # بدون خواندن سیاست مدیر هیچ مدلی انتخاب نمی‌شود (fail-closed)
+        logger.error(f"vision policy unavailable, no vision model selected: {e}")
+        return []
     if configured:
         return [{"provider_name": c["provider_name"], "model_name": c["model_name"]} for c in configured]
+    if policy_configured:
+        logger.info("[VISION_MODEL_PICK] central vision chain has no usable slot; legacy scan skipped")
+        return []
     try:
         rows = list_ai_providers(only_enabled=True)
     except Exception as e:
@@ -259,7 +276,13 @@ def pick_active_vision_model():
         provider_name = _row_get(r, "name", "unknown")
         is_active = _provider_active(r)
         # زنجیرهٔ چندمدلی: اگر مدل اول کار نکرد، بعدی همان پروایدر امتحان می‌شود (مورد ۸ دستور start/1.md)
-        chain = [m for m in _provider_model_candidates(r) if _is_vision_model(m)][:3] if is_active else []
+        # بررسی ناسازگاری یک‌باره برای نامزدهای بینایی همین پروایدر انجام می‌شود (هزینهٔ DB ثابت)
+        chain = []
+        if is_active:
+            candidates = [m for m in _provider_model_candidates(r) if _is_vision_model(m)]
+            if candidates:
+                blocked = _legacy_blocked_models(provider_name, candidates)
+                chain = [m for m in candidates if m not in blocked][:3]
         logger.info(
             "[VISION_MODEL_PICK] %s: chain=%s, active=%s, last_status=%s",
             provider_name,
